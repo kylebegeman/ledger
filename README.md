@@ -36,6 +36,7 @@ node dist/cli.js validate
 node dist/cli.js index
 node dist/cli.js render
 node dist/cli.js coverage
+node dist/cli.js ci
 node dist/cli.js conflict README.md
 node dist/cli.js unreleased
 node dist/cli.js release v0.1.0 --include-unreleased
@@ -55,6 +56,7 @@ ledger validate
 ledger index
 ledger render
 ledger coverage
+ledger ci --staged --json
 ledger docs audit
 ledger conflict apps/server/src/ws.ts
 ledger explain apps/server/src/ws.ts

@@ -160,6 +160,13 @@ The first coverage command is intentionally path based: files matching
 `git.ignore`. This gives CI a deterministic guard before semantic symbol
 coverage exists.
 
+### CI Summary
+
+`ledger ci` composes validation, docs audit, coverage, and docs impact into one
+result. It does not replace the individual commands; it packages their current
+state for CI, local preflight checks, and agent automation. Human output is
+compact, while JSON output preserves the nested results for tools.
+
 ### Render And Export Adapters
 
 Ledger core should provide normalized exports, not own every presentation.
@@ -242,6 +249,10 @@ Builds JSON indexes under `.ledger/indexes`.
 ### `ledger render`
 
 Builds a local static reader under `.ledger/dist/index.html`.
+
+### `ledger ci`
+
+Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.
 
 ### `ledger explain <path>`
 

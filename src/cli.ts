@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import process from "node:process";
+import { runCiChecks } from "./ci.js";
 import { buildConflictTargets } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
@@ -66,6 +67,9 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
 
       case "coverage":
         return await coverageCommand(parsed);
+
+      case "ci":
+        return await ciCommand(parsed);
 
       case "conflict":
         return await conflictCommand(parsed);
@@ -289,6 +293,29 @@ async function coverageCommand(parsed: ParsedArgs): Promise<number> {
   return result.missingFiles.length === 0 ? 0 : 1;
 }
 
+async function ciCommand(parsed: ParsedArgs): Promise<number> {
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const result = await runCiChecks(workspace, documents, { staged: hasFlag(parsed, "staged") });
+  await writeValidationReport(workspace, result.validation);
+  await writeDocsAuditReport(workspace, result.docsAudit);
+  await writeDocsImpactReport(workspace, result.docsImpact);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(`Ledger CI: ${result.ok ? "passed" : "failed"}.`);
+    for (const check of result.checks) {
+      const status = check.ok ? "pass" : "fail";
+      console.log(
+        `- ${status}: ${check.name} (${check.errors} error(s), ${check.warnings} warning(s))`,
+      );
+    }
+  }
+
+  return result.ok ? 0 : 1;
+}
+
 async function conflictCommand(parsed: ParsedArgs): Promise<number> {
   if (parsed.positionals.length === 0) {
     console.error("Usage: ledger conflict <path...> [--json]");
@@ -483,6 +510,7 @@ Usage:
   ledger index
   ledger render [--json]
   ledger coverage [--staged] [--json]
+  ledger ci [--staged] [--json]
   ledger conflict <path...> [--json]
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]

@@ -28,6 +28,7 @@ README.md
 package.json
 tsconfig.json
 src/
+  ci.ts
   cli.ts
   config.ts
   conflict.ts
@@ -43,6 +44,7 @@ src/
   validate.ts
   workspace.ts
 test/
+  ci.test.ts
   conflict.test.ts
   coverage.test.ts
   docs.test.ts
@@ -126,6 +128,13 @@ Markdown source for each record. `--json` emits the render result for automation
 Reads changed files from Git and checks whether files matching
 `git.requireEntryFor` are mentioned by at least one Ledger entry. `--staged`
 uses the staged diff, and `--json` emits the raw result for CI or agent tools.
+
+### `ledger ci`
+
+Runs the core Ledger guard set in one command: validation, docs reference audit,
+Git coverage, and docs impact. Human output is a compact pass/fail summary.
+`--json` emits the full result model, and `--staged` uses the staged Git diff
+for coverage and docs impact.
 
 ### `ledger conflict <path...>`
 
