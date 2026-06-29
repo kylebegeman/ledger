@@ -77,6 +77,10 @@ export async function initWorkspace(
   );
   await writeFileIfMissing(path.join(ledgerRoot, "README.md"), initialLedgerReadme());
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "change.md"), changeTemplate());
+  await writeFileIfMissing(path.join(ledgerRoot, "templates", "backlog.md"), backlogTemplate());
+  await writeFileIfMissing(path.join(ledgerRoot, "templates", "decision.md"), decisionTemplate());
+  await writeFileIfMissing(path.join(ledgerRoot, "templates", "release.md"), releaseTemplate());
+  await writeFileIfMissing(path.join(ledgerRoot, "policies", "coverage.yaml"), coveragePolicy());
 
   if (options.withDocs) {
     await writeFileIfMissing(path.join(projectRoot, "docs", "README.md"), docsReadme());
@@ -232,6 +236,130 @@ function changeTemplate(): string {
     "",
     "## Notes",
     "",
+    "",
+  ].join("\n");
+}
+
+function backlogTemplate(): string {
+  return [
+    "---",
+    'id: "{{id}}"',
+    'kind: "backlog"',
+    'title: "{{title}}"',
+    'date: "{{date}}"',
+    'updated: "{{date}}"',
+    'status: "proposed"',
+    "areas: []",
+    "---",
+    "",
+    "# {{id}}: {{title}}",
+    "",
+    "## Problem",
+    "",
+    "What problem or opportunity does this capture?",
+    "",
+    "## Desired Outcome",
+    "",
+    "What should be true when the work is complete?",
+    "",
+    "## Scope",
+    "",
+    "What is included and excluded?",
+    "",
+    "## Acceptance Checks",
+    "",
+    "- Add concrete checks.",
+    "",
+    "## Risks",
+    "",
+    "- Add implementation or product risks.",
+    "",
+    "## Promotion Notes",
+    "",
+    "What should happen when this becomes one or more change entries?",
+    "",
+  ].join("\n");
+}
+
+function decisionTemplate(): string {
+  return [
+    "---",
+    'id: "{{id}}"',
+    'kind: "decision"',
+    'title: "{{title}}"',
+    'date: "{{date}}"',
+    'updated: "{{date}}"',
+    'status: "proposed"',
+    "areas: []",
+    "---",
+    "",
+    "# {{id}}: {{title}}",
+    "",
+    "## Context",
+    "",
+    "What situation forced this decision?",
+    "",
+    "## Decision",
+    "",
+    "What is the chosen direction?",
+    "",
+    "## Consequences",
+    "",
+    "What tradeoffs follow from this decision?",
+    "",
+    "## Revisit Criteria",
+    "",
+    "When should this decision be reconsidered?",
+    "",
+  ].join("\n");
+}
+
+function releaseTemplate(): string {
+  return [
+    "---",
+    'id: "{{version}}"',
+    'kind: "release"',
+    'title: "Ledger {{version}}"',
+    'date: "{{date}}"',
+    'updated: "{{date}}"',
+    'status: "planned"',
+    "entries: []",
+    "---",
+    "",
+    "# Ledger {{version}}",
+    "",
+    "## Summary",
+    "",
+    "Summarize the release.",
+    "",
+    "## Changes",
+    "",
+    "- Add entries included in this release.",
+    "",
+    "## Verification",
+    "",
+    "- Add release checks.",
+    "",
+    "## Known Issues",
+    "",
+    "- Add known issues or `None`.",
+    "",
+  ].join("\n");
+}
+
+function coveragePolicy(): string {
+  return [
+    "version: 1",
+    "requireEntryFor:",
+    "  - src/**",
+    "  - test/**",
+    "  - docs/**",
+    "ignore:",
+    "  - .ledger/indexes/**",
+    "  - .ledger/reports/**",
+    "  - .ledger/dist/**",
+    "  - node_modules/**",
+    "  - dist/**",
     "",
   ].join("\n");
 }
