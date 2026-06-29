@@ -19,7 +19,8 @@ symbols:
   - "queryCommand"
 docs:
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "3e72c61"
 ---
 
 # 0031: Add Query Text Filter
