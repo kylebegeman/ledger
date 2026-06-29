@@ -342,3 +342,17 @@ git:
 
 `ledger coverage` uses this config to compare Git changed files against paths
 listed by Ledger entries.
+
+## Config Validation
+
+`.ledger/config.yaml` must be a YAML object. Known nested config sections must
+use the expected primitive shapes:
+
+- path fields are non-empty strings
+- booleans are actual YAML booleans
+- numeric fields are numbers
+- glob lists are arrays of strings
+- `validation.requiredSections.<kind>` values are non-empty arrays of strings
+
+Ledger merges valid partial config files with defaults, but malformed nested
+values fail during workspace discovery instead of being silently ignored.

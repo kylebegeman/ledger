@@ -76,10 +76,17 @@ export const defaultConfig: LedgerConfig = {
 export async function readLedgerConfig(configPath: string): Promise<LedgerConfig> {
   const raw = await readFile(configPath, "utf8");
   const parsed = parseYaml(raw);
+  return parseLedgerConfig(parsed, configPath);
+}
+
+export function parseLedgerConfig(parsed: unknown, configPath = "config.yaml"): LedgerConfig {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`${configPath}: config must be a YAML object`);
   }
-  return mergeConfig(defaultConfig, parsed as PartialLedgerConfig);
+  validatePartialConfig(parsed as Record<string, unknown>, configPath);
+  const config = mergeConfig(defaultConfig, parsed as PartialLedgerConfig);
+  validateLedgerConfig(config, configPath);
+  return config;
 }
 
 type PartialLedgerConfig = {
@@ -129,4 +136,155 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
       ...override.git,
     },
   };
+}
+
+function validatePartialConfig(config: Record<string, unknown>, configPath: string): void {
+  optionalNumber(config, "version", configPath);
+  optionalString(config, "project", configPath);
+  optionalObject(config, "source", configPath, (source) => {
+    optionalString(source, "entries", configPath, "source");
+    optionalString(source, "backlog", configPath, "source");
+    optionalString(source, "decisions", configPath, "source");
+    optionalString(source, "releases", configPath, "source");
+  });
+  optionalObject(config, "ids", configPath, (ids) => {
+    optionalString(ids, "entryPrefix", configPath, "ids");
+    optionalNumber(ids, "entryWidth", configPath, "ids");
+    optionalString(ids, "backlogPrefix", configPath, "ids");
+    optionalString(ids, "decisionPrefix", configPath, "ids");
+  });
+  optionalObject(config, "validation", configPath, (validation) => {
+    optionalBoolean(validation, "requireVerification", configPath, "validation");
+    optionalBoolean(validation, "requireChangedFiles", configPath, "validation");
+    optionalBoolean(validation, "requireInvariants", configPath, "validation");
+    optionalObject(validation, "requiredSections", configPath, (requiredSections) => {
+      for (const kind of ["change", "backlog", "decision", "release"] as const) {
+        optionalStringArray(requiredSections, kind, configPath, "validation.requiredSections");
+      }
+    }, "validation");
+  });
+  optionalObject(config, "indexes", configPath, (indexes) => {
+    optionalString(indexes, "output", configPath, "indexes");
+  });
+  optionalObject(config, "reports", configPath, (reports) => {
+    optionalString(reports, "output", configPath, "reports");
+  });
+  optionalObject(config, "render", configPath, (render) => {
+    optionalString(render, "output", configPath, "render");
+  });
+  optionalObject(config, "docs", configPath, (docs) => {
+    optionalString(docs, "root", configPath, "docs");
+    optionalBoolean(docs, "managed", configPath, "docs");
+    optionalObject(docs, "routing", configPath, (routing) => {
+      optionalString(routing, "startHere", configPath, "docs.routing");
+      optionalString(routing, "manifest", configPath, "docs.routing");
+    }, "docs");
+  });
+  optionalObject(config, "git", configPath, (git) => {
+    optionalStringArray(git, "requireEntryFor", configPath, "git");
+    optionalStringArray(git, "ignore", configPath, "git");
+  });
+}
+
+function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
+  if (!Number.isInteger(config.version) || config.version < 1) {
+    fail(configPath, "version must be a positive integer");
+  }
+  if (!Number.isInteger(config.ids.entryWidth) || config.ids.entryWidth < 1) {
+    fail(configPath, "ids.entryWidth must be a positive integer");
+  }
+  for (const [label, value] of [
+    ["project", config.project],
+    ["source.entries", config.source.entries],
+    ["source.backlog", config.source.backlog],
+    ["source.decisions", config.source.decisions],
+    ["source.releases", config.source.releases],
+    ["indexes.output", config.indexes.output],
+    ["reports.output", config.reports.output],
+    ["render.output", config.render.output],
+    ["docs.root", config.docs.root],
+    ["docs.routing.startHere", config.docs.routing.startHere],
+    ["docs.routing.manifest", config.docs.routing.manifest],
+  ] as const) {
+    if (value.trim().length === 0) {
+      fail(configPath, `${label} must be a non-empty string`);
+    }
+  }
+  for (const kind of ["change", "backlog", "decision", "release"] as const) {
+    if (config.validation.requiredSections[kind].length === 0) {
+      fail(configPath, `validation.requiredSections.${kind} must not be empty`);
+    }
+  }
+}
+
+function optionalObject(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  validate: (value: Record<string, unknown>) => void,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (value === undefined) return;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    fail(configPath, `${fieldPath(key, prefix)} must be an object`);
+  }
+  validate(value as Record<string, unknown>);
+}
+
+function optionalString(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (value !== undefined && typeof value !== "string") {
+    fail(configPath, `${fieldPath(key, prefix)} must be a string`);
+  }
+}
+
+function optionalNumber(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (value !== undefined && typeof value !== "number") {
+    fail(configPath, `${fieldPath(key, prefix)} must be a number`);
+  }
+}
+
+function optionalBoolean(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (value !== undefined && typeof value !== "boolean") {
+    fail(configPath, `${fieldPath(key, prefix)} must be a boolean`);
+  }
+}
+
+function optionalStringArray(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (value === undefined) return;
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+    fail(configPath, `${fieldPath(key, prefix)} must be an array of strings`);
+  }
+}
+
+function fieldPath(key: string, prefix?: string): string {
+  return prefix ? `${prefix}.${key}` : key;
+}
+
+function fail(configPath: string, message: string): never {
+  throw new Error(`${configPath}: ${message}`);
 }
