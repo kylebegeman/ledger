@@ -20,7 +20,8 @@ symbols:
 docs:
   - "README.md"
   - "CONTRIBUTING.md"
-commits: []
+commits:
+  - "6fad271"
 release: "v0.1.3"
 ---
 
