@@ -183,7 +183,7 @@ Until then, use the source checkout or a local package link.
 | `ledger docs reconcile` | Regenerates the configured docs routing manifest from the docs audit. |
 | `ledger explain <path>` | Shows records related to a file. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
-| `ledger packet <path>` | Builds a compact agent handoff packet for a file. |
+| `ledger packet <path> --write-report` | Builds a compact agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
 | `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
 | `ledger query --kind change --area cli --symbol run --text retry` | Filters records by kind, area, status, release, relationship, symbol, file, doc, id, or metadata text. |
 | `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
@@ -262,7 +262,7 @@ Before editing:
 
 ```bash
 ledger explain path/to/file.ts --agent
-ledger packet path/to/file.ts
+ledger packet path/to/file.ts --write-report
 ledger conflict path/to/file.ts
 ```
 

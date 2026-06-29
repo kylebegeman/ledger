@@ -1,6 +1,8 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { buildConflictTargets } from "./conflict.js";
-import { normalizeDocument } from "./documents.js";
-import type { ParsedLedgerDocument } from "./types.js";
+import { normalizeDocument, normalizePath } from "./documents.js";
+import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export interface LedgerPacketEntry {
   readonly id: string;
@@ -70,6 +72,17 @@ export function formatAgentPacket(packet: LedgerAgentPacket): string {
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+export async function writeAgentPacketReport(
+  workspace: LedgerWorkspace,
+  packet: LedgerAgentPacket,
+): Promise<string> {
+  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
+  const reportPath = path.join(reportDirectory, "packet.md");
+  await mkdir(reportDirectory, { recursive: true });
+  await writeFile(reportPath, formatAgentPacket(packet), "utf8");
+  return normalizePath(path.relative(workspace.projectRoot, reportPath));
 }
 
 function pushInlineList(lines: string[], label: string, values: readonly string[]): void {

@@ -16,7 +16,7 @@ import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
 import { createChangeEntry } from "./newEntry.js";
-import { buildAgentPacket, formatAgentPacket } from "./packet.js";
+import { buildAgentPacket, formatAgentPacket, writeAgentPacketReport } from "./packet.js";
 import {
   extractBullets,
   getSectionBody,
@@ -273,20 +273,24 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
 async function packetCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const target = parsed.positionals[0];
   if (!target) {
-    console.error("Usage: ledger packet <path> [--json]");
+    console.error("Usage: ledger packet <path> [--json] [--write-report]");
     return 2;
   }
 
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const packet = buildAgentPacket(documents, target);
+  const reportPath = hasFlag(parsed, "write-report")
+    ? await writeAgentPacketReport(workspace, packet)
+    : undefined;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(packet, null, 2));
+    console.log(JSON.stringify({ ...packet, reportPath }, null, 2));
     return 0;
   }
 
   console.log(formatAgentPacket(packet));
+  if (reportPath) console.log(`Wrote ${reportPath}`);
   return 0;
 }
 
@@ -702,9 +706,10 @@ Filters Ledger records by metadata, relationship ids, symbols, and paths.`;
       return `Ledger packet
 
 Usage:
-  ledger packet <path> [--json]
+  ledger packet <path> [--json] [--write-report]
 
-Builds a compact agent handoff packet for a file path.`;
+Builds a compact agent handoff packet for a file path.
+--write-report writes .ledger/reports/packet.md.`;
     case "unreleased":
       return `Ledger unreleased
 
@@ -776,7 +781,7 @@ Usage:
   ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
-  ledger packet <path> [--json]
+  ledger packet <path> [--json] [--write-report]
   ledger unreleased [--json]
   ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
   ledger docs audit
