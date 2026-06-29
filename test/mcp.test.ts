@@ -89,6 +89,14 @@ describe("Ledger MCP", () => {
     expect(payload.sourceFiles).toEqual(["src/cli.ts"]);
     expect(payload.missingDocsImpact).toEqual(["src/cli.ts"]);
   });
+
+  it("returns integrity hashes as an MCP tool", async () => {
+    const projectRoot = await createWorkspace();
+    const payload = await callTool("ledger_verify_integrity", { projectRoot });
+
+    expect(payload.catalogHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(payload.documents[0].hash).toMatch(/^[a-f0-9]{64}$/);
+  });
 });
 
 async function callTool(name: Parameters<typeof runLedgerMcpTool>[0], args: unknown) {

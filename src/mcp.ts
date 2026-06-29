@@ -6,6 +6,7 @@ import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { buildDocsImpact } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { explainFile } from "./indexer.js";
+import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
 import { buildAgentPacket, writeAgentPacketReport } from "./packet.js";
 import { normalizeKindFilter, queryDocuments } from "./query.js";
 import { validateDocuments, writeValidationReport } from "./validate.js";
@@ -19,7 +20,8 @@ export type LedgerMcpToolName =
   | "ledger_explain"
   | "ledger_conflict"
   | "ledger_packet"
-  | "ledger_docs_impact";
+  | "ledger_docs_impact"
+  | "ledger_verify_integrity";
 
 export interface LedgerMcpOptions {
   readonly cwd?: string;
@@ -29,6 +31,7 @@ export interface LedgerMcpOptions {
 interface LedgerMcpParsedArgs {
   readonly projectRoot?: string;
   readonly writeReport?: boolean;
+  readonly writeArtifacts?: boolean;
   readonly kind?: LedgerDocumentKind;
   readonly status?: string;
   readonly area?: string;
@@ -95,6 +98,11 @@ const docsImpactSchema = {
   staged: z.boolean().optional().describe("Use staged git diff when changedFiles is omitted."),
 };
 
+const integritySchema = {
+  ...projectRootSchema,
+  writeArtifacts: z.boolean().optional().describe("Write .ledger/indexes/integrity.json and .ledger/reports/integrity.md."),
+};
+
 export function createLedgerMcpServer(options: LedgerMcpOptions = {}): McpServer {
   const server = new McpServer({
     name: "ledger",
@@ -159,6 +167,16 @@ export function createLedgerMcpServer(options: LedgerMcpOptions = {}): McpServer
       inputSchema: docsImpactSchema,
     },
     (args) => runLedgerMcpTool("ledger_docs_impact", args, options),
+  );
+
+  server.registerTool(
+    "ledger_verify_integrity",
+    {
+      title: "Verify Ledger integrity",
+      description: "Return source record hashes and a deterministic catalog hash.",
+      inputSchema: integritySchema,
+    },
+    (args) => runLedgerMcpTool("ledger_verify_integrity", args, options),
   );
 
   return server;
@@ -240,6 +258,14 @@ export async function runLedgerMcpTool(
       });
       return jsonToolResult(buildDocsImpact(workspace, documents, changedFiles));
     }
+
+    case "ledger_verify_integrity": {
+      const report = buildIntegrityReport(workspace, documents);
+      const written = parsed.writeArtifacts
+        ? await writeIntegrityArtifacts(workspace, report)
+        : undefined;
+      return jsonToolResult({ ...report, written });
+    }
   }
 }
 
@@ -261,6 +287,8 @@ function schemaForTool(name: LedgerMcpToolName): z.ZodObject<z.ZodRawShape> {
       return z.object(packetSchema);
     case "ledger_docs_impact":
       return z.object(docsImpactSchema);
+    case "ledger_verify_integrity":
+      return z.object(integritySchema);
   }
 }
 

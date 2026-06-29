@@ -203,6 +203,7 @@ The first server exposes tools for:
 - conflict guidance
 - agent packets
 - docs impact
+- integrity verification
 
 Each tool returns a JSON text payload derived from the same core functions used
 by the CLI. The MCP layer should stay thin; command behavior belongs in the

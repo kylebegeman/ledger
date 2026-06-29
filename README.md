@@ -293,8 +293,8 @@ For MCP-capable agents, run Ledger as a stdio server:
 ledger mcp
 ```
 
-The server exposes read-only tools for validation, query, file explanation,
-conflict guidance, agent packets, and docs impact checks.
+The server exposes tools for validation, query, file explanation, conflict
+guidance, agent packets, docs impact checks, and integrity verification.
 
 ## Release Workflow
 

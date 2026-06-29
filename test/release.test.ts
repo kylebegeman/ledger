@@ -1,14 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { defaultConfig } from "../src/config.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import {
   assignReleaseInMarkdown,
+  assertReleaseDocumentWritable,
   buildReleaseDocument,
   formatReleaseMarkdown,
   getReleaseChanges,
   getUnreleasedChanges,
   validateReleaseVersion,
 } from "../src/release.js";
-import type { ParsedLedgerDocument } from "../src/types.js";
+import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
+
+let tempDir: string | undefined;
+
+afterEach(async () => {
+  if (tempDir) {
+    await rm(tempDir, { recursive: true, force: true });
+    tempDir = undefined;
+  }
+});
 
 describe("getUnreleasedChanges", () => {
   it("selects landed or shipped change entries without a release", () => {
@@ -77,6 +91,24 @@ describe("assignReleaseInMarkdown", () => {
 
     expect(updated).toContain('release: "v1.2.3"');
     expect(updated).not.toContain("release: null");
+  });
+});
+
+describe("assertReleaseDocumentWritable", () => {
+  it("rejects existing release files before entry assignment", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-release-test-"));
+    const workspace = workspaceFor(tempDir);
+    await mkdir(path.join(tempDir, ".ledger", "releases"), { recursive: true });
+    await writeFile(path.join(tempDir, ".ledger", "releases", "v1.2.3.md"), "# Existing\n");
+
+    await expect(assertReleaseDocumentWritable(workspace, "v1.2.3")).rejects.toThrow(
+      "Release document already exists: .ledger/releases/v1.2.3.md",
+    );
+  });
+
+  it("allows missing release files", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-release-test-"));
+    await expect(assertReleaseDocumentWritable(workspaceFor(tempDir), "v1.2.3")).resolves.toBeUndefined();
   });
 });
 
@@ -164,4 +196,13 @@ commits: []
 
 # 0001: Test
 `;
+}
+
+function workspaceFor(projectRoot: string): LedgerWorkspace {
+  return {
+    projectRoot,
+    ledgerRoot: path.join(projectRoot, ".ledger"),
+    configPath: path.join(projectRoot, ".ledger", "config.yaml"),
+    config: defaultConfig,
+  };
 }

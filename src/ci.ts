@@ -1,7 +1,6 @@
 import { checkCoverage } from "./coverage.js";
 import { auditDocs } from "./docs.js";
 import { buildDocsImpact } from "./docsImpact.js";
-import { getChangedFiles } from "./git.js";
 import type {
   LedgerCoverageResult,
   LedgerDocsAudit,
@@ -40,8 +39,7 @@ export async function runCiChecks(
   const validation = validateDocuments(workspace, documents);
   const docsAudit = await auditDocs(workspace, documents);
   const coverage = await checkCoverage(workspace, documents, { staged: options.staged });
-  const changedFiles = await getChangedFiles(workspace.projectRoot, { staged: options.staged });
-  const docsImpact = buildDocsImpact(workspace, documents, changedFiles);
+  const docsImpact = buildDocsImpact(workspace, documents, coverage.changedFiles);
   const checks: readonly LedgerCiCheck[] = [
     {
       name: "validate",

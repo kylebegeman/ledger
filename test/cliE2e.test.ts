@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -50,6 +50,27 @@ describe("CLI end-to-end", () => {
 
     expect((await captureRun(["ci"], tempDir)).exitCode).toBe(0);
   });
+
+  it("does not assign entries when release write preflight fails", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-cli-e2e-"));
+    expect((await captureRun(["init"], tempDir)).exitCode).toBe(0);
+    const created = await captureRun(
+      ["new", "Release candidate", "--status", "landed"],
+      tempDir,
+    );
+    expect(created.exitCode).toBe(0);
+    const entryPath = path.join(tempDir, ".ledger", "entries", "0001-release-candidate.md");
+    await writeFile(path.join(tempDir, ".ledger", "releases", "v1.0.0.md"), releaseRecord());
+
+    const release = await captureRun(
+      ["release", "v1.0.0", "--include-unreleased", "--assign", "--write"],
+      tempDir,
+    );
+
+    expect(release.exitCode).toBe(2);
+    expect(release.stderr).toContain("Release document already exists");
+    expect(await readFile(entryPath, "utf8")).not.toContain('release: "v1.0.0"');
+  });
 });
 
 async function exists(filePath: string): Promise<boolean> {
@@ -59,6 +80,42 @@ async function exists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function releaseRecord(): string {
+  return `---
+id: "v1.0.0"
+kind: "release"
+title: "Ledger v1.0.0"
+date: "2026-06-29"
+updated: "2026-06-29"
+status: "released"
+areas: ["release"]
+entries: []
+---
+
+# Ledger v1.0.0
+
+## Summary
+
+Existing release.
+
+## Public Notes
+
+- None.
+
+## Changes
+
+- None.
+
+## Verification
+
+- npm test
+
+## Known Issues
+
+- None.
+`;
 }
 
 async function captureRun(argv: readonly string[], cwd: string): Promise<{

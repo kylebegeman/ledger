@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import type {
@@ -72,11 +73,24 @@ export async function writeReleaseDocument(
   workspace: LedgerWorkspace,
   document: LedgerReleaseDocument,
 ): Promise<string> {
-  const releaseDirectory = path.join(workspace.projectRoot, workspace.config.source.releases);
-  const releasePath = path.join(releaseDirectory, `${releaseFileName(document.version)}.md`);
-  await mkdir(releaseDirectory, { recursive: true });
+  const releasePath = releaseDocumentPath(workspace, document.version);
+  await mkdir(path.dirname(releasePath), { recursive: true });
   await writeFile(releasePath, document.markdown, { encoding: "utf8", flag: "wx" });
   return normalizePath(path.relative(workspace.projectRoot, releasePath));
+}
+
+export async function assertReleaseDocumentWritable(
+  workspace: LedgerWorkspace,
+  version: string,
+): Promise<void> {
+  validateReleaseVersion(version);
+  const releasePath = releaseDocumentPath(workspace, version);
+  try {
+    await access(releasePath, constants.F_OK);
+  } catch {
+    return;
+  }
+  throw new Error(`Release document already exists: ${normalizePath(path.relative(workspace.projectRoot, releasePath))}`);
 }
 
 export async function assignEntriesToRelease(
@@ -189,6 +203,11 @@ function releaseFileName(version: string): string {
     .trim()
     .replace(/^\/+|\/+$/g, "")
     .replace(/[^A-Za-z0-9._-]+/g, "-");
+}
+
+function releaseDocumentPath(workspace: LedgerWorkspace, version: string): string {
+  const releaseDirectory = path.join(workspace.projectRoot, workspace.config.source.releases);
+  return path.join(releaseDirectory, `${releaseFileName(version)}.md`);
 }
 
 function today(): string {

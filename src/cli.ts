@@ -29,6 +29,7 @@ import {
 } from "./query.js";
 import {
   assignEntriesToRelease,
+  assertReleaseDocumentWritable,
   buildReleaseDocument,
   getUnreleasedChanges,
   writeReleaseDocument,
@@ -364,6 +365,9 @@ async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<
     date: flagValues(parsed, "date")[0],
     status,
   });
+  if (hasFlag(parsed, "assign") && hasFlag(parsed, "write")) {
+    await assertReleaseDocumentWritable(workspace, version);
+  }
   const assignment = hasFlag(parsed, "assign")
     ? await assignEntriesToRelease(workspace, release.entries, version)
     : undefined;
