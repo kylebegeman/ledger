@@ -108,6 +108,12 @@ classify, and audit.
 - [Roadmap](./docs/ROADMAP.md)
 - [Implementation Plan](./docs/IMPLEMENTATION_PLAN.md)
 
+## Contributing
+
+Development happens on `next`; `master` is the stable branch. Run
+`npm run check`, `npm run build`, and `node dist/cli.js ci` before opening a
+pull request. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 ## Product Boundary
 
 Ledger stands on its own. It does not depend on Dossier or any renderer to be

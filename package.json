@@ -3,6 +3,21 @@
   "version": "0.1.0",
   "description": "Repo-native change memory for humans and coding agents.",
   "type": "module",
+  "keywords": [
+    "changelog",
+    "agents",
+    "markdown",
+    "ledger",
+    "developer-tools"
+  ],
+  "homepage": "https://github.com/mrbagels/ledger#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mrbagels/ledger.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mrbagels/ledger/issues"
+  },
   "bin": {
     "ledger": "./dist/cli.js"
   },
