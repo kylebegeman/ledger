@@ -30,6 +30,7 @@ tsconfig.json
 src/
   cli.ts
   config.ts
+  conflict.ts
   coverage.ts
   documents.ts
   docs.ts
@@ -39,6 +40,7 @@ src/
   validate.ts
   workspace.ts
 test/
+  conflict.test.ts
   coverage.test.ts
   docs.test.ts
   frontmatter.test.ts
@@ -111,6 +113,13 @@ Writes:
 Reads changed files from Git and checks whether files matching
 `git.requireEntryFor` are mentioned by at least one Ledger entry. `--staged`
 uses the staged diff, and `--json` emits the raw result for CI or agent tools.
+
+### `ledger conflict <path...>`
+
+Shows merge-conflict guidance for one or more files by finding Ledger entries
+that mention each target path. Human output includes the matching entries,
+changed-file match, conflict rules, invariants, and verification commands.
+`--json` emits the same model for agent workflows and merge tooling.
 
 ### `ledger docs audit`
 

@@ -35,6 +35,7 @@ npm test
 node dist/cli.js validate
 node dist/cli.js index
 node dist/cli.js coverage
+node dist/cli.js conflict README.md
 node dist/cli.js explain README.md
 node dist/cli.js docs audit
 ```
@@ -49,6 +50,7 @@ ledger validate
 ledger index
 ledger coverage
 ledger docs audit
+ledger conflict apps/server/src/ws.ts
 ledger explain apps/server/src/ws.ts
 ledger explain apps/server/src/ws.ts --agent
 ledger query --kind change --area cli

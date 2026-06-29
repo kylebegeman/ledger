@@ -137,6 +137,11 @@ CLI query output has two audiences. Human output should be short and scannable.
 compact context by showing the exact entries, invariants, and verification
 commands most relevant to the target.
 
+Conflict guidance is a focused query mode for merge resolution. It scans entries
+that mention the target path, extracts `On conflict` notes from `## Changed
+Files`, and includes the related invariants and verification checks so an agent
+can preserve the historical contract while resolving a file-level conflict.
+
 ### Git Inspector
 
 The Git inspector is optional but high-value.
@@ -238,8 +243,8 @@ Creates or updates a release record from entries.
 
 Shows merge-conflict guidance for files.
 
-This can be implemented after the basic index supports changed-file and
-conflict-rule extraction.
+The first implementation reads source documents directly. A later version can
+use generated indexes when conflict rules are promoted into the index model.
 
 ## Data Flow
 

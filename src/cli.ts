@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import process from "node:process";
+import { buildConflictTargets } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
 import { auditDocs, writeDocsAuditReport } from "./docs.js";
@@ -48,6 +49,9 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
 
       case "coverage":
         return await coverageCommand(parsed);
+
+      case "conflict":
+        return await conflictCommand(parsed);
 
       case "docs":
         return await docsCommand(parsed);
@@ -200,6 +204,40 @@ async function coverageCommand(parsed: ParsedArgs): Promise<number> {
   return result.missingFiles.length === 0 ? 0 : 1;
 }
 
+async function conflictCommand(parsed: ParsedArgs): Promise<number> {
+  if (parsed.positionals.length === 0) {
+    console.error("Usage: ledger conflict <path...> [--json]");
+    return 2;
+  }
+
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const targets = buildConflictTargets(documents, parsed.positionals);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ targets }, null, 2));
+    return 0;
+  }
+
+  for (const target of targets) {
+    console.log(`Conflict guidance for ${target.target}:`);
+    if (target.entries.length === 0) {
+      console.log("- No Ledger records mention this path.");
+      continue;
+    }
+
+    for (const entry of target.entries) {
+      console.log(`- ${entry.id} ${entry.title} (${entry.path})`);
+      console.log(`  Matched files: ${entry.matchedFiles.join(", ")}`);
+      printIndentedList("  Conflict rules", entry.conflictRules);
+      printIndentedList("  Invariants", entry.invariants);
+      printIndentedList("  Verification", entry.verification);
+    }
+  }
+
+  return 0;
+}
+
 async function docsCommand(parsed: ParsedArgs): Promise<number> {
   const subcommand = parsed.positionals[0];
   switch (subcommand) {
@@ -269,6 +307,14 @@ function printValidation(errors: number, warnings: number): void {
   console.log(`Ledger validation: ${errors} error(s), ${warnings} warning(s).`);
 }
 
+function printIndentedList(label: string, values: readonly string[]): void {
+  if (values.length === 0) return;
+  console.log(`${label}:`);
+  for (const value of values) {
+    console.log(`    - ${value}`);
+  }
+}
+
 function printAgentExplanation(
   target: string,
   documents: readonly ParsedLedgerDocument[],
@@ -304,6 +350,7 @@ Usage:
   ledger validate
   ledger index
   ledger coverage [--staged] [--json]
+  ledger conflict <path...> [--json]
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]
   ledger docs audit
