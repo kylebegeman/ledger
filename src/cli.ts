@@ -230,6 +230,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   const file = flagValues(parsed, "file")[0];
   const doc = flagValues(parsed, "doc")[0];
   const id = flagValues(parsed, "id")[0];
+  const text = flagValues(parsed, "text")[0];
 
   if (flagValues(parsed, "kind")[0] && !kind) {
     console.error(`Invalid kind: ${flagValues(parsed, "kind")[0]}`);
@@ -249,6 +250,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     file,
     doc,
     id,
+    text,
   });
 
   if (hasFlag(parsed, "json")) {
@@ -693,7 +695,7 @@ Shows Ledger records that mention a path. --agent prints compact context.`;
       return `Ledger query
 
 Usage:
-  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--json]
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
 
 Filters Ledger records by metadata, relationship ids, symbols, and paths.`;
     case "packet":
@@ -773,7 +775,7 @@ Usage:
   ledger ci [--staged] [--json]
   ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
-  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--json]
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
   ledger packet <path> [--json]
   ledger unreleased [--json]
   ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]

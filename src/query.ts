@@ -16,6 +16,7 @@ export interface LedgerQueryFilters {
   readonly file?: string;
   readonly doc?: string;
   readonly id?: string;
+  readonly text?: string;
 }
 
 export function queryDocuments(
@@ -41,6 +42,7 @@ export function queryDocuments(
         return false;
       }
       if (filters.id && document.id !== filters.id) return false;
+      if (filters.text && !documentMatchesText(document, filters.text)) return false;
       return true;
     });
 }
@@ -91,4 +93,26 @@ function pathsMatch(candidate: string, target: string): boolean {
     candidate.endsWith(`/${target}`) ||
     target.endsWith(`/${candidate}`)
   );
+}
+
+function documentMatchesText(document: NormalizedLedgerDocument, text: string): boolean {
+  const normalizedText = text.trim().toLowerCase();
+  if (normalizedText.length === 0) return true;
+  return [
+    document.id,
+    document.title,
+    document.status,
+    document.release ?? "",
+    document.path,
+    ...document.areas,
+    ...document.files,
+    ...document.symbols,
+    ...document.docs,
+    ...document.decisions,
+    ...document.backlog,
+    ...document.sections,
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(normalizedText);
 }

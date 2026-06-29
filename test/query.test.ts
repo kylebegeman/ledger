@@ -55,6 +55,15 @@ describe("queryDocuments", () => {
       "B001",
     ]);
   });
+
+  it("filters by text across normalized metadata", () => {
+    expect(queryDocuments(documents, { text: "architecture" }).map((entry) => entry.id)).toEqual([
+      "0001",
+    ]);
+    expect(queryDocuments(documents, { text: "PRODUCT" }).map((entry) => entry.id)).toEqual([
+      "B001",
+    ]);
+  });
 });
 
 describe("section helpers", () => {
