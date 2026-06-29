@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.ledger/indexes/*.json
+.ledger/reports/*.md
+.ledger/dist/
+.DS_Store
+npm-debug.log*

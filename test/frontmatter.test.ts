@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
+
+describe("parseMarkdownWithFrontmatter", () => {
+  it("parses YAML frontmatter and second-level sections", () => {
+    const parsed = parseMarkdownWithFrontmatter(`---
+id: "0001"
+kind: "change"
+title: "Test"
+date: "2026-06-29"
+status: "landed"
+areas: ["cli"]
+---
+
+# 0001: Test
+
+## Summary
+
+One.
+
+## Verification
+
+- npm test
+`);
+
+    expect(parsed.frontmatter.id).toBe("0001");
+    expect(parsed.sections.map((section) => section.title)).toEqual([
+      "Summary",
+      "Verification",
+    ]);
+    expect(parsed.sections[0]?.body).toBe("One.");
+  });
+
+  it("fails without frontmatter", () => {
+    expect(() => parseMarkdownWithFrontmatter("# Missing")).toThrow(
+      /missing YAML frontmatter/,
+    );
+  });
+});

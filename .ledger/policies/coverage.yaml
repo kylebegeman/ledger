@@ -1,0 +1,11 @@
+version: 1
+requireEntryFor:
+  - src/**
+  - test/**
+  - docs/**
+ignore:
+  - .ledger/indexes/**
+  - .ledger/reports/**
+  - .ledger/dist/**
+  - node_modules/**
+  - dist/**

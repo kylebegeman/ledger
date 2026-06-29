@@ -1,0 +1,62 @@
+version: 1
+project: ledger
+source:
+  entries: .ledger/entries
+  backlog: .ledger/backlog
+  decisions: .ledger/decisions
+  releases: .ledger/releases
+ids:
+  entryPrefix: ""
+  entryWidth: 4
+  backlogPrefix: B
+  decisionPrefix: D
+validation:
+  requireVerification: true
+  requireChangedFiles: true
+  requireInvariants: true
+  requiredSections:
+    change:
+      - Summary
+      - Why
+      - Changed Files
+      - Behavior And UX Impact
+      - Invariants
+      - Verification
+    backlog:
+      - Problem
+      - Desired Outcome
+      - Scope
+      - Acceptance Checks
+      - Risks
+      - Promotion Notes
+    decision:
+      - Context
+      - Decision
+      - Consequences
+      - Revisit Criteria
+    release:
+      - Summary
+      - Changes
+      - Verification
+      - Known Issues
+git:
+  requireEntryFor:
+    - src/**
+    - test/**
+    - docs/**
+  ignore:
+    - .ledger/indexes/**
+    - .ledger/reports/**
+    - .ledger/dist/**
+indexes:
+  output: .ledger/indexes
+reports:
+  output: .ledger/reports
+render:
+  output: .ledger/dist
+docs:
+  root: docs
+  managed: true
+  routing:
+    startHere: docs/llm/START_HERE.md
+    manifest: docs/llm/manifest.json
