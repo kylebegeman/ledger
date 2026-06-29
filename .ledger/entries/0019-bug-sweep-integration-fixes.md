@@ -31,7 +31,7 @@ symbols:
   - "renderStaticReaderHtml"
 docs:
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["31c7f0b"]
 ---
 
 # 0019: Complete Bug Sweep And Integration Fixes
