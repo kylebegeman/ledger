@@ -77,7 +77,6 @@ async function readTemplate(workspace: LedgerWorkspace): Promise<string> {
 function renderTemplate(template: string, values: Record<string, string>): string {
   let rendered = template;
   for (const [key, value] of Object.entries(values)) {
-    rendered = rendered.replaceAll(`"{{${key}}}"`, value);
     rendered = rendered.replaceAll(`{{${key}}}`, value);
   }
   rendered = rendered.replace('status: "draft"', `status: "${values.status ?? "draft"}"`);
