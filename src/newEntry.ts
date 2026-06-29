@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getChangedFiles } from "./git.js";
+import { normalizePath } from "./documents.js";
+import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export interface CreateEntryOptions {
@@ -20,9 +21,11 @@ export async function createChangeEntry(
   const slug = slugify(options.title);
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
   const absolutePath = path.join(workspace.projectRoot, relativePath);
-  const files = options.fromDiff
-    ? await getChangedFiles(workspace.projectRoot, { staged: options.staged })
+  const changedFiles = options.fromDiff
+    ? await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })
     : [];
+  const files = changedFiles.map((file) => file.path);
+  const docs = files.filter((file) => isDocsPath(file, workspace.config.docs.root));
   const date = new Date().toISOString().slice(0, 10);
   const template = await readTemplate(workspace);
   const rendered = renderTemplate(template, {
@@ -32,7 +35,8 @@ export async function createChangeEntry(
     status: options.status,
     areas: yamlStringArray(options.areas),
     files: yamlStringArray(files),
-    changedFiles: renderChangedFiles(files),
+    docs: yamlStringArray(docs),
+    changedFiles: renderChangedFiles(changedFiles),
   });
 
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -83,11 +87,17 @@ function renderTemplate(template: string, values: Record<string, string>): strin
   if (rendered.includes("files: []") && values.files) {
     rendered = rendered.replace("files: []", `files:${values.files}`);
   }
+  if (rendered.includes("docs: []") && values.docs) {
+    rendered = rendered.replace("docs: []", `docs:${values.docs}`);
+  }
   if (rendered.includes("areas: []") && values.areas) {
     rendered = rendered.replace("areas: []", `areas:${values.areas}`);
   }
   if (rendered.includes("### path/to/file.ts") && values.changedFiles) {
     rendered = rendered.replace("### path/to/file.ts", values.changedFiles);
+  }
+  if (rendered.includes("Add changed files.") && values.changedFiles) {
+    rendered = rendered.replace("Add changed files.", values.changedFiles);
   }
   return rendered;
 }
@@ -97,19 +107,26 @@ function yamlStringArray(values: readonly string[]): string {
   return `\n${values.map((value) => `  - "${value.replaceAll('"', '\\"')}"`).join("\n")}`;
 }
 
-function renderChangedFiles(files: readonly string[]): string {
+function renderChangedFiles(files: readonly GitChangedFile[]): string {
   if (files.length === 0) return "### path/to/file.ts";
   return files
     .map(
       (file) => [
-        `### ${file}`,
+        `### ${file.path}`,
         "",
-        "- What changed:",
-        "- Anchor:",
-        "- On conflict:",
+        `- Status: ${file.status}`,
+        "- What changed: TODO: summarize the change.",
+        "- Anchor: TODO: name the important symbol, route, command, or section.",
+        "- On conflict: TODO: describe what must be preserved.",
       ].join("\n"),
     )
     .join("\n\n");
+}
+
+function isDocsPath(filePath: string, docsRoot: string): boolean {
+  const normalized = normalizePath(filePath);
+  const root = normalizePath(docsRoot).replace(/\/$/, "");
+  return normalized === root || normalized.startsWith(`${root}/`);
 }
 
 function defaultTemplate(): string {
@@ -124,6 +141,7 @@ function defaultTemplate(): string {
     "areas: []",
     "files: []",
     "symbols: []",
+    "docs: []",
     "commits: []",
     "---",
     "",
