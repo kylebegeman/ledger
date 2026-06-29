@@ -18,7 +18,8 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "1ec2bee"
 release: "v0.1.5"
 ---
 
