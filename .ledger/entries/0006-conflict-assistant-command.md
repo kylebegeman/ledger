@@ -21,7 +21,7 @@ symbols:
 docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["24de390"]
 ---
 
 # 0006: Add Conflict Assistant Command

@@ -23,7 +23,7 @@ symbols:
 docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["7d0f134"]
 ---
 
 # 0007: Add Release And Unreleased Commands

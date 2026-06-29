@@ -22,7 +22,7 @@ symbols:
 docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["9ad3073"]
 ---
 
 # 0008: Add Docs Impact Command
