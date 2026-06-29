@@ -12,6 +12,11 @@ import {
   normalizeKindFilter,
   queryDocuments,
 } from "./query.js";
+import {
+  buildReleaseDocument,
+  getUnreleasedChanges,
+  writeReleaseDocument,
+} from "./release.js";
 import type { ParsedLedgerDocument } from "./types.js";
 import { validateDocuments, writeValidationReport } from "./validate.js";
 import { findWorkspace, initWorkspace } from "./workspace.js";
@@ -43,6 +48,12 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
 
       case "query":
         return await queryCommand(parsed);
+
+      case "unreleased":
+        return await unreleasedCommand(parsed);
+
+      case "release":
+        return await releaseCommand(parsed);
 
       case "new":
         return await newCommand(parsed);
@@ -160,6 +171,53 @@ async function queryCommand(parsed: ParsedArgs): Promise<number> {
   console.log(`Ledger query: ${matches.length} match(es).`);
   for (const document of matches) {
     console.log(`- ${document.id} ${document.title} (${document.kind}, ${document.status})`);
+  }
+  return 0;
+}
+
+async function unreleasedCommand(parsed: ParsedArgs): Promise<number> {
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const matches = getUnreleasedChanges(documents);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ matches }, null, 2));
+    return 0;
+  }
+
+  console.log(`Ledger unreleased: ${matches.length} change(s).`);
+  for (const document of matches) {
+    const areas = document.areas.length > 0 ? ` [${document.areas.join(", ")}]` : "";
+    console.log(`- ${document.id} ${document.title}${areas} (${document.status})`);
+  }
+  return 0;
+}
+
+async function releaseCommand(parsed: ParsedArgs): Promise<number> {
+  const version = parsed.positionals[0];
+  if (!version) {
+    console.error("Usage: ledger release <version> [--include-unreleased] [--write] [--json]");
+    return 2;
+  }
+
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const release = buildReleaseDocument(documents, version, {
+    includeUnreleased: hasFlag(parsed, "include-unreleased"),
+  });
+  const writtenPath = hasFlag(parsed, "write")
+    ? await writeReleaseDocument(workspace, release)
+    : undefined;
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ ...release, writtenPath }, null, 2));
+    return 0;
+  }
+
+  if (writtenPath) {
+    console.log(`Wrote ${writtenPath}`);
+  } else {
+    console.log(release.markdown);
   }
   return 0;
 }
@@ -353,6 +411,8 @@ Usage:
   ledger conflict <path...> [--json]
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]
+  ledger unreleased [--json]
+  ledger release <version> [--include-unreleased] [--write] [--json]
   ledger docs audit
   ledger docs check
 `);

@@ -239,6 +239,13 @@ Shows the Ledger history for a file or symbol.
 
 Creates or updates a release record from entries.
 
+The first implementation is conservative. `ledger unreleased` lists landed or
+shipped change entries without a `release` field. `ledger release <version>`
+renders a valid release document from entries assigned to that version, or from
+the unreleased set when `--include-unreleased` is supplied. `--write` creates a
+new file under `.ledger/releases` and refuses to overwrite existing release
+records.
+
 ### `ledger conflict <path...>`
 
 Shows merge-conflict guidance for files.

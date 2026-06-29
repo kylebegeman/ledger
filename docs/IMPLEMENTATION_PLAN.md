@@ -37,6 +37,7 @@ src/
   frontmatter.ts
   indexer.ts
   query.ts
+  release.ts
   validate.ts
   workspace.ts
 test/
@@ -45,6 +46,7 @@ test/
   docs.test.ts
   frontmatter.test.ts
   query.test.ts
+  release.test.ts
   validate.test.ts
 docs/
   PRODUCT.md
@@ -149,6 +151,20 @@ Filters Ledger records by kind, status, and area.
 ledger query --kind change --status landed --area cli
 ledger query --area docs --json
 ```
+
+### `ledger unreleased`
+
+Lists landed or shipped change entries that do not have a `release` assignment.
+`--json` emits normalized records for automation.
+
+### `ledger release <version>`
+
+Builds a valid Ledger release document for a version. By default it selects
+change entries whose `release` field matches the version. With
+`--include-unreleased`, it selects currently unreleased landed or shipped change
+entries. With `--write`, it writes `.ledger/releases/<version>.md` and refuses
+to overwrite an existing release file. `--json` emits the rendered document and
+selected entries.
 
 ### `ledger new <title>`
 
