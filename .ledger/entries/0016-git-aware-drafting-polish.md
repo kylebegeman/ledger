@@ -21,6 +21,7 @@ symbols:
   - "renderChangedFiles"
 docs:
   - "docs/IMPLEMENTATION_PLAN.md"
+release: "v0.1.1"
 commits: ["c9b9d07"]
 ---
 

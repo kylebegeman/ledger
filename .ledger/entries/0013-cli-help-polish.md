@@ -14,6 +14,7 @@ symbols:
   - "helpText"
   - "helpTopicForCommand"
 docs: []
+release: "v0.1.1"
 commits: ["ec655d1"]
 ---
 

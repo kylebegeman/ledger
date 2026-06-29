@@ -17,6 +17,7 @@ files:
   - "package.json"
 symbols: []
 docs: []
+release: "v0.1.1"
 commits: ["46f1fa6"]
 ---
 

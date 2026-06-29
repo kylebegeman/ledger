@@ -14,6 +14,7 @@ symbols:
   - "renderTemplate"
 docs:
   - "docs/IMPLEMENTATION_PLAN.md"
+release: "v0.1.1"
 commits: ["6488795"]
 ---
 

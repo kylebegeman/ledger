@@ -19,6 +19,7 @@ symbols:
 docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
+release: "v0.1.1"
 commits: ["a6507d6"]
 ---
 

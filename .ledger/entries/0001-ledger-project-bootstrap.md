@@ -51,6 +51,7 @@ docs:
   - "docs/DOCS_RELATIONSHIP.md"
   - "docs/ROADMAP.md"
   - "docs/IMPLEMENTATION_PLAN.md"
+release: "v0.1.1"
 commits: ["355b63b"]
 ---
 

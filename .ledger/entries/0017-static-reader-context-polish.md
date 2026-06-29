@@ -19,6 +19,7 @@ symbols:
   - "contextGrid"
 docs:
   - "docs/ARCHITECTURE.md"
+release: "v0.1.1"
 commits: ["63542f9"]
 ---
 

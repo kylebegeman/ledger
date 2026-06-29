@@ -15,6 +15,7 @@ symbols:
   - "validatePartialConfig"
 docs:
   - "docs/SCHEMA.md"
+release: "v0.1.1"
 commits: ["8b426bc"]
 ---
 

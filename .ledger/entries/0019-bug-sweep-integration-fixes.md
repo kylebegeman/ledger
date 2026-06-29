@@ -31,6 +31,7 @@ symbols:
   - "renderStaticReaderHtml"
 docs:
   - "docs/IMPLEMENTATION_PLAN.md"
+release: "v0.1.1"
 commits: ["31c7f0b"]
 ---
 

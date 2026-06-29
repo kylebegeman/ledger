@@ -15,6 +15,7 @@ symbols:
   - "decisionTemplate"
   - "releaseTemplate"
   - "coveragePolicy"
+release: "v0.1.1"
 commits: ["4fe2ea5"]
 ---
 
