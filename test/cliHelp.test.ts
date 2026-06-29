@@ -10,6 +10,7 @@ describe("CLI help", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("ledger help [command]");
     expect(result.stdout).toContain("ledger ci [--staged] [--json]");
+    expect(result.stdout).toContain("ledger mcp");
   });
 
   it("prints command-specific help", async () => {

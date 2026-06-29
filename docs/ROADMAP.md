@@ -173,6 +173,8 @@ Deliverables:
 
 ## Phase 8: Agent Integrations
 
+Status: first MCP slice landed
+
 Goals:
 
 - MCP server
@@ -182,7 +184,8 @@ Goals:
 
 Deliverables:
 
-- `ledger mcp`
+- `ledger mcp` with read-oriented validation, query, explain, conflict, packet,
+  and docs-impact tools
 - VS Code extension prototype
 - `ledger packet`
 

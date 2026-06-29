@@ -167,6 +167,26 @@ result. It does not replace the individual commands; it packages their current
 state for CI, local preflight checks, and agent automation. Human output is
 compact, while JSON output preserves the nested results for tools.
 
+### MCP Server
+
+`ledger mcp` starts a local stdio Model Context Protocol server. The MCP surface
+is intentionally read-oriented so agents can retrieve Ledger context without
+mutating source records unless a specific write flag is requested for generated
+reports.
+
+The first server exposes tools for:
+
+- validation
+- query
+- file explanation
+- conflict guidance
+- agent packets
+- docs impact
+
+Each tool returns a JSON text payload derived from the same core functions used
+by the CLI. The MCP layer should stay thin; command behavior belongs in the
+library modules so the CLI, tests, and MCP server remain consistent.
+
 ### Render And Export Adapters
 
 Ledger core should provide normalized exports, not own every presentation.
