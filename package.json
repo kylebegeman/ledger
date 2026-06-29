@@ -30,7 +30,7 @@
     "README.md",
     "CONTRIBUTING.md",
     "SECURITY.md",
-    "docs",
+    "docs/*.md",
     ".ledger/templates"
   ],
   "scripts": {

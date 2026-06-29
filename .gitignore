@@ -4,5 +4,6 @@ coverage/
 .ledger/indexes/*.json
 .ledger/reports/*.md
 .ledger/dist/
+docs/llm/manifest.json
 .DS_Store
 npm-debug.log*

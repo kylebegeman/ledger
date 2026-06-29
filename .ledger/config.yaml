@@ -48,6 +48,7 @@ git:
     - .ledger/indexes/**
     - .ledger/reports/**
     - .ledger/dist/**
+    - docs/llm/manifest.json
 indexes:
   output: .ledger/indexes
 reports:

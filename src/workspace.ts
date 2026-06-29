@@ -367,6 +367,7 @@ function coveragePolicy(): string {
     "  - .ledger/indexes/**",
     "  - .ledger/reports/**",
     "  - .ledger/dist/**",
+    "  - docs/llm/manifest.json",
     "  - node_modules/**",
     "  - dist/**",
     "",
