@@ -23,7 +23,7 @@ symbols:
   - "v0.1.2"
 docs:
   - "docs/ROADMAP.md"
-commits: []
+commits: ["3201878"]
 release: "v0.1.2"
 ---
 
