@@ -6,6 +6,7 @@ export * from "./frontmatter.js";
 export * from "./git.js";
 export * from "./indexer.js";
 export * from "./newEntry.js";
+export * from "./query.js";
 export * from "./types.js";
 export * from "./validate.js";
 export * from "./workspace.js";

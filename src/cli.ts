@@ -5,6 +5,13 @@ import { readLedgerDocuments } from "./documents.js";
 import { auditDocs, writeDocsAuditReport } from "./docs.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
 import { createChangeEntry } from "./newEntry.js";
+import {
+  extractBullets,
+  getSectionBody,
+  normalizeKindFilter,
+  queryDocuments,
+} from "./query.js";
+import type { ParsedLedgerDocument } from "./types.js";
 import { validateDocuments, writeValidationReport } from "./validate.js";
 import { findWorkspace, initWorkspace } from "./workspace.js";
 
@@ -31,7 +38,10 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
         return await indexCommand();
 
       case "explain":
-        return await explainCommand(parsed.positionals[0]);
+        return await explainCommand(parsed);
+
+      case "query":
+        return await queryCommand(parsed);
 
       case "new":
         return await newCommand(parsed);
@@ -83,17 +93,28 @@ async function indexCommand(): Promise<number> {
   return 0;
 }
 
-async function explainCommand(filePath: string | undefined): Promise<number> {
+async function explainCommand(parsed: ParsedArgs): Promise<number> {
+  const filePath = parsed.positionals[0];
   if (!filePath) {
-    console.error("Usage: ledger explain <path>");
+    console.error("Usage: ledger explain <path> [--json] [--agent]");
     return 2;
   }
   const workspace = await findWorkspace();
   const documents = await readLedgerDocuments(workspace);
   const matches = explainFile(documents, filePath);
 
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ target: filePath, matches }, null, 2));
+    return 0;
+  }
+
   if (matches.length === 0) {
     console.log(`No Ledger records mention ${filePath}.`);
+    return 0;
+  }
+
+  if (hasFlag(parsed, "agent")) {
+    printAgentExplanation(filePath, documents, matches.map((match) => match.id));
     return 0;
   }
 
@@ -103,6 +124,38 @@ async function explainCommand(filePath: string | undefined): Promise<number> {
     if (document.areas.length > 0) {
       console.log(`  Areas: ${document.areas.join(", ")}`);
     }
+    if (document.docs.length > 0) {
+      console.log(`  Docs: ${document.docs.join(", ")}`);
+    }
+    if (document.symbols.length > 0) {
+      console.log(`  Symbols: ${document.symbols.join(", ")}`);
+    }
+  }
+  return 0;
+}
+
+async function queryCommand(parsed: ParsedArgs): Promise<number> {
+  const kind = normalizeKindFilter(flagValues(parsed, "kind")[0]);
+  const status = flagValues(parsed, "status")[0];
+  const area = flagValues(parsed, "area")[0];
+
+  if (flagValues(parsed, "kind")[0] && !kind) {
+    console.error(`Invalid kind: ${flagValues(parsed, "kind")[0]}`);
+    return 2;
+  }
+
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const matches = queryDocuments(documents, { kind, status, area });
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ matches }, null, 2));
+    return 0;
+  }
+
+  console.log(`Ledger query: ${matches.length} match(es).`);
+  for (const document of matches) {
+    console.log(`- ${document.id} ${document.title} (${document.kind}, ${document.status})`);
   }
   return 0;
 }
@@ -216,6 +269,31 @@ function printValidation(errors: number, warnings: number): void {
   console.log(`Ledger validation: ${errors} error(s), ${warnings} warning(s).`);
 }
 
+function printAgentExplanation(
+  target: string,
+  documents: readonly ParsedLedgerDocument[],
+  ids: readonly string[],
+): void {
+  console.log(`# Ledger Context: ${target}`);
+  for (const id of ids) {
+    const parsed = documents.find((document) => String(document.frontmatter.id) === id);
+    if (!parsed) continue;
+    const invariants = extractBullets(getSectionBody(parsed, "Invariants"));
+    const verification = extractBullets(getSectionBody(parsed, "Verification"));
+    console.log("");
+    console.log(`## ${id}: ${String(parsed.frontmatter.title ?? "")}`);
+    console.log(`Path: ${parsed.relativePath}`);
+    if (invariants.length > 0) {
+      console.log("Invariants:");
+      for (const invariant of invariants) console.log(`- ${invariant}`);
+    }
+    if (verification.length > 0) {
+      console.log("Verification:");
+      for (const command of verification) console.log(`- ${command}`);
+    }
+  }
+}
+
 function printHelp(): void {
   console.log(`Ledger
 
@@ -226,7 +304,8 @@ Usage:
   ledger validate
   ledger index
   ledger coverage [--staged] [--json]
-  ledger explain <path>
+  ledger explain <path> [--json] [--agent]
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]
   ledger docs audit
   ledger docs check
 `);

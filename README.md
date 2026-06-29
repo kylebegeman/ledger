@@ -50,6 +50,8 @@ ledger index
 ledger coverage
 ledger docs audit
 ledger explain apps/server/src/ws.ts
+ledger explain apps/server/src/ws.ts --agent
+ledger query --kind change --area cli
 ```
 
 ## Project Shape

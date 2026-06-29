@@ -35,12 +35,14 @@ src/
   docs.ts
   frontmatter.ts
   indexer.ts
+  query.ts
   validate.ts
   workspace.ts
 test/
   coverage.test.ts
   docs.test.ts
   frontmatter.test.ts
+  query.test.ts
   validate.test.ts
 docs/
   PRODUCT.md
@@ -124,6 +126,20 @@ not exist.
 
 Reads indexes if present, falls back to source parsing, and prints entries that
 mention the file path.
+
+Supports:
+
+- `--json` for machine-readable output.
+- `--agent` for compact invariants and verification context.
+
+### `ledger query`
+
+Filters Ledger records by kind, status, and area.
+
+```bash
+ledger query --kind change --status landed --area cli
+ledger query --area docs --json
+```
 
 ### `ledger new <title>`
 

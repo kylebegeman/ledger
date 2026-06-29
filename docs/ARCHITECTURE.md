@@ -132,6 +132,11 @@ Important queries:
 - find conflict rules for a path
 - show backlog items related to an entry
 
+CLI query output has two audiences. Human output should be short and scannable.
+`--json` output should be stable for tools. `--agent` output should optimize for
+compact context by showing the exact entries, invariants, and verification
+commands most relevant to the target.
+
 ### Git Inspector
 
 The Git inspector is optional but high-value.
