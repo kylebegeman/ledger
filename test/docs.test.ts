@@ -4,7 +4,13 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readLedgerConfig } from "../src/config.js";
 import { readLedgerDocuments } from "../src/documents.js";
-import { auditDocs, classifyDocsFile, classifyDocsPaths } from "../src/docs.js";
+import {
+  auditDocs,
+  buildDocsRoutingManifest,
+  classifyDocsFile,
+  classifyDocsPaths,
+  writeDocsRoutingManifest,
+} from "../src/docs.js";
 import type { LedgerWorkspace } from "../src/types.js";
 
 let tempDir: string | undefined;
@@ -42,6 +48,23 @@ describe("docs audit", () => {
     expect(audit.missingReferences).toEqual(["docs/missing.md"]);
     expect(audit.unreferencedDocs).toEqual(["docs/architecture/unreferenced.md"]);
   });
+
+  it("builds and writes a docs routing manifest", async () => {
+    const workspace = await createFixtureWorkspace();
+    const documents = await readLedgerDocuments(workspace);
+    const audit = await auditDocs(workspace, documents);
+    const manifest = buildDocsRoutingManifest(audit);
+    const writtenPath = await writeDocsRoutingManifest(workspace, manifest);
+
+    expect(manifest.generatedBy).toBe("ledger");
+    expect(manifest.docsRoot).toBe("docs");
+    expect(manifest.routes).toContainEqual({
+      path: "docs/architecture/runtime.md",
+      classification: "durable",
+    });
+    expect(manifest.routes.some((route) => route.classification === "generated")).toBe(false);
+    expect(writtenPath).toBe("docs/llm/manifest.json");
+  });
 });
 
 async function createFixtureWorkspace(): Promise<LedgerWorkspace> {
@@ -51,11 +74,13 @@ async function createFixtureWorkspace(): Promise<LedgerWorkspace> {
   await mkdir(path.join(tempDir, ".ledger", "decisions"), { recursive: true });
   await mkdir(path.join(tempDir, ".ledger", "releases"), { recursive: true });
   await mkdir(path.join(tempDir, "docs", "architecture"), { recursive: true });
+  await mkdir(path.join(tempDir, "docs", "generated"), { recursive: true });
   await writeFile(path.join(tempDir, "docs", "architecture", "runtime.md"), "# Runtime\n");
   await writeFile(
     path.join(tempDir, "docs", "architecture", "unreferenced.md"),
     "# Unreferenced\n",
   );
+  await writeFile(path.join(tempDir, "docs", "generated", "report.json"), "{}\n");
   await writeFile(
     path.join(tempDir, ".ledger", "config.yaml"),
     `version: 1

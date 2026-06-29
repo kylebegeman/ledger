@@ -5,6 +5,7 @@ import type {
   LedgerDocsAudit,
   LedgerDocsClassification,
   LedgerDocsFile,
+  LedgerDocsRoutingManifest,
   LedgerWorkspace,
   ParsedLedgerDocument,
 } from "./types.js";
@@ -51,6 +52,31 @@ export async function writeDocsAuditReport(
     formatDocsAuditReport(audit),
     "utf8",
   );
+}
+
+export function buildDocsRoutingManifest(audit: LedgerDocsAudit): LedgerDocsRoutingManifest {
+  return {
+    version: 1,
+    generatedBy: "ledger",
+    generatedAt: new Date().toISOString(),
+    docsRoot: audit.docsRoot,
+    routes: audit.files
+      .filter((file) => file.classification !== "generated")
+      .map((file) => ({
+        path: file.path,
+        classification: file.classification,
+      })),
+  };
+}
+
+export async function writeDocsRoutingManifest(
+  workspace: LedgerWorkspace,
+  manifest: LedgerDocsRoutingManifest,
+): Promise<string> {
+  const manifestPath = path.join(workspace.projectRoot, workspace.config.docs.routing.manifest);
+  await mkdir(path.dirname(manifestPath), { recursive: true });
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  return normalizePath(path.relative(workspace.projectRoot, manifestPath));
 }
 
 export function formatDocsAuditReport(audit: LedgerDocsAudit): string {

@@ -164,6 +164,19 @@ export interface LedgerDocsAudit {
   readonly unreferencedDocs: readonly string[];
 }
 
+export interface LedgerDocsRoute {
+  readonly path: string;
+  readonly classification: LedgerDocsClassification;
+}
+
+export interface LedgerDocsRoutingManifest {
+  readonly version: 1;
+  readonly generatedBy: "ledger";
+  readonly generatedAt: string;
+  readonly docsRoot: string;
+  readonly routes: readonly LedgerDocsRoute[];
+}
+
 export interface LedgerDocsImpact {
   readonly docsRoot: string;
   readonly changedFiles: readonly string[];

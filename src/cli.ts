@@ -5,7 +5,13 @@ import { runCiChecks } from "./ci.js";
 import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
-import { auditDocs, classifyDocsPaths, writeDocsAuditReport } from "./docs.js";
+import {
+  auditDocs,
+  buildDocsRoutingManifest,
+  classifyDocsPaths,
+  writeDocsAuditReport,
+  writeDocsRoutingManifest,
+} from "./docs.js";
 import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
@@ -425,8 +431,10 @@ async function docsCommand(parsed: ParsedArgs, context: RunContext): Promise<num
       return await docsClassifyCommand(parsed, context);
     case "impact":
       return await docsImpactCommand(parsed, context);
+    case "reconcile":
+      return await docsReconcileCommand(context);
     case undefined:
-      console.error("Usage: ledger docs <audit|check|classify|impact>");
+      console.error("Usage: ledger docs <audit|check|classify|impact|reconcile>");
       return 2;
     default:
       console.error(`Unknown docs command: ${subcommand}`);
@@ -474,6 +482,18 @@ async function docsClassifyCommand(
   for (const file of files) {
     console.log(`- ${file.classification}: ${file.path}`);
   }
+  return 0;
+}
+
+async function docsReconcileCommand(context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const audit = await auditDocs(workspace, documents);
+  await writeDocsAuditReport(workspace, audit);
+  const manifest = buildDocsRoutingManifest(audit);
+  const manifestPath = await writeDocsRoutingManifest(workspace, manifest);
+
+  console.log(`Ledger docs reconcile: wrote ${manifest.routes.length} route(s) to ${manifestPath}.`);
   return 0;
 }
 
@@ -674,7 +694,8 @@ Usage:
   ledger docs audit
   ledger docs check
   ledger docs classify [path...] [--json]
-  ledger docs impact [--staged] [--check] [--json]`;
+  ledger docs impact [--staged] [--check] [--json]
+  ledger docs reconcile`;
     case "docs audit":
     case "docs check":
       return `Ledger docs audit/check
@@ -698,6 +719,13 @@ Usage:
   ledger docs impact [--staged] [--check] [--json]
 
 Reports whether changed source files have an explicit docs impact.`;
+    case "docs reconcile":
+      return `Ledger docs reconcile
+
+Usage:
+  ledger docs reconcile
+
+Writes the configured docs routing manifest from the current docs audit.`;
     default:
       return `Ledger
 
@@ -721,6 +749,7 @@ Usage:
   ledger docs check
   ledger docs classify [path...] [--json]
   ledger docs impact [--staged] [--check] [--json]
+  ledger docs reconcile
 
 Examples:
   ledger new "Add provider retry policy" --from-diff --area server
