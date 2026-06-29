@@ -22,7 +22,9 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "f7788a7"
+release: "v0.1.9"
 ---
 
 # 0045: Improve Git-Aware Drafting
