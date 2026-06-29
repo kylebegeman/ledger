@@ -145,6 +145,11 @@ It should support:
 - `--from-diff` entry drafting
 - coverage checks that decide whether a Ledger entry is required
 
+The first coverage command is intentionally path based: files matching
+`git.requireEntryFor` must be referenced by a Ledger entry unless they match
+`git.ignore`. This gives CI a deterministic guard before semantic symbol
+coverage exists.
+
 ### Render And Export Adapters
 
 Ledger core should provide normalized exports, not own every presentation.

@@ -30,6 +30,7 @@ tsconfig.json
 src/
   cli.ts
   config.ts
+  coverage.ts
   documents.ts
   docs.ts
   frontmatter.ts
@@ -37,6 +38,7 @@ src/
   validate.ts
   workspace.ts
 test/
+  coverage.test.ts
   docs.test.ts
   frontmatter.test.ts
   validate.test.ts
@@ -101,6 +103,12 @@ Writes:
 - `.ledger/indexes/by-area.json`
 - `.ledger/indexes/by-release.json`
 - `.ledger/indexes/by-symbol.json`
+
+### `ledger coverage`
+
+Reads changed files from Git and checks whether files matching
+`git.requireEntryFor` are mentioned by at least one Ledger entry. `--staged`
+uses the staged diff, and `--json` emits the raw result for CI or agent tools.
 
 ### `ledger docs audit`
 

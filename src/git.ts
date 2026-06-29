@@ -3,8 +3,26 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-export async function getChangedFiles(cwd: string): Promise<readonly string[]> {
+export interface GetChangedFilesOptions {
+  readonly staged?: boolean;
+}
+
+export async function getChangedFiles(
+  cwd: string,
+  options: GetChangedFilesOptions = {},
+): Promise<readonly string[]> {
   try {
+    if (options.staged) {
+      const { stdout } = await execFileAsync("git", ["diff", "--name-only", "--cached"], {
+        cwd,
+      });
+      return stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((filePath) => filePath.length > 0)
+        .sort();
+    }
+
     const { stdout } = await execFileAsync("git", ["status", "--short"], { cwd });
     return stdout
       .split(/\r?\n/)

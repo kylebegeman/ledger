@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import process from "node:process";
+import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
 import { auditDocs, writeDocsAuditReport } from "./docs.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
@@ -34,6 +35,9 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
 
       case "new":
         return await newCommand(parsed);
+
+      case "coverage":
+        return await coverageCommand(parsed);
 
       case "docs":
         return await docsCommand(parsed);
@@ -114,11 +118,33 @@ async function newCommand(parsed: ParsedArgs): Promise<number> {
   const createdPath = await createChangeEntry(workspace, documents, {
     title,
     fromDiff: hasFlag(parsed, "from-diff"),
+    staged: hasFlag(parsed, "staged"),
     areas: flagValues(parsed, "area"),
     status: flagValues(parsed, "status")[0] ?? "draft",
   });
   console.log(`Created ${createdPath}`);
   return 0;
+}
+
+async function coverageCommand(parsed: ParsedArgs): Promise<number> {
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const result = await checkCoverage(workspace, documents, {
+    staged: hasFlag(parsed, "staged"),
+  });
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(
+      `Ledger coverage: ${result.requiredFiles.length} required file(s), ${result.missingFiles.length} missing coverage.`,
+    );
+    for (const filePath of result.missingFiles) {
+      console.log(`- missing: ${filePath}`);
+    }
+  }
+
+  return result.missingFiles.length === 0 ? 0 : 1;
 }
 
 async function docsCommand(parsed: ParsedArgs): Promise<number> {
@@ -196,9 +222,10 @@ function printHelp(): void {
 Usage:
   ledger init
   ledger init --with-docs
-  ledger new <title> [--from-diff] [--area <area>] [--status <status>]
+  ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
   ledger validate
   ledger index
+  ledger coverage [--staged] [--json]
   ledger explain <path>
   ledger docs audit
   ledger docs check

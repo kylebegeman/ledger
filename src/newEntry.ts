@@ -6,6 +6,7 @@ import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 export interface CreateEntryOptions {
   readonly title: string;
   readonly fromDiff: boolean;
+  readonly staged: boolean;
   readonly areas: readonly string[];
   readonly status: string;
 }
@@ -19,7 +20,9 @@ export async function createChangeEntry(
   const slug = slugify(options.title);
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
   const absolutePath = path.join(workspace.projectRoot, relativePath);
-  const files = options.fromDiff ? await getChangedFiles(workspace.projectRoot) : [];
+  const files = options.fromDiff
+    ? await getChangedFiles(workspace.projectRoot, { staged: options.staged })
+    : [];
   const date = new Date().toISOString().slice(0, 10);
   const template = await readTemplate(workspace);
   const rendered = renderTemplate(template, {

@@ -61,6 +61,16 @@ export const defaultConfig: LedgerConfig = {
       manifest: "docs/llm/manifest.json",
     },
   },
+  git: {
+    requireEntryFor: ["src/**", "test/**", "docs/**"],
+    ignore: [
+      ".ledger/indexes/**",
+      ".ledger/reports/**",
+      ".ledger/dist/**",
+      "node_modules/**",
+      "dist/**",
+    ],
+  },
 };
 
 export async function readLedgerConfig(configPath: string): Promise<LedgerConfig> {
@@ -86,6 +96,7 @@ type PartialLedgerConfig = {
   readonly docs?: Partial<LedgerConfig["docs"]> & {
     readonly routing?: Partial<LedgerConfig["docs"]["routing"]>;
   };
+  readonly git?: Partial<LedgerConfig["git"]>;
 };
 
 function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerConfig {
@@ -112,6 +123,10 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
         ...base.docs.routing,
         ...override.docs?.routing,
       },
+    },
+    git: {
+      ...base.git,
+      ...override.git,
     },
   };
 }

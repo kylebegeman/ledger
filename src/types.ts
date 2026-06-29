@@ -40,6 +40,10 @@ export interface LedgerConfig {
       readonly manifest: string;
     };
   };
+  readonly git: {
+    readonly requireEntryFor: readonly string[];
+    readonly ignore: readonly string[];
+  };
 }
 
 export interface LedgerWorkspace {
@@ -156,4 +160,11 @@ export interface LedgerDocsAudit {
   readonly referencedDocs: readonly string[];
   readonly missingReferences: readonly string[];
   readonly unreferencedDocs: readonly string[];
+}
+
+export interface LedgerCoverageResult {
+  readonly changedFiles: readonly string[];
+  readonly requiredFiles: readonly string[];
+  readonly coveredFiles: readonly string[];
+  readonly missingFiles: readonly string[];
 }

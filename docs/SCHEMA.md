@@ -320,3 +320,25 @@ Ledger should prefer additive schema changes.
 Existing source documents should remain readable unless they are malformed. New
 fields should not break old entries. Deprecated fields should produce warnings
 before they become errors.
+
+## Coverage Config
+
+`git.requireEntryFor` and `git.ignore` define which changed paths require Ledger
+coverage.
+
+```yaml
+git:
+  requireEntryFor:
+    - src/**
+    - test/**
+    - docs/**
+  ignore:
+    - .ledger/indexes/**
+    - .ledger/reports/**
+    - .ledger/dist/**
+    - node_modules/**
+    - dist/**
+```
+
+`ledger coverage` uses this config to compare Git changed files against paths
+listed by Ledger entries.

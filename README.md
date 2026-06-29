@@ -34,6 +34,7 @@ npm test
 
 node dist/cli.js validate
 node dist/cli.js index
+node dist/cli.js coverage
 node dist/cli.js explain README.md
 node dist/cli.js docs audit
 ```
@@ -46,6 +47,7 @@ ledger init --with-docs
 ledger new "Port upstream runtime fixes" --from-diff
 ledger validate
 ledger index
+ledger coverage
 ledger docs audit
 ledger explain apps/server/src/ws.ts
 ```
