@@ -22,7 +22,7 @@ symbols:
 docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["f693978"]
 ---
 
 # 0005: Add Query And Agent Explain Output

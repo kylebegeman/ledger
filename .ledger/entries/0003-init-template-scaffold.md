@@ -15,7 +15,7 @@ symbols:
   - "decisionTemplate"
   - "releaseTemplate"
   - "coveragePolicy"
-commits: []
+commits: ["4fe2ea5"]
 ---
 
 # 0003: Complete Init Template Scaffold

@@ -28,7 +28,7 @@ docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
   - "docs/SCHEMA.md"
-commits: []
+commits: ["bf27f82"]
 ---
 
 # 0004: Add Git Coverage Command

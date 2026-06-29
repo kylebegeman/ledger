@@ -37,7 +37,7 @@ docs:
   - "docs/PRODUCT.md"
   - "docs/DOCS_RELATIONSHIP.md"
   - "docs/ROADMAP.md"
-commits: []
+commits: ["355b63b"]
 ---
 
 # 0002: Use .ledger Root And Add Docs Lifecycle Audit
