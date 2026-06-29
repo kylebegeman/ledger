@@ -69,7 +69,7 @@ ledger explain apps/server/src/ws.ts
 ledger explain apps/server/src/ws.ts --agent
 ledger query --kind change --area cli
 ledger unreleased
-ledger release v0.1.0 --include-unreleased --write
+ledger release v0.1.0 --include-unreleased --status released --write
 ledger docs classify docs/llm/START_HERE.md --json
 ledger docs impact --check
 ```

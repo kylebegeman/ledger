@@ -10,10 +10,12 @@ import type {
 export interface BuildReleaseDocumentOptions {
   readonly includeUnreleased?: boolean;
   readonly date?: string;
+  readonly status?: "planned" | "released";
 }
 
 export interface LedgerReleaseDocument {
   readonly version: string;
+  readonly status: "planned" | "released";
   readonly entries: readonly NormalizedLedgerDocument[];
   readonly markdown: string;
 }
@@ -45,13 +47,19 @@ export function buildReleaseDocument(
   version: string,
   options: BuildReleaseDocumentOptions = {},
 ): LedgerReleaseDocument {
+  validateReleaseVersion(version);
   const entries = options.includeUnreleased
     ? getUnreleasedChanges(documents)
     : getReleaseChanges(documents, version);
+  const status = options.status ?? "planned";
   return {
     version,
+    status,
     entries,
-    markdown: formatReleaseMarkdown(version, entries, options.date ?? today()),
+    markdown: formatReleaseMarkdown(version, entries, {
+      date: options.date ?? today(),
+      status,
+    }),
   };
 }
 
@@ -69,16 +77,18 @@ export async function writeReleaseDocument(
 export function formatReleaseMarkdown(
   version: string,
   entries: readonly NormalizedLedgerDocument[],
-  date: string,
+  options: { readonly date: string; readonly status?: "planned" | "released" },
 ): string {
+  validateReleaseVersion(version);
+  const status = options.status ?? "planned";
   const lines = [
     "---",
     `id: "${escapeYamlString(version)}"`,
     'kind: "release"',
     `title: "Ledger ${escapeYamlString(version)}"`,
-    `date: "${escapeYamlString(date)}"`,
-    `updated: "${escapeYamlString(date)}"`,
-    'status: "planned"',
+    `date: "${escapeYamlString(options.date)}"`,
+    `updated: "${escapeYamlString(options.date)}"`,
+    `status: "${status}"`,
     'areas: ["release"]',
     ...entryFrontmatterLines(entries),
     "---",
@@ -88,6 +98,10 @@ export function formatReleaseMarkdown(
     "## Summary",
     "",
     `${entries.length} change(s) selected for ${version}.`,
+    "",
+    "## Public Notes",
+    "",
+    ...publicNoteLines(entries),
     "",
     "## Changes",
     "",
@@ -106,6 +120,12 @@ export function formatReleaseMarkdown(
   return `${lines.join("\n")}`;
 }
 
+export function validateReleaseVersion(version: string): void {
+  if (!/^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error(`Invalid release version: ${version}`);
+  }
+}
+
 function entryFrontmatterLines(entries: readonly NormalizedLedgerDocument[]): readonly string[] {
   if (entries.length === 0) return ["entries: []"];
   return ["entries:", ...entries.map((entry) => `  - "${escapeYamlString(entry.id)}"`)];
@@ -117,6 +137,11 @@ function changeLines(entries: readonly NormalizedLedgerDocument[]): readonly str
     const areas = entry.areas.length > 0 ? ` [${entry.areas.join(", ")}]` : "";
     return `- ${entry.id}: ${entry.title}${areas} (${entry.path})`;
   });
+}
+
+function publicNoteLines(entries: readonly NormalizedLedgerDocument[]): readonly string[] {
+  if (entries.length === 0) return ["- No public changes selected."];
+  return entries.map((entry) => `- ${entry.title}`);
 }
 
 function compareReleaseEntries(

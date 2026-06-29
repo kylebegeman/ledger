@@ -5,6 +5,7 @@ import {
   formatReleaseMarkdown,
   getReleaseChanges,
   getUnreleasedChanges,
+  validateReleaseVersion,
 } from "../src/release.js";
 import type { ParsedLedgerDocument } from "../src/types.js";
 
@@ -37,10 +38,15 @@ describe("buildReleaseDocument", () => {
     const release = buildReleaseDocument([document("0001", "landed")], "v0.1.0", {
       includeUnreleased: true,
       date: "2026-06-29",
+      status: "released",
     });
 
+    expect(release.status).toBe("released");
     expect(release.entries.map((entry) => entry.id)).toEqual(["0001"]);
     expect(release.markdown).toContain('kind: "release"');
+    expect(release.markdown).toContain('status: "released"');
+    expect(release.markdown).toContain("## Public Notes");
+    expect(release.markdown).toContain("- Change 0001");
     expect(release.markdown).toContain('- "0001"');
     expect(release.markdown).toContain("- 0001: Change 0001 [cli]");
   });
@@ -48,8 +54,21 @@ describe("buildReleaseDocument", () => {
 
 describe("formatReleaseMarkdown", () => {
   it("renders an empty release with required sections", () => {
-    expect(formatReleaseMarkdown("v0.1.0", [], "2026-06-29")).toContain(
+    expect(formatReleaseMarkdown("v0.1.0", [], { date: "2026-06-29" })).toContain(
       "- No matching Ledger entries.",
+    );
+  });
+});
+
+describe("validateReleaseVersion", () => {
+  it("accepts semver release names", () => {
+    expect(() => validateReleaseVersion("v0.1.0")).not.toThrow();
+    expect(() => validateReleaseVersion("0.1.0-beta.1")).not.toThrow();
+  });
+
+  it("rejects invalid release names", () => {
+    expect(() => validateReleaseVersion("../bad")).toThrow(
+      "Invalid release version: ../bad",
     );
   });
 });

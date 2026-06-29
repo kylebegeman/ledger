@@ -14,6 +14,10 @@ entries: []
 
 Summarize the release.
 
+## Public Notes
+
+- Add public release notes.
+
 ## Changes
 
 - Add entries included in this release.

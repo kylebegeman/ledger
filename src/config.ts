@@ -20,7 +20,7 @@ const requiredSections: Record<LedgerDocumentKind, readonly string[]> = {
     "Promotion Notes",
   ],
   decision: ["Context", "Decision", "Consequences", "Revisit Criteria"],
-  release: ["Summary", "Changes", "Verification", "Known Issues"],
+  release: ["Summary", "Public Notes", "Changes", "Verification", "Known Issues"],
 };
 
 export const defaultConfig: LedgerConfig = {

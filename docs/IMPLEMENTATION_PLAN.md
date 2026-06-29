@@ -199,8 +199,9 @@ Builds a valid Ledger release document for a version. By default it selects
 change entries whose `release` field matches the version. With
 `--include-unreleased`, it selects currently unreleased landed or shipped change
 entries. With `--write`, it writes `.ledger/releases/<version>.md` and refuses
-to overwrite an existing release file. `--json` emits the rendered document and
-selected entries.
+to overwrite an existing release file. `--status planned|released` and
+`--date yyyy-mm-dd` control release frontmatter. `--json` emits the rendered
+document and selected entries.
 
 ### `ledger new <title>`
 

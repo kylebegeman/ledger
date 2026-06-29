@@ -243,14 +243,20 @@ async function unreleasedCommand(parsed: ParsedArgs): Promise<number> {
 async function releaseCommand(parsed: ParsedArgs): Promise<number> {
   const version = parsed.positionals[0];
   if (!version) {
-    console.error("Usage: ledger release <version> [--include-unreleased] [--write] [--json]");
+    console.error(
+      "Usage: ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]",
+    );
     return 2;
   }
 
   const workspace = await findWorkspace();
   const documents = await readLedgerDocuments(workspace);
+  const status = releaseStatus(parsed);
+  if (!status) return 2;
   const release = buildReleaseDocument(documents, version, {
     includeUnreleased: hasFlag(parsed, "include-unreleased"),
+    date: flagValues(parsed, "date")[0],
+    status,
   });
   const writtenPath = hasFlag(parsed, "write")
     ? await writeReleaseDocument(workspace, release)
@@ -608,9 +614,10 @@ Lists landed or shipped change entries without a release assignment.`;
       return `Ledger release
 
 Usage:
-  ledger release <version> [--include-unreleased] [--write] [--json]
+  ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
 
-Renders a valid Ledger release record. --write creates .ledger/releases/<version>.md.`;
+Renders a valid Ledger release record. status is planned or released.
+--write creates .ledger/releases/<version>.md.`;
     case "docs":
       return `Ledger docs
 
@@ -660,7 +667,7 @@ Usage:
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]
   ledger unreleased [--json]
-  ledger release <version> [--include-unreleased] [--write] [--json]
+  ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
   ledger docs audit
   ledger docs check
   ledger docs classify [path...] [--json]
@@ -672,6 +679,13 @@ Examples:
   ledger release v0.1.0 --include-unreleased
   ledger ci --json`;
   }
+}
+
+function releaseStatus(parsed: ParsedArgs): "planned" | "released" | undefined {
+  const value = flagValues(parsed, "status")[0] ?? "planned";
+  if (value === "planned" || value === "released") return value;
+  console.error(`Invalid release status: ${value}`);
+  return undefined;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -247,6 +247,8 @@ Required sections:
 
 ## Summary
 
+## Public Notes
+
 ## Changes
 
 ## Verification
