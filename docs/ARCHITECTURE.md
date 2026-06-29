@@ -217,6 +217,11 @@ verification checks, and includes Markdown source access for each record. Later
 renderers can consume generated indexes or emit richer multi-page output without
 changing the source document model.
 
+The static reader model includes facets for kinds, statuses, areas, and
+releases so the generated page can offer quick navigation without a server.
+Record cards surface relationship fields such as decisions and backlog links
+alongside files, symbols, docs, invariants, and verification.
+
 ### Docs Bridge
 
 Ledger should be able to reference existing project docs without owning them.

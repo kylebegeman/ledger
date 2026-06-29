@@ -19,6 +19,9 @@ describe("buildStaticReaderModel", () => {
     expect(model.documents[0]?.summary).toBe("Summary.");
     expect(model.documents[0]?.invariants).toEqual(["Keep this true."]);
     expect(model.documents[0]?.verification).toEqual(["npm test"]);
+    expect(model.facets.kinds).toContainEqual({ value: "change", count: 1 });
+    expect(model.facets.areas).toContainEqual({ value: "cli", count: 2 });
+    expect(model.facets.releases).toContainEqual({ value: "v1.0.0", count: 2 });
   });
 });
 
@@ -36,6 +39,10 @@ describe("renderStaticReaderHtml", () => {
     expect(html).toContain("Markdown Source");
     expect(html).toContain("Invariants");
     expect(html).toContain("Verification");
+    expect(html).toContain("Browse");
+    expect(html).toContain("facet-button");
+    expect(html).toContain("Decisions");
+    expect(html).toContain("D001");
   });
 });
 
@@ -64,6 +71,11 @@ files:
   - "src/cli.ts"
 symbols: []
 commits: []
+release: "v1.0.0"
+decisions:
+  - "D001"
+backlog:
+  - "B001"
 ---
 
 # ${id}: ${title}

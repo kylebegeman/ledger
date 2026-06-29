@@ -21,6 +21,12 @@ export interface LedgerStaticReaderModel {
   readonly generatedAt: string;
   readonly project: string;
   readonly documents: readonly LedgerRenderedDocument[];
+  readonly facets: {
+    readonly areas: readonly LedgerFacet[];
+    readonly releases: readonly LedgerFacet[];
+    readonly statuses: readonly LedgerFacet[];
+    readonly kinds: readonly LedgerFacet[];
+  };
   readonly stats: {
     readonly documents: number;
     readonly changes: number;
@@ -28,6 +34,11 @@ export interface LedgerStaticReaderModel {
     readonly decisions: number;
     readonly releases: number;
   };
+}
+
+export interface LedgerFacet {
+  readonly value: string;
+  readonly count: number;
 }
 
 export interface RenderStaticReaderResult {
@@ -58,6 +69,14 @@ export function buildStaticReaderModel(
     generatedAt: new Date().toISOString(),
     project: workspace.config.project,
     documents: renderedDocuments,
+    facets: {
+      areas: countFacet(renderedDocuments.flatMap((document) => document.areas)),
+      releases: countFacet(
+        renderedDocuments.map((document) => document.release ?? "__none"),
+      ),
+      statuses: countFacet(renderedDocuments.map((document) => document.status)),
+      kinds: countFacet(renderedDocuments.map((document) => document.kind)),
+    },
     stats: {
       documents: renderedDocuments.length,
       changes: renderedDocuments.filter((document) => document.kind === "change").length,
@@ -90,11 +109,11 @@ export function renderStaticReaderHtml(
   model: LedgerStaticReaderModel,
   options: RenderStaticReaderHtmlOptions = {},
 ): string {
-  const areas = uniqueSorted(model.documents.flatMap((document) => document.areas));
-  const statuses = uniqueSorted(model.documents.map((document) => document.status));
-  const releases = uniqueSorted(
-    model.documents.map((document) => document.release).filter((value): value is string => Boolean(value)),
-  );
+  const areas = model.facets.areas.map((facet) => facet.value);
+  const statuses = model.facets.statuses.map((facet) => facet.value);
+  const releases = model.facets.releases
+    .map((facet) => facet.value)
+    .filter((value) => value !== "__none");
 
   return `<!doctype html>
 <html lang="en">
@@ -169,6 +188,33 @@ export function renderStaticReaderHtml(
     }
     .stat strong { display: block; font-size: 1.3rem; }
     .stat span { color: var(--muted); font-size: .85rem; }
+    .facet-group {
+      border-top: 1px solid var(--line);
+      margin-top: 16px;
+      padding-top: 14px;
+    }
+    .facet-list {
+      display: grid;
+      gap: 6px;
+    }
+    .facet-button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      padding: 6px 8px;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .facet-button:hover { border-color: var(--accent); }
+    .facet-button small { color: var(--muted); }
     aside {
       align-self: start;
       position: sticky;
@@ -235,6 +281,7 @@ export function renderStaticReaderHtml(
     }
     .context ul { margin: 0; padding-left: 18px; }
     .paths, .source { margin-top: 12px; }
+    .relationships { margin-top: 12px; }
     summary { cursor: pointer; color: var(--accent); font-weight: 650; }
     pre {
       overflow: auto;
@@ -309,6 +356,12 @@ export function renderStaticReaderHtml(
         ${option("__none", "No release")}
         ${releases.map((release) => option(release, release)).join("\n        ")}
       </select>
+      <div class="facet-group">
+        <h2>Browse</h2>
+        ${facetButtons("Kinds", "kind", model.facets.kinds)}
+        ${facetButtons("Releases", "release", model.facets.releases)}
+        ${facetButtons("Areas", "area", model.facets.areas)}
+      </div>
     </aside>
     <section>
       <h2 id="result-count">${model.documents.length} document(s)</h2>
@@ -360,6 +413,15 @@ export function renderStaticReaderHtml(
     for (const control of Object.values(controls)) {
       control.addEventListener("input", applyFilters);
     }
+    for (const button of document.querySelectorAll("[data-filter-field]")) {
+      button.addEventListener("click", () => {
+        const field = button.dataset.filterField;
+        const value = button.dataset.filterValue;
+        if (!field || value === undefined || !controls[field]) return;
+        controls[field].value = value;
+        applyFilters();
+      });
+    }
   </script>
 </body>
 </html>
@@ -376,6 +438,11 @@ function renderEntry(document: LedgerRenderedDocument): string {
     ...document.areas,
     ...document.files,
     ...document.symbols,
+    ...document.docs,
+    ...document.decisions,
+    ...document.backlog,
+    ...document.supersedes,
+    ...document.related,
     document.summary ?? "",
     document.why ?? "",
     ...document.invariants,
@@ -397,6 +464,7 @@ function renderEntry(document: LedgerRenderedDocument): string {
           ${detailList("Files", document.files)}
           ${detailList("Symbols", document.symbols)}
           ${detailList("Docs", document.docs)}
+          ${relationships(document)}
           <details class="source">
             <summary>Markdown Source</summary>
             <pre>${escapeHtml(document.source)}</pre>
@@ -428,6 +496,17 @@ function detailList(label: string, values: readonly string[]): string {
           </details>`;
 }
 
+function relationships(document: LedgerRenderedDocument): string {
+  const sections = [
+    detailList("Decisions", document.decisions),
+    detailList("Backlog", document.backlog),
+    detailList("Supersedes", document.supersedes),
+    detailList("Related", document.related),
+  ].filter((section) => section.length > 0);
+  if (sections.length === 0) return "";
+  return `<div class="relationships">${sections.join("")}</div>`;
+}
+
 function stat(label: string, value: number): string {
   return `<div class="stat"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`;
 }
@@ -436,8 +515,29 @@ function option(value: string, label: string): string {
   return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
 }
 
-function uniqueSorted(values: readonly string[]): readonly string[] {
-  return [...new Set(values.filter((value) => value.length > 0))].sort();
+function facetButtons(
+  label: string,
+  field: "kind" | "release" | "area",
+  facets: readonly LedgerFacet[],
+): string {
+  if (facets.length === 0) return "";
+  return `<div class="facet-list" aria-label="${escapeHtml(label)}">${facets
+    .slice(0, 8)
+    .map((facet) =>
+      `<button class="facet-button" type="button" data-filter-field="${field}" data-filter-value="${escapeHtml(facet.value)}"><span>${escapeHtml(facet.value === "__none" ? "No release" : facet.value)}</span><small>${facet.count}</small></button>`,
+    )
+    .join("")}</div>`;
+}
+
+function countFacet(values: readonly string[]): readonly LedgerFacet[] {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    if (!value) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((left, right) => right.count - left.count || left.value.localeCompare(right.value));
 }
 
 function compactSection(value: string | undefined): string | undefined {

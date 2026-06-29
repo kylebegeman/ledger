@@ -137,8 +137,8 @@ open .ledger/dist/index.html
 ```
 
 The static reader is a single offline HTML file. It gives humans and agents a
-searchable view of entries, decisions, backlog, releases, invariants,
-verification checks, and raw Markdown source.
+searchable, faceted view of entries, decisions, backlog, releases, invariants,
+verification checks, relationships, and raw Markdown source.
 
 ### Published Package Shape
 

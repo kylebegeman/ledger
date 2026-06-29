@@ -143,6 +143,8 @@ Deliverables:
 
 ## Phase 6: Static Reader
 
+Status: faceted reader slice landed
+
 Goals:
 
 - local static HTML output independent of Dossier
@@ -155,6 +157,7 @@ Deliverables:
 - `ledger render`
 - `.ledger/dist/index.html`
 - embedded manifest JSON
+- faceted browse controls for kinds, releases, and areas
 
 ## Phase 7: CI And GitHub
 
