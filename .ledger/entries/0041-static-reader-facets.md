@@ -22,7 +22,9 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "e9504e0"
+release: "v0.1.7"
 ---
 
 # 0041: Polish Static Reader Facets
