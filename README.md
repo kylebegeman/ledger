@@ -40,6 +40,7 @@ node dist/cli.js unreleased
 node dist/cli.js release v0.1.0 --include-unreleased
 node dist/cli.js explain README.md
 node dist/cli.js docs audit
+node dist/cli.js docs impact
 ```
 
 After this package is linked or published, the intended CLI shape is:
@@ -58,6 +59,7 @@ ledger explain apps/server/src/ws.ts --agent
 ledger query --kind change --area cli
 ledger unreleased
 ledger release v0.1.0 --include-unreleased --write
+ledger docs impact --check
 ```
 
 ## Project Shape

@@ -3,6 +3,7 @@ export * from "./conflict.js";
 export * from "./coverage.js";
 export * from "./documents.js";
 export * from "./docs.js";
+export * from "./docsImpact.js";
 export * from "./frontmatter.js";
 export * from "./git.js";
 export * from "./indexer.js";

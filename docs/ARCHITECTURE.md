@@ -187,6 +187,8 @@ relationship:
 - backlog items can link to product specs
 - routing config can point at an existing `docs/llm/START_HERE.md`
 - validation can warn when a source doc changed without a Ledger entry
+- docs impact can check whether source changes have an explicit docs touch or a
+  changed Ledger entry that references docs
 
 This bridge keeps Ledger from becoming a docs monolith while still making docs
 changes traceable.
@@ -252,6 +254,14 @@ Shows merge-conflict guidance for files.
 
 The first implementation reads source documents directly. A later version can
 use generated indexes when conflict rules are promoted into the index model.
+
+### `ledger docs impact`
+
+Reports changed source files, changed docs files, changed Ledger entries, and
+docs referenced by those changed entries. With `--check`, it becomes a guard for
+source changes that have no visible docs impact. The command does not rewrite
+documentation; it only surfaces whether docs were touched or intentionally
+referenced.
 
 ## Data Flow
 

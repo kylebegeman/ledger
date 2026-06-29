@@ -4,6 +4,8 @@ import { buildConflictTargets } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
 import { auditDocs, writeDocsAuditReport } from "./docs.js";
+import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
+import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
 import { createChangeEntry } from "./newEntry.js";
 import {
@@ -303,8 +305,10 @@ async function docsCommand(parsed: ParsedArgs): Promise<number> {
       return await docsAuditCommand({ strict: false });
     case "check":
       return await docsAuditCommand({ strict: true });
+    case "impact":
+      return await docsImpactCommand(parsed);
     case undefined:
-      console.error("Usage: ledger docs <audit|check>");
+      console.error("Usage: ledger docs <audit|check|impact>");
       return 2;
     default:
       console.error(`Unknown docs command: ${subcommand}`);
@@ -327,6 +331,29 @@ async function docsAuditCommand(options: { readonly strict: boolean }): Promise<
     }
   }
   return options.strict && audit.missingReferences.length > 0 ? 1 : 0;
+}
+
+async function docsImpactCommand(parsed: ParsedArgs): Promise<number> {
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const changedFiles = await getChangedFiles(workspace.projectRoot, {
+    staged: hasFlag(parsed, "staged"),
+  });
+  const impact = buildDocsImpact(workspace, documents, changedFiles);
+  await writeDocsImpactReport(workspace, impact);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(impact, null, 2));
+  } else {
+    console.log(
+      `Ledger docs impact: ${impact.sourceFiles.length} source file(s), ${impact.docsFiles.length} docs file(s), ${impact.referencedDocs.length} referenced doc(s), ${impact.missingDocsImpact.length} missing docs impact.`,
+    );
+    for (const filePath of impact.missingDocsImpact) {
+      console.log(`- missing docs impact: ${filePath}`);
+    }
+  }
+
+  return hasFlag(parsed, "check") && impact.missingDocsImpact.length > 0 ? 1 : 0;
 }
 
 function parseArgs(argv: readonly string[]): ParsedArgs {
@@ -415,6 +442,7 @@ Usage:
   ledger release <version> [--include-unreleased] [--write] [--json]
   ledger docs audit
   ledger docs check
+  ledger docs impact [--staged] [--check] [--json]
 `);
 }
 

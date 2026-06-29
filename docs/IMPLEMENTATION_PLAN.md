@@ -34,6 +34,7 @@ src/
   coverage.ts
   documents.ts
   docs.ts
+  docsImpact.ts
   frontmatter.ts
   indexer.ts
   query.ts
@@ -44,6 +45,7 @@ test/
   conflict.test.ts
   coverage.test.ts
   docs.test.ts
+  docsImpact.test.ts
   frontmatter.test.ts
   query.test.ts
   release.test.ts
@@ -132,6 +134,15 @@ writes `.ledger/reports/docs-audit.md`.
 
 Runs the docs audit and exits non-zero only when Ledger references docs that do
 not exist.
+
+### `ledger docs impact`
+
+Reads changed files from Git, classifies source files, docs files, and changed
+Ledger entries, then reports whether source changes have an explicit docs
+impact. A docs impact exists when a docs file changed directly or when a changed
+Ledger entry references docs. `--staged` inspects the staged diff, `--json`
+emits the raw model, and `--check` exits non-zero when source files lack docs
+impact.
 
 ### `ledger explain <path>`
 

@@ -162,6 +162,17 @@ export interface LedgerDocsAudit {
   readonly unreferencedDocs: readonly string[];
 }
 
+export interface LedgerDocsImpact {
+  readonly docsRoot: string;
+  readonly changedFiles: readonly string[];
+  readonly sourceFiles: readonly string[];
+  readonly docsFiles: readonly string[];
+  readonly ledgerFiles: readonly string[];
+  readonly changedEntries: readonly string[];
+  readonly referencedDocs: readonly string[];
+  readonly missingDocsImpact: readonly string[];
+}
+
 export interface LedgerCoverageResult {
   readonly changedFiles: readonly string[];
   readonly requiredFiles: readonly string[];
