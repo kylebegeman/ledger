@@ -19,7 +19,7 @@ symbols:
 docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["a6507d6"]
 ---
 
 # 0009: Add Docs Classify Command
