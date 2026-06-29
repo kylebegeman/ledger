@@ -22,7 +22,9 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "c367bb6"
+release: "v0.1.8"
 ---
 
 # 0043: Add Release Assignment Workflow
