@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readLedgerConfig } from "../src/config.js";
-import { createChangeEntry } from "../src/newEntry.js";
+import { createChangeEntry, inferAreas } from "../src/newEntry.js";
 import type { LedgerWorkspace } from "../src/types.js";
 import { initWorkspace } from "../src/workspace.js";
 
@@ -42,7 +42,7 @@ describe("createChangeEntry", () => {
       title: 'Draft "quoted" diff',
       fromDiff: true,
       staged: false,
-      areas: ["docs"],
+      areas: [],
       status: "draft",
     });
     const entry = await readFile(path.join(tempDir, createdPath), "utf8");
@@ -50,6 +50,9 @@ describe("createChangeEntry", () => {
     expect(entry).toContain('id: "0001"');
     expect(entry).toContain('title: "Draft \\"quoted\\" diff"');
     expect(entry).toContain('# 0001: Draft "quoted" diff');
+    expect(entry).toContain("areas:");
+    expect(entry).toContain('  - "docs"');
+    expect(entry).toContain('  - "feature"');
     expect(entry).toContain('  - "docs/architecture/runtime.md"');
     expect(entry).toContain("symbols:");
     expect(entry).toContain('  - "Configuration"');
@@ -59,8 +62,26 @@ describe("createChangeEntry", () => {
     expect(entry).toContain("docs:");
     expect(entry).toContain("### docs/architecture/runtime.md");
     expect(entry).toContain("- Status: modified");
+    expect(entry).toContain("summarize the documentation update");
+    expect(entry).toContain("summarize the implementation change");
     expect(entry).toContain("- Anchor: Configuration, Runtime");
     expect(entry).toContain("- Anchor: runFeature, value");
+    expect(entry).toContain("- Docs impact: This file is direct docs impact.");
+    expect(entry).toContain("- Docs impact: TODO: name updated docs");
+  });
+
+  it("infers areas from changed paths", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-new-entry-test-"));
+    await initWorkspace(tempDir, { withDocs: true });
+    const workspace = await readWorkspace();
+
+    expect(
+      inferAreas(workspace, [
+        { path: "src/runtime/session.ts", status: "modified" },
+        { path: "test/runtime/session.test.ts", status: "modified" },
+        { path: "docs/architecture/runtime.md", status: "modified" },
+      ]),
+    ).toEqual(["docs", "runtime", "tests"]);
   });
 });
 

@@ -160,6 +160,11 @@ The first coverage command is intentionally path based: files matching
 `git.ignore`. This gives CI a deterministic guard before semantic symbol
 coverage exists.
 
+Drafting from Git diffs stays conservative. Ledger can infer areas from changed
+paths, extract TypeScript and Markdown anchors, and add docs-impact prompts, but
+generated prose remains marked as TODO so agents must still verify and finish
+the entry before landing it.
+
 ### CI Summary
 
 `ledger ci` composes validation, docs audit, coverage, and docs impact into one

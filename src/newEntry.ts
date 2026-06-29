@@ -29,6 +29,7 @@ export async function createChangeEntry(
     ? await collectChangedSymbols(workspace, changedFiles)
     : { all: [], byFile: new Map<string, readonly string[]>() };
   const docs = files.filter((file) => isDocsPath(file, workspace.config.docs.root));
+  const areas = options.areas.length > 0 ? options.areas : inferAreas(workspace, changedFiles);
   const date = new Date().toISOString().slice(0, 10);
   const template = await readTemplate(workspace);
   const rendered = renderTemplate(template, {
@@ -36,11 +37,11 @@ export async function createChangeEntry(
     title: options.title,
     date,
     status: options.status,
-    areas: yamlStringArray(options.areas),
+    areas: yamlStringArray(areas),
     files: yamlStringArray(files),
     symbols: yamlStringArray(symbols.all),
     docs: yamlStringArray(docs),
-    changedFiles: renderChangedFiles(changedFiles, symbols.byFile),
+    changedFiles: renderChangedFiles(workspace, changedFiles, symbols.byFile),
   });
 
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -118,6 +119,29 @@ function yamlStringArray(values: readonly string[]): string {
   return `\n${values.map((value) => `  - "${escapeYamlString(value)}"`).join("\n")}`;
 }
 
+export function inferAreas(
+  workspace: LedgerWorkspace,
+  files: readonly GitChangedFile[],
+): readonly string[] {
+  const areas = new Set<string>();
+  const docsRoot = normalizePath(workspace.config.docs.root);
+  for (const file of files) {
+    const normalized = normalizePath(file.path);
+    const first = normalized.split("/")[0] ?? "";
+    if (isDocsPath(normalized, docsRoot)) {
+      areas.add("docs");
+    } else if (normalized.startsWith("test/") || normalized.includes("/test/") || normalized.includes("/tests/")) {
+      areas.add("tests");
+    } else if (normalized.startsWith("src/")) {
+      const [, second] = normalized.split("/");
+      areas.add(second ? areaFromSegment(second) : "src");
+    } else if (first) {
+      areas.add(areaFromSegment(first));
+    }
+  }
+  return [...areas].sort();
+}
+
 interface ChangedSymbols {
   readonly all: readonly string[];
   readonly byFile: ReadonlyMap<string, readonly string[]>;
@@ -193,6 +217,7 @@ function extractMarkdownSymbols(raw: string): readonly string[] {
 }
 
 function renderChangedFiles(
+  workspace: LedgerWorkspace,
   files: readonly GitChangedFile[],
   symbolsByFile: ReadonlyMap<string, readonly string[]> = new Map(),
 ): string {
@@ -204,12 +229,40 @@ function renderChangedFiles(
         `### ${file.path}`,
         "",
         `- Status: ${file.status}`,
-        "- What changed: TODO: summarize the change.",
+        `- What changed: TODO: ${draftChangePrompt(workspace, file)}`,
         `- Anchor: ${anchors.length > 0 ? anchors.join(", ") : "TODO: name the important symbol, route, command, or section."}`,
         "- On conflict: TODO: describe what must be preserved.",
+        `- Docs impact: ${draftDocsImpact(workspace, file)}`,
       ].join("\n");
     })
     .join("\n\n");
+}
+
+function draftChangePrompt(workspace: LedgerWorkspace, file: GitChangedFile): string {
+  if (file.status === "added") return "describe the new behavior or documentation introduced here.";
+  if (file.status === "deleted") return "describe what was removed and what replaced the old behavior.";
+  if (isDocsPath(file.path, workspace.config.docs.root)) {
+    return "summarize the documentation update and the source behavior it explains.";
+  }
+  if (file.path.startsWith("test/") || file.path.includes("/test/") || file.path.includes("/tests/")) {
+    return "summarize the behavior now covered or protected by this test change.";
+  }
+  return "summarize the implementation change and the user, agent, or maintainer impact.";
+}
+
+function draftDocsImpact(workspace: LedgerWorkspace, file: GitChangedFile): string {
+  if (isDocsPath(file.path, workspace.config.docs.root)) {
+    return "This file is direct docs impact.";
+  }
+  return "TODO: name updated docs, explain why docs were not needed, or add a docs file to this entry.";
+}
+
+function areaFromSegment(segment: string): string {
+  return segment
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
 }
 
 function isDocsPath(filePath: string, docsRoot: string): boolean {

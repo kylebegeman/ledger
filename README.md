@@ -126,7 +126,8 @@ ledger new "Add provider reconnect guard" --from-diff --area runtime
 ```
 
 Ledger drafts a Markdown entry with changed files, detected TypeScript or
-Markdown symbols, likely docs impact, and a per-file conflict checklist.
+Markdown symbols, inferred areas, docs impact prompts, and a per-file conflict
+checklist.
 
 Open the generated file, finish the narrative, then run:
 

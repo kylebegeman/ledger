@@ -43,6 +43,8 @@ Deliverables:
 
 ## Phase 2: Git-Aware Drafting
 
+Status: smarter drafting slice landed
+
 Goals:
 
 - `ledger new --from-diff`
@@ -57,6 +59,7 @@ Deliverables:
 - `ledger coverage`
 - `ledger new --from-diff --staged`
 - initial symbol extraction for TypeScript and Markdown headings
+- inferred areas and docs-impact prompts for drafts
 
 ## Phase 3: Explain And Query
 
