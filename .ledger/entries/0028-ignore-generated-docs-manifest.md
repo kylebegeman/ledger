@@ -19,6 +19,7 @@ symbols:
   - "coveragePolicy"
 docs:
   - "docs/SCHEMA.md"
+release: "v0.1.2"
 commits: ["967193a"]
 ---
 

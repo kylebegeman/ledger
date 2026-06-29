@@ -21,6 +21,7 @@ symbols:
 docs:
   - "docs/ROADMAP.md"
   - "docs/IMPLEMENTATION_PLAN.md"
+release: "v0.1.2"
 commits: ["5835fdd"]
 ---
 

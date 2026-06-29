@@ -18,6 +18,7 @@ symbols:
   - "LedgerIndexes"
 docs:
   - "docs/ARCHITECTURE.md"
+release: "v0.1.2"
 commits: ["2ddfa5c"]
 ---
 

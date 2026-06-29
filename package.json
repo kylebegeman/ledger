@@ -1,6 +1,6 @@
 {
   "name": "ledger",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Repo-native change memory for humans and coding agents.",
   "type": "module",
   "keywords": [

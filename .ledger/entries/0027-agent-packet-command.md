@@ -20,6 +20,7 @@ symbols:
 docs:
   - "docs/ROADMAP.md"
   - "docs/ARCHITECTURE.md"
+release: "v0.1.2"
 commits: ["e81f6b4"]
 ---
 

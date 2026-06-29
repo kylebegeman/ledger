@@ -15,6 +15,7 @@ symbols:
   - "readBundledIcon"
 docs:
   - "docs/PRODUCT.md"
+release: "v0.1.2"
 commits: ["c007784"]
 ---
 
