@@ -20,7 +20,8 @@ symbols:
 docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
-commits: []
+commits:
+  - "1ec3e36"
 release: "v0.1.10"
 ---
 
