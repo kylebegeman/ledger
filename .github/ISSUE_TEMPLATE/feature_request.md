@@ -18,6 +18,17 @@ What should be true when this exists?
 
 What is included, and what should stay out?
 
+## Ledger Surface
+
+Which surface should change?
+
+- [ ] CLI
+- [ ] TypeScript API
+- [ ] Markdown schema
+- [ ] Generated reports or reader
+- [ ] Agent integration
+- [ ] Docs workflow
+
 ## Notes
 
 Related commands, docs, or prior art.

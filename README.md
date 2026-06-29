@@ -343,11 +343,15 @@ Development happens on `next`. Stable releases are promoted to `master`.
 
 ```bash
 npm ci
-npm run check
-npm run build
-node dist/cli.js ci
-npm pack --dry-run
+npm run ci
 ```
+
+`npm run ci` runs typecheck, tests, build, Ledger's own CI checks, and an npm
+package dry run.
+
+Tagged releases use `.github/workflows/release.yml`. When `NPM_TOKEN` is set in
+repository secrets, pushing `vX.Y.Z` publishes the verified package to npm with
+provenance.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) and [SECURITY.md](./SECURITY.md).
 

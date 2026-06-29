@@ -21,11 +21,15 @@ ledger --version
 ledger validate
 ```
 
+Please include the smallest Ledger fixture or repository state that reproduces
+the issue. Remove private project notes before attaching `.ledger/` files.
+
 ## Environment
 
 - OS:
 - Node:
 - Ledger version or commit:
+- Install method:
 
 ## Additional Context
 

@@ -1,23 +1,21 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches:
-      - master
-      - next
-  pull_request:
-    branches:
-      - master
-      - next
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
-  test:
-    name: Test
+  publish:
+    name: Publish npm package
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
       - name: Checkout
@@ -28,9 +26,16 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          registry-url: https://registry.npmjs.org
 
       - name: Install
         run: npm ci
 
       - name: Verify
         run: npm run ci
+
+      - name: Publish
+        if: ${{ env.NPM_TOKEN != '' }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}

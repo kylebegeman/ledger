@@ -37,7 +37,10 @@
     "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/cli.js', 0o755)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "ledger:ci": "node dist/cli.js ci",
+    "pack:dry-run": "npm pack --dry-run",
+    "ci": "npm run check && npm run build && npm run ledger:ci && npm run pack:dry-run"
   },
   "engines": {
     "node": ">=20"
