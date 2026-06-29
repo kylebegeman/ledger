@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/mrbagels/ledger">
-    <img src="./assets/ledger.svg" alt="Ledger" width="128" height="128">
+    <img src="./assets/ledger.svg" alt="Ledger notebook icon" width="128" height="128">
   </a>
 </p>
 
