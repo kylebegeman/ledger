@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -109,6 +109,7 @@ describe("assertReleaseDocumentWritable", () => {
   it("allows missing release files", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-release-test-"));
     await expect(assertReleaseDocumentWritable(workspaceFor(tempDir), "v1.2.3")).resolves.toBeUndefined();
+    await expect(access(path.join(tempDir, ".ledger", "releases"))).resolves.toBeUndefined();
   });
 });
 

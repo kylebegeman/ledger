@@ -186,7 +186,10 @@ Release generation can either render records already assigned to a version or
 select currently unreleased landed work. With `--assign`, Ledger writes the
 selected release version back to the selected change entries before writing the
 release record. This keeps the release document and source entries in sync while
-still making metadata mutation explicit.
+still making metadata mutation explicit. When `--assign` and `--write` are used
+together, Ledger must preflight release output readiness before mutating entries:
+it prepares the releases directory, checks writability, rejects existing release
+files, then still relies on exclusive file creation for the final write.
 
 ### MCP Server
 
@@ -321,8 +324,11 @@ renders a valid release document from entries assigned to that version, or from
 the unreleased set when `--include-unreleased` is supplied. Release versions must
 be semver-like, optional `--status planned|released` and `--date yyyy-mm-dd`
 flags control frontmatter, and `--write` creates a new file under
-`.ledger/releases` without overwriting existing release records. Rendered
-release Markdown separates public notes from internal Ledger entry details.
+`.ledger/releases` without overwriting existing release records. When `--assign`
+and `--write` are combined, Ledger checks release output readiness before
+mutating entry frontmatter so a failed release-file write does not leave entries
+partially assigned. Rendered release Markdown separates public notes from
+internal Ledger entry details.
 
 ### `ledger conflict <path...>`
 

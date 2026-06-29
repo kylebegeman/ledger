@@ -85,6 +85,8 @@ export async function assertReleaseDocumentWritable(
 ): Promise<void> {
   validateReleaseVersion(version);
   const releasePath = releaseDocumentPath(workspace, version);
+  await mkdir(path.dirname(releasePath), { recursive: true });
+  await access(path.dirname(releasePath), constants.W_OK);
   try {
     await access(releasePath, constants.F_OK);
   } catch {
