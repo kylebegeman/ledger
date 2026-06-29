@@ -51,6 +51,8 @@ After this package is linked or published, the intended CLI shape is:
 ```bash
 ledger init
 ledger init --with-docs
+ledger help new
+ledger version
 ledger new "Port upstream runtime fixes" --from-diff
 ledger validate
 ledger index
@@ -66,6 +68,16 @@ ledger unreleased
 ledger release v0.1.0 --include-unreleased --write
 ledger docs classify docs/llm/START_HERE.md --json
 ledger docs impact --check
+```
+
+## Command Help
+
+Every command has focused help:
+
+```bash
+ledger help render
+ledger docs impact --help
+ledger release --help
 ```
 
 ## Project Shape

@@ -31,10 +31,17 @@ interface ParsedArgs {
   readonly flags: Record<string, readonly string[]>;
 }
 
+const version = "0.1.0";
+
 export async function run(argv = process.argv.slice(2)): Promise<number> {
   const parsed = parseArgs(argv);
 
   try {
+    if (parsed.command && hasFlag(parsed, "help")) {
+      printHelp(helpTopicForCommand(parsed));
+      return 0;
+    }
+
     switch (parsed.command) {
       case "init":
         await initWorkspace(process.cwd(), { withDocs: hasFlag(parsed, "with-docs") });
@@ -78,6 +85,15 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
         return await docsCommand(parsed);
 
       case "help":
+        printHelp(parsed.positionals.join(" "));
+        return 0;
+
+      case "version":
+      case "--version":
+      case "-v":
+        console.log(`ledger ${version}`);
+        return 0;
+
       case "--help":
       case "-h":
       case undefined:
@@ -462,6 +478,10 @@ function flagValues(parsed: ParsedArgs, flag: string): readonly string[] {
   return parsed.flags[flag] ?? [];
 }
 
+function helpTopicForCommand(parsed: ParsedArgs): string {
+  return [parsed.command, ...parsed.positionals].filter(Boolean).join(" ");
+}
+
 function printValidation(errors: number, warnings: number): void {
   console.log(`Ledger validation: ${errors} error(s), ${warnings} warning(s).`);
 }
@@ -499,10 +519,135 @@ function printAgentExplanation(
   }
 }
 
-function printHelp(): void {
-  console.log(`Ledger
+function printHelp(topic?: string): void {
+  console.log(helpText(topic));
+}
+
+function helpText(topic?: string): string {
+  switch (topic?.trim()) {
+    case "init":
+      return `Ledger init
 
 Usage:
+  ledger init [--with-docs]
+
+Creates .ledger/ in the current directory. With --with-docs, also creates the
+managed docs/ directory structure.`;
+    case "new":
+      return `Ledger new
+
+Usage:
+  ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
+
+Creates the next numbered change entry. Use --from-diff to prefill files from
+Git changes and --staged to read the staged diff.`;
+    case "validate":
+      return `Ledger validate
+
+Usage:
+  ledger validate
+
+Validates Ledger source records and writes .ledger/reports/latest-validation.md.`;
+    case "index":
+      return `Ledger index
+
+Usage:
+  ledger index
+
+Validates records and writes JSON indexes under .ledger/indexes.`;
+    case "render":
+      return `Ledger render
+
+Usage:
+  ledger render [--json]
+
+Builds the offline static reader at .ledger/dist/index.html.`;
+    case "coverage":
+      return `Ledger coverage
+
+Usage:
+  ledger coverage [--staged] [--json]
+
+Checks changed files against git.requireEntryFor and Ledger file coverage.`;
+    case "ci":
+      return `Ledger ci
+
+Usage:
+  ledger ci [--staged] [--json]
+
+Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.`;
+    case "conflict":
+      return `Ledger conflict
+
+Usage:
+  ledger conflict <path...> [--json]
+
+Shows file-specific conflict rules, invariants, and verification commands.`;
+    case "explain":
+      return `Ledger explain
+
+Usage:
+  ledger explain <path> [--json] [--agent]
+
+Shows Ledger records that mention a path. --agent prints compact context.`;
+    case "query":
+      return `Ledger query
+
+Usage:
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]
+
+Filters Ledger records by metadata.`;
+    case "unreleased":
+      return `Ledger unreleased
+
+Usage:
+  ledger unreleased [--json]
+
+Lists landed or shipped change entries without a release assignment.`;
+    case "release":
+      return `Ledger release
+
+Usage:
+  ledger release <version> [--include-unreleased] [--write] [--json]
+
+Renders a valid Ledger release record. --write creates .ledger/releases/<version>.md.`;
+    case "docs":
+      return `Ledger docs
+
+Usage:
+  ledger docs audit
+  ledger docs check
+  ledger docs classify [path...] [--json]
+  ledger docs impact [--staged] [--check] [--json]`;
+    case "docs audit":
+    case "docs check":
+      return `Ledger docs audit/check
+
+Usage:
+  ledger docs audit
+  ledger docs check
+
+Audits docs references. check exits non-zero for missing Ledger-referenced docs.`;
+    case "docs classify":
+      return `Ledger docs classify
+
+Usage:
+  ledger docs classify [path...] [--json]
+
+Classifies docs paths as durable, routing, scratch, generated, or unknown.`;
+    case "docs impact":
+      return `Ledger docs impact
+
+Usage:
+  ledger docs impact [--staged] [--check] [--json]
+
+Reports whether changed source files have an explicit docs impact.`;
+    default:
+      return `Ledger
+
+Usage:
+  ledger help [command]
+  ledger version
   ledger init
   ledger init --with-docs
   ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
@@ -520,7 +665,13 @@ Usage:
   ledger docs check
   ledger docs classify [path...] [--json]
   ledger docs impact [--staged] [--check] [--json]
-`);
+
+Examples:
+  ledger new "Add provider retry policy" --from-diff --area server
+  ledger explain src/cli.ts --agent
+  ledger release v0.1.0 --include-unreleased
+  ledger ci --json`;
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
