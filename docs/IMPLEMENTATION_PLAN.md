@@ -39,6 +39,7 @@ src/
   indexer.ts
   query.ts
   release.ts
+  render.ts
   validate.ts
   workspace.ts
 test/
@@ -49,6 +50,7 @@ test/
   frontmatter.test.ts
   query.test.ts
   release.test.ts
+  render.test.ts
   validate.test.ts
 docs/
   PRODUCT.md
@@ -111,6 +113,13 @@ Writes:
 - `.ledger/indexes/by-area.json`
 - `.ledger/indexes/by-release.json`
 - `.ledger/indexes/by-symbol.json`
+
+### `ledger render`
+
+Validates the catalog and writes `.ledger/dist/index.html`, a single-file
+offline reader generated from source Markdown. The first reader embeds normalized
+Ledger data, shows summary counts, supports client-side filters, and exposes the
+Markdown source for each record. `--json` emits the render result for automation.
 
 ### `ledger coverage`
 

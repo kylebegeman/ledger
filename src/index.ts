@@ -10,6 +10,7 @@ export * from "./indexer.js";
 export * from "./newEntry.js";
 export * from "./query.js";
 export * from "./release.js";
+export * from "./render.js";
 export * from "./types.js";
 export * from "./validate.js";
 export * from "./workspace.js";

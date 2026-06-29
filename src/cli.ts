@@ -19,6 +19,7 @@ import {
   getUnreleasedChanges,
   writeReleaseDocument,
 } from "./release.js";
+import { buildStaticReaderModel, writeStaticReader } from "./render.js";
 import type { ParsedLedgerDocument } from "./types.js";
 import { validateDocuments, writeValidationReport } from "./validate.js";
 import { findWorkspace, initWorkspace } from "./workspace.js";
@@ -44,6 +45,9 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
 
       case "index":
         return await indexCommand();
+
+      case "render":
+        return await renderCommand(parsed);
 
       case "explain":
         return await explainCommand(parsed);
@@ -107,6 +111,27 @@ async function indexCommand(): Promise<number> {
   }
   await writeIndexes(workspace, buildIndexes(workspace, documents));
   console.log(`Indexed ${documents.length} Ledger documents.`);
+  return 0;
+}
+
+async function renderCommand(parsed: ParsedArgs): Promise<number> {
+  const workspace = await findWorkspace();
+  const documents = await readLedgerDocuments(workspace);
+  const result = validateDocuments(workspace, documents);
+  if (result.errors.length > 0) {
+    await writeValidationReport(workspace, result);
+    printValidation(result.errors.length, result.warnings.length);
+    return 1;
+  }
+
+  const model = buildStaticReaderModel(workspace, documents);
+  const rendered = await writeStaticReader(workspace, model);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(rendered, null, 2));
+  } else {
+    console.log(`Rendered ${rendered.documents} Ledger document(s) to ${rendered.outputPath}.`);
+  }
   return 0;
 }
 
@@ -456,6 +481,7 @@ Usage:
   ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
   ledger validate
   ledger index
+  ledger render [--json]
   ledger coverage [--staged] [--json]
   ledger conflict <path...> [--json]
   ledger explain <path> [--json] [--agent]

@@ -34,6 +34,7 @@ npm test
 
 node dist/cli.js validate
 node dist/cli.js index
+node dist/cli.js render
 node dist/cli.js coverage
 node dist/cli.js conflict README.md
 node dist/cli.js unreleased
@@ -52,6 +53,7 @@ ledger init --with-docs
 ledger new "Port upstream runtime fixes" --from-diff
 ledger validate
 ledger index
+ledger render
 ledger coverage
 ledger docs audit
 ledger conflict apps/server/src/ws.ts
