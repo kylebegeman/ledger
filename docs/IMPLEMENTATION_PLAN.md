@@ -235,6 +235,8 @@ Warnings:
 - missing verification detail
 - file references that do not exist
 - unknown fields
+- missing changed-file references when `requireChangedFiles` is enabled
+- missing invariant detail when `requireInvariants` is enabled
 
 ## Testing Strategy
 

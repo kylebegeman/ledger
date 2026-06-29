@@ -346,6 +346,10 @@ git:
 `ledger coverage` uses this config to compare Git changed files against paths
 listed by Ledger entries.
 
+`ledger validate` also uses `git.ignore` when warning about missing `files` or
+`docs` references, so generated outputs can stay out of source-control and
+validation churn.
+
 ## Config Validation
 
 `.ledger/config.yaml` must be a YAML object. Known nested config sections must

@@ -42,10 +42,26 @@ describe("Ledger validation", () => {
       true,
     );
   });
+
+  it("warns about metadata and reference quality issues", async () => {
+    const workspace = await createFixtureWorkspace({ qualityIssues: true });
+    const documents = await readLedgerDocuments(workspace);
+    const result = validateDocuments(workspace, documents);
+    const messages = result.warnings.map((issue) => issue.message);
+
+    expect(messages).toContain("updated is missing");
+    expect(messages).toContain("files is empty");
+    expect(messages).toContain("invariants section is empty or too short");
+    expect(messages).toContain('unknown frontmatter field "customField"');
+    expect(messages).toContain("docs reference does not exist: docs/missing.md");
+  });
 });
 
-async function createFixtureWorkspace(options: { duplicate?: boolean } = {}): Promise<LedgerWorkspace> {
+async function createFixtureWorkspace(
+  options: { duplicate?: boolean; qualityIssues?: boolean } = {},
+): Promise<LedgerWorkspace> {
   tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-test-"));
+  await mkdir(path.join(tempDir, "src"), { recursive: true });
   await mkdir(path.join(tempDir, ".ledger", "entries"), { recursive: true });
   await mkdir(path.join(tempDir, ".ledger", "backlog"), { recursive: true });
   await mkdir(path.join(tempDir, ".ledger", "decisions"), { recursive: true });
@@ -77,9 +93,19 @@ render:
 `,
   );
   await writeFile(
+    path.join(tempDir, "src", "cli.ts"),
+    "export function run() {}\n",
+  );
+  await writeFile(
     path.join(tempDir, ".ledger", "entries", "0001-test.md"),
     entry("0001"),
   );
+  if (options.qualityIssues) {
+    await writeFile(
+      path.join(tempDir, ".ledger", "entries", "0002-quality-issues.md"),
+      qualityIssueEntry(),
+    );
+  }
   if (options.duplicate) {
     await writeFile(
       path.join(tempDir, ".ledger", "entries", "0001-duplicate.md"),
@@ -94,6 +120,44 @@ render:
     configPath,
     config: await readLedgerConfig(configPath),
   };
+}
+
+function qualityIssueEntry(): string {
+  return `---
+id: "0002"
+kind: "change"
+title: "Quality issues"
+date: "2026-06-29"
+status: "landed"
+areas: ["cli"]
+files: []
+docs:
+  - "docs/missing.md"
+customField: true
+---
+
+# 0002: Quality Issues
+
+## Summary
+
+Adds a test entry.
+
+## Why
+
+Testing.
+
+## Changed Files
+
+## Behavior And UX Impact
+
+None.
+
+## Invariants
+
+## Verification
+
+- npm test
+`;
 }
 
 function entry(id: string): string {
