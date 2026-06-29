@@ -17,6 +17,7 @@ import {
 import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
+import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
 import { startLedgerMcpServer } from "./mcp.js";
 import { createChangeEntry } from "./newEntry.js";
 import { buildAgentPacket, formatAgentPacket, writeAgentPacketReport } from "./packet.js";
@@ -76,6 +77,9 @@ export async function run(
 
       case "index":
         return await indexCommand(context);
+
+      case "verify-integrity":
+        return await verifyIntegrityCommand(parsed, context);
 
       case "render":
         return await renderCommand(parsed, context);
@@ -160,6 +164,24 @@ async function indexCommand(context: RunContext): Promise<number> {
   }
   await writeIndexes(workspace, buildIndexes(workspace, documents));
   console.log(`Indexed ${documents.length} Ledger documents.`);
+  return 0;
+}
+
+async function verifyIntegrityCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const report = buildIntegrityReport(workspace, documents);
+  const written = await writeIntegrityArtifacts(workspace, report);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ ...report, written }, null, 2));
+    return 0;
+  }
+
+  console.log(
+    `Ledger integrity: ${report.documents.length} document(s), catalog ${report.catalogHash}.`,
+  );
+  console.log(`Wrote ${written.indexPath} and ${written.reportPath}.`);
   return 0;
 }
 
@@ -688,6 +710,14 @@ Usage:
   ledger index
 
 Validates records and writes JSON indexes under .ledger/indexes.`;
+    case "verify-integrity":
+      return `Ledger verify-integrity
+
+Usage:
+  ledger verify-integrity [--json]
+
+Writes source record hashes to .ledger/indexes/integrity.json and a readable
+report to .ledger/reports/integrity.md.`;
     case "render":
       return `Ledger render
 
@@ -822,6 +852,7 @@ Usage:
   ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
   ledger validate
   ledger index
+  ledger verify-integrity [--json]
   ledger render [--json]
   ledger coverage [--staged] [--json]
   ledger ci [--staged] [--json]
@@ -843,6 +874,7 @@ Examples:
   ledger new "Add provider retry policy" --from-diff --area server
   ledger explain src/cli.ts --agent
   ledger packet src/cli.ts
+  ledger verify-integrity
   ledger release v0.1.0 --include-unreleased
   ledger ci --json`;
   }

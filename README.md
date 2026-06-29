@@ -175,6 +175,7 @@ Until then, use the source checkout or a local package link.
 | `ledger new "Title" --from-diff` | Drafts a change entry from git status. |
 | `ledger validate` | Parses and validates Ledger source documents. |
 | `ledger index` | Writes JSON indexes under `.ledger/indexes/`. |
+| `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. |
 | `ledger render` | Builds the static HTML reader. |
 | `ledger coverage` | Checks that changed source paths have Ledger coverage. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
@@ -320,6 +321,13 @@ Ledger can scaffold and audit `docs/`, but it does not try to become a docs CMS.
 `ledger docs reconcile` keeps agent routing files current, and
 `ledger docs migrate` reports scratch, generated, unknown, missing, and
 unreferenced docs that may need cleanup.
+
+## Integrity
+
+Use `ledger verify-integrity` to generate a deterministic SHA-256 hash for every
+Ledger source record plus a catalog hash for the current record set. Ledger
+writes `.ledger/indexes/integrity.json` for tools and
+`.ledger/reports/integrity.md` for review.
 
 ## Library Usage
 

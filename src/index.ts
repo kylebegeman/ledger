@@ -8,6 +8,7 @@ export * from "./docsImpact.js";
 export * from "./frontmatter.js";
 export * from "./git.js";
 export * from "./indexer.js";
+export * from "./integrity.js";
 export * from "./mcp.js";
 export * from "./newEntry.js";
 export * from "./packet.js";

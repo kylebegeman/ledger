@@ -192,6 +192,8 @@ Deliverables:
 
 ## Phase 9: Integrity And Evidence
 
+Status: first integrity slice landed
+
 Goals:
 
 - optional signed records

@@ -68,6 +68,7 @@ export const defaultConfig: LedgerConfig = {
       ".ledger/reports/**",
       ".ledger/dist/**",
       "docs/llm/manifest.json",
+      "docs/llm/START_HERE.md",
       "node_modules/**",
       "dist/**",
     ],

@@ -167,6 +167,14 @@ result. It does not replace the individual commands; it packages their current
 state for CI, local preflight checks, and agent automation. Human output is
 compact, while JSON output preserves the nested results for tools.
 
+### Integrity
+
+`ledger verify-integrity` hashes each source Markdown record with SHA-256 and
+combines those hashes into a deterministic catalog hash. It writes a JSON index
+for tooling and a Markdown report for review. This is not signing or tamper
+proofing by itself; it gives releases, agents, and CI a stable provenance
+artifact to compare over time.
+
 ### MCP Server
 
 `ledger mcp` starts a local stdio Model Context Protocol server. The MCP surface
