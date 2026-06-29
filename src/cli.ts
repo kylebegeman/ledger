@@ -28,6 +28,7 @@ import {
   queryDocuments,
 } from "./query.js";
 import {
+  assignEntriesToRelease,
   buildReleaseDocument,
   getUnreleasedChanges,
   writeReleaseDocument,
@@ -349,7 +350,7 @@ async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<
   const version = parsed.positionals[0];
   if (!version) {
     console.error(
-      "Usage: ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]",
+      "Usage: ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]",
     );
     return 2;
   }
@@ -363,15 +364,21 @@ async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<
     date: flagValues(parsed, "date")[0],
     status,
   });
+  const assignment = hasFlag(parsed, "assign")
+    ? await assignEntriesToRelease(workspace, release.entries, version)
+    : undefined;
   const writtenPath = hasFlag(parsed, "write")
     ? await writeReleaseDocument(workspace, release)
     : undefined;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ ...release, writtenPath }, null, 2));
+    console.log(JSON.stringify({ ...release, assignment, writtenPath }, null, 2));
     return 0;
   }
 
+  if (assignment) {
+    console.log(`Assigned ${assignment.updatedEntries.length} entr${assignment.updatedEntries.length === 1 ? "y" : "ies"} to ${version}.`);
+  }
   if (writtenPath) {
     console.log(`Wrote ${writtenPath}`);
   } else {
@@ -788,9 +795,10 @@ Lists landed or shipped change entries without a release assignment.`;
       return `Ledger release
 
 Usage:
-  ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
+  ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
 
 Renders a valid Ledger release record. status is planned or released.
+--assign writes the selected release version back to selected entries.
 --write creates .ledger/releases/<version>.md.`;
     case "docs":
       return `Ledger docs
@@ -862,7 +870,7 @@ Usage:
   ledger packet <path> [--json] [--write-report]
   ledger mcp
   ledger unreleased [--json]
-  ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
+  ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
   ledger docs audit
   ledger docs check
   ledger docs classify [path...] [--json]

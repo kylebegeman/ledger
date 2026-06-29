@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import type {
@@ -18,6 +18,11 @@ export interface LedgerReleaseDocument {
   readonly status: "planned" | "released";
   readonly entries: readonly NormalizedLedgerDocument[];
   readonly markdown: string;
+}
+
+export interface AssignReleaseResult {
+  readonly version: string;
+  readonly updatedEntries: readonly string[];
 }
 
 export function getUnreleasedChanges(
@@ -72,6 +77,34 @@ export async function writeReleaseDocument(
   await mkdir(releaseDirectory, { recursive: true });
   await writeFile(releasePath, document.markdown, { encoding: "utf8", flag: "wx" });
   return normalizePath(path.relative(workspace.projectRoot, releasePath));
+}
+
+export async function assignEntriesToRelease(
+  workspace: LedgerWorkspace,
+  entries: readonly NormalizedLedgerDocument[],
+  version: string,
+): Promise<AssignReleaseResult> {
+  validateReleaseVersion(version);
+  const updatedEntries: string[] = [];
+  for (const entry of entries) {
+    const absolutePath = path.join(workspace.projectRoot, entry.path);
+    const updated = assignReleaseInMarkdown(await readFile(absolutePath, "utf8"), version);
+    await writeFile(absolutePath, updated, "utf8");
+    updatedEntries.push(entry.path);
+  }
+  return { version, updatedEntries };
+}
+
+export function assignReleaseInMarkdown(markdown: string, version: string): string {
+  validateReleaseVersion(version);
+  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
+  if (!match) throw new Error("Cannot assign release: missing YAML frontmatter");
+  const frontmatter = match[1] ?? "";
+  const releaseLine = `release: "${escapeYamlString(version)}"`;
+  const updatedFrontmatter = /^\s*release\s*:/m.test(frontmatter)
+    ? frontmatter.replace(/^\s*release\s*:.*$/m, releaseLine)
+    : `${frontmatter}\n${releaseLine}`;
+  return markdown.replace(match[0], `---\n${updatedFrontmatter}\n---`);
 }
 
 export function formatReleaseMarkdown(

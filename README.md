@@ -32,9 +32,15 @@
 
 ---
 
-Ledger is a small CLI and TypeScript library for keeping implementation
+Ledger is an agent-first CLI and TypeScript library for keeping implementation
 history, backlog, durable decisions, release notes, verification records,
 invariants, docs impact, and merge-conflict guidance inside your repository.
+
+The primary design target is coding agents: compact retrieval, MCP tools,
+conflict guidance, docs impact checks, and durable handoff records that survive
+between sessions. Human use is fully supported through the CLI and generated
+reader, but the structure is intentionally optimized so agents can read, query,
+and act on the history without guessing from Git alone.
 
 The source of truth is plain Markdown under `.ledger/`. Generated indexes,
 reports, release notes, and a static reader make those records useful for
@@ -45,7 +51,8 @@ automation without making the project dependent on a hosted service.
 | Question | Answer |
 | --- | --- |
 | What is it? | A structured change memory layer for software repos. |
-| Who uses it? | Maintainers, reviewers, coding agents, and fork maintainers. |
+| Primary audience | Coding agents that need durable implementation memory. |
+| Human workflow | Fully available through the CLI, Markdown records, reports, and static reader. |
 | Source format | Markdown with YAML frontmatter. |
 | Default root | `.ledger/` |
 | Runtime | Node >=20 |
@@ -190,7 +197,7 @@ Until then, use the source checkout or a local package link.
 | `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
 | `ledger query --kind change --area cli --symbol run --text retry` | Filters records by kind, area, status, release, relationship, symbol, file, doc, id, or metadata text. |
 | `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
-| `ledger release v0.1.1 --status released --write` | Writes a release record. |
+| `ledger release v0.1.1 --include-unreleased --assign --status released --write` | Assigns selected entries and writes a release record. |
 | `ledger ci` | Runs validation, docs audit, coverage, and docs impact together. |
 
 Every command has focused help:
@@ -300,6 +307,13 @@ Or preview currently unreleased work without writing:
 
 ```bash
 ledger release v0.1.1 --include-unreleased --status planned
+```
+
+To promote currently unreleased landed work and write the release record in one
+step:
+
+```bash
+ledger release v0.1.1 --include-unreleased --assign --status released --write
 ```
 
 The generated release document includes public notes, internal entry details,

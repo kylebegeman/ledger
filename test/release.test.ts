@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import {
+  assignReleaseInMarkdown,
   buildReleaseDocument,
   formatReleaseMarkdown,
   getReleaseChanges,
@@ -57,6 +58,25 @@ describe("formatReleaseMarkdown", () => {
     expect(formatReleaseMarkdown("v0.1.0", [], { date: "2026-06-29" })).toContain(
       "- No matching Ledger entries.",
     );
+  });
+});
+
+describe("assignReleaseInMarkdown", () => {
+  it("adds release frontmatter when missing", () => {
+    const updated = assignReleaseInMarkdown(markdownWithoutRelease(), "v1.2.3");
+
+    expect(updated).toContain('release: "v1.2.3"\n---');
+    expect(updated).toContain("# 0001: Test");
+  });
+
+  it("replaces existing release frontmatter", () => {
+    const updated = assignReleaseInMarkdown(
+      markdownWithoutRelease().replace('commits: []', 'commits: []\nrelease: null'),
+      "v1.2.3",
+    );
+
+    expect(updated).toContain('release: "v1.2.3"');
+    expect(updated).not.toContain("release: null");
   });
 });
 
@@ -128,4 +148,20 @@ Impact.
     sections: parsed.sections,
     kind: "change",
   };
+}
+
+function markdownWithoutRelease(): string {
+  return `---
+id: "0001"
+kind: "change"
+title: "Test"
+date: "2026-06-29"
+status: "landed"
+areas: ["release"]
+files: ["src/release.ts"]
+commits: []
+---
+
+# 0001: Test
+`;
 }

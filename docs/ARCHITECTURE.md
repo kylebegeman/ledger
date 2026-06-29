@@ -175,6 +175,14 @@ for tooling and a Markdown report for review. This is not signing or tamper
 proofing by itself; it gives releases, agents, and CI a stable provenance
 artifact to compare over time.
 
+### Release Workflow
+
+Release generation can either render records already assigned to a version or
+select currently unreleased landed work. With `--assign`, Ledger writes the
+selected release version back to the selected change entries before writing the
+release record. This keeps the release document and source entries in sync while
+still making metadata mutation explicit.
+
 ### MCP Server
 
 `ledger mcp` starts a local stdio Model Context Protocol server. The MCP surface

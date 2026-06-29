@@ -128,6 +128,8 @@ Deliverables:
 
 ## Phase 5: Release Workflow
 
+Status: assign workflow landed
+
 Goals:
 
 - group entries by release
@@ -140,6 +142,7 @@ Deliverables:
 - `ledger release vX.Y.Z`
 - `ledger unreleased`
 - release Markdown templates
+- release assignment back to selected change entries
 
 ## Phase 6: Static Reader
 
