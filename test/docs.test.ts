@@ -9,7 +9,11 @@ import {
   buildDocsRoutingManifest,
   classifyDocsFile,
   classifyDocsPaths,
+  formatDocsMigrationReport,
+  formatDocsStartHere,
+  writeDocsMigrationReport,
   writeDocsRoutingManifest,
+  writeDocsStartHere,
 } from "../src/docs.js";
 import type { LedgerWorkspace } from "../src/types.js";
 
@@ -47,14 +51,19 @@ describe("docs audit", () => {
 
     expect(audit.missingReferences).toEqual(["docs/missing.md"]);
     expect(audit.unreferencedDocs).toEqual(["docs/architecture/unreferenced.md"]);
+    expect(audit.scratchDocs).toEqual(["docs/scratchpad/note.md"]);
+    expect(audit.generatedDocs).toEqual(["docs/generated/report.json"]);
+    expect(audit.unknownDocs).toEqual(["docs/misc/note.md"]);
   });
 
-  it("builds and writes a docs routing manifest", async () => {
+  it("builds and writes docs routing outputs", async () => {
     const workspace = await createFixtureWorkspace();
     const documents = await readLedgerDocuments(workspace);
     const audit = await auditDocs(workspace, documents);
     const manifest = buildDocsRoutingManifest(audit);
     const writtenPath = await writeDocsRoutingManifest(workspace, manifest);
+    const startHerePath = await writeDocsStartHere(workspace, audit);
+    const startHere = formatDocsStartHere(audit);
 
     expect(manifest.generatedBy).toBe("ledger");
     expect(manifest.docsRoot).toBe("docs");
@@ -64,6 +73,22 @@ describe("docs audit", () => {
     });
     expect(manifest.routes.some((route) => route.classification === "generated")).toBe(false);
     expect(writtenPath).toBe("docs/llm/manifest.json");
+    expect(startHerePath).toBe("docs/llm/START_HERE.md");
+    expect(startHere).toContain("## Durable Docs");
+    expect(startHere).toContain("docs/architecture/runtime.md");
+  });
+
+  it("writes a docs migration report", async () => {
+    const workspace = await createFixtureWorkspace();
+    const documents = await readLedgerDocuments(workspace);
+    const audit = await auditDocs(workspace, documents);
+    const reportPath = await writeDocsMigrationReport(workspace, audit);
+    const report = formatDocsMigrationReport(audit);
+
+    expect(reportPath).toBe(".ledger/reports/docs-migration.md");
+    expect(report).toContain("Ledger Docs Migration Report");
+    expect(report).toContain("Promote useful scratch docs");
+    expect(report).toContain("docs/misc/note.md");
   });
 });
 
@@ -75,12 +100,16 @@ async function createFixtureWorkspace(): Promise<LedgerWorkspace> {
   await mkdir(path.join(tempDir, ".ledger", "releases"), { recursive: true });
   await mkdir(path.join(tempDir, "docs", "architecture"), { recursive: true });
   await mkdir(path.join(tempDir, "docs", "generated"), { recursive: true });
+  await mkdir(path.join(tempDir, "docs", "scratchpad"), { recursive: true });
+  await mkdir(path.join(tempDir, "docs", "misc"), { recursive: true });
   await writeFile(path.join(tempDir, "docs", "architecture", "runtime.md"), "# Runtime\n");
   await writeFile(
     path.join(tempDir, "docs", "architecture", "unreferenced.md"),
     "# Unreferenced\n",
   );
   await writeFile(path.join(tempDir, "docs", "generated", "report.json"), "{}\n");
+  await writeFile(path.join(tempDir, "docs", "scratchpad", "note.md"), "# Scratch\n");
+  await writeFile(path.join(tempDir, "docs", "misc", "note.md"), "# Unknown\n");
   await writeFile(
     path.join(tempDir, ".ledger", "config.yaml"),
     `version: 1

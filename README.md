@@ -180,7 +180,8 @@ Until then, use the source checkout or a local package link.
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
 | `ledger docs impact --check` | Fails when source changes lack docs impact. |
-| `ledger docs reconcile` | Regenerates the configured docs routing manifest from the docs audit. |
+| `ledger docs reconcile` | Regenerates the docs routing manifest and `START_HERE.md` from the docs audit. |
+| `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
 | `ledger explain <path>` | Shows records related to a file. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
 | `ledger packet <path> --write-report` | Builds a compact agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
@@ -316,6 +317,9 @@ Use:
   and agent routing docs
 
 Ledger can scaffold and audit `docs/`, but it does not try to become a docs CMS.
+`ledger docs reconcile` keeps agent routing files current, and
+`ledger docs migrate` reports scratch, generated, unknown, missing, and
+unreferenced docs that may need cleanup.
 
 ## Library Usage
 

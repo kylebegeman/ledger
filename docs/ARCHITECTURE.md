@@ -227,6 +227,11 @@ relationship:
 This bridge keeps Ledger from becoming a docs monolith while still making docs
 changes traceable.
 
+`ledger docs reconcile` materializes the docs bridge into generated routing
+files under `docs/llm/`. `ledger docs migrate` writes cleanup guidance for
+scratch, generated, unknown, missing, and unreferenced docs without rewriting
+durable prose.
+
 ## Command Model
 
 ### `ledger init`

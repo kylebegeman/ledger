@@ -10,7 +10,9 @@ import {
   buildDocsRoutingManifest,
   classifyDocsPaths,
   writeDocsAuditReport,
+  writeDocsMigrationReport,
   writeDocsRoutingManifest,
+  writeDocsStartHere,
 } from "./docs.js";
 import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
@@ -472,8 +474,10 @@ async function docsCommand(parsed: ParsedArgs, context: RunContext): Promise<num
       return await docsImpactCommand(parsed, context);
     case "reconcile":
       return await docsReconcileCommand(context);
+    case "migrate":
+      return await docsMigrateCommand(context);
     case undefined:
-      console.error("Usage: ledger docs <audit|check|classify|impact|reconcile>");
+      console.error("Usage: ledger docs <audit|check|classify|impact|reconcile|migrate>");
       return 2;
     default:
       console.error(`Unknown docs command: ${subcommand}`);
@@ -531,8 +535,24 @@ async function docsReconcileCommand(context: RunContext): Promise<number> {
   await writeDocsAuditReport(workspace, audit);
   const manifest = buildDocsRoutingManifest(audit);
   const manifestPath = await writeDocsRoutingManifest(workspace, manifest);
+  const startHerePath = await writeDocsStartHere(workspace, audit);
 
-  console.log(`Ledger docs reconcile: wrote ${manifest.routes.length} route(s) to ${manifestPath}.`);
+  console.log(
+    `Ledger docs reconcile: wrote ${manifest.routes.length} route(s) to ${manifestPath} and ${startHerePath}.`,
+  );
+  return 0;
+}
+
+async function docsMigrateCommand(context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const audit = await auditDocs(workspace, documents);
+  await writeDocsAuditReport(workspace, audit);
+  const reportPath = await writeDocsMigrationReport(workspace, audit);
+
+  console.log(
+    `Ledger docs migrate: wrote ${reportPath} with ${audit.scratchDocs.length} scratch, ${audit.generatedDocs.length} generated, ${audit.unknownDocs.length} unknown, and ${audit.unreferencedDocs.length} unreferenced durable doc(s).`,
+  );
   return 0;
 }
 
@@ -750,7 +770,8 @@ Usage:
   ledger docs check
   ledger docs classify [path...] [--json]
   ledger docs impact [--staged] [--check] [--json]
-  ledger docs reconcile`;
+  ledger docs reconcile
+  ledger docs migrate`;
     case "docs audit":
     case "docs check":
       return `Ledger docs audit/check
@@ -780,7 +801,16 @@ Reports whether changed source files have an explicit docs impact.`;
 Usage:
   ledger docs reconcile
 
-Writes the configured docs routing manifest from the current docs audit.`;
+Writes the configured docs routing manifest and START_HERE file from the current
+docs audit.`;
+    case "docs migrate":
+      return `Ledger docs migrate
+
+Usage:
+  ledger docs migrate
+
+Writes .ledger/reports/docs-migration.md with docs cleanup and organization
+guidance from the current docs audit.`;
     default:
       return `Ledger
 
@@ -807,6 +837,7 @@ Usage:
   ledger docs classify [path...] [--json]
   ledger docs impact [--staged] [--check] [--json]
   ledger docs reconcile
+  ledger docs migrate
 
 Examples:
   ledger new "Add provider retry policy" --from-diff --area server

@@ -162,6 +162,9 @@ export interface LedgerDocsAudit {
   readonly referencedDocs: readonly string[];
   readonly missingReferences: readonly string[];
   readonly unreferencedDocs: readonly string[];
+  readonly scratchDocs: readonly string[];
+  readonly generatedDocs: readonly string[];
+  readonly unknownDocs: readonly string[];
 }
 
 export interface LedgerDocsRoute {

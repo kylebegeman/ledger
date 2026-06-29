@@ -106,10 +106,11 @@ Deliverables:
 
 - `ledger init --with-docs`
 - `ledger docs impact --from-diff`
-- `ledger docs reconcile`
+- `ledger docs reconcile` for `docs/llm/manifest.json` and `docs/llm/START_HERE.md`
+- `ledger docs migrate`
 - docs frontmatter conventions for durable docs
 - generated docs coverage report
-- optional `docs/llm/START_HERE.md` and `docs/llm/manifest.json` generation
+- optional docs migration reports
 
 ## Phase 4: Conflict Assistant
 
