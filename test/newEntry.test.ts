@@ -28,10 +28,13 @@ describe("createChangeEntry", () => {
     await git("init");
     await git("add", ".");
     await git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial");
-    await writeFile(path.join(tempDir, "src", "feature.ts"), "export const value = 2;\n");
+    await writeFile(
+      path.join(tempDir, "src", "feature.ts"),
+      "export const value = 2;\nexport function runFeature() {}\n",
+    );
     await writeFile(
       path.join(tempDir, "docs", "architecture", "runtime.md"),
-      "# Runtime\n\nUpdated.\n",
+      "# Runtime\n\n## Configuration\n\nUpdated.\n",
     );
 
     const workspace = await readWorkspace();
@@ -48,10 +51,16 @@ describe("createChangeEntry", () => {
     expect(entry).toContain('title: "Draft \\"quoted\\" diff"');
     expect(entry).toContain('# 0001: Draft "quoted" diff');
     expect(entry).toContain('  - "docs/architecture/runtime.md"');
+    expect(entry).toContain("symbols:");
+    expect(entry).toContain('  - "Configuration"');
+    expect(entry).toContain('  - "Runtime"');
+    expect(entry).toContain('  - "runFeature"');
+    expect(entry).toContain('  - "value"');
     expect(entry).toContain("docs:");
     expect(entry).toContain("### docs/architecture/runtime.md");
     expect(entry).toContain("- Status: modified");
-    expect(entry).toContain("- What changed: TODO: summarize the change.");
+    expect(entry).toContain("- Anchor: Configuration, Runtime");
+    expect(entry).toContain("- Anchor: runFeature, value");
   });
 });
 

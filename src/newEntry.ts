@@ -25,6 +25,9 @@ export async function createChangeEntry(
     ? await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })
     : [];
   const files = changedFiles.map((file) => file.path);
+  const symbols = options.fromDiff
+    ? await collectChangedSymbols(workspace, changedFiles)
+    : { all: [], byFile: new Map<string, readonly string[]>() };
   const docs = files.filter((file) => isDocsPath(file, workspace.config.docs.root));
   const date = new Date().toISOString().slice(0, 10);
   const template = await readTemplate(workspace);
@@ -35,8 +38,9 @@ export async function createChangeEntry(
     status: options.status,
     areas: yamlStringArray(options.areas),
     files: yamlStringArray(files),
+    symbols: yamlStringArray(symbols.all),
     docs: yamlStringArray(docs),
-    changedFiles: renderChangedFiles(changedFiles),
+    changedFiles: renderChangedFiles(changedFiles, symbols.byFile),
   });
 
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -91,6 +95,9 @@ function renderTemplate(template: string, values: Record<string, string>): strin
   if (rendered.includes("files: []") && values.files) {
     rendered = rendered.replace("files: []", `files:${values.files}`);
   }
+  if (rendered.includes("symbols: []") && values.symbols) {
+    rendered = rendered.replace("symbols: []", `symbols:${values.symbols}`);
+  }
   if (rendered.includes("docs: []") && values.docs) {
     rendered = rendered.replace("docs: []", `docs:${values.docs}`);
   }
@@ -111,19 +118,97 @@ function yamlStringArray(values: readonly string[]): string {
   return `\n${values.map((value) => `  - "${escapeYamlString(value)}"`).join("\n")}`;
 }
 
-function renderChangedFiles(files: readonly GitChangedFile[]): string {
+interface ChangedSymbols {
+  readonly all: readonly string[];
+  readonly byFile: ReadonlyMap<string, readonly string[]>;
+}
+
+async function collectChangedSymbols(
+  workspace: LedgerWorkspace,
+  files: readonly GitChangedFile[],
+): Promise<ChangedSymbols> {
+  const all = new Set<string>();
+  const byFile = new Map<string, readonly string[]>();
+
+  for (const file of files) {
+    if (file.status === "deleted") continue;
+    const symbols = await extractFileSymbols(workspace, file.path);
+    if (symbols.length === 0) continue;
+    byFile.set(file.path, symbols);
+    for (const symbol of symbols) all.add(symbol);
+  }
+
+  return {
+    all: [...all].sort(),
+    byFile,
+  };
+}
+
+async function extractFileSymbols(
+  workspace: LedgerWorkspace,
+  filePath: string,
+): Promise<readonly string[]> {
+  const extension = path.extname(filePath).toLowerCase();
+  if (![".ts", ".tsx", ".js", ".jsx", ".md", ".mdx"].includes(extension)) return [];
+
+  let raw: string;
+  try {
+    raw = await readFile(path.join(workspace.projectRoot, filePath), "utf8");
+  } catch {
+    return [];
+  }
+
+  return extension === ".md" || extension === ".mdx"
+    ? extractMarkdownSymbols(raw)
+    : extractCodeSymbols(raw);
+}
+
+function extractCodeSymbols(raw: string): readonly string[] {
+  const symbols = new Set<string>();
+  const patterns = [
+    /\bexport\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
+    /\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g,
+    /\bexport\s+(?:class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g,
+    /\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
+    /\b(?:class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of raw.matchAll(pattern)) {
+      const symbol = match[1];
+      if (symbol) symbols.add(symbol);
+    }
+  }
+  return [...symbols].sort();
+}
+
+function extractMarkdownSymbols(raw: string): readonly string[] {
+  const symbols = new Set<string>();
+  for (const line of raw.split(/\r?\n/)) {
+    const match = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
+    if (!match) continue;
+    const title = match[2]?.replace(/\s+#+\s*$/, "").trim();
+    if (title) symbols.add(title);
+  }
+  return [...symbols].sort();
+}
+
+function renderChangedFiles(
+  files: readonly GitChangedFile[],
+  symbolsByFile: ReadonlyMap<string, readonly string[]> = new Map(),
+): string {
   if (files.length === 0) return "### path/to/file.ts";
   return files
-    .map(
-      (file) => [
+    .map((file) => {
+      const anchors = symbolsByFile.get(file.path) ?? [];
+      return [
         `### ${file.path}`,
         "",
         `- Status: ${file.status}`,
         "- What changed: TODO: summarize the change.",
-        "- Anchor: TODO: name the important symbol, route, command, or section.",
+        `- Anchor: ${anchors.length > 0 ? anchors.join(", ") : "TODO: name the important symbol, route, command, or section."}`,
         "- On conflict: TODO: describe what must be preserved.",
-      ].join("\n"),
-    )
+      ].join("\n");
+    })
     .join("\n\n");
 }
 

@@ -118,8 +118,8 @@ git status --short
 ledger new "Add provider reconnect guard" --from-diff --area runtime
 ```
 
-Ledger drafts a Markdown entry with changed files, likely docs impact, and a
-per-file conflict checklist.
+Ledger drafts a Markdown entry with changed files, detected TypeScript or
+Markdown symbols, likely docs impact, and a per-file conflict checklist.
 
 Open the generated file, finish the narrative, then run:
 
