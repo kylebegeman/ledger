@@ -25,7 +25,9 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "bfd62bb"
+release: "v0.1.5"
 ---
 
 # 0037: Expand Docs Plane Reconcile And Migration Reports
