@@ -25,7 +25,9 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "ffc1ff6"
+release: "v0.1.6"
 ---
 
 # 0039: Add Integrity Provenance Report
