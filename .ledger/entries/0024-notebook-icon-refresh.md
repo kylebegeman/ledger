@@ -15,7 +15,7 @@ symbols:
   - "readBundledIcon"
 docs:
   - "docs/PRODUCT.md"
-commits: []
+commits: ["c007784"]
 ---
 
 # 0024: Refresh Notebook Icon Asset
