@@ -9,6 +9,7 @@ export * from "./frontmatter.js";
 export * from "./git.js";
 export * from "./indexer.js";
 export * from "./newEntry.js";
+export * from "./packet.js";
 export * from "./query.js";
 export * from "./release.js";
 export * from "./render.js";

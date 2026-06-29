@@ -16,6 +16,7 @@ import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
 import { createChangeEntry } from "./newEntry.js";
+import { buildAgentPacket, formatAgentPacket } from "./packet.js";
 import {
   extractBullets,
   getSectionBody,
@@ -81,6 +82,9 @@ export async function run(
 
       case "query":
         return await queryCommand(parsed, context);
+
+      case "packet":
+        return await packetCommand(parsed, context);
 
       case "unreleased":
         return await unreleasedCommand(parsed, context);
@@ -261,6 +265,26 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     if (document.symbols.length > 0) console.log(`  Symbols: ${document.symbols.join(", ")}`);
     if (document.docs.length > 0) console.log(`  Docs: ${document.docs.join(", ")}`);
   }
+  return 0;
+}
+
+async function packetCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const target = parsed.positionals[0];
+  if (!target) {
+    console.error("Usage: ledger packet <path> [--json]");
+    return 2;
+  }
+
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const packet = buildAgentPacket(documents, target);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(packet, null, 2));
+    return 0;
+  }
+
+  console.log(formatAgentPacket(packet));
   return 0;
 }
 
@@ -672,6 +696,13 @@ Usage:
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--json]
 
 Filters Ledger records by metadata, relationship ids, symbols, and paths.`;
+    case "packet":
+      return `Ledger packet
+
+Usage:
+  ledger packet <path> [--json]
+
+Builds a compact agent handoff packet for a file path.`;
     case "unreleased":
       return `Ledger unreleased
 
@@ -743,6 +774,7 @@ Usage:
   ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--json]
+  ledger packet <path> [--json]
   ledger unreleased [--json]
   ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
   ledger docs audit
@@ -754,6 +786,7 @@ Usage:
 Examples:
   ledger new "Add provider retry policy" --from-diff --area server
   ledger explain src/cli.ts --agent
+  ledger packet src/cli.ts
   ledger release v0.1.0 --include-unreleased
   ledger ci --json`;
   }
