@@ -41,7 +41,7 @@ docs:
   - "docs/ARCHITECTURE.md"
   - "docs/SCHEMA.md"
 release: "v0.1.1"
-commits: []
+commits: ["5a8da50"]
 ---
 
 # 0020: Overhaul README And Prepare Patch Release
