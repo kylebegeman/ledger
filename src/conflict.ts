@@ -1,6 +1,8 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { extractBullets, getSectionBody } from "./query.js";
-import type { ParsedLedgerDocument } from "./types.js";
+import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export interface LedgerConflictEntry {
   readonly id: string;
@@ -35,6 +37,40 @@ export function buildConflictTargets(
         .filter((entry): entry is LedgerConflictEntry => Boolean(entry)),
     };
   });
+}
+
+export async function writeConflictReport(
+  workspace: LedgerWorkspace,
+  targets: readonly LedgerConflictTarget[],
+): Promise<string> {
+  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
+  const reportPath = path.join(reportDirectory, "conflict.md");
+  await mkdir(reportDirectory, { recursive: true });
+  await writeFile(reportPath, formatConflictReport(targets), "utf8");
+  return normalizePath(path.relative(workspace.projectRoot, reportPath));
+}
+
+export function formatConflictReport(targets: readonly LedgerConflictTarget[]): string {
+  const lines = ["# Ledger Conflict Report", "", `Targets: ${targets.length}`, ""];
+
+  for (const target of targets) {
+    lines.push(`## ${target.target}`, "");
+    if (target.entries.length === 0) {
+      lines.push("No Ledger records mention this path.", "");
+      continue;
+    }
+
+    for (const entry of target.entries) {
+      lines.push(`### ${entry.id}: ${entry.title}`, "");
+      lines.push(`- Entry: \`${entry.path}\``);
+      lines.push(`- Matched files: ${entry.matchedFiles.map((file) => `\`${file}\``).join(", ")}`);
+      pushSection(lines, "Conflict Rules", entry.conflictRules);
+      pushSection(lines, "Invariants", entry.invariants);
+      pushSection(lines, "Verification", entry.verification);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
 }
 
 export function extractConflictRules(markdown: string | undefined): readonly string[] {
@@ -160,4 +196,14 @@ function matchesSimpleGlob(filePath: string, pattern: string): boolean {
   }
   source += "$";
   return new RegExp(source).test(normalizedPath);
+}
+
+function pushSection(lines: string[], title: string, values: readonly string[]): void {
+  lines.push("", `#### ${title}`, "");
+  if (values.length === 0) {
+    lines.push("None recorded.", "");
+    return;
+  }
+  for (const value of values) lines.push(`- ${value}`);
+  lines.push("");
 }

@@ -3,6 +3,7 @@ import {
   buildConflictTargets,
   extractChangedFileBlocks,
   extractConflictRules,
+  formatConflictReport,
 } from "../src/conflict.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import type { ParsedLedgerDocument } from "../src/types.js";
@@ -61,6 +62,23 @@ describe("buildConflictTargets", () => {
     ]);
     expect(target?.entries[0]?.invariants).toEqual(["Exit codes stay stable."]);
     expect(target?.entries[0]?.verification).toEqual(["npm test"]);
+  });
+});
+
+describe("formatConflictReport", () => {
+  it("renders conflict guidance as Markdown", () => {
+    const targets = buildConflictTargets([document()], ["src/cli.ts", "src/missing.ts"]);
+    const report = formatConflictReport(targets);
+
+    expect(report).toContain("# Ledger Conflict Report");
+    expect(report).toContain("## src/cli.ts");
+    expect(report).toContain("### 0001: CLI");
+    expect(report).toContain("- Entry: `.ledger/entries/0001.md`");
+    expect(report).toContain("- Matched files: `src/cli.ts`");
+    expect(report).toContain("#### Conflict Rules");
+    expect(report).toContain("- Keep CLI behavior and preserve exit codes.");
+    expect(report).toContain("## src/missing.ts");
+    expect(report).toContain("No Ledger records mention this path.");
   });
 });
 

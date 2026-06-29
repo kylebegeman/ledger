@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import process from "node:process";
 import { runCiChecks } from "./ci.js";
-import { buildConflictTargets } from "./conflict.js";
+import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
 import { auditDocs, classifyDocsPaths, writeDocsAuditReport } from "./docs.js";
@@ -376,16 +376,19 @@ async function ciCommand(parsed: ParsedArgs, context: RunContext): Promise<numbe
 
 async function conflictCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   if (parsed.positionals.length === 0) {
-    console.error("Usage: ledger conflict <path...> [--json]");
+    console.error("Usage: ledger conflict <path...> [--json] [--write-report]");
     return 2;
   }
 
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const targets = buildConflictTargets(documents, parsed.positionals);
+  const reportPath = hasFlag(parsed, "write-report")
+    ? await writeConflictReport(workspace, targets)
+    : undefined;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ targets }, null, 2));
+    console.log(JSON.stringify({ targets, reportPath }, null, 2));
     return 0;
   }
 
@@ -403,6 +406,9 @@ async function conflictCommand(parsed: ParsedArgs, context: RunContext): Promise
       printIndentedList("  Invariants", entry.invariants);
       printIndentedList("  Verification", entry.verification);
     }
+  }
+  if (reportPath) {
+    console.log(`Wrote ${reportPath}`);
   }
 
   return 0;
@@ -628,9 +634,10 @@ Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.
       return `Ledger conflict
 
 Usage:
-  ledger conflict <path...> [--json]
+  ledger conflict <path...> [--json] [--write-report]
 
-Shows file-specific conflict rules, invariants, and verification commands.`;
+Shows file-specific conflict rules, invariants, and verification commands.
+--write-report writes .ledger/reports/conflict.md.`;
     case "explain":
       return `Ledger explain
 
@@ -705,7 +712,7 @@ Usage:
   ledger render [--json]
   ledger coverage [--staged] [--json]
   ledger ci [--staged] [--json]
-  ledger conflict <path...> [--json]
+  ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--json]
   ledger unreleased [--json]

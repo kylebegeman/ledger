@@ -182,7 +182,7 @@ Until then, use the source checkout or a local package link.
 | `ledger docs impact --check` | Fails when source changes lack docs impact. |
 | `ledger explain <path>` | Shows records related to a file. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
-| `ledger conflict <path>` | Extracts conflict rules, invariants, and verification for a file. |
+| `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
 | `ledger query --kind change --area cli --symbol run` | Filters records by kind, area, status, release, relationship, symbol, file, doc, or id. |
 | `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
 | `ledger release v0.1.1 --status released --write` | Writes a release record. |
