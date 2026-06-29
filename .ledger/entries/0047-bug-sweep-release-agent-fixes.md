@@ -26,7 +26,8 @@ symbols:
 docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
-commits: []
+commits:
+  - "d06e8c2"
 ---
 
 # 0047: Bug Sweep Release And Agent Integration Fixes
