@@ -36,7 +36,7 @@ describe("createChangeEntry", () => {
 
     const workspace = await readWorkspace();
     const createdPath = await createChangeEntry(workspace, [], {
-      title: "Draft from diff",
+      title: 'Draft "quoted" diff',
       fromDiff: true,
       staged: false,
       areas: ["docs"],
@@ -45,7 +45,8 @@ describe("createChangeEntry", () => {
     const entry = await readFile(path.join(tempDir, createdPath), "utf8");
 
     expect(entry).toContain('id: "0001"');
-    expect(entry).toContain('title: "Draft from diff"');
+    expect(entry).toContain('title: "Draft \\"quoted\\" diff"');
+    expect(entry).toContain('# 0001: Draft "quoted" diff');
     expect(entry).toContain('  - "docs/architecture/runtime.md"');
     expect(entry).toContain("docs:");
     expect(entry).toContain("### docs/architecture/runtime.md");

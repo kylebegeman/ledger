@@ -380,7 +380,6 @@ function renderEntry(document: LedgerRenderedDocument): string {
     document.why ?? "",
     ...document.invariants,
     ...document.verification,
-    document.source,
   ]
     .join(" ")
     .toLowerCase();

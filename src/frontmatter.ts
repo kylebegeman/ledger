@@ -24,7 +24,13 @@ export function parseMarkdownWithFrontmatter(
   const frontmatterRaw = raw.slice(4, closingFenceIndex).trim();
   const bodyStart = raw.indexOf("\n", closingFenceIndex + 1);
   const body = bodyStart === -1 ? "" : raw.slice(bodyStart + 1);
-  const parsed = parseYaml(frontmatterRaw);
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(frontmatterRaw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${filePath}: invalid YAML frontmatter: ${message}`);
+  }
 
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`${filePath}: frontmatter must be a YAML object`);

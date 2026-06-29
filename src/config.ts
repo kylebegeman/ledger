@@ -75,7 +75,13 @@ export const defaultConfig: LedgerConfig = {
 
 export async function readLedgerConfig(configPath: string): Promise<LedgerConfig> {
   const raw = await readFile(configPath, "utf8");
-  const parsed = parseYaml(raw);
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${configPath}: invalid YAML: ${message}`);
+  }
   return parseLedgerConfig(parsed, configPath);
 }
 
@@ -84,7 +90,7 @@ export function parseLedgerConfig(parsed: unknown, configPath = "config.yaml"): 
     throw new Error(`${configPath}: config must be a YAML object`);
   }
   validatePartialConfig(parsed as Record<string, unknown>, configPath);
-  const config = mergeConfig(defaultConfig, parsed as PartialLedgerConfig);
+  const config = normalizeConfigPaths(mergeConfig(defaultConfig, parsed as PartialLedgerConfig));
   validateLedgerConfig(config, configPath);
   return config;
 }
@@ -136,6 +142,44 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
       ...override.git,
     },
   };
+}
+
+function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
+  return {
+    ...config,
+    source: mapStringValues(config.source, normalizeConfigPath),
+    indexes: {
+      output: normalizeConfigPath(config.indexes.output),
+    },
+    reports: {
+      output: normalizeConfigPath(config.reports.output),
+    },
+    render: {
+      output: normalizeConfigPath(config.render.output),
+    },
+    docs: {
+      ...config.docs,
+      root: normalizeConfigPath(config.docs.root),
+      routing: mapStringValues(config.docs.routing, normalizeConfigPath),
+    },
+    git: {
+      requireEntryFor: config.git.requireEntryFor.map(normalizeConfigPath),
+      ignore: config.git.ignore.map(normalizeConfigPath),
+    },
+  };
+}
+
+function mapStringValues<T extends Record<string, string>>(
+  values: T,
+  transform: (value: string) => string,
+): T {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [key, transform(value)]),
+  ) as T;
+}
+
+function normalizeConfigPath(value: string): string {
+  return value.replace(/\\/g, "/").replace(/^\.\//, "");
 }
 
 function validatePartialConfig(config: Record<string, unknown>, configPath: string): void {

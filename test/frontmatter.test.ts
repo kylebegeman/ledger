@@ -36,4 +36,16 @@ One.
       /missing YAML frontmatter/,
     );
   });
+
+  it("prefixes YAML parse errors with the document path", () => {
+    expect(() =>
+      parseMarkdownWithFrontmatter(
+        `---
+id: [broken
+---
+`,
+        ".ledger/entries/bad.md",
+      ),
+    ).toThrow(".ledger/entries/bad.md: invalid YAML frontmatter:");
+  });
 });

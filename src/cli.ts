@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import process from "node:process";
 import { runCiChecks } from "./ci.js";
 import { buildConflictTargets } from "./conflict.js";
@@ -31,10 +32,22 @@ interface ParsedArgs {
   readonly flags: Record<string, readonly string[]>;
 }
 
-const version = "0.1.0";
+export interface RunOptions {
+  readonly cwd?: string;
+}
 
-export async function run(argv = process.argv.slice(2)): Promise<number> {
+interface RunContext {
+  readonly cwd: string;
+}
+
+const fallbackVersion = "0.1.0";
+
+export async function run(
+  argv = process.argv.slice(2),
+  options: RunOptions = {},
+): Promise<number> {
   const parsed = parseArgs(argv);
+  const context: RunContext = { cwd: options.cwd ?? process.cwd() };
 
   try {
     if (parsed.command && hasFlag(parsed, "help")) {
@@ -44,45 +57,45 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
 
     switch (parsed.command) {
       case "init":
-        await initWorkspace(process.cwd(), { withDocs: hasFlag(parsed, "with-docs") });
+        await initWorkspace(context.cwd, { withDocs: hasFlag(parsed, "with-docs") });
         console.log(hasFlag(parsed, "with-docs") ? "Initialized .ledger/ and docs/" : "Initialized .ledger/");
         return 0;
 
       case "validate":
-        return await validateCommand();
+        return await validateCommand(context);
 
       case "index":
-        return await indexCommand();
+        return await indexCommand(context);
 
       case "render":
-        return await renderCommand(parsed);
+        return await renderCommand(parsed, context);
 
       case "explain":
-        return await explainCommand(parsed);
+        return await explainCommand(parsed, context);
 
       case "query":
-        return await queryCommand(parsed);
+        return await queryCommand(parsed, context);
 
       case "unreleased":
-        return await unreleasedCommand(parsed);
+        return await unreleasedCommand(parsed, context);
 
       case "release":
-        return await releaseCommand(parsed);
+        return await releaseCommand(parsed, context);
 
       case "new":
-        return await newCommand(parsed);
+        return await newCommand(parsed, context);
 
       case "coverage":
-        return await coverageCommand(parsed);
+        return await coverageCommand(parsed, context);
 
       case "ci":
-        return await ciCommand(parsed);
+        return await ciCommand(parsed, context);
 
       case "conflict":
-        return await conflictCommand(parsed);
+        return await conflictCommand(parsed, context);
 
       case "docs":
-        return await docsCommand(parsed);
+        return await docsCommand(parsed, context);
 
       case "help":
         printHelp(parsed.positionals.join(" "));
@@ -91,7 +104,7 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
       case "version":
       case "--version":
       case "-v":
-        console.log(`ledger ${version}`);
+        console.log(`ledger ${packageVersion()}`);
         return 0;
 
       case "--help":
@@ -111,8 +124,8 @@ export async function run(argv = process.argv.slice(2)): Promise<number> {
   }
 }
 
-async function validateCommand(): Promise<number> {
-  const workspace = await findWorkspace();
+async function validateCommand(context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const result = validateDocuments(workspace, documents);
   await writeValidationReport(workspace, result);
@@ -120,8 +133,8 @@ async function validateCommand(): Promise<number> {
   return result.errors.length === 0 ? 0 : 1;
 }
 
-async function indexCommand(): Promise<number> {
-  const workspace = await findWorkspace();
+async function indexCommand(context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const result = validateDocuments(workspace, documents);
   if (result.errors.length > 0) {
@@ -134,8 +147,8 @@ async function indexCommand(): Promise<number> {
   return 0;
 }
 
-async function renderCommand(parsed: ParsedArgs): Promise<number> {
-  const workspace = await findWorkspace();
+async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const result = validateDocuments(workspace, documents);
   if (result.errors.length > 0) {
@@ -155,13 +168,13 @@ async function renderCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function explainCommand(parsed: ParsedArgs): Promise<number> {
+async function explainCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const filePath = parsed.positionals[0];
   if (!filePath) {
     console.error("Usage: ledger explain <path> [--json] [--agent]");
     return 2;
   }
-  const workspace = await findWorkspace();
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const matches = explainFile(documents, filePath);
 
@@ -196,7 +209,7 @@ async function explainCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function queryCommand(parsed: ParsedArgs): Promise<number> {
+async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const kind = normalizeKindFilter(flagValues(parsed, "kind")[0]);
   const status = flagValues(parsed, "status")[0];
   const area = flagValues(parsed, "area")[0];
@@ -206,7 +219,7 @@ async function queryCommand(parsed: ParsedArgs): Promise<number> {
     return 2;
   }
 
-  const workspace = await findWorkspace();
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const matches = queryDocuments(documents, { kind, status, area });
 
@@ -222,8 +235,8 @@ async function queryCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function unreleasedCommand(parsed: ParsedArgs): Promise<number> {
-  const workspace = await findWorkspace();
+async function unreleasedCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const matches = getUnreleasedChanges(documents);
 
@@ -240,7 +253,7 @@ async function unreleasedCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function releaseCommand(parsed: ParsedArgs): Promise<number> {
+async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const version = parsed.positionals[0];
   if (!version) {
     console.error(
@@ -249,7 +262,7 @@ async function releaseCommand(parsed: ParsedArgs): Promise<number> {
     return 2;
   }
 
-  const workspace = await findWorkspace();
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const status = releaseStatus(parsed);
   if (!status) return 2;
@@ -275,13 +288,13 @@ async function releaseCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function newCommand(parsed: ParsedArgs): Promise<number> {
+async function newCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const title = parsed.positionals.join(" ").trim();
   if (!title) {
     console.error("Usage: ledger new <title> [--from-diff] [--area <area>]");
     return 2;
   }
-  const workspace = await findWorkspace();
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const createdPath = await createChangeEntry(workspace, documents, {
     title,
@@ -294,8 +307,8 @@ async function newCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function coverageCommand(parsed: ParsedArgs): Promise<number> {
-  const workspace = await findWorkspace();
+async function coverageCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const result = await checkCoverage(workspace, documents, {
     staged: hasFlag(parsed, "staged"),
@@ -315,8 +328,8 @@ async function coverageCommand(parsed: ParsedArgs): Promise<number> {
   return result.missingFiles.length === 0 ? 0 : 1;
 }
 
-async function ciCommand(parsed: ParsedArgs): Promise<number> {
-  const workspace = await findWorkspace();
+async function ciCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const result = await runCiChecks(workspace, documents, { staged: hasFlag(parsed, "staged") });
   await writeValidationReport(workspace, result.validation);
@@ -338,13 +351,13 @@ async function ciCommand(parsed: ParsedArgs): Promise<number> {
   return result.ok ? 0 : 1;
 }
 
-async function conflictCommand(parsed: ParsedArgs): Promise<number> {
+async function conflictCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   if (parsed.positionals.length === 0) {
     console.error("Usage: ledger conflict <path...> [--json]");
     return 2;
   }
 
-  const workspace = await findWorkspace();
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const targets = buildConflictTargets(documents, parsed.positionals);
 
@@ -372,17 +385,17 @@ async function conflictCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function docsCommand(parsed: ParsedArgs): Promise<number> {
+async function docsCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const subcommand = parsed.positionals[0];
   switch (subcommand) {
     case "audit":
-      return await docsAuditCommand({ strict: false });
+      return await docsAuditCommand({ strict: false }, context);
     case "check":
-      return await docsAuditCommand({ strict: true });
+      return await docsAuditCommand({ strict: true }, context);
     case "classify":
-      return await docsClassifyCommand(parsed);
+      return await docsClassifyCommand(parsed, context);
     case "impact":
-      return await docsImpactCommand(parsed);
+      return await docsImpactCommand(parsed, context);
     case undefined:
       console.error("Usage: ledger docs <audit|check|classify|impact>");
       return 2;
@@ -392,8 +405,11 @@ async function docsCommand(parsed: ParsedArgs): Promise<number> {
   }
 }
 
-async function docsAuditCommand(options: { readonly strict: boolean }): Promise<number> {
-  const workspace = await findWorkspace();
+async function docsAuditCommand(
+  options: { readonly strict: boolean },
+  context: RunContext,
+): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const audit = await auditDocs(workspace, documents);
   await writeDocsAuditReport(workspace, audit);
@@ -409,8 +425,11 @@ async function docsAuditCommand(options: { readonly strict: boolean }): Promise<
   return options.strict && audit.missingReferences.length > 0 ? 1 : 0;
 }
 
-async function docsClassifyCommand(parsed: ParsedArgs): Promise<number> {
-  const workspace = await findWorkspace();
+async function docsClassifyCommand(
+  parsed: ParsedArgs,
+  context: RunContext,
+): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const targets = parsed.positionals.slice(1);
   const files =
     targets.length > 0
@@ -429,8 +448,8 @@ async function docsClassifyCommand(parsed: ParsedArgs): Promise<number> {
   return 0;
 }
 
-async function docsImpactCommand(parsed: ParsedArgs): Promise<number> {
-  const workspace = await findWorkspace();
+async function docsImpactCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const changedFiles = await getChangedFiles(workspace.projectRoot, {
     staged: hasFlag(parsed, "staged"),
@@ -686,6 +705,16 @@ function releaseStatus(parsed: ParsedArgs): "planned" | "released" | undefined {
   if (value === "planned" || value === "released") return value;
   console.error(`Invalid release status: ${value}`);
   return undefined;
+}
+
+function packageVersion(): string {
+  try {
+    const raw = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+    const parsed = JSON.parse(raw) as { readonly version?: unknown };
+    return typeof parsed.version === "string" ? parsed.version : fallbackVersion;
+  } catch {
+    return fallbackVersion;
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

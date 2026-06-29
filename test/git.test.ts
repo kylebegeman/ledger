@@ -1,5 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { parseNameStatusLine, parseStatusLine } from "../src/git.js";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  getChangedFileDetails,
+  parseNameStatusLine,
+  parseStatusLine,
+} from "../src/git.js";
+
+let tempDir: string | undefined;
+
+afterEach(async () => {
+  if (tempDir) {
+    await rm(tempDir, { recursive: true, force: true });
+    tempDir = undefined;
+  }
+});
 
 describe("git status parsing", () => {
   it("parses short status lines", () => {
@@ -27,4 +44,28 @@ describe("git status parsing", () => {
       status: "renamed",
     });
   });
+
+  it("reports untracked files inside directories", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-git-test-"));
+    await git("init");
+    await mkdir(path.join(tempDir, "src", "nested"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "nested", "new.ts"), "export {};\n");
+
+    await expect(getChangedFileDetails(tempDir)).resolves.toEqual([
+      {
+        path: "src/nested/new.ts",
+        status: "untracked",
+      },
+    ]);
+  });
 });
+
+async function git(...args: readonly string[]): Promise<void> {
+  if (!tempDir) throw new Error("missing tempDir");
+  await new Promise<void>((resolve, reject) => {
+    execFile("git", [...args], { cwd: tempDir }, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}

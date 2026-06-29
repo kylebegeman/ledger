@@ -44,7 +44,11 @@ export async function getChangedFileDetails(
         .sort(compareChangedFiles);
     }
 
-    const { stdout } = await execFileAsync("git", ["status", "--short"], { cwd });
+    const { stdout } = await execFileAsync(
+      "git",
+      ["status", "--short", "--untracked-files=all"],
+      { cwd },
+    );
     return stdout
       .split(/\r?\n/)
       .map((line) => parseStatusLine(line))

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../src/cli.js";
 
@@ -28,9 +30,12 @@ describe("CLI help", () => {
 
   it("prints version", async () => {
     const result = await captureRun(["version"]);
+    const packageJson = JSON.parse(
+      await readFile(path.join(process.cwd(), "package.json"), "utf8"),
+    ) as { readonly version: string };
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.trim()).toBe("ledger 0.1.0");
+    expect(result.stdout.trim()).toBe(`ledger ${packageJson.version}`);
   });
 });
 

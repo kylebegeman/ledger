@@ -81,9 +81,13 @@ async function readTemplate(workspace: LedgerWorkspace): Promise<string> {
 function renderTemplate(template: string, values: Record<string, string>): string {
   let rendered = template;
   for (const [key, value] of Object.entries(values)) {
+    rendered = rendered.replaceAll(`"{{${key}}}"`, `"${escapeYamlString(value)}"`);
     rendered = rendered.replaceAll(`{{${key}}}`, value);
   }
-  rendered = rendered.replace('status: "draft"', `status: "${values.status ?? "draft"}"`);
+  rendered = rendered.replace(
+    'status: "draft"',
+    `status: "${escapeYamlString(values.status ?? "draft")}"`,
+  );
   if (rendered.includes("files: []") && values.files) {
     rendered = rendered.replace("files: []", `files:${values.files}`);
   }
@@ -104,7 +108,7 @@ function renderTemplate(template: string, values: Record<string, string>): strin
 
 function yamlStringArray(values: readonly string[]): string {
   if (values.length === 0) return " []";
-  return `\n${values.map((value) => `  - "${value.replaceAll('"', '\\"')}"`).join("\n")}`;
+  return `\n${values.map((value) => `  - "${escapeYamlString(value)}"`).join("\n")}`;
 }
 
 function renderChangedFiles(files: readonly GitChangedFile[]): string {
@@ -127,6 +131,10 @@ function isDocsPath(filePath: string, docsRoot: string): boolean {
   const normalized = normalizePath(filePath);
   const root = normalizePath(docsRoot).replace(/\/$/, "");
   return normalized === root || normalized.startsWith(`${root}/`);
+}
+
+function escapeYamlString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
 }
 
 function defaultTemplate(): string {

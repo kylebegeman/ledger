@@ -28,6 +28,8 @@
     "assets",
     "dist",
     "README.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
     "docs",
     ".ledger/templates"
   ],
