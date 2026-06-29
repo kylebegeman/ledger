@@ -21,7 +21,7 @@ symbols:
   - "renderChangedFiles"
 docs:
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["c9b9d07"]
 ---
 
 # 0016: Polish Git-Aware Entry Drafting

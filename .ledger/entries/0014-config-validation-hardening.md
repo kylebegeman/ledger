@@ -15,7 +15,7 @@ symbols:
   - "validatePartialConfig"
 docs:
   - "docs/SCHEMA.md"
-commits: []
+commits: ["8b426bc"]
 ---
 
 # 0014: Harden Config Validation

@@ -19,7 +19,7 @@ symbols:
   - "contextGrid"
 docs:
   - "docs/ARCHITECTURE.md"
-commits: []
+commits: ["63542f9"]
 ---
 
 # 0017: Polish Static Reader Context

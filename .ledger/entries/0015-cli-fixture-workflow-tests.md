@@ -14,7 +14,7 @@ symbols:
   - "renderTemplate"
 docs:
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["6488795"]
 ---
 
 # 0015: Add CLI Fixture Workflow Tests

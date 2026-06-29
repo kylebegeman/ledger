@@ -26,7 +26,7 @@ docs:
   - "docs/ARCHITECTURE.md"
   - "docs/IMPLEMENTATION_PLAN.md"
   - "docs/SCHEMA.md"
-commits: []
+commits: ["c5ff5d3"]
 ---
 
 # 0018: Polish Release Workflow
