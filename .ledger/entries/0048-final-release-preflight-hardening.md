@@ -17,7 +17,8 @@ symbols:
   - "assertReleaseDocumentWritable"
 docs:
   - "docs/ARCHITECTURE.md"
-commits: []
+commits:
+  - "034a249"
 ---
 
 # 0048: Final release preflight hardening
