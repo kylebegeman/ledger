@@ -21,6 +21,7 @@ docs:
   - "docs/ROADMAP.md"
 commits:
   - "3e72c61"
+release: "v0.1.3"
 ---
 
 # 0031: Add Query Text Filter

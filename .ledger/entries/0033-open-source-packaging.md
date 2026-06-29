@@ -23,7 +23,9 @@ symbols:
 docs:
   - "README.md"
   - "CONTRIBUTING.md"
-commits: []
+commits:
+  - "eedcc3c"
+release: "v0.1.3"
 ---
 
 # 0033: Harden Open Source Packaging

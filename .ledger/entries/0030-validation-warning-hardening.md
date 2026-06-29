@@ -21,6 +21,7 @@ docs:
   - "docs/SCHEMA.md"
 commits:
   - "04d5294"
+release: "v0.1.3"
 ---
 
 # 0030: Harden Validation Warnings

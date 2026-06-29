@@ -19,6 +19,7 @@ docs:
   - "docs/ROADMAP.md"
 commits:
   - "88c9fe6"
+release: "v0.1.3"
 ---
 
 # 0032: Add Agent Packet Report Output
