@@ -28,6 +28,7 @@ docs:
   - "docs/ARCHITECTURE.md"
 commits:
   - "d06e8c2"
+release: "v0.1.10"
 ---
 
 # 0047: Bug Sweep Release And Agent Integration Fixes

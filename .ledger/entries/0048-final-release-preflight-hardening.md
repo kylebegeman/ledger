@@ -19,6 +19,7 @@ docs:
   - "docs/ARCHITECTURE.md"
 commits:
   - "034a249"
+release: "v0.1.10"
 ---
 
 # 0048: Final release preflight hardening
