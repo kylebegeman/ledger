@@ -18,7 +18,8 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "f3bda21"
 release: "v0.1.7"
 ---
 
