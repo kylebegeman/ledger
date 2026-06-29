@@ -213,6 +213,13 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   const kind = normalizeKindFilter(flagValues(parsed, "kind")[0]);
   const status = flagValues(parsed, "status")[0];
   const area = flagValues(parsed, "area")[0];
+  const release = flagValues(parsed, "release")[0];
+  const decision = flagValues(parsed, "decision")[0];
+  const backlog = flagValues(parsed, "backlog")[0];
+  const symbol = flagValues(parsed, "symbol")[0];
+  const file = flagValues(parsed, "file")[0];
+  const doc = flagValues(parsed, "doc")[0];
+  const id = flagValues(parsed, "id")[0];
 
   if (flagValues(parsed, "kind")[0] && !kind) {
     console.error(`Invalid kind: ${flagValues(parsed, "kind")[0]}`);
@@ -221,7 +228,18 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
 
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
-  const matches = queryDocuments(documents, { kind, status, area });
+  const matches = queryDocuments(documents, {
+    kind,
+    status,
+    area,
+    release,
+    decision,
+    backlog,
+    symbol,
+    file,
+    doc,
+    id,
+  });
 
   if (hasFlag(parsed, "json")) {
     console.log(JSON.stringify({ matches }, null, 2));
@@ -231,6 +249,11 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   console.log(`Ledger query: ${matches.length} match(es).`);
   for (const document of matches) {
     console.log(`- ${document.id} ${document.title} (${document.kind}, ${document.status})`);
+    if (document.release) console.log(`  Release: ${document.release}`);
+    if (document.areas.length > 0) console.log(`  Areas: ${document.areas.join(", ")}`);
+    if (document.files.length > 0) console.log(`  Files: ${document.files.join(", ")}`);
+    if (document.symbols.length > 0) console.log(`  Symbols: ${document.symbols.join(", ")}`);
+    if (document.docs.length > 0) console.log(`  Docs: ${document.docs.join(", ")}`);
   }
   return 0;
 }
@@ -619,9 +642,9 @@ Shows Ledger records that mention a path. --agent prints compact context.`;
       return `Ledger query
 
 Usage:
-  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--json]
 
-Filters Ledger records by metadata.`;
+Filters Ledger records by metadata, relationship ids, symbols, and paths.`;
     case "unreleased":
       return `Ledger unreleased
 
@@ -684,7 +707,7 @@ Usage:
   ledger ci [--staged] [--json]
   ledger conflict <path...> [--json]
   ledger explain <path> [--json] [--agent]
-  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--json]
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--json]
   ledger unreleased [--json]
   ledger release <version> [--include-unreleased] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
   ledger docs audit

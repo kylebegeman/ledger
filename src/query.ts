@@ -9,6 +9,13 @@ export interface LedgerQueryFilters {
   readonly kind?: LedgerDocumentKind;
   readonly status?: string;
   readonly area?: string;
+  readonly release?: string;
+  readonly decision?: string;
+  readonly backlog?: string;
+  readonly symbol?: string;
+  readonly file?: string;
+  readonly doc?: string;
+  readonly id?: string;
 }
 
 export function queryDocuments(
@@ -21,6 +28,19 @@ export function queryDocuments(
       if (filters.kind && document.kind !== filters.kind) return false;
       if (filters.status && document.status !== filters.status) return false;
       if (filters.area && !document.areas.includes(filters.area)) return false;
+      if (filters.release && document.release !== filters.release) return false;
+      if (filters.decision && !document.decisions.includes(filters.decision)) return false;
+      if (filters.backlog && !document.backlog.includes(filters.backlog)) return false;
+      if (filters.symbol && !document.symbols.includes(filters.symbol)) return false;
+      const fileFilter = filters.file;
+      if (fileFilter && !document.files.some((filePath) => pathsMatch(filePath, fileFilter))) {
+        return false;
+      }
+      const docFilter = filters.doc;
+      if (docFilter && !document.docs.some((filePath) => pathsMatch(filePath, docFilter))) {
+        return false;
+      }
+      if (filters.id && document.id !== filters.id) return false;
       return true;
     });
 }
@@ -63,4 +83,12 @@ export function normalizeKindFilter(value: string | undefined): LedgerDocumentKi
     return value;
   }
   return undefined;
+}
+
+function pathsMatch(candidate: string, target: string): boolean {
+  return (
+    candidate === target ||
+    candidate.endsWith(`/${target}`) ||
+    target.endsWith(`/${candidate}`)
+  );
 }
