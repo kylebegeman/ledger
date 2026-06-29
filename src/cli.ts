@@ -3,7 +3,7 @@ import process from "node:process";
 import { buildConflictTargets } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
-import { auditDocs, writeDocsAuditReport } from "./docs.js";
+import { auditDocs, classifyDocsPaths, writeDocsAuditReport } from "./docs.js";
 import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
@@ -305,10 +305,12 @@ async function docsCommand(parsed: ParsedArgs): Promise<number> {
       return await docsAuditCommand({ strict: false });
     case "check":
       return await docsAuditCommand({ strict: true });
+    case "classify":
+      return await docsClassifyCommand(parsed);
     case "impact":
       return await docsImpactCommand(parsed);
     case undefined:
-      console.error("Usage: ledger docs <audit|check|impact>");
+      console.error("Usage: ledger docs <audit|check|classify|impact>");
       return 2;
     default:
       console.error(`Unknown docs command: ${subcommand}`);
@@ -331,6 +333,26 @@ async function docsAuditCommand(options: { readonly strict: boolean }): Promise<
     }
   }
   return options.strict && audit.missingReferences.length > 0 ? 1 : 0;
+}
+
+async function docsClassifyCommand(parsed: ParsedArgs): Promise<number> {
+  const workspace = await findWorkspace();
+  const targets = parsed.positionals.slice(1);
+  const files =
+    targets.length > 0
+      ? classifyDocsPaths(targets, workspace.config.docs.root)
+      : (await auditDocs(workspace, await readLedgerDocuments(workspace))).files;
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ files }, null, 2));
+    return 0;
+  }
+
+  console.log(`Ledger docs classify: ${files.length} file(s).`);
+  for (const file of files) {
+    console.log(`- ${file.classification}: ${file.path}`);
+  }
+  return 0;
 }
 
 async function docsImpactCommand(parsed: ParsedArgs): Promise<number> {
@@ -442,6 +464,7 @@ Usage:
   ledger release <version> [--include-unreleased] [--write] [--json]
   ledger docs audit
   ledger docs check
+  ledger docs classify [path...] [--json]
   ledger docs impact [--staged] [--check] [--json]
 `);
 }

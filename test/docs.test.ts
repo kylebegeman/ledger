@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { readLedgerConfig } from "../src/config.js";
 import { readLedgerDocuments } from "../src/documents.js";
-import { auditDocs, classifyDocsFile } from "../src/docs.js";
+import { auditDocs, classifyDocsFile, classifyDocsPaths } from "../src/docs.js";
 import type { LedgerWorkspace } from "../src/types.js";
 
 let tempDir: string | undefined;
@@ -23,6 +23,15 @@ describe("docs audit", () => {
     expect(classifyDocsFile("docs/llm/START_HERE.md")).toBe("routing");
     expect(classifyDocsFile("docs/scratchpad/investigation.md")).toBe("scratch");
     expect(classifyDocsFile("docs/generated/report.html")).toBe("generated");
+  });
+
+  it("classifies explicit path lists", () => {
+    expect(
+      classifyDocsPaths(["docs/architecture/runtime.md", "docs/llm/START_HERE.md"]),
+    ).toEqual([
+      { path: "docs/architecture/runtime.md", classification: "durable" },
+      { path: "docs/llm/START_HERE.md", classification: "routing" },
+    ]);
   });
 
   it("reports missing and unreferenced docs", async () => {

@@ -40,6 +40,7 @@ node dist/cli.js unreleased
 node dist/cli.js release v0.1.0 --include-unreleased
 node dist/cli.js explain README.md
 node dist/cli.js docs audit
+node dist/cli.js docs classify docs/ARCHITECTURE.md
 node dist/cli.js docs impact
 ```
 
@@ -59,6 +60,7 @@ ledger explain apps/server/src/ws.ts --agent
 ledger query --kind change --area cli
 ledger unreleased
 ledger release v0.1.0 --include-unreleased --write
+ledger docs classify docs/llm/START_HERE.md --json
 ledger docs impact --check
 ```
 

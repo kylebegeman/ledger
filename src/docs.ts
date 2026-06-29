@@ -121,6 +121,16 @@ export function classifyDocsFile(
   return "unknown";
 }
 
+export function classifyDocsPaths(
+  filePaths: readonly string[],
+  docsRoot = "docs",
+): readonly LedgerDocsFile[] {
+  return filePaths.map((filePath) => ({
+    path: normalizePath(filePath),
+    classification: classifyDocsFile(filePath, docsRoot),
+  }));
+}
+
 function collectReferencedDocs(
   documents: readonly ParsedLedgerDocument[],
   docsRoot: string,

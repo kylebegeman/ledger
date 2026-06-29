@@ -263,6 +263,14 @@ source changes that have no visible docs impact. The command does not rewrite
 documentation; it only surfaces whether docs were touched or intentionally
 referenced.
 
+### `ledger docs classify`
+
+Classifies one or more docs paths using Ledger's docs lifecycle vocabulary:
+durable, routing, scratch, generated, or unknown. Without explicit paths, it
+classifies the configured docs root. This is a smaller, routing-friendly command
+for agents that need to decide whether a doc is current truth, temporary work,
+generated output, or agent entrypoint material.
+
 ## Data Flow
 
 ```txt

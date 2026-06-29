@@ -135,6 +135,13 @@ writes `.ledger/reports/docs-audit.md`.
 Runs the docs audit and exits non-zero only when Ledger references docs that do
 not exist.
 
+### `ledger docs classify`
+
+Classifies docs paths as durable, routing, scratch, generated, or unknown. With
+explicit paths, it classifies only those paths. Without paths, it classifies the
+configured docs root using the same discovery path as `ledger docs audit`.
+`--json` emits the raw file list for agents and routing tools.
+
 ### `ledger docs impact`
 
 Reads changed files from Git, classifies source files, docs files, and changed
