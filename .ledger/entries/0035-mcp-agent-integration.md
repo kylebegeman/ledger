@@ -27,7 +27,9 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "18aa723"
+release: "v0.1.4"
 ---
 
 # 0035: Add MCP Agent Integration
