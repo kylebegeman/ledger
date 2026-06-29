@@ -19,7 +19,7 @@ symbols:
   - "coveragePolicy"
 docs:
   - "docs/SCHEMA.md"
-commits: []
+commits: ["967193a"]
 ---
 
 # 0028: Ignore Generated Docs Manifest

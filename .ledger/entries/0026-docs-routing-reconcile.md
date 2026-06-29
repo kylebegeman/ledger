@@ -21,7 +21,7 @@ symbols:
 docs:
   - "docs/ROADMAP.md"
   - "docs/IMPLEMENTATION_PLAN.md"
-commits: []
+commits: ["5835fdd"]
 ---
 
 # 0026: Generate Docs Routing Manifest

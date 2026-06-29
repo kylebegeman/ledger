@@ -20,7 +20,7 @@ symbols:
 docs:
   - "docs/ROADMAP.md"
   - "docs/ARCHITECTURE.md"
-commits: []
+commits: ["e81f6b4"]
 ---
 
 # 0027: Add Agent Packet Command

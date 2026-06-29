@@ -18,7 +18,7 @@ symbols:
   - "LedgerIndexes"
 docs:
   - "docs/ARCHITECTURE.md"
-commits: []
+commits: ["2ddfa5c"]
 ---
 
 # 0025: Add Decision And Backlog Indexes
