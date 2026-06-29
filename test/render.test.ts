@@ -16,6 +16,9 @@ describe("buildStaticReaderModel", () => {
     expect(model.stats.changes).toBe(1);
     expect(model.stats.decisions).toBe(1);
     expect(model.documents.map((entry) => entry.id)).toEqual(["0001", "D001"]);
+    expect(model.documents[0]?.summary).toBe("Summary.");
+    expect(model.documents[0]?.invariants).toEqual(["Keep this true."]);
+    expect(model.documents[0]?.verification).toEqual(["npm test"]);
   });
 });
 
@@ -24,12 +27,15 @@ describe("renderStaticReaderHtml", () => {
     const model = buildStaticReaderModel(workspace(), [
       document("0001", "change", "Escape <script>"),
     ]);
-    const html = renderStaticReaderHtml(model);
+    const html = renderStaticReaderHtml(model, { iconSvg: "<svg><title>Ledger</title></svg>" });
 
     expect(html).toContain("Escape &lt;script&gt;");
     expect(html).toContain('<script id="ledger-data" type="application/json">');
     expect(html).toContain("\\u003cscript>");
+    expect(html).toContain("<svg><title>Ledger</title></svg>");
     expect(html).toContain("Markdown Source");
+    expect(html).toContain("Invariants");
+    expect(html).toContain("Verification");
   });
 });
 
@@ -65,6 +71,14 @@ commits: []
 ## Summary
 
 Summary.
+
+## Invariants
+
+- Keep this true.
+
+## Verification
+
+- npm test
 `;
   const parsed = parseMarkdownWithFrontmatter(raw);
   return {

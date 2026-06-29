@@ -1,6 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import { extractBullets, getSectionBody } from "./query.js";
 import type {
   LedgerWorkspace,
   NormalizedLedgerDocument,
@@ -9,6 +10,10 @@ import type {
 
 export interface LedgerRenderedDocument extends NormalizedLedgerDocument {
   readonly source: string;
+  readonly summary?: string;
+  readonly why?: string;
+  readonly invariants: readonly string[];
+  readonly verification: readonly string[];
 }
 
 export interface LedgerStaticReaderModel {
@@ -35,10 +40,17 @@ export function buildStaticReaderModel(
   documents: readonly ParsedLedgerDocument[],
 ): LedgerStaticReaderModel {
   const renderedDocuments = documents
-    .map((document) => ({
-      ...normalizeDocument(document),
-      source: document.raw,
-    }))
+    .map((document) => {
+      const normalized = normalizeDocument(document);
+      return {
+        ...normalized,
+        source: document.raw,
+        summary: compactSection(getSectionBody(document, "Summary")),
+        why: compactSection(getSectionBody(document, "Why")),
+        invariants: extractBullets(getSectionBody(document, "Invariants")),
+        verification: extractBullets(getSectionBody(document, "Verification")),
+      };
+    })
     .sort((left, right) => left.id.localeCompare(right.id));
 
   return {
@@ -63,14 +75,21 @@ export async function writeStaticReader(
   const outputDirectory = path.join(workspace.projectRoot, workspace.config.render.output);
   await mkdir(outputDirectory, { recursive: true });
   const outputPath = path.join(outputDirectory, "index.html");
-  await writeFile(outputPath, renderStaticReaderHtml(model), "utf8");
+  await writeFile(outputPath, renderStaticReaderHtml(model, { iconSvg: await readIconSvg() }), "utf8");
   return {
     outputPath: normalizeOutputPath(workspace, outputPath),
     documents: model.documents.length,
   };
 }
 
-export function renderStaticReaderHtml(model: LedgerStaticReaderModel): string {
+export interface RenderStaticReaderHtmlOptions {
+  readonly iconSvg?: string;
+}
+
+export function renderStaticReaderHtml(
+  model: LedgerStaticReaderModel,
+  options: RenderStaticReaderHtmlOptions = {},
+): string {
   const areas = uniqueSorted(model.documents.flatMap((document) => document.areas));
   const statuses = uniqueSorted(model.documents.map((document) => document.status));
   const releases = uniqueSorted(
@@ -107,6 +126,21 @@ export function renderStaticReaderHtml(model: LedgerStaticReaderModel): string {
       background: var(--panel);
       border-bottom: 1px solid var(--line);
       padding: 24px clamp(16px, 4vw, 40px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo {
+      width: 56px;
+      height: 56px;
+      flex: 0 0 auto;
+    }
+    .logo svg {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
     main {
       display: grid;
@@ -177,6 +211,29 @@ export function renderStaticReaderHtml(model: LedgerStaticReaderModel): string {
       padding: 2px 8px;
       background: #fbfcfe;
     }
+    .summary {
+      max-width: 760px;
+      color: var(--text);
+    }
+    .context-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .context {
+      border-left: 3px solid var(--accent);
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 6px;
+    }
+    .context strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: .85rem;
+      color: var(--muted);
+    }
+    .context ul { margin: 0; padding-left: 18px; }
     .paths, .source { margin-top: 12px; }
     summary { cursor: pointer; color: var(--accent); font-weight: 650; }
     pre {
@@ -201,13 +258,20 @@ export function renderStaticReaderHtml(model: LedgerStaticReaderModel): string {
     @media (max-width: 820px) {
       main { grid-template-columns: 1fr; }
       aside { position: static; }
+      .context-grid { grid-template-columns: 1fr; }
+      .brand { align-items: flex-start; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>${escapeHtml(model.project)} Ledger</h1>
-    <p class="subhead">Generated ${escapeHtml(model.generatedAt)} from Ledger source Markdown.</p>
+    <div class="brand">
+      ${options.iconSvg ? `<div class="logo" aria-hidden="true">${options.iconSvg}</div>` : ""}
+      <div>
+        <h1>${escapeHtml(model.project)} Ledger</h1>
+        <p class="subhead">Generated ${escapeHtml(model.generatedAt)} from Ledger source Markdown.</p>
+      </div>
+    </div>
     <div class="stats">
       ${stat("Documents", model.stats.documents)}
       ${stat("Changes", model.stats.changes)}
@@ -312,6 +376,10 @@ function renderEntry(document: LedgerRenderedDocument): string {
     ...document.areas,
     ...document.files,
     ...document.symbols,
+    document.summary ?? "",
+    document.why ?? "",
+    ...document.invariants,
+    ...document.verification,
     document.source,
   ]
     .join(" ")
@@ -325,6 +393,8 @@ function renderEntry(document: LedgerRenderedDocument): string {
             ${document.areas.map((area) => `<span class="pill">${escapeHtml(area)}</span>`).join("")}
           </div>
           <p><strong>Source:</strong> ${escapeHtml(document.path)}</p>
+          ${document.summary ? `<p class="summary">${escapeHtml(document.summary)}</p>` : ""}
+          ${contextGrid(document)}
           ${detailList("Files", document.files)}
           ${detailList("Symbols", document.symbols)}
           ${detailList("Docs", document.docs)}
@@ -333,6 +403,22 @@ function renderEntry(document: LedgerRenderedDocument): string {
             <pre>${escapeHtml(document.source)}</pre>
           </details>
         </article>`;
+}
+
+function contextGrid(document: LedgerRenderedDocument): string {
+  const sections = [
+    contextBlock("Invariants", document.invariants),
+    contextBlock("Verification", document.verification),
+  ].filter((section) => section.length > 0);
+  if (sections.length === 0) return "";
+  return `<div class="context-grid">${sections.join("")}</div>`;
+}
+
+function contextBlock(label: string, values: readonly string[]): string {
+  if (values.length === 0) return "";
+  return `<div class="context"><strong>${escapeHtml(label)}</strong><ul>${values
+    .map((value) => `<li>${escapeHtml(value)}</li>`)
+    .join("")}</ul></div>`;
 }
 
 function detailList(label: string, values: readonly string[]): string {
@@ -355,6 +441,13 @@ function uniqueSorted(values: readonly string[]): readonly string[] {
   return [...new Set(values.filter((value) => value.length > 0))].sort();
 }
 
+function compactSection(value: string | undefined): string | undefined {
+  const compacted = value?.replace(/\s+/g, " ").trim();
+  if (!compacted) return undefined;
+  if (compacted.length <= 320) return compacted;
+  return `${compacted.slice(0, 317).trimEnd()}...`;
+}
+
 function normalizeOutputPath(workspace: LedgerWorkspace, outputPath: string): string {
   return normalizePath(path.relative(workspace.projectRoot, outputPath));
 }
@@ -370,4 +463,12 @@ function escapeHtml(value: string): string {
 
 function escapeScriptJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+async function readIconSvg(): Promise<string | undefined> {
+  try {
+    return await readFile(new URL("../assets/ledger.svg", import.meta.url), "utf8");
+  } catch {
+    return undefined;
+  }
 }

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/ledger.svg" alt="Ledger icon" width="96" height="96">
+</p>
+
 # Ledger
 
 Ledger is a repo-native change memory system for humans and coding agents.

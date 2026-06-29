@@ -184,9 +184,10 @@ The static HTML renderer is optional and should read from generated indexes.
 
 The first `ledger render` implementation writes a single offline HTML file under
 `.ledger/dist/index.html`. It reads source documents directly, validates before
-rendering, embeds normalized JSON data, and includes Markdown source access for
-each record. Later renderers can consume generated indexes or emit richer
-multi-page output without changing the source document model.
+rendering, embeds normalized JSON data, surfaces summaries, invariants, and
+verification checks, and includes Markdown source access for each record. Later
+renderers can consume generated indexes or emit richer multi-page output without
+changing the source document model.
 
 ### Docs Bridge
 
