@@ -18,7 +18,8 @@ docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
   - "docs/ROADMAP.md"
-commits: []
+commits:
+  - "6b0c8a2"
 release: "v0.1.6"
 ---
 
