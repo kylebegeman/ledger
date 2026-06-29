@@ -26,6 +26,8 @@ describe("Ledger validation", () => {
 
     expect(result.errors).toEqual([]);
     expect(indexes.byFile["src/cli.ts"]).toEqual(["0001"]);
+    expect(indexes.byDecision.D001).toEqual(["0001"]);
+    expect(indexes.byBacklog.B001).toEqual(["0001"]);
     expect(explainFile(documents, "src/cli.ts").map((document) => document.id)).toEqual([
       "0001",
     ]);
@@ -106,6 +108,10 @@ areas: ["cli"]
 files:
   - "src/cli.ts"
 symbols: []
+decisions:
+  - "D001"
+backlog:
+  - "B001"
 commits: []
 ---
 

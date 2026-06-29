@@ -30,6 +30,8 @@ export function buildIndexes(
       document.release ? [document.release] : [],
     ),
     bySymbol: groupByMany(normalized, (document) => document.symbols),
+    byDecision: groupByMany(normalized, (document) => document.decisions),
+    byBacklog: groupByMany(normalized, (document) => document.backlog),
   };
 }
 
@@ -44,6 +46,8 @@ export async function writeIndexes(
   await writeJson(path.join(outputDirectory, "by-area.json"), indexes.byArea);
   await writeJson(path.join(outputDirectory, "by-release.json"), indexes.byRelease);
   await writeJson(path.join(outputDirectory, "by-symbol.json"), indexes.bySymbol);
+  await writeJson(path.join(outputDirectory, "by-decision.json"), indexes.byDecision);
+  await writeJson(path.join(outputDirectory, "by-backlog.json"), indexes.byBacklog);
 }
 
 export function explainFile(

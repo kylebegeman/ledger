@@ -140,6 +140,8 @@ export interface LedgerIndexes {
   readonly byArea: Record<string, readonly string[]>;
   readonly byRelease: Record<string, readonly string[]>;
   readonly bySymbol: Record<string, readonly string[]>;
+  readonly byDecision: Record<string, readonly string[]>;
+  readonly byBacklog: Record<string, readonly string[]>;
 }
 
 export type LedgerDocsClassification =

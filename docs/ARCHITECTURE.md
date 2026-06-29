@@ -110,11 +110,11 @@ Initial indexes:
 - `by-area.json`: area tag to entries
 - `by-release.json`: release to entries
 - `by-symbol.json`: symbol to entries, initially from explicit frontmatter
+- `by-decision.json`: decision id to entries
+- `by-backlog.json`: backlog id to entries
 
 Later indexes:
 
-- `by-decision.json`
-- `by-backlog.json`
 - `by-invariant.json`
 - `search.sqlite`
 - static HTML data model
@@ -323,6 +323,8 @@ Suggested generated paths:
 .ledger/indexes/by-area.json
 .ledger/indexes/by-release.json
 .ledger/indexes/by-symbol.json
+.ledger/indexes/by-decision.json
+.ledger/indexes/by-backlog.json
 .ledger/reports/latest-validation.md
 .ledger/dist/index.html
 ```
