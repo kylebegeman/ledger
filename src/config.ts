@@ -1,6 +1,20 @@
 import { readFile } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
-import type { LedgerConfig, LedgerDocumentKind } from "./types.js";
+import type {
+  LedgerConfig,
+  LedgerDocsAdoption,
+  LedgerDocumentKind,
+  LedgerSchemaFieldType,
+} from "./types.js";
+
+const documentKinds: readonly LedgerDocumentKind[] = [
+  "change",
+  "backlog",
+  "decision",
+  "release",
+  "product-note",
+  "feedback",
+];
 
 const requiredSections: Record<LedgerDocumentKind, readonly string[]> = {
   change: [
@@ -21,6 +35,8 @@ const requiredSections: Record<LedgerDocumentKind, readonly string[]> = {
   ],
   decision: ["Context", "Decision", "Consequences", "Revisit Criteria"],
   release: ["Summary", "Public Notes", "Changes", "Verification", "Known Issues"],
+  "product-note": ["Context", "Finding", "Impact", "Recommendation", "Follow-ups"],
+  feedback: ["Context", "Finding", "Impact", "Recommendation", "Follow-ups"],
 };
 
 export const defaultConfig: LedgerConfig = {
@@ -42,7 +58,13 @@ export const defaultConfig: LedgerConfig = {
     requireVerification: true,
     requireChangedFiles: true,
     requireInvariants: true,
+    baseline: ".ledger/reports/validation-baseline.json",
+    ignoreMissingRefsForStatuses: ["historical"],
     requiredSections,
+  },
+  schema: {
+    allowedFrontmatterFields: [],
+    extensions: {},
   },
   indexes: {
     output: ".ledger/indexes",
@@ -56,6 +78,7 @@ export const defaultConfig: LedgerConfig = {
   docs: {
     root: "docs",
     managed: false,
+    adoption: "partial",
     routing: {
       startHere: "docs/llm/START_HERE.md",
       manifest: "docs/llm/manifest.json",
@@ -71,6 +94,13 @@ export const defaultConfig: LedgerConfig = {
       "docs/llm/START_HERE.md",
       "node_modules/**",
       "dist/**",
+      "build/**",
+      "coverage/**",
+      ".next/**",
+      "out/**",
+      "vendor/**",
+      "generated/**",
+      "**/generated/**",
     ],
   },
 };
@@ -105,6 +135,7 @@ type PartialLedgerConfig = {
   readonly validation?: Partial<LedgerConfig["validation"]> & {
     readonly requiredSections?: Partial<Record<LedgerDocumentKind, readonly string[]>>;
   };
+  readonly schema?: Partial<LedgerConfig["schema"]>;
   readonly indexes?: Partial<LedgerConfig["indexes"]>;
   readonly reports?: Partial<LedgerConfig["reports"]>;
   readonly render?: Partial<LedgerConfig["render"]>;
@@ -128,12 +159,21 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
         ...override.validation?.requiredSections,
       },
     },
+    schema: {
+      ...base.schema,
+      ...override.schema,
+      extensions: {
+        ...base.schema.extensions,
+        ...override.schema?.extensions,
+      },
+    },
     indexes: { ...base.indexes, ...override.indexes },
     reports: { ...base.reports, ...override.reports },
     render: { ...base.render, ...override.render },
     docs: {
       ...base.docs,
       ...override.docs,
+      adoption: override.docs?.adoption ?? adoptionFromManaged(override.docs?.managed, base.docs.adoption),
       routing: {
         ...base.docs.routing,
         ...override.docs?.routing,
@@ -163,6 +203,10 @@ function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
       ...config.docs,
       root: normalizeConfigPath(config.docs.root),
       routing: mapStringValues(config.docs.routing, normalizeConfigPath),
+    },
+    validation: {
+      ...config.validation,
+      baseline: normalizeConfigPath(config.validation.baseline),
     },
     git: {
       requireEntryFor: config.git.requireEntryFor.map(normalizeConfigPath),
@@ -203,11 +247,26 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
     optionalBoolean(validation, "requireVerification", configPath, "validation");
     optionalBoolean(validation, "requireChangedFiles", configPath, "validation");
     optionalBoolean(validation, "requireInvariants", configPath, "validation");
+    optionalString(validation, "baseline", configPath, "validation");
+    optionalStringArray(validation, "ignoreMissingRefsForStatuses", configPath, "validation");
     optionalObject(validation, "requiredSections", configPath, (requiredSections) => {
-      for (const kind of ["change", "backlog", "decision", "release"] as const) {
+      for (const kind of documentKinds) {
         optionalStringArray(requiredSections, kind, configPath, "validation.requiredSections");
       }
     }, "validation");
+  });
+  optionalObject(config, "schema", configPath, (schema) => {
+    optionalStringArray(schema, "allowedFrontmatterFields", configPath, "schema");
+    optionalObject(schema, "extensions", configPath, (extensions) => {
+      for (const [field, value] of Object.entries(extensions)) {
+        if (!isSchemaFieldType(value)) {
+          fail(
+            configPath,
+            `schema.extensions.${field} must be one of string, string[], number, boolean, date, object, array`,
+          );
+        }
+      }
+    }, "schema");
   });
   optionalObject(config, "indexes", configPath, (indexes) => {
     optionalString(indexes, "output", configPath, "indexes");
@@ -221,6 +280,7 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
   optionalObject(config, "docs", configPath, (docs) => {
     optionalString(docs, "root", configPath, "docs");
     optionalBoolean(docs, "managed", configPath, "docs");
+    optionalDocsAdoption(docs, "adoption", configPath, "docs");
     optionalObject(docs, "routing", configPath, (routing) => {
       optionalString(routing, "startHere", configPath, "docs.routing");
       optionalString(routing, "manifest", configPath, "docs.routing");
@@ -248,6 +308,7 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
     ["indexes.output", config.indexes.output],
     ["reports.output", config.reports.output],
     ["render.output", config.render.output],
+    ["validation.baseline", config.validation.baseline],
     ["docs.root", config.docs.root],
     ["docs.routing.startHere", config.docs.routing.startHere],
     ["docs.routing.manifest", config.docs.routing.manifest],
@@ -256,11 +317,20 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
       fail(configPath, `${label} must be a non-empty string`);
     }
   }
-  for (const kind of ["change", "backlog", "decision", "release"] as const) {
+  for (const kind of documentKinds) {
     if (config.validation.requiredSections[kind].length === 0) {
       fail(configPath, `validation.requiredSections.${kind} must not be empty`);
     }
   }
+}
+
+function adoptionFromManaged(
+  managed: boolean | undefined,
+  fallback: LedgerDocsAdoption,
+): LedgerDocsAdoption {
+  if (managed === true) return "managed";
+  if (managed === false) return fallback;
+  return fallback;
 }
 
 function optionalObject(
@@ -314,6 +384,23 @@ function optionalBoolean(
   }
 }
 
+function optionalDocsAdoption(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (
+    value !== undefined &&
+    value !== "none" &&
+    value !== "partial" &&
+    value !== "managed"
+  ) {
+    fail(configPath, `${fieldPath(key, prefix)} must be none, partial, or managed`);
+  }
+}
+
 function optionalStringArray(
   source: Record<string, unknown>,
   key: string,
@@ -329,6 +416,18 @@ function optionalStringArray(
 
 function fieldPath(key: string, prefix?: string): string {
   return prefix ? `${prefix}.${key}` : key;
+}
+
+function isSchemaFieldType(value: unknown): value is LedgerSchemaFieldType {
+  return (
+    value === "string" ||
+    value === "string[]" ||
+    value === "number" ||
+    value === "boolean" ||
+    value === "date" ||
+    value === "object" ||
+    value === "array"
+  );
 }
 
 function fail(configPath: string, message: string): never {

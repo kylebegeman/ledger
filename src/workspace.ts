@@ -1,7 +1,7 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { defaultConfig, readLedgerConfig } from "./config.js";
-import type { LedgerWorkspace } from "./types.js";
+import type { LedgerDocsAdoption, LedgerWorkspace } from "./types.js";
 
 const configRelativePath = path.join(".ledger", "config.yaml");
 
@@ -34,6 +34,7 @@ export async function findProjectRoot(startDir: string): Promise<string> {
 
 export interface InitWorkspaceOptions {
   readonly withDocs?: boolean;
+  readonly adoption?: LedgerDocsAdoption;
 }
 
 export async function initWorkspace(
@@ -80,6 +81,10 @@ export async function initWorkspace(
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "backlog.md"), backlogTemplate());
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "decision.md"), decisionTemplate());
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "release.md"), releaseTemplate());
+  await writeFileIfMissing(
+    path.join(ledgerRoot, "templates", "product-note.md"),
+    productNoteTemplate(),
+  );
   await writeFileIfMissing(path.join(ledgerRoot, "policies", "coverage.yaml"), coveragePolicy());
 
   if (options.withDocs) {
@@ -111,6 +116,7 @@ async function pathExists(filePath: string): Promise<boolean> {
 
 function serializeDefaultConfig(project: string, options: InitWorkspaceOptions): string {
   const sections = defaultConfig.validation.requiredSections;
+  const adoption = options.adoption ?? "partial";
   return [
     "version: 1",
     `project: ${project}`,
@@ -128,11 +134,17 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "  requireVerification: true",
     "  requireChangedFiles: true",
     "  requireInvariants: true",
+    "  baseline: .ledger/reports/validation-baseline.json",
+    "  ignoreMissingRefsForStatuses:",
+    "    - historical",
     "  requiredSections:",
     ...Object.entries(sections).flatMap(([kind, names]) => [
       `    ${kind}:`,
       ...names.map((name) => `      - ${name}`),
     ]),
+    "schema:",
+    "  allowedFrontmatterFields: []",
+    "  extensions: {}",
     "indexes:",
     "  output: .ledger/indexes",
     "reports:",
@@ -141,10 +153,18 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "  output: .ledger/dist",
     "docs:",
     "  root: docs",
-    `  managed: ${options.withDocs ? "true" : "false"}`,
+    "  managed: false",
+    `  adoption: ${adoption}`,
     "  routing:",
     "    startHere: docs/llm/START_HERE.md",
     "    manifest: docs/llm/manifest.json",
+    "git:",
+    "  requireEntryFor:",
+    "    - src/**",
+    "    - test/**",
+    "    - docs/**",
+    "  ignore:",
+    ...defaultConfig.git.ignore.map((pattern) => `    - ${JSON.stringify(pattern)}`),
     "",
   ].join("\n");
 }
@@ -356,6 +376,44 @@ function releaseTemplate(): string {
   ].join("\n");
 }
 
+function productNoteTemplate(): string {
+  return [
+    "---",
+    'id: "{{id}}"',
+    'kind: "product-note"',
+    'title: "{{title}}"',
+    'date: "{{date}}"',
+    'updated: "{{date}}"',
+    'status: "captured"',
+    "areas: []",
+    "tags: []",
+    "---",
+    "",
+    "# {{id}}: {{title}}",
+    "",
+    "## Context",
+    "",
+    "Where did this feedback come from?",
+    "",
+    "## Finding",
+    "",
+    "What did the user, product team, or dogfood session reveal?",
+    "",
+    "## Impact",
+    "",
+    "Why does it matter?",
+    "",
+    "## Recommendation",
+    "",
+    "What should happen next?",
+    "",
+    "## Follow-ups",
+    "",
+    "- Add concrete follow-ups or `None`.",
+    "",
+  ].join("\n");
+}
+
 function coveragePolicy(): string {
   return [
     "version: 1",
@@ -364,12 +422,7 @@ function coveragePolicy(): string {
     "  - test/**",
     "  - docs/**",
     "ignore:",
-    "  - .ledger/indexes/**",
-    "  - .ledger/reports/**",
-    "  - .ledger/dist/**",
-    "  - docs/llm/manifest.json",
-    "  - node_modules/**",
-    "  - dist/**",
+    ...defaultConfig.git.ignore.map((pattern) => `  - ${JSON.stringify(pattern)}`),
     "",
   ].join("\n");
 }

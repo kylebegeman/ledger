@@ -1,4 +1,5 @@
 import { normalizeDocument } from "./documents.js";
+import { coveragePatternMatches } from "./coverage.js";
 import type {
   LedgerDocumentKind,
   NormalizedLedgerDocument,
@@ -9,6 +10,7 @@ export interface LedgerQueryFilters {
   readonly kind?: LedgerDocumentKind;
   readonly status?: string;
   readonly area?: string;
+  readonly tag?: string;
   readonly release?: string;
   readonly decision?: string;
   readonly backlog?: string;
@@ -29,6 +31,7 @@ export function queryDocuments(
       if (filters.kind && document.kind !== filters.kind) return false;
       if (filters.status && document.status !== filters.status) return false;
       if (filters.area && !document.areas.includes(filters.area)) return false;
+      if (filters.tag && !document.tags.includes(filters.tag)) return false;
       if (filters.release && document.release !== filters.release) return false;
       if (filters.decision && !document.decisions.includes(filters.decision)) return false;
       if (filters.backlog && !document.backlog.includes(filters.backlog)) return false;
@@ -80,7 +83,9 @@ export function normalizeKindFilter(value: string | undefined): LedgerDocumentKi
     value === "change" ||
     value === "backlog" ||
     value === "decision" ||
-    value === "release"
+    value === "release" ||
+    value === "product-note" ||
+    value === "feedback"
   ) {
     return value;
   }
@@ -89,6 +94,7 @@ export function normalizeKindFilter(value: string | undefined): LedgerDocumentKi
 
 function pathsMatch(candidate: string, target: string): boolean {
   return (
+    coveragePatternMatches(target, candidate) ||
     candidate === target ||
     candidate.endsWith(`/${target}`) ||
     target.endsWith(`/${candidate}`)
@@ -105,6 +111,7 @@ function documentMatchesText(document: NormalizedLedgerDocument, text: string): 
     document.release ?? "",
     document.path,
     ...document.areas,
+    ...document.tags,
     ...document.files,
     ...document.symbols,
     ...document.docs,

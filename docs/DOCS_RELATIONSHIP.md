@@ -128,7 +128,7 @@ patch plan or a focused checklist unless the project opts into generated docs.
 
 ## Features This Unlocks
 
-A managed docs plane makes several useful workflows possible:
+A partial or managed docs plane makes several useful workflows possible:
 
 - **Docs impact checks:** a pull request can fail if code changed without a
   Ledger entry or docs-impact decision.

@@ -1,6 +1,6 @@
 {
-  "name": "ledger",
-  "version": "0.1.10",
+  "name": "@kylebegeman/ledger",
+  "version": "0.1.12",
   "description": "Repo-native change memory for humans and coding agents.",
   "type": "module",
   "keywords": [
@@ -10,16 +10,19 @@
     "ledger",
     "developer-tools"
   ],
-  "homepage": "https://github.com/mrbagels/ledger#readme",
+  "homepage": "https://github.com/kylebegeman/ledger#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrbagels/ledger.git"
+    "url": "git+https://github.com/kylebegeman/ledger.git"
   },
   "bugs": {
-    "url": "https://github.com/mrbagels/ledger/issues"
+    "url": "https://github.com/kylebegeman/ledger/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "bin": {
-    "ledger": "./dist/cli.js"
+    "ledger": "dist/cli.js"
   },
   "exports": {
     ".": "./dist/index.js"
@@ -31,15 +34,17 @@
     "CONTRIBUTING.md",
     "SECURITY.md",
     "docs/*.md",
-    ".ledger/templates"
+    ".ledger/templates/*.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/cli.js', 0o755)\"",
+    "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm test",
     "ledger:ci": "node dist/cli.js ci",
     "pack:dry-run": "npm pack --dry-run",
+    "release:build": "npm run build && npm run pack:dry-run",
     "ci": "npm run check && npm run build && npm run ledger:ci && npm run pack:dry-run"
   },
   "engines": {

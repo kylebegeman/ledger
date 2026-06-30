@@ -8,6 +8,29 @@ import type {
   ParsedLedgerDocument,
 } from "./types.js";
 
+const coreFrontmatterFields = new Set([
+  "id",
+  "kind",
+  "title",
+  "date",
+  "updated",
+  "status",
+  "areas",
+  "files",
+  "symbols",
+  "commits",
+  "prs",
+  "release",
+  "tags",
+  "decisions",
+  "backlog",
+  "supersedes",
+  "related",
+  "docs",
+  "entries",
+  "staleRefs",
+]);
+
 export async function readLedgerDocuments(
   workspace: LedgerWorkspace,
 ): Promise<readonly ParsedLedgerDocument[]> {
@@ -81,11 +104,13 @@ export function normalizeDocument(document: ParsedLedgerDocument): NormalizedLed
     commits: stringArrayValue(frontmatter.commits),
     prs: stringArrayValue(frontmatter.prs),
     release: optionalStringValue(frontmatter.release),
+    tags: stringArrayValue(frontmatter.tags),
     decisions: stringArrayValue(frontmatter.decisions),
     backlog: stringArrayValue(frontmatter.backlog),
     supersedes: stringArrayValue(frontmatter.supersedes),
     related: stringArrayValue(frontmatter.related),
     docs: stringArrayValue(frontmatter.docs).map(normalizePath),
+    extensions: extensionValues(frontmatter),
     path: document.relativePath,
     sections: document.sections.map((section) => section.title),
   };
@@ -96,7 +121,9 @@ export function normalizeKind(value: unknown): LedgerDocumentKind | undefined {
     value === "change" ||
     value === "backlog" ||
     value === "decision" ||
-    value === "release"
+    value === "release" ||
+    value === "product-note" ||
+    value === "feedback"
   ) {
     return value;
   }
@@ -118,4 +145,13 @@ export function stringArrayValue(value: unknown): readonly string[] {
 
 export function normalizePath(input: string): string {
   return input.replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function extensionValues(frontmatter: Record<string, unknown>): Record<string, unknown> {
+  const extensions: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(frontmatter)) {
+    if (coreFrontmatterFields.has(field)) continue;
+    extensions[field] = value;
+  }
+  return extensions;
 }

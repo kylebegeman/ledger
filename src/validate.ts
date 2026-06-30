@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { matchesGlob } from "./coverage.js";
-import { normalizeDocument, normalizePath } from "./documents.js";
+import { isCoveragePattern, matchesGlob } from "./coverage.js";
+import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import type {
   LedgerIssue,
   LedgerValidationResult,
@@ -23,36 +23,47 @@ const knownFrontmatterFields = new Set([
   "commits",
   "prs",
   "release",
+  "tags",
   "decisions",
   "backlog",
   "supersedes",
   "related",
   "docs",
   "entries",
+  "staleRefs",
+  "stale_refs",
 ]);
+
+export interface ValidateDocumentsOptions {
+  readonly currentOnly?: boolean;
+  readonly baseline?: ReadonlySet<string>;
+}
 
 export function validateDocuments(
   workspace: LedgerWorkspace,
   documents: readonly ParsedLedgerDocument[],
+  options: ValidateDocumentsOptions = {},
 ): LedgerValidationResult {
   const issues: LedgerIssue[] = [];
   const ids = new Map<string, string>();
 
   for (const document of documents) {
     const normalized = normalizeDocument(document);
+    if (options.currentOnly && normalized.status === "historical") continue;
+
     const pathLabel = document.relativePath;
 
     requireString(issues, pathLabel, normalized.id, "id");
     requireString(issues, pathLabel, normalized.title, "title");
     requireString(issues, pathLabel, normalized.date, "date");
     requireString(issues, pathLabel, normalized.status, "status");
-    warnUnknownFrontmatterFields(issues, pathLabel, document.frontmatter);
 
     if (normalized.id) {
       const existingPath = ids.get(normalized.id);
       if (existingPath) {
         issues.push({
           level: "error",
+          code: "duplicate-id",
           path: pathLabel,
           message: `duplicate id ${normalized.id}; first seen in ${existingPath}`,
         });
@@ -64,6 +75,7 @@ export function validateDocuments(
     if (!document.frontmatter.kind) {
       issues.push({
         level: "warning",
+        code: "quality",
         path: pathLabel,
         message: `missing kind; inferred ${document.kind}`,
       });
@@ -72,6 +84,7 @@ export function validateDocuments(
     if (normalized.areas.length === 0) {
       issues.push({
         level: "warning",
+        code: "quality",
         path: pathLabel,
         message: "areas is empty",
       });
@@ -80,6 +93,7 @@ export function validateDocuments(
     if (!normalized.updated) {
       issues.push({
         level: "warning",
+        code: "quality",
         path: pathLabel,
         message: "updated is missing",
       });
@@ -92,6 +106,7 @@ export function validateDocuments(
     ) {
       issues.push({
         level: "warning",
+        code: "quality",
         path: pathLabel,
         message: "files is empty",
       });
@@ -103,6 +118,7 @@ export function validateDocuments(
       if (!sectionTitles.has(section)) {
         issues.push({
           level: "error",
+          code: "missing-section",
           path: pathLabel,
           message: `missing required section "${section}"`,
         });
@@ -114,6 +130,7 @@ export function validateDocuments(
       if (!verification || verification.body.trim().length < 5) {
         issues.push({
           level: "warning",
+          code: "quality",
           path: pathLabel,
           message: "verification section is empty or too short",
         });
@@ -125,32 +142,84 @@ export function validateDocuments(
       if (!invariants || invariants.body.trim().length < 5) {
         issues.push({
           level: "warning",
+          code: "quality",
           path: pathLabel,
           message: "invariants section is empty or too short",
         });
       }
     }
 
-    warnMissingPathReferences(workspace, issues, pathLabel, "files", normalized.files);
-    warnMissingPathReferences(workspace, issues, pathLabel, "docs", normalized.docs);
+    warnUnknownFrontmatterFields(issues, pathLabel, document.frontmatter, workspace);
+    validateConfiguredExtensions(issues, pathLabel, document.frontmatter, workspace);
+    warnMissingPathReferences(
+      workspace,
+      issues,
+      pathLabel,
+      normalized.status,
+      acknowledgedStaleRefs(document.frontmatter),
+      "files",
+      normalized.files,
+    );
+    warnMissingPathReferences(
+      workspace,
+      issues,
+      pathLabel,
+      normalized.status,
+      acknowledgedStaleRefs(document.frontmatter),
+      "docs",
+      normalized.docs,
+    );
   }
 
-  const errors = issues.filter((issue) => issue.level === "error");
-  const warnings = issues.filter((issue) => issue.level === "warning");
-  return { issues, errors, warnings };
+  const suppressed = options.baseline
+    ? issues.filter((issue) => issue.level === "warning" && options.baseline?.has(issueKey(issue)))
+    : [];
+  const suppressedKeys = new Set(suppressed.map(issueKey));
+  const activeIssues = issues.filter((issue) => !suppressedKeys.has(issueKey(issue)));
+  const errors = activeIssues.filter((issue) => issue.level === "error");
+  const warnings = activeIssues.filter((issue) => issue.level === "warning");
+  return { issues: activeIssues, errors, warnings, suppressed };
 }
 
 function warnUnknownFrontmatterFields(
   issues: LedgerIssue[],
   pathLabel: string,
   frontmatter: Record<string, unknown>,
+  workspace: LedgerWorkspace,
 ): void {
+  const allowed = new Set([
+    ...workspace.config.schema.allowedFrontmatterFields,
+    ...Object.keys(workspace.config.schema.extensions),
+  ]);
   for (const field of Object.keys(frontmatter).sort()) {
     if (knownFrontmatterFields.has(field)) continue;
+    if (allowed.has(field)) continue;
     issues.push({
       level: "warning",
+      code: "unknown-frontmatter",
       path: pathLabel,
+      field,
       message: `unknown frontmatter field "${field}"`,
+    });
+  }
+}
+
+function validateConfiguredExtensions(
+  issues: LedgerIssue[],
+  pathLabel: string,
+  frontmatter: Record<string, unknown>,
+  workspace: LedgerWorkspace,
+): void {
+  for (const [field, type] of Object.entries(workspace.config.schema.extensions)) {
+    const value = frontmatter[field];
+    if (value === undefined) continue;
+    if (matchesSchemaType(value, type)) continue;
+    issues.push({
+      level: "error",
+      code: "invalid-extension",
+      path: pathLabel,
+      field,
+      message: `frontmatter field "${field}" must be ${type}`,
     });
   }
 }
@@ -159,16 +228,25 @@ function warnMissingPathReferences(
   workspace: LedgerWorkspace,
   issues: LedgerIssue[],
   pathLabel: string,
+  status: string,
+  staleRefs: ReadonlySet<string>,
   fieldName: "files" | "docs",
   filePaths: readonly string[],
 ): void {
+  if (workspace.config.validation.ignoreMissingRefsForStatuses.includes(status)) return;
+
   for (const filePath of filePaths) {
     const normalized = normalizePath(filePath);
     if (isIgnoredPath(workspace, normalized)) continue;
+    if (isCoveragePattern(normalized)) continue;
+    if (staleRefs.has(normalized) || staleRefs.has(`${fieldName}:${normalized}`)) continue;
     if (existsSync(path.join(workspace.projectRoot, normalized))) continue;
     issues.push({
       level: "warning",
+      code: "missing-reference",
       path: pathLabel,
+      field: fieldName,
+      target: normalized,
       message: `${fieldName} reference does not exist: ${normalized}`,
     });
   }
@@ -176,6 +254,35 @@ function warnMissingPathReferences(
 
 function isIgnoredPath(workspace: LedgerWorkspace, filePath: string): boolean {
   return workspace.config.git.ignore.some((pattern) => matchesGlob(filePath, pattern));
+}
+
+function acknowledgedStaleRefs(frontmatter: Record<string, unknown>): ReadonlySet<string> {
+  const refs = [
+    ...stringArrayValue(frontmatter.staleRefs),
+    ...stringArrayValue(frontmatter.stale_refs),
+  ].map(normalizePath);
+  return new Set(refs);
+}
+
+function matchesSchemaType(value: unknown, type: string): boolean {
+  switch (type) {
+    case "string":
+      return typeof value === "string";
+    case "string[]":
+      return Array.isArray(value) && value.every((item) => typeof item === "string");
+    case "number":
+      return typeof value === "number";
+    case "boolean":
+      return typeof value === "boolean";
+    case "date":
+      return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    case "object":
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    case "array":
+      return Array.isArray(value);
+    default:
+      return false;
+  }
 }
 
 export async function writeValidationReport(
@@ -194,17 +301,28 @@ export function formatValidationReport(result: LedgerValidationResult): string {
     "",
     `Errors: ${result.errors.length}`,
     `Warnings: ${result.warnings.length}`,
+    `Suppressed warnings: ${result.suppressed.length}`,
     "",
   ];
 
-  if (result.issues.length === 0) {
+  if (result.issues.length === 0 && result.suppressed.length === 0) {
     lines.push("No issues found.", "");
     return lines.join("\n");
   }
 
+  if (result.issues.length > 0) {
+    lines.push("## Active Issues", "");
+  }
   for (const issue of result.issues) {
     const location = issue.path ? `${issue.path}: ` : "";
     lines.push(`- ${issue.level.toUpperCase()}: ${location}${issue.message}`);
+  }
+  if (result.suppressed.length > 0) {
+    lines.push("", "## Suppressed By Baseline", "");
+    for (const issue of result.suppressed) {
+      const location = issue.path ? `${issue.path}: ` : "";
+      lines.push(`- ${issue.level.toUpperCase()}: ${location}${issue.message}`);
+    }
   }
   lines.push("");
   return lines.join("\n");
@@ -219,7 +337,49 @@ function requireString(
   if (value.length > 0) return;
   issues.push({
     level: "error",
+    code: "missing-frontmatter",
     path: pathLabel,
+    field: fieldName,
     message: `missing required frontmatter field "${fieldName}"`,
   });
+}
+
+export function issueKey(issue: LedgerIssue): string {
+  return [
+    issue.level,
+    issue.code ?? "",
+    issue.path ?? "",
+    issue.field ?? "",
+    issue.target ?? "",
+    issue.message,
+  ].join("|");
+}
+
+export async function readValidationBaseline(
+  workspace: LedgerWorkspace,
+): Promise<ReadonlySet<string>> {
+  const baselinePath = path.join(workspace.projectRoot, workspace.config.validation.baseline);
+  try {
+    const raw = await readFile(baselinePath, "utf8");
+    const parsed = JSON.parse(raw) as { readonly issues?: unknown };
+    if (!Array.isArray(parsed.issues)) return new Set();
+    return new Set(parsed.issues.filter((issue): issue is string => typeof issue === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+export async function writeValidationBaseline(
+  workspace: LedgerWorkspace,
+  result: LedgerValidationResult,
+): Promise<string> {
+  const baselinePath = path.join(workspace.projectRoot, workspace.config.validation.baseline);
+  await mkdir(path.dirname(baselinePath), { recursive: true });
+  const payload = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    issues: result.warnings.map(issueKey).sort(),
+  };
+  await writeFile(baselinePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return normalizePath(path.relative(workspace.projectRoot, baselinePath));
 }

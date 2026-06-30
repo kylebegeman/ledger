@@ -9,7 +9,7 @@ describe("CLI help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("ledger help [command]");
-    expect(result.stdout).toContain("ledger ci [--staged] [--json]");
+    expect(result.stdout).toContain("ledger ci [--staged] [--current-only] [--no-baseline] [--json]");
     expect(result.stdout).toContain("ledger verify-integrity [--json]");
     expect(result.stdout).toContain("ledger mcp");
   });

@@ -96,11 +96,12 @@ Deliverables:
 - warnings for stale scratchpads and generated files committed as source
 - docs-to-Ledger migration report
 
-## Phase 3.6: Managed Docs Plane
+## Phase 3.6: Partial Docs Adoption And Managed Docs Plane
 
 Goals:
 
-- let projects opt into a professional `docs/` structure managed by Ledger
+- let projects opt into partial docs adoption first, then full managed docs when
+  they explicitly want Ledger to own the structure
 - keep durable docs and change records independent but cross-linked
 - validate docs-impact declarations on change entries
 - generate agent routing docs from Ledger indexes when configured
@@ -108,6 +109,7 @@ Goals:
 Deliverables:
 
 - `ledger init --with-docs`
+- `ledger adopt`
 - `ledger docs impact --from-diff`
 - `ledger docs reconcile` for `docs/llm/manifest.json` and `docs/llm/START_HERE.md`
 - `ledger docs migrate`

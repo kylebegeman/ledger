@@ -82,7 +82,7 @@ where development happens, and how Ledger entries fit into the workflow.
 
 - What changed: Adds keywords, repository, homepage, and bug-report metadata.
 - Anchor: `repository`
-- On conflict: Keep package metadata pointed at `mrbagels/ledger`.
+- On conflict: Keep package metadata pointed at `kylebegeman/ledger`.
 
 ## Behavior And UX Impact
 

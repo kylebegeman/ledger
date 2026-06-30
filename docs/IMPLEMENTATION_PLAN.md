@@ -89,6 +89,8 @@ Creates `.ledger/` if missing.
 
 With `--with-docs`, also creates a visible durable `docs/` plane with product,
 architecture, operations, API, guides, reference, and LLM routing directories.
+The default adoption mode is partial: Ledger updates routing docs and impact
+reports without claiming ownership of every existing docs file.
 
 Should be idempotent:
 
@@ -105,6 +107,9 @@ Reads `.ledger/` and validates:
 - required sections
 - known document kinds
 - source directory readability
+- historical missing references, stale reference acknowledgements, and optional
+  validation baselines
+- configured project-specific schema extensions
 
 ### `ledger index`
 
@@ -127,14 +132,27 @@ Markdown source for each record. `--json` emits the render result for automation
 
 Reads changed files from Git and checks whether files matching
 `git.requireEntryFor` are mentioned by at least one Ledger entry. `--staged`
-uses the staged diff, and `--json` emits the raw result for CI or agent tools.
+uses the staged diff, `--explain` prints why each path is required, ignored,
+covered, or missing, and `--json` emits the raw result for CI or agent tools.
+
+### `ledger migrate changelog <dir>`
+
+Migrates folders of legacy Markdown changelog records into `.ledger/entries`,
+preserves IDs where possible, writes duplicate-ID suggestions, and produces a
+migration receipt. `--rewrite-docs` updates docs references from old changelog
+paths to the new Ledger entry paths.
+
+### `ledger feedback <title>`
+
+Creates a product-note record for dogfood findings and product observations
+that should stay separate from normal implementation receipts.
 
 ### `ledger ci`
 
 Runs the core Ledger guard set in one command: validation, docs reference audit,
 Git coverage, and docs impact. Human output is a compact pass/fail summary.
-`--json` emits the full result model, and `--staged` uses the staged Git diff
-for coverage and docs impact.
+`--json` emits the full result model, `--current-only` skips historical records,
+and `--staged` uses the staged Git diff for coverage and docs impact.
 
 ### `ledger conflict <path...>`
 

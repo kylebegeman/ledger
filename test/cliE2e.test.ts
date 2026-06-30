@@ -48,6 +48,19 @@ describe("CLI end-to-end", () => {
     expect(classify.exitCode).toBe(0);
     expect(classify.stdout).toContain("routing: docs/llm/START_HERE.md");
 
+    const feedback = await captureRun(
+      ["feedback", "Dogfood finding", "--area", "product", "--tag", "dogfood"],
+      tempDir,
+    );
+    expect(feedback.exitCode).toBe(0);
+    expect(await readFile(path.join(tempDir, ".ledger", "entries", "0002-dogfood-finding.md"), "utf8")).toContain(
+      'kind: "product-note"',
+    );
+
+    const agents = await captureRun(["agents"], tempDir);
+    expect(agents.exitCode).toBe(0);
+    expect(agents.stdout).toContain("Ledger Workflow For Agents");
+
     expect((await captureRun(["ci"], tempDir)).exitCode).toBe(0);
   });
 

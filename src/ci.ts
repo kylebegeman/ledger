@@ -13,6 +13,8 @@ import { validateDocuments } from "./validate.js";
 
 export interface LedgerCiOptions {
   readonly staged?: boolean;
+  readonly currentOnly?: boolean;
+  readonly validationBaseline?: ReadonlySet<string>;
 }
 
 export interface LedgerCiCheck {
@@ -36,7 +38,10 @@ export async function runCiChecks(
   documents: readonly ParsedLedgerDocument[],
   options: LedgerCiOptions = {},
 ): Promise<LedgerCiResult> {
-  const validation = validateDocuments(workspace, documents);
+  const validation = validateDocuments(workspace, documents, {
+    currentOnly: options.currentOnly,
+    baseline: options.validationBaseline,
+  });
   const docsAudit = await auditDocs(workspace, documents);
   const coverage = await checkCoverage(workspace, documents, { staged: options.staged });
   const docsImpact = buildDocsImpact(workspace, documents, coverage.changedFiles);

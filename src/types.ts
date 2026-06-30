@@ -1,6 +1,32 @@
-export type LedgerDocumentKind = "change" | "backlog" | "decision" | "release";
+export type LedgerDocumentKind =
+  | "change"
+  | "backlog"
+  | "decision"
+  | "release"
+  | "product-note"
+  | "feedback";
 
 export type LedgerIssueLevel = "error" | "warning";
+
+export type LedgerSchemaFieldType =
+  | "string"
+  | "string[]"
+  | "number"
+  | "boolean"
+  | "date"
+  | "object"
+  | "array";
+
+export type LedgerDocsAdoption = "none" | "partial" | "managed";
+
+export type LedgerIssueCode =
+  | "duplicate-id"
+  | "missing-frontmatter"
+  | "missing-section"
+  | "missing-reference"
+  | "unknown-frontmatter"
+  | "invalid-extension"
+  | "quality";
 
 export interface LedgerConfig {
   readonly version: number;
@@ -21,7 +47,13 @@ export interface LedgerConfig {
     readonly requireVerification: boolean;
     readonly requireChangedFiles: boolean;
     readonly requireInvariants: boolean;
+    readonly baseline: string;
+    readonly ignoreMissingRefsForStatuses: readonly string[];
     readonly requiredSections: Record<LedgerDocumentKind, readonly string[]>;
+  };
+  readonly schema: {
+    readonly allowedFrontmatterFields: readonly string[];
+    readonly extensions: Readonly<Record<string, LedgerSchemaFieldType>>;
   };
   readonly indexes: {
     readonly output: string;
@@ -35,6 +67,7 @@ export interface LedgerConfig {
   readonly docs: {
     readonly root: string;
     readonly managed: boolean;
+    readonly adoption: LedgerDocsAdoption;
     readonly routing: {
       readonly startHere: string;
       readonly manifest: string;
@@ -66,12 +99,14 @@ export interface LedgerFrontmatter {
   readonly commits?: unknown;
   readonly prs?: unknown;
   readonly release?: unknown;
+  readonly tags?: unknown;
   readonly decisions?: unknown;
   readonly backlog?: unknown;
   readonly supersedes?: unknown;
   readonly related?: unknown;
   readonly docs?: unknown;
   readonly entries?: unknown;
+  readonly staleRefs?: unknown;
   readonly [key: string]: unknown;
 }
 
@@ -105,18 +140,23 @@ export interface NormalizedLedgerDocument {
   readonly commits: readonly string[];
   readonly prs: readonly string[];
   readonly release?: string;
+  readonly tags: readonly string[];
   readonly decisions: readonly string[];
   readonly backlog: readonly string[];
   readonly supersedes: readonly string[];
   readonly related: readonly string[];
   readonly docs: readonly string[];
+  readonly extensions: Readonly<Record<string, unknown>>;
   readonly path: string;
   readonly sections: readonly string[];
 }
 
 export interface LedgerIssue {
   readonly level: LedgerIssueLevel;
+  readonly code?: LedgerIssueCode;
   readonly path?: string;
+  readonly field?: string;
+  readonly target?: string;
   readonly message: string;
 }
 
@@ -124,6 +164,7 @@ export interface LedgerValidationResult {
   readonly issues: readonly LedgerIssue[];
   readonly errors: readonly LedgerIssue[];
   readonly warnings: readonly LedgerIssue[];
+  readonly suppressed: readonly LedgerIssue[];
 }
 
 export interface LedgerManifest {
@@ -158,6 +199,7 @@ export interface LedgerDocsFile {
 
 export interface LedgerDocsAudit {
   readonly docsRoot: string;
+  readonly adoption: LedgerDocsAdoption;
   readonly files: readonly LedgerDocsFile[];
   readonly referencedDocs: readonly string[];
   readonly missingReferences: readonly string[];
@@ -196,4 +238,15 @@ export interface LedgerCoverageResult {
   readonly requiredFiles: readonly string[];
   readonly coveredFiles: readonly string[];
   readonly missingFiles: readonly string[];
+  readonly files: readonly LedgerCoverageFile[];
+}
+
+export interface LedgerCoverageFile {
+  readonly path: string;
+  readonly required: boolean;
+  readonly covered: boolean;
+  readonly status: "ignored" | "not-required" | "covered" | "missing";
+  readonly requiredBy?: string;
+  readonly ignoredBy?: string;
+  readonly coveredBy: readonly string[];
 }

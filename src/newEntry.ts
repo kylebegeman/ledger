@@ -1,8 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isIgnoredByGitConfig } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
+
+const largeDiffFileThreshold = 40;
+const largeDiffGroupThreshold = 5;
 
 export interface CreateEntryOptions {
   readonly title: string;
@@ -22,9 +26,11 @@ export async function createChangeEntry(
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
   const absolutePath = path.join(workspace.projectRoot, relativePath);
   const changedFiles = options.fromDiff
-    ? await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })
+    ? (await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })).filter(
+        (file) => !isIgnoredByGitConfig(workspace, file.path),
+      )
     : [];
-  const files = changedFiles.map((file) => file.path);
+  const files = coverageReferencesForChangedFiles(changedFiles);
   const symbols = options.fromDiff
     ? await collectChangedSymbols(workspace, changedFiles)
     : { all: [], byFile: new Map<string, readonly string[]>() };
@@ -42,6 +48,36 @@ export async function createChangeEntry(
     symbols: yamlStringArray(symbols.all),
     docs: yamlStringArray(docs),
     changedFiles: renderChangedFiles(workspace, changedFiles, symbols.byFile),
+  });
+
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, rendered, { encoding: "utf8", flag: "wx" });
+  return relativePath.replace(/\\/g, "/");
+}
+
+export async function createProductNoteEntry(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  options: {
+    readonly title: string;
+    readonly areas: readonly string[];
+    readonly tags: readonly string[];
+    readonly status: string;
+  },
+): Promise<string> {
+  const id = nextEntryId(workspace, documents);
+  const slug = slugify(options.title);
+  const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
+  const absolutePath = path.join(workspace.projectRoot, relativePath);
+  const date = new Date().toISOString().slice(0, 10);
+  const template = await readProductNoteTemplate(workspace);
+  const rendered = renderTemplate(template, {
+    id,
+    title: options.title,
+    date,
+    status: options.status,
+    areas: yamlStringArray(options.areas),
+    tags: yamlStringArray(options.tags),
   });
 
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -83,6 +119,15 @@ async function readTemplate(workspace: LedgerWorkspace): Promise<string> {
   }
 }
 
+async function readProductNoteTemplate(workspace: LedgerWorkspace): Promise<string> {
+  const templatePath = path.join(workspace.ledgerRoot, "templates", "product-note.md");
+  try {
+    return await readFile(templatePath, "utf8");
+  } catch {
+    return defaultProductNoteTemplate();
+  }
+}
+
 function renderTemplate(template: string, values: Record<string, string>): string {
   let rendered = template;
   for (const [key, value] of Object.entries(values)) {
@@ -92,6 +137,10 @@ function renderTemplate(template: string, values: Record<string, string>): strin
   rendered = rendered.replace(
     'status: "draft"',
     `status: "${escapeYamlString(values.status ?? "draft")}"`,
+  );
+  rendered = rendered.replace(
+    'status: "captured"',
+    `status: "${escapeYamlString(values.status ?? "captured")}"`,
   );
   if (rendered.includes("files: []") && values.files) {
     rendered = rendered.replace("files: []", `files:${values.files}`);
@@ -104,6 +153,9 @@ function renderTemplate(template: string, values: Record<string, string>): strin
   }
   if (rendered.includes("areas: []") && values.areas) {
     rendered = rendered.replace("areas: []", `areas:${values.areas}`);
+  }
+  if (rendered.includes("tags: []") && values.tags) {
+    rendered = rendered.replace("tags: []", `tags:${values.tags}`);
   }
   if (rendered.includes("### path/to/file.ts") && values.changedFiles) {
     rendered = rendered.replace("### path/to/file.ts", values.changedFiles);
@@ -222,6 +274,9 @@ function renderChangedFiles(
   symbolsByFile: ReadonlyMap<string, readonly string[]> = new Map(),
 ): string {
   if (files.length === 0) return "### path/to/file.ts";
+  if (files.length > largeDiffFileThreshold) {
+    return renderChangedFileGroups(workspace, files);
+  }
   return files
     .map((file) => {
       const anchors = symbolsByFile.get(file.path) ?? [];
@@ -233,6 +288,28 @@ function renderChangedFiles(
         `- Anchor: ${anchors.length > 0 ? anchors.join(", ") : "TODO: name the important symbol, route, command, or section."}`,
         "- On conflict: TODO: describe what must be preserved.",
         `- Docs impact: ${draftDocsImpact(workspace, file)}`,
+      ].join("\n");
+    })
+    .join("\n\n");
+}
+
+function renderChangedFileGroups(
+  workspace: LedgerWorkspace,
+  files: readonly GitChangedFile[],
+): string {
+  const groups = groupChangedFiles(files);
+  return groups
+    .map((group) => {
+      const statusSummary = countStatuses(group.files);
+      return [
+        `### Pattern: ${group.coverage}`,
+        "",
+        `- Files: ${group.files.length}`,
+        `- Status: ${statusSummary}`,
+        `- What changed: TODO: summarize this ${group.files.length}-file migration group.`,
+        "- Anchor: TODO: name the generated area, package, route group, or docs section.",
+        "- On conflict: TODO: describe what must be preserved or regenerated.",
+        `- Docs impact: ${group.files.some((file) => isDocsPath(file.path, workspace.config.docs.root)) ? "This group contains direct docs impact." : "TODO: name updated docs or explain why docs were not needed."}`,
       ].join("\n");
     })
     .join("\n\n");
@@ -269,6 +346,68 @@ function isDocsPath(filePath: string, docsRoot: string): boolean {
   const normalized = normalizePath(filePath);
   const root = normalizePath(docsRoot).replace(/\/$/, "");
   return normalized === root || normalized.startsWith(`${root}/`);
+}
+
+function coverageReferencesForChangedFiles(files: readonly GitChangedFile[]): readonly string[] {
+  if (files.length <= largeDiffFileThreshold) {
+    return files.map((file) => file.path);
+  }
+  return groupChangedFiles(files).map((group) => group.coverage);
+}
+
+interface ChangedFileGroup {
+  readonly coverage: string;
+  readonly files: readonly GitChangedFile[];
+}
+
+function groupChangedFiles(files: readonly GitChangedFile[]): readonly ChangedFileGroup[] {
+  const byPrefix = new Map<string, GitChangedFile[]>();
+  const exact: GitChangedFile[] = [];
+
+  for (const file of files) {
+    const prefix = groupingPrefix(file.path);
+    if (!prefix) {
+      exact.push(file);
+      continue;
+    }
+    byPrefix.set(prefix, [...(byPrefix.get(prefix) ?? []), file]);
+  }
+
+  const groups: ChangedFileGroup[] = [];
+  for (const [prefix, groupedFiles] of [...byPrefix.entries()].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    if (groupedFiles.length >= largeDiffGroupThreshold) {
+      groups.push({ coverage: `${prefix}/**`, files: groupedFiles });
+    } else {
+      exact.push(...groupedFiles);
+    }
+  }
+
+  for (const file of exact.sort((left, right) => left.path.localeCompare(right.path))) {
+    groups.push({ coverage: file.path, files: [file] });
+  }
+
+  return groups;
+}
+
+function groupingPrefix(filePath: string): string | undefined {
+  const normalized = normalizePath(filePath);
+  const segments = normalized.split("/");
+  if (segments.length <= 1) return undefined;
+  if (segments.length === 2) return segments[0];
+  return `${segments[0]}/${segments[1]}`;
+}
+
+function countStatuses(files: readonly GitChangedFile[]): string {
+  const counts = new Map<string, number>();
+  for (const file of files) {
+    counts.set(file.status, (counts.get(file.status) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([status, count]) => `${status} ${count}`)
+    .join(", ");
 }
 
 function escapeYamlString(value: string): string {
@@ -312,6 +451,44 @@ function defaultTemplate(): string {
     "## Verification",
     "",
     "## Notes",
+    "",
+  ].join("\n");
+}
+
+function defaultProductNoteTemplate(): string {
+  return [
+    "---",
+    'id: "{{id}}"',
+    'kind: "product-note"',
+    'title: "{{title}}"',
+    'date: "{{date}}"',
+    'updated: "{{date}}"',
+    'status: "captured"',
+    "areas: []",
+    "tags: []",
+    "---",
+    "",
+    "# {{id}}: {{title}}",
+    "",
+    "## Context",
+    "",
+    "Where did this feedback come from?",
+    "",
+    "## Finding",
+    "",
+    "What did the user, product team, or dogfood session reveal?",
+    "",
+    "## Impact",
+    "",
+    "Why does it matter?",
+    "",
+    "## Recommendation",
+    "",
+    "What should happen next?",
+    "",
+    "## Follow-ups",
+    "",
+    "- Add concrete follow-ups or `None`.",
     "",
   ].join("\n");
 }

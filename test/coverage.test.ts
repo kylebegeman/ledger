@@ -23,6 +23,7 @@ describe("matchesGlob", () => {
     expect(matchesGlob("docs/README.md", "src/**")).toBe(false);
     expect(matchesGlob("src/cli.ts", "src/*.ts")).toBe(true);
     expect(matchesGlob("src/nested/cli.ts", "src/*.ts")).toBe(false);
+    expect(matchesGlob("packages/app/generated/client.ts", "**/generated/**")).toBe(true);
   });
 });
 
@@ -48,6 +49,29 @@ describe("checkCoverage", () => {
 
     expect(result.missingFiles).toContain("src/missing.ts");
     expect(result.missingFiles).not.toContain("src/covered.ts");
+  });
+
+  it("treats entry file globs as coverage and explains required paths", async () => {
+    const workspace = await createFixtureWorkspace();
+    await writeFile(
+      path.join(workspace.projectRoot, ".ledger", "entries", "0002-pattern.md"),
+      entry("0002", ["src/features/**"]),
+    );
+    await mkdir(path.join(workspace.projectRoot, "src", "features"), { recursive: true });
+    await writeFile(path.join(workspace.projectRoot, "src", "features", "new.ts"), "covered");
+    await writeFile(path.join(workspace.projectRoot, "src", "outside.ts"), "missing");
+    await git(workspace.projectRoot, "init");
+    await git(workspace.projectRoot, "add", ".");
+
+    const documents = await readLedgerDocuments(workspace);
+    const result = await checkCoverage(workspace, documents, { staged: true });
+    const covered = result.files.find((file) => file.path === "src/features/new.ts");
+    const missing = result.files.find((file) => file.path === "src/outside.ts");
+
+    expect(covered?.status).toBe("covered");
+    expect(covered?.coveredBy).toContain("src/features/**");
+    expect(missing?.status).toBe("missing");
+    expect(missing?.requiredBy).toBe("src/**");
   });
 });
 
@@ -117,9 +141,9 @@ async function git(cwd: string, ...args: readonly string[]): Promise<void> {
   });
 }
 
-function entry(): string {
+function entry(id = "0001", files: readonly string[] = ["src/covered.ts"]): string {
   return `---
-id: "0001"
+id: "${id}"
 kind: "change"
 title: "Test"
 date: "2026-06-29"
@@ -127,12 +151,12 @@ updated: "2026-06-29"
 status: "landed"
 areas: ["cli"]
 files:
-  - "src/covered.ts"
+${files.map((file) => `  - "${file}"`).join("\n")}
 symbols: []
 commits: []
 ---
 
-# 0001: Test
+# ${id}: Test
 
 ## Summary
 

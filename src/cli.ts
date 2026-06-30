@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { runCiChecks } from "./ci.js";
 import { buildConflictTargets, writeConflictReport } from "./conflict.js";
@@ -19,7 +21,8 @@ import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
 import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
 import { startLedgerMcpServer } from "./mcp.js";
-import { createChangeEntry } from "./newEntry.js";
+import { migrateChangelog } from "./migrate.js";
+import { createChangeEntry, createProductNoteEntry } from "./newEntry.js";
 import { buildAgentPacket, formatAgentPacket, writeAgentPacketReport } from "./packet.js";
 import {
   extractBullets,
@@ -36,7 +39,12 @@ import {
 } from "./release.js";
 import { buildStaticReaderModel, writeStaticReader } from "./render.js";
 import type { ParsedLedgerDocument } from "./types.js";
-import { validateDocuments, writeValidationReport } from "./validate.js";
+import {
+  readValidationBaseline,
+  validateDocuments,
+  writeValidationBaseline,
+  writeValidationReport,
+} from "./validate.js";
 import { findWorkspace, initWorkspace } from "./workspace.js";
 
 interface ParsedArgs {
@@ -70,12 +78,27 @@ export async function run(
 
     switch (parsed.command) {
       case "init":
-        await initWorkspace(context.cwd, { withDocs: hasFlag(parsed, "with-docs") });
-        console.log(hasFlag(parsed, "with-docs") ? "Initialized .ledger/ and docs/" : "Initialized .ledger/");
+        await initWorkspace(context.cwd, {
+          withDocs: hasFlag(parsed, "with-docs") || hasFlag(parsed, "migrate"),
+          adoption: hasFlag(parsed, "managed-docs") ? "managed" : "partial",
+        });
+        console.log(
+          hasFlag(parsed, "with-docs") || hasFlag(parsed, "migrate")
+            ? "Initialized .ledger/ and docs/ in partial adoption mode"
+            : "Initialized .ledger/",
+        );
+        return 0;
+
+      case "adopt":
+        await initWorkspace(context.cwd, {
+          withDocs: true,
+          adoption: hasFlag(parsed, "managed-docs") ? "managed" : "partial",
+        });
+        console.log("Initialized Ledger adoption scaffold in partial docs mode.");
         return 0;
 
       case "validate":
-        return await validateCommand(context);
+        return await validateCommand(parsed, context);
 
       case "index":
         return await indexCommand(context);
@@ -106,6 +129,16 @@ export async function run(
 
       case "new":
         return await newCommand(parsed, context);
+
+      case "feedback":
+      case "product-note":
+        return await productNoteCommand(parsed, context);
+
+      case "migrate":
+        return await migrateCommand(parsed, context);
+
+      case "agents":
+        return await agentsCommand(context);
 
       case "coverage":
         return await coverageCommand(parsed, context);
@@ -146,12 +179,29 @@ export async function run(
   }
 }
 
-async function validateCommand(context: RunContext): Promise<number> {
+async function validateCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
-  const result = validateDocuments(workspace, documents);
+  const baseline =
+    hasFlag(parsed, "update-baseline") || hasFlag(parsed, "no-baseline")
+      ? undefined
+      : await readValidationBaseline(workspace);
+  const result = validateDocuments(workspace, documents, {
+    currentOnly: hasFlag(parsed, "current-only"),
+    baseline,
+  });
   await writeValidationReport(workspace, result);
+  if (hasFlag(parsed, "update-baseline")) {
+    const rawResult = validateDocuments(workspace, documents, {
+      currentOnly: hasFlag(parsed, "current-only"),
+    });
+    const baselinePath = await writeValidationBaseline(workspace, rawResult);
+    console.log(`Updated validation baseline at ${baselinePath}.`);
+  }
   printValidation(result.errors.length, result.warnings.length);
+  if (result.suppressed.length > 0) {
+    console.log(`Suppressed ${result.suppressed.length} warning(s) from baseline.`);
+  }
   return result.errors.length === 0 ? 0 : 1;
 }
 
@@ -197,7 +247,7 @@ async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<n
     return 1;
   }
 
-  const model = buildStaticReaderModel(workspace, documents);
+  const model = buildStaticReaderModel(workspace, documents, { validation: result });
   const rendered = await writeStaticReader(workspace, model);
 
   if (hasFlag(parsed, "json")) {
@@ -253,6 +303,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   const kind = normalizeKindFilter(flagValues(parsed, "kind")[0]);
   const status = flagValues(parsed, "status")[0];
   const area = flagValues(parsed, "area")[0];
+  const tag = flagValues(parsed, "tag")[0];
   const release = flagValues(parsed, "release")[0];
   const decision = flagValues(parsed, "decision")[0];
   const backlog = flagValues(parsed, "backlog")[0];
@@ -273,6 +324,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     kind,
     status,
     area,
+    tag,
     release,
     decision,
     backlog,
@@ -293,6 +345,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     console.log(`- ${document.id} ${document.title} (${document.kind}, ${document.status})`);
     if (document.release) console.log(`  Release: ${document.release}`);
     if (document.areas.length > 0) console.log(`  Areas: ${document.areas.join(", ")}`);
+    if (document.tags.length > 0) console.log(`  Tags: ${document.tags.join(", ")}`);
     if (document.files.length > 0) console.log(`  Files: ${document.files.join(", ")}`);
     if (document.symbols.length > 0) console.log(`  Symbols: ${document.symbols.join(", ")}`);
     if (document.docs.length > 0) console.log(`  Docs: ${document.docs.join(", ")}`);
@@ -410,6 +463,88 @@ async function newCommand(parsed: ParsedArgs, context: RunContext): Promise<numb
   return 0;
 }
 
+async function productNoteCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const title = parsed.positionals.join(" ").trim();
+  if (!title) {
+    console.error("Usage: ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>]");
+    return 2;
+  }
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const createdPath = await createProductNoteEntry(workspace, documents, {
+    title,
+    areas: flagValues(parsed, "area"),
+    tags: flagValues(parsed, "tag"),
+    status: flagValues(parsed, "status")[0] ?? "captured",
+  });
+  console.log(`Created ${createdPath}`);
+  return 0;
+}
+
+async function migrateCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const subcommand = parsed.positionals[0];
+  if (subcommand !== "changelog") {
+    console.error("Usage: ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>]");
+    return 2;
+  }
+  const sourceDir = parsed.positionals[1];
+  if (!sourceDir) {
+    console.error("Usage: ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>]");
+    return 2;
+  }
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const result = await migrateChangelog(workspace, documents, sourceDir, {
+    dryRun: hasFlag(parsed, "dry-run"),
+    rewriteDocs: hasFlag(parsed, "rewrite-docs"),
+    status: flagValues(parsed, "status")[0],
+  });
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(result, null, 2));
+    return 0;
+  }
+
+  console.log(
+    `Ledger changelog migration: ${result.migrated.length} record(s), ${result.duplicates.length} duplicate id(s), ${result.rewrittenDocs.length} docs file(s) rewritten.`,
+  );
+  console.log(`Wrote ${result.receiptPath}`);
+  for (const duplicate of result.duplicates.slice(0, 10)) {
+    console.log(
+      `- duplicate: ${duplicate.originalId} in ${duplicate.sourcePath}; suggested ${duplicate.suggestedId}`,
+    );
+  }
+  if (result.duplicates.length > 10) {
+    console.log(`- ${result.duplicates.length - 10} more duplicate(s) in receipt.`);
+  }
+  return 0;
+}
+
+async function agentsCommand(context: RunContext): Promise<number> {
+  let project = "this project";
+  let docsMode = "partial";
+  try {
+    const workspace = await findWorkspace(context.cwd);
+    project = workspace.config.project;
+    docsMode = workspace.config.docs.adoption;
+  } catch {
+    // Keep the command useful before init.
+  }
+
+  console.log(`# Ledger Workflow For Agents
+
+- Use Ledger for durable change memory in ${project}.
+- Before editing, inspect relevant records with \`ledger explain <path> --agent\` or \`ledger packet <path>\`.
+- For implementation changes, create a receipt with \`ledger new "<title>" --from-diff --area <area>\`, then fill in Summary, Why, Changed Files, Invariants, Verification, and Notes.
+- For dogfood findings or product observations, use \`ledger feedback "<title>" --area <area> --tag dogfood\` instead of mixing feedback into normal change records.
+- Run \`ledger validate --current-only\` during active work. Use \`ledger validate\` when historical records should also be checked.
+- Run \`ledger coverage\` to see which changed files are missing Ledger coverage and why each path is required, ignored, or covered.
+- Docs adoption mode is \`${docsMode}\`; update routing docs and docs impact without assuming Ledger owns the entire docs tree unless the project config says \`managed\`.
+- Before handing off, run \`ledger ci\` or the narrowest relevant Ledger command and record the verification result in the entry.
+`);
+  return 0;
+}
+
 async function coverageCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
@@ -423,8 +558,18 @@ async function coverageCommand(parsed: ParsedArgs, context: RunContext): Promise
     console.log(
       `Ledger coverage: ${result.requiredFiles.length} required file(s), ${result.missingFiles.length} missing coverage.`,
     );
-    for (const filePath of result.missingFiles) {
-      console.log(`- missing: ${filePath}`);
+    for (const file of result.files) {
+      if (file.status === "missing") {
+        console.log(`- missing: ${file.path} (required by ${file.requiredBy ?? "configuration"})`);
+      } else if (hasFlag(parsed, "explain")) {
+        const reason =
+          file.status === "ignored"
+            ? `ignored by ${file.ignoredBy}`
+            : file.status === "not-required"
+              ? "not required by git.requireEntryFor"
+              : `covered by ${file.coveredBy.join(", ")}`;
+        console.log(`- ${file.status}: ${file.path} (${reason})`);
+      }
     }
   }
 
@@ -434,7 +579,13 @@ async function coverageCommand(parsed: ParsedArgs, context: RunContext): Promise
 async function ciCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
-  const result = await runCiChecks(workspace, documents, { staged: hasFlag(parsed, "staged") });
+  const result = await runCiChecks(workspace, documents, {
+    staged: hasFlag(parsed, "staged"),
+    currentOnly: hasFlag(parsed, "current-only"),
+    validationBaseline: hasFlag(parsed, "no-baseline")
+      ? undefined
+      : await readValidationBaseline(workspace),
+  });
   await writeValidationReport(workspace, result.validation);
   await writeDocsAuditReport(workspace, result.docsAudit);
   await writeDocsImpactReport(workspace, result.docsImpact);
@@ -695,10 +846,18 @@ function helpText(topic?: string): string {
       return `Ledger init
 
 Usage:
-  ledger init [--with-docs]
+  ledger init [--with-docs] [--migrate] [--managed-docs]
 
-Creates .ledger/ in the current directory. With --with-docs, also creates the
-managed docs/ directory structure.`;
+Creates .ledger/ in the current directory. With --with-docs or --migrate, also
+creates docs routing files in partial adoption mode unless --managed-docs is set.`;
+    case "adopt":
+      return `Ledger adopt
+
+Usage:
+  ledger adopt [--managed-docs]
+
+Initializes Ledger for an established repo. By default this uses partial docs
+adoption, updating routing docs and impact reports without owning all docs.`;
     case "new":
       return `Ledger new
 
@@ -706,14 +865,44 @@ Usage:
   ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
 
 Creates the next numbered change entry. Use --from-diff to prefill files from
-Git changes and --staged to read the staged diff.`;
+Git changes and --staged to read the staged diff. Ignored generated/vendor paths
+are omitted, and very large diffs are grouped into coverage patterns.`;
+    case "feedback":
+    case "product-note":
+      return `Ledger feedback
+
+Usage:
+  ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>]
+
+Creates a product-note record for dogfood findings, product observations, or
+other feedback that should not be mixed into normal change receipts.`;
+    case "migrate":
+    case "migrate changelog":
+      return `Ledger migrate changelog
+
+Usage:
+  ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>] [--json]
+
+Migrates folders of legacy Markdown changelog records into .ledger/entries,
+preserves IDs when possible, suggests duplicate ID suffixes, and writes a
+migration receipt. --rewrite-docs updates docs references from old paths to new
+Ledger entry paths.`;
+    case "agents":
+      return `Ledger agents
+
+Usage:
+  ledger agents
+
+Prints ready-to-paste AGENTS.md instructions for the configured Ledger workflow.`;
     case "validate":
       return `Ledger validate
 
 Usage:
-  ledger validate
+  ledger validate [--current-only] [--update-baseline] [--no-baseline]
 
-Validates Ledger source records and writes .ledger/reports/latest-validation.md.`;
+Validates Ledger source records and writes .ledger/reports/latest-validation.md.
+--current-only skips historical records. --update-baseline records current
+warnings in the configured validation baseline.`;
     case "index":
       return `Ledger index
 
@@ -740,14 +929,16 @@ Builds the offline static reader at .ledger/dist/index.html.`;
       return `Ledger coverage
 
 Usage:
-  ledger coverage [--staged] [--json]
+  ledger coverage [--staged] [--explain] [--json]
 
-Checks changed files against git.requireEntryFor and Ledger file coverage.`;
+Checks changed files against git.requireEntryFor and Ledger file coverage.
+--explain prints why each changed path is ignored, not required, covered, or
+missing coverage.`;
     case "ci":
       return `Ledger ci
 
 Usage:
-  ledger ci [--staged] [--json]
+  ledger ci [--staged] [--current-only] [--no-baseline] [--json]
 
 Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.`;
     case "conflict":
@@ -769,9 +960,9 @@ Shows Ledger records that mention a path. --agent prints compact context.`;
       return `Ledger query
 
 Usage:
-  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
 
-Filters Ledger records by metadata, relationship ids, symbols, and paths.`;
+Filters Ledger records by metadata, tags, relationship ids, symbols, and paths.`;
     case "packet":
       return `Ledger packet
 
@@ -861,20 +1052,25 @@ Usage:
   ledger version
   ledger init
   ledger init --with-docs
+  ledger init --migrate
+  ledger adopt
   ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
-  ledger validate
+  ledger feedback <title> [--area <area>] [--tag <tag>]
+  ledger validate [--current-only] [--update-baseline] [--no-baseline]
   ledger index
   ledger verify-integrity [--json]
   ledger render [--json]
-  ledger coverage [--staged] [--json]
-  ledger ci [--staged] [--json]
+  ledger coverage [--staged] [--explain] [--json]
+  ledger ci [--staged] [--current-only] [--no-baseline] [--json]
   ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
-  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
+  ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
   ledger packet <path> [--json] [--write-report]
   ledger mcp
   ledger unreleased [--json]
   ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
+  ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--json]
+  ledger agents
   ledger docs audit
   ledger docs check
   ledger docs classify [path...] [--json]
@@ -884,6 +1080,8 @@ Usage:
 
 Examples:
   ledger new "Add provider retry policy" --from-diff --area server
+  ledger feedback "Dogfood finding" --area product --tag dogfood
+  ledger migrate changelog docs/changelog --rewrite-docs
   ledger explain src/cli.ts --agent
   ledger packet src/cli.ts
   ledger verify-integrity
@@ -909,6 +1107,16 @@ function packageVersion(): string {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectCliInvocation()) {
   process.exitCode = await run();
+}
+
+function isDirectCliInvocation(): boolean {
+  const invokedPath = process.argv[1];
+  if (!invokedPath) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(invokedPath);
+  } catch {
+    return import.meta.url === `file://${invokedPath}`;
+  }
 }

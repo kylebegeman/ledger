@@ -224,6 +224,26 @@ ledger index
 The draft entry should include touched files, likely areas, changed symbols when
 available, and a verification checklist.
 
+### Legacy Changelog Adoption
+
+```bash
+ledger adopt
+ledger migrate changelog docs/changelog --rewrite-docs
+ledger validate --current-only
+```
+
+Ledger should preserve useful historical context while reducing validation
+noise from old file references.
+
+### Product Feedback
+
+```bash
+ledger feedback "Improve migration receipt" --area cli --tag dogfood
+```
+
+Dogfood findings should be captured as product-note records, separate from
+normal change receipts.
+
 ### Explain A File
 
 ```bash

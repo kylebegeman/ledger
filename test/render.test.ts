@@ -37,6 +37,10 @@ describe("renderStaticReaderHtml", () => {
     expect(html).toContain("\\u003cscript>");
     expect(html).toContain("<svg><title>Ledger</title></svg>");
     expect(html).toContain("Markdown Source");
+    expect(html).toContain("Missing refs");
+    expect(html).toContain("Coverage");
+    expect(html).toContain("Tag");
+    expect(html).toContain('href="../entries/0001.md"');
     expect(html).toContain("Invariants");
     expect(html).toContain("Verification");
     expect(html).toContain("Browse");

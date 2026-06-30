@@ -55,10 +55,49 @@ describe("Ledger validation", () => {
     expect(messages).toContain('unknown frontmatter field "customField"');
     expect(messages).toContain("docs reference does not exist: docs/missing.md");
   });
+
+  it("supports historical records, stale ref acknowledgements, and typed extensions", async () => {
+    const workspace = await createFixtureWorkspace({
+      configTail: `schema:
+  allowedFrontmatterFields:
+    - compatibility
+  extensions:
+    phaseId: string
+`,
+    });
+    await writeFile(
+      path.join(tempDir!, ".ledger", "entries", "0003-historical.md"),
+      entry("0003", {
+        status: "historical",
+        files: ["src/removed.ts"],
+        extraFrontmatter: 'phaseId: "P1"\ncompatibility: "legacy-only"',
+      }),
+    );
+    await writeFile(
+      path.join(tempDir!, ".ledger", "entries", "0004-stale.md"),
+      entry("0004", {
+        files: ["src/stale.ts"],
+        extraFrontmatter: 'staleRefs:\n  - "files:src/stale.ts"\nphaseId: 123',
+      }),
+    );
+
+    const documents = await readLedgerDocuments(workspace);
+    const result = validateDocuments(workspace, documents);
+    const messages = result.issues.map((issue) => issue.message);
+
+    expect(messages).not.toContain("files reference does not exist: src/removed.ts");
+    expect(messages).not.toContain("files reference does not exist: src/stale.ts");
+    expect(messages).not.toContain('unknown frontmatter field "phaseId"');
+    expect(messages).not.toContain('unknown frontmatter field "compatibility"');
+    expect(messages).toContain('frontmatter field "phaseId" must be string');
+
+    const currentOnly = validateDocuments(workspace, documents, { currentOnly: true });
+    expect(currentOnly.issues.some((issue) => issue.path?.includes("0003-historical"))).toBe(false);
+  });
 });
 
 async function createFixtureWorkspace(
-  options: { duplicate?: boolean; qualityIssues?: boolean } = {},
+  options: { duplicate?: boolean; qualityIssues?: boolean; configTail?: string } = {},
 ): Promise<LedgerWorkspace> {
   tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-test-"));
   await mkdir(path.join(tempDir, "src"), { recursive: true });
@@ -90,6 +129,7 @@ reports:
   output: .ledger/reports
 render:
   output: .ledger/dist
+${options.configTail ?? ""}
 `,
   );
   await writeFile(
@@ -160,23 +200,32 @@ None.
 `;
 }
 
-function entry(id: string): string {
+function entry(
+  id: string,
+  options: {
+    readonly status?: string;
+    readonly files?: readonly string[];
+    readonly extraFrontmatter?: string;
+  } = {},
+): string {
+  const files = options.files ?? ["src/cli.ts"];
   return `---
 id: "${id}"
 kind: "change"
 title: "Test"
 date: "2026-06-29"
 updated: "2026-06-29"
-status: "landed"
+status: "${options.status ?? "landed"}"
 areas: ["cli"]
 files:
-  - "src/cli.ts"
+${files.map((file) => `  - "${file}"`).join("\n")}
 symbols: []
 decisions:
   - "D001"
 backlog:
   - "B001"
 commits: []
+${options.extraFrontmatter ? `${options.extraFrontmatter}\n` : ""}---
 ---
 
 # ${id}: Test

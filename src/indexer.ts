@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { coveragePatternMatches } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import type {
   LedgerIndexes,
@@ -60,6 +61,7 @@ export function explainFile(
     .filter((document) =>
       document.files.some(
         (candidate) =>
+          coveragePatternMatches(normalizedPath, candidate) ||
           candidate === normalizedPath ||
           candidate.endsWith(`/${normalizedPath}`) ||
           normalizedPath.endsWith(`/${candidate}`),

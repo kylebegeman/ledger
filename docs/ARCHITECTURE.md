@@ -292,6 +292,12 @@ Useful flags:
 
 Parses and validates source documents.
 
+Useful flags:
+
+- `--current-only`
+- `--update-baseline`
+- `--no-baseline`
+
 Exit codes:
 
 - `0`: no errors

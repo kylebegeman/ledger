@@ -14,6 +14,9 @@ validation:
   requireVerification: true
   requireChangedFiles: true
   requireInvariants: true
+  baseline: .ledger/reports/validation-baseline.json
+  ignoreMissingRefsForStatuses:
+    - historical
   requiredSections:
     change:
       - Summary
@@ -39,6 +42,21 @@ validation:
       - Changes
       - Verification
       - Known Issues
+    product-note:
+      - Context
+      - Finding
+      - Impact
+      - Recommendation
+      - Follow-ups
+    feedback:
+      - Context
+      - Finding
+      - Impact
+      - Recommendation
+      - Follow-ups
+schema:
+  allowedFrontmatterFields: []
+  extensions: {}
 git:
   requireEntryFor:
     - src/**
@@ -50,6 +68,15 @@ git:
     - .ledger/dist/**
     - docs/llm/manifest.json
     - docs/llm/START_HERE.md
+    - node_modules/**
+    - dist/**
+    - build/**
+    - coverage/**
+    - .next/**
+    - out/**
+    - vendor/**
+    - generated/**
+    - "**/generated/**"
 indexes:
   output: .ledger/indexes
 reports:
@@ -58,7 +85,8 @@ render:
   output: .ledger/dist
 docs:
   root: docs
-  managed: true
+  managed: false
+  adoption: partial
   routing:
     startHere: docs/llm/START_HERE.md
     manifest: docs/llm/manifest.json

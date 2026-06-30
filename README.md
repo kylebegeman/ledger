@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/mrbagels/ledger">
+  <a href="https://github.com/kylebegeman/ledger">
     <img src="./assets/ledger.svg" alt="Ledger notebook icon" width="128" height="128">
   </a>
 </p>
@@ -16,14 +16,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mrbagels/ledger/actions/workflows/ci.yml?query=branch%3Amaster">
-    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/mrbagels/ledger/ci.yml?branch=master&style=for-the-badge&label=CI">
+  <a href="https://github.com/kylebegeman/ledger/actions/workflows/ci.yml?query=branch%3Amaster">
+    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kylebegeman/ledger/ci.yml?branch=master&style=for-the-badge&label=CI">
   </a>
-  <a href="https://github.com/mrbagels/ledger/blob/master/package.json">
-    <img alt="Version" src="https://img.shields.io/github/package-json/v/mrbagels/ledger?style=for-the-badge&label=version">
+  <a href="https://github.com/kylebegeman/ledger/blob/master/package.json">
+    <img alt="Version" src="https://img.shields.io/github/package-json/v/kylebegeman/ledger?style=for-the-badge&label=version">
   </a>
-  <a href="https://github.com/mrbagels/ledger/blob/master/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/mrbagels/ledger?style=for-the-badge">
+  <a href="https://github.com/kylebegeman/ledger/blob/master/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/kylebegeman/ledger?style=for-the-badge">
   </a>
   <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-43853D?style=for-the-badge&logo=node.js&logoColor=white">
   <img alt="TypeScript" src="https://img.shields.io/badge/typescript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
@@ -79,7 +79,7 @@ Git history tells you what happened. Ledger tells you what matters.
 ### Work From This Repo Today
 
 ```bash
-git clone https://github.com/mrbagels/ledger.git
+git clone https://github.com/kylebegeman/ledger.git
 cd ledger
 npm ci
 npm run build
@@ -150,15 +150,34 @@ verification checks, relationships, and raw Markdown source.
 
 ### Published Package Shape
 
-Once published to npm, the intended install flow is:
+Ledger is intended to publish as the scoped public package
+`@kylebegeman/ledger`. The scoped name avoids collisions with unrelated unscoped
+`ledger` packages and supports direct one-off CLI usage:
 
 ```bash
-npm install --save-dev ledger
+pnpm dlx @kylebegeman/ledger init --with-docs
+pnpm dlx @kylebegeman/ledger ci
+npm exec --package @kylebegeman/ledger -- ledger init --with-docs
+npx --package @kylebegeman/ledger -- ledger ci
+```
+
+For a project-local install:
+
+```bash
+npm install --save-dev @kylebegeman/ledger
 npx ledger init --with-docs
 npx ledger ci
 ```
 
-Until then, use the source checkout or a local package link.
+The package builds from source during `prepare`; release checks use
+`npm run release:build`.
+
+After the Homebrew tap is published, macOS users can install with:
+
+```bash
+brew tap kylebegeman/tap
+brew install ledger
+```
 
 ## What Ledger Creates
 
@@ -180,12 +199,15 @@ Until then, use the source checkout or a local package link.
 | Command | What It Does |
 | --- | --- |
 | `ledger init --with-docs` | Creates `.ledger/` and optional `docs/` scaffolding. |
+| `ledger init --migrate` | Creates a partial-adoption scaffold for replacing an existing changelog or docs workflow. |
+| `ledger adopt` | Initializes Ledger for an established repo without claiming ownership of the whole docs tree. |
 | `ledger new "Title" --from-diff` | Drafts a change entry from git status. |
-| `ledger validate` | Parses and validates Ledger source documents. |
+| `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
+| `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
 | `ledger index` | Writes JSON indexes under `.ledger/indexes/`. |
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. |
 | `ledger render` | Builds the static HTML reader. |
-| `ledger coverage` | Checks that changed source paths have Ledger coverage. |
+| `ledger coverage --explain` | Checks that changed source paths have Ledger coverage and explains required, ignored, covered, and missing paths. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
 | `ledger docs impact --check` | Fails when source changes lack docs impact. |
@@ -199,6 +221,8 @@ Until then, use the source checkout or a local package link.
 | `ledger query --kind change --area cli --symbol run --text retry` | Filters records by kind, area, status, release, relationship, symbol, file, doc, id, or metadata text. |
 | `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
 | `ledger release v0.1.1 --include-unreleased --assign --status released --write` | Assigns selected entries and writes a release record. |
+| `ledger migrate changelog <dir> --rewrite-docs` | Migrates legacy Markdown changelog records into `.ledger/entries` and writes a receipt. |
+| `ledger agents` | Prints ready-to-paste `AGENTS.md` instructions for the configured workflow. |
 | `ledger ci` | Runs validation, docs audit, coverage, and docs impact together. |
 
 Every command has focused help:
@@ -209,6 +233,42 @@ ledger help new
 ledger docs impact --help
 ledger release --help
 ```
+
+## Adoption And Migration
+
+Established repos can use partial docs adoption:
+
+```bash
+ledger adopt
+ledger migrate changelog docs/changelog --rewrite-docs
+ledger validate --current-only
+```
+
+`ledger migrate changelog <dir>` reads Markdown records, preserves IDs when
+possible, writes duplicate-ID suggestions in a migration receipt, and maps
+frontmatter plus body sections into Ledger change entries. `--rewrite-docs`
+updates docs references from old changelog paths to the new `.ledger/entries`
+paths.
+
+For long-lived histories, mark migrated records with `status: "historical"` or
+acknowledge stale paths with `staleRefs`. Historical records stay queryable but
+do not flood validation with missing file warnings. Projects can also use
+`ledger validate --update-baseline` to baseline known warnings and
+`ledger validate --current-only` while actively changing current records.
+
+Entry `files` can use exact paths, globs such as `src/features/**`, or explicit
+`prefix:` and `glob:` patterns. `ledger new --from-diff` omits configured
+generated/vendor ignores and groups very large diffs into patterns.
+
+Dogfood findings and product observations belong in product notes:
+
+```bash
+ledger feedback "Improve changelog migration receipt" --area cli --tag dogfood
+```
+
+Project-specific metadata can be made strict with `schema.extensions` in
+`.ledger/config.yaml`, for example `phaseId: string` or `productAreas:
+string[]`.
 
 ## Example Change Entry
 
@@ -355,7 +415,7 @@ import {
   validateDocuments,
   buildIndexes,
   createLedgerMcpServer,
-} from "ledger";
+} from "@kylebegeman/ledger";
 
 const workspace = await findWorkspace(process.cwd());
 const documents = await readLedgerDocuments(workspace);
@@ -391,6 +451,49 @@ package dry run.
 Tagged releases use `.github/workflows/release.yml`. When `NPM_TOKEN` is set in
 repository secrets, pushing `vX.Y.Z` publishes the verified package to npm with
 provenance.
+
+### Publishing To npm
+
+First-time maintainers need an npm account that has permission to publish the
+`@kylebegeman` scope.
+
+1. Create an account at <https://www.npmjs.com/signup> if needed.
+2. Verify the account email address in npm.
+3. In this repo, run:
+
+```bash
+npm login --auth-type=web
+npm whoami
+npm run release:build
+npm publish --access public
+```
+
+npm may open a browser authorization flow for accounts protected by passkeys or
+security keys. Complete the browser prompt, return to the terminal, and continue
+the publish. For unattended releases, prefer npm trusted publishing from GitHub
+Actions once the package has a trusted publisher configured.
+
+Each publish needs a new package version. If npm reports that the version was
+already published, bump `package.json` and `package-lock.json`, rerun the release
+checks, and publish that new version.
+
+### Publishing To Homebrew
+
+Homebrew needs a tap repository and a stable package URL. Publish npm first,
+then update `kylebegeman/homebrew-tap` with a `Formula/ledger.rb` formula that
+installs the published npm tarball for the same version.
+
+```bash
+brew tap kylebegeman/tap
+brew bump-formula-pr --version <version> kylebegeman/tap/ledger
+```
+
+After the formula is pushed, users install with:
+
+```bash
+brew tap kylebegeman/tap
+brew install ledger
+```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) and [SECURITY.md](./SECURITY.md).
 
