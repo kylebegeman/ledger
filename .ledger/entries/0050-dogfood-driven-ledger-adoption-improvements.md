@@ -11,6 +11,7 @@ areas:
   - "validation"
   - "docs"
 files:
+  - ".github/workflows/release.yml"
   - ".ledger/config.yaml"
   - ".ledger/templates/product-note.md"
   - "README.md"
@@ -90,6 +91,14 @@ current work.
   publish metadata, `prepare`, and `release:build`, then refreshed the lockfile.
 - Files: `package.json`, `package-lock.json`, `README.md`
 - On conflict: Preserve the scoped package name and build-before-pack behavior.
+
+### Release automation
+
+- What changed: Made the tag-triggered release workflow idempotent by checking
+  whether the package version already exists on npm before publishing.
+- Files: `.github/workflows/release.yml`
+- On conflict: Keep tag pushes safe after a manual npm publish so release tags
+  can be added without creating failed duplicate-publish runs.
 
 ### Migration and adoption commands
 

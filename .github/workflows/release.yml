@@ -34,8 +34,25 @@ jobs:
       - name: Verify
         run: npm run ci
 
+      - name: Check npm version
+        id: npm_version
+        shell: bash
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already published; skipping npm publish."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish
-        if: ${{ env.NPM_TOKEN != '' }}
+        if: ${{ env.NPM_TOKEN != '' && steps.npm_version.outputs.published != 'true' }}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
