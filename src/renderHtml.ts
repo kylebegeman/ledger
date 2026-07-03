@@ -1,5 +1,11 @@
 import { staticReaderRuntime, staticReaderStyles } from "./renderAssets.js";
-import type { LedgerFacet, LedgerRenderedDocument, LedgerStaticReaderModel } from "./render.js";
+import type {
+  LedgerFacet,
+  LedgerGraphEdge,
+  LedgerGraphNode,
+  LedgerRenderedDocument,
+  LedgerStaticReaderModel,
+} from "./render.js";
 import type { LedgerIssue } from "./types.js";
 
 export interface RenderStaticReaderHtmlOptions {
@@ -49,7 +55,7 @@ ${staticReaderStyles}
     <aside aria-label="Filters">
       <h2>Filters</h2>
       <label for="search">Search</label>
-      <input id="search" type="search" placeholder="Title, file, area, source">
+      <input id="search" type="search" placeholder="Title, id, file, symbol, invariant">
       <label for="kind">Kind</label>
       <select id="kind">
         ${option("all", "All kinds")}
@@ -113,6 +119,7 @@ ${staticReaderStyles}
         ${facetButtons("Areas", "area", model.facets.areas)}
         ${facetButtons("Tags", "tag", model.facets.tags)}
       </div>
+      ${graphSummary(model)}
     </aside>
     <section>
       <h2 id="result-count">${model.documents.length} document(s)</h2>
@@ -137,6 +144,7 @@ function renderEntry(document: LedgerRenderedDocument): string {
             <span class="pill">${escapeHtml(document.kind)}</span>
             <span class="pill">${escapeHtml(document.status)}</span>
             <span class="pill">${escapeHtml(document.coverageStatus)} coverage</span>
+            <span class="pill score-pill" data-score-label hidden></span>
             ${document.warningCount > 0 ? `<span class="pill">${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}</span>` : ""}
             ${document.release ? `<span class="pill">${escapeHtml(document.release)}</span>` : ""}
             ${document.areas.map((area) => `<span class="pill">${escapeHtml(area)}</span>`).join("")}
@@ -236,6 +244,48 @@ function facetButtons(
       `<button class="facet-button" type="button" data-filter-field="${field}" data-filter-value="${escapeHtml(facet.value)}"><span>${escapeHtml(facet.value === "__none" ? "No release" : facet.value)}</span><small>${facet.count}</small></button>`,
     )
     .join("")}</div>`;
+}
+
+function graphSummary(model: LedgerStaticReaderModel): string {
+  const nodeTypes = countTypes(model.graph.nodes);
+  const edgeTypes = countTypes(model.graph.edges);
+  const recordCount = nodeTypes.find((type) => type.value === "record")?.count ?? 0;
+  return `<div class="facet-group graph-summary">
+        <h2>Graph</h2>
+        <div class="graph-metrics">
+          ${miniStat("Nodes", model.graph.nodes.length)}
+          ${miniStat("Edges", model.graph.edges.length)}
+          ${miniStat("Records", recordCount)}
+        </div>
+        <a class="sidecar-link" href="graph.json">graph.json</a>
+        ${typeList("Node Types", nodeTypes)}
+        ${typeList("Edge Types", edgeTypes)}
+      </div>`;
+}
+
+function miniStat(label: string, value: number): string {
+  return `<div class="mini-stat"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+function typeList(label: string, values: readonly LedgerFacet[]): string {
+  if (values.length === 0) return "";
+  return `<div class="graph-list" aria-label="${escapeHtml(label)}">
+          <strong>${escapeHtml(label)}</strong>
+          ${values
+            .slice(0, 6)
+            .map((value) => `<div class="graph-row"><span>${escapeHtml(value.value)}</span><small>${value.count}</small></div>`)
+            .join("")}
+        </div>`;
+}
+
+function countTypes(values: readonly LedgerGraphNode[] | readonly LedgerGraphEdge[]): readonly LedgerFacet[] {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    counts.set(value.type, (counts.get(value.type) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((left, right) => right.count - left.count || left.value.localeCompare(right.value));
 }
 
 function searchTerms(document: LedgerRenderedDocument): string {

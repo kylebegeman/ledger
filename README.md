@@ -152,7 +152,9 @@ verification checks, relationships, and raw Markdown source.
 `.ledger/dist/graph.json`. The reader lazy-loads the compact search index for
 weighted fuzzy search, ranking exact ID, title, path, symbol, and file matches
 above incidental summary or context matches. Relationship data is kept available
-as a static artifact that can be hosted anywhere static files are supported.
+as a static artifact that can be hosted anywhere static files are supported. The
+reader sidebar summarizes graph nodes, edges, and relationship types, while
+active searches show ranked result counts and score badges.
 
 Render output is checked against `render.budgets` in `.ledger/config.yaml`.
 `ledger render` prints artifact size and write-time status, while `ledger

@@ -91,6 +91,58 @@ export const staticReaderStyles = `    :root {
     }
     .facet-button:hover { border-color: var(--accent); }
     .facet-button small { color: var(--muted); }
+    .graph-summary {
+      display: grid;
+      gap: 10px;
+    }
+    .graph-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .mini-stat {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfe;
+      padding: 7px;
+      min-width: 0;
+    }
+    .mini-stat strong {
+      display: block;
+      font-size: 1rem;
+      overflow-wrap: anywhere;
+    }
+    .mini-stat span {
+      display: block;
+      color: var(--muted);
+      font-size: .72rem;
+    }
+    .sidecar-link {
+      color: var(--accent);
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+    .graph-list {
+      display: grid;
+      gap: 5px;
+      font-size: .85rem;
+    }
+    .graph-list > strong {
+      color: var(--muted);
+      font-size: .8rem;
+    }
+    .graph-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+    .graph-row span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .graph-row small { color: var(--muted); }
     aside {
       align-self: start;
       position: sticky;
@@ -132,6 +184,11 @@ export const staticReaderStyles = `    :root {
       border-radius: 999px;
       padding: 2px 8px;
       background: #fbfcfe;
+    }
+    .score-pill {
+      border-color: #155e75;
+      color: #155e75;
+      font-weight: 650;
     }
     .summary {
       max-width: 760px;
@@ -304,9 +361,17 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       for (const entry of entries) {
         const show = matches(entry, matchedScores, search);
         entry.hidden = !show;
+        const scoreLabel = entry.querySelector("[data-score-label]");
+        if (scoreLabel) {
+          const score = matchedScores ? matchedScores.get(entry.dataset.id) : undefined;
+          scoreLabel.hidden = !score;
+          scoreLabel.textContent = score ? "score " + Math.round(score) : "";
+        }
         if (show) visible += 1;
       }
-      resultCount.textContent = visible + " document(s)";
+      resultCount.textContent = search && matchedScores
+        ? visible + " ranked match(es)"
+        : visible + " document(s)";
       empty.hidden = visible !== 0;
     }
 

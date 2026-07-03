@@ -99,6 +99,12 @@ describe("renderStaticReaderHtml", () => {
     expect(html).toContain("Verification");
     expect(html).toContain("Browse");
     expect(html).toContain("facet-button");
+    expect(html).toContain("Graph");
+    expect(html).toContain("graph.json");
+    expect(html).toContain("Node Types");
+    expect(html).toContain("Edge Types");
+    expect(html).toContain("score-pill");
+    expect(html).toContain("ranked match(es)");
     expect(html).toContain("Decisions");
     expect(html).toContain("D001");
   });

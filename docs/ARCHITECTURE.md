@@ -260,6 +260,8 @@ The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
 Record cards surface relationship fields such as decisions and backlog links
 alongside files, symbols, docs, invariants, and verification.
+The sidebar also summarizes graph node and edge counts from the generated model,
+and active browser searches surface ranked match counts plus score badges.
 
 The graph sidecar also represents invariants and verification bullets as
 first-class nodes attached to their source record. That lets hosted readers and
