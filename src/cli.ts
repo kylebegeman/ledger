@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync, watch, type FSWatcher } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { runCiChecks } from "./ci.js";
 import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
+import { formatDoctorResult, runDoctor } from "./doctor.js";
 import {
   auditDocs,
   buildDocsRoutingManifest,
@@ -38,6 +39,8 @@ import {
   writeReleaseDocument,
 } from "./release.js";
 import { buildStaticReaderModel, writeStaticReader } from "./render.js";
+import { serveStaticReader } from "./serve.js";
+import { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
 import type { ParsedLedgerDocument } from "./types.js";
 import {
   readValidationBaseline,
@@ -109,6 +112,9 @@ export async function run(
       case "render":
         return await renderCommand(parsed, context);
 
+      case "serve":
+        return await serveCommand(parsed, context);
+
       case "explain":
         return await explainCommand(parsed, context);
 
@@ -138,13 +144,19 @@ export async function run(
         return await migrateCommand(parsed, context);
 
       case "agents":
-        return await agentsCommand(context);
+        return await agentsCommand(parsed, context);
 
       case "coverage":
         return await coverageCommand(parsed, context);
 
       case "ci":
         return await ciCommand(parsed, context);
+
+      case "doctor":
+        return await doctorCommand(parsed, context);
+
+      case "stale":
+        return await staleCommand(parsed, context);
 
       case "conflict":
         return await conflictCommand(parsed, context);
@@ -253,8 +265,56 @@ async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   if (hasFlag(parsed, "json")) {
     console.log(JSON.stringify(rendered, null, 2));
   } else {
-    console.log(`Rendered ${rendered.documents} Ledger document(s) to ${rendered.outputPath}.`);
+    console.log(
+      `Rendered ${rendered.documents} Ledger document(s) to ${rendered.outputPath}.`,
+    );
+    console.log(`Wrote ${rendered.searchIndexPath} and ${rendered.graphPath}.`);
+    console.log(
+      `Render budget: ${rendered.budget.ok ? "pass" : "warn"} (${rendered.totalBytes}/${rendered.budget.maxTotalBytes} bytes, ${rendered.writeMs}/${rendered.budget.maxWriteMs}ms).`,
+    );
   }
+  return 0;
+}
+
+async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
+  const render = async () => {
+    const documents = await readLedgerDocuments(workspace);
+    const result = validateDocuments(workspace, documents);
+    if (result.errors.length > 0) {
+      await writeValidationReport(workspace, result);
+      throw new Error(`Cannot serve reader with ${result.errors.length} validation error(s).`);
+    }
+    await writeStaticReader(workspace, buildStaticReaderModel(workspace, documents, {
+      validation: result,
+    }));
+  };
+  await render();
+  const served = await serveStaticReader(workspace, {
+    host: flagValues(parsed, "host")[0],
+    port: numberFlag(parsed, "port") ?? 4173,
+  });
+  const watchers = hasFlag(parsed, "watch")
+    ? watchStaticReaderSources(workspace, async () => {
+        try {
+          await render();
+          console.log("Rebuilt Ledger static reader.");
+        } catch (error) {
+          console.error(error instanceof Error ? error.message : String(error));
+        }
+      })
+    : [];
+
+  console.log(`Serving ${served.root} at ${served.url}`);
+  if (watchers.length > 0) console.log(`Watching ${watchers.length} Ledger source director${watchers.length === 1 ? "y" : "ies"}.`);
+  await new Promise<void>((resolve) => {
+    const close = () => {
+      for (const watcher of watchers) watcher.close();
+      served.server.close(() => resolve());
+    };
+    process.once("SIGINT", close);
+    process.once("SIGTERM", close);
+  });
   return 0;
 }
 
@@ -356,13 +416,16 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
 async function packetCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const target = parsed.positionals[0];
   if (!target) {
-    console.error("Usage: ledger packet <path> [--json] [--write-report]");
+    console.error("Usage: ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]");
     return 2;
   }
 
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
-  const packet = buildAgentPacket(documents, target);
+  const packet = buildAgentPacket(documents, target, {
+    budgetTokens: numberFlag(parsed, "budget"),
+    maxEntries: numberFlag(parsed, "limit"),
+  });
   const reportPath = hasFlag(parsed, "write-report")
     ? await writeAgentPacketReport(workspace, packet)
     : undefined;
@@ -520,7 +583,7 @@ async function migrateCommand(parsed: ParsedArgs, context: RunContext): Promise<
   return 0;
 }
 
-async function agentsCommand(context: RunContext): Promise<number> {
+async function agentsCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   let project = "this project";
   let docsMode = "partial";
   try {
@@ -531,17 +594,7 @@ async function agentsCommand(context: RunContext): Promise<number> {
     // Keep the command useful before init.
   }
 
-  console.log(`# Ledger Workflow For Agents
-
-- Use Ledger for durable change memory in ${project}.
-- Before editing, inspect relevant records with \`ledger explain <path> --agent\` or \`ledger packet <path>\`.
-- For implementation changes, create a receipt with \`ledger new "<title>" --from-diff --area <area>\`, then fill in Summary, Why, Changed Files, Invariants, Verification, and Notes.
-- For dogfood findings or product observations, use \`ledger feedback "<title>" --area <area> --tag dogfood\` instead of mixing feedback into normal change records.
-- Run \`ledger validate --current-only\` during active work. Use \`ledger validate\` when historical records should also be checked.
-- Run \`ledger coverage\` to see which changed files are missing Ledger coverage and why each path is required, ignored, or covered.
-- Docs adoption mode is \`${docsMode}\`; update routing docs and docs impact without assuming Ledger owns the entire docs tree unless the project config says \`managed\`.
-- Before handing off, run \`ledger ci\` or the narrowest relevant Ledger command and record the verification result in the entry.
-`);
+  console.log(agentInstructions(project, docsMode, flagValues(parsed, "role")[0]));
   return 0;
 }
 
@@ -603,6 +656,45 @@ async function ciCommand(parsed: ParsedArgs, context: RunContext): Promise<numbe
   }
 
   return result.ok ? 0 : 1;
+}
+
+async function doctorCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const validation = validateDocuments(workspace, documents, {
+    baseline: hasFlag(parsed, "no-baseline") ? undefined : await readValidationBaseline(workspace),
+  });
+  const result = await runDoctor(workspace, documents, validation);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(formatDoctorResult(result));
+  }
+
+  return result.ok ? 0 : 1;
+}
+
+async function staleCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const validation = validateDocuments(workspace, documents, {
+    currentOnly: hasFlag(parsed, "current-only"),
+    baseline: hasFlag(parsed, "no-baseline") ? undefined : await readValidationBaseline(workspace),
+  });
+  const report = await detectStaleKnowledge(workspace, documents, validation);
+  const reportPath = hasFlag(parsed, "write-report")
+    ? await writeStaleReport(workspace, report)
+    : undefined;
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ ...report, reportPath }, null, 2));
+  } else {
+    console.log(formatStaleReport(report).trimEnd());
+    if (reportPath) console.log(`Wrote ${reportPath}`);
+  }
+
+  return hasFlag(parsed, "check") && !report.ok ? 1 : 0;
 }
 
 async function conflictCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
@@ -795,6 +887,13 @@ function flagValues(parsed: ParsedArgs, flag: string): readonly string[] {
   return parsed.flags[flag] ?? [];
 }
 
+function numberFlag(parsed: ParsedArgs, flag: string): number | undefined {
+  const value = flagValues(parsed, flag)[0];
+  if (!value) return undefined;
+  const parsedValue = Number.parseInt(value, 10);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : undefined;
+}
+
 function helpTopicForCommand(parsed: ParsedArgs): string {
   return [parsed.command, ...parsed.positionals].filter(Boolean).join(" ");
 }
@@ -833,6 +932,94 @@ function printAgentExplanation(
       console.log("Verification:");
       for (const command of verification) console.log(`- ${command}`);
     }
+  }
+}
+
+function watchStaticReaderSources(
+  workspace: Awaited<ReturnType<typeof findWorkspace>>,
+  rebuild: () => Promise<void>,
+): readonly FSWatcher[] {
+  const directories = [
+    workspace.config.source.entries,
+    workspace.config.source.backlog,
+    workspace.config.source.decisions,
+    workspace.config.source.releases,
+  ];
+  const watchers: FSWatcher[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      void rebuild();
+    }, 150);
+  };
+
+  for (const directory of directories) {
+    try {
+      watchers.push(watch(path.join(workspace.projectRoot, directory), { recursive: true }, schedule));
+    } catch {
+      // Some platforms do not support recursive watching for every path.
+    }
+  }
+  return watchers;
+}
+
+function agentInstructions(project: string, docsMode: string, role: string | undefined): string {
+  const common = [
+    `# Ledger Workflow For Agents`,
+    "",
+    `- Use Ledger for durable change memory in ${project}.`,
+    "- Start with token-bounded context: `ledger packet <path> --budget 1200`.",
+    "- Use `ledger explain <path> --agent` when you need only invariants and verification.",
+    "- Use `ledger query --text <term> --json` for precise retrieval instead of reading the whole catalog.",
+    `- Docs adoption mode is \`${docsMode}\`; do not assume Ledger owns all docs unless config says \`managed\`.`,
+  ];
+
+  switch (role) {
+    case "reviewer":
+      return [
+        ...common,
+        "- Review Ledger coverage, docs impact, stale knowledge, and verification before approval.",
+        "- Prefer `ledger doctor`, `ledger stale --check`, and `ledger ci --json` for compact review signals.",
+        "",
+      ].join("\n");
+    case "release":
+      return [
+        ...common,
+        "- Start with `ledger unreleased --json` and `ledger release <version> --include-unreleased`.",
+        "- Confirm release verification and stale-knowledge warnings before assigning entries.",
+        "",
+      ].join("\n");
+    case "migration":
+      return [
+        ...common,
+        "- Use `ledger adopt`, `ledger migrate changelog <dir>`, and `ledger validate --current-only`.",
+        "- Mark historical records as historical instead of weakening current validation.",
+        "",
+      ].join("\n");
+    case "conflict":
+      return [
+        ...common,
+        "- Use `ledger conflict <path>` before resolving merge conflicts.",
+        "- Preserve recorded conflict rules, invariants, and verification commands.",
+        "",
+      ].join("\n");
+    case "contributor":
+    case undefined:
+      return [
+        ...common,
+        "- For implementation changes, create a receipt with `ledger new \"<title>\" --from-diff --area <area>`.",
+        "- Fill in Summary, Why, Changed Files, Invariants, Verification, and Notes before handoff.",
+        "- For dogfood findings, use `ledger feedback \"<title>\" --area <area> --tag dogfood`.",
+        "- Before handoff, run `ledger ci` or the narrowest relevant Ledger command and record the result.",
+        "",
+      ].join("\n");
+    default:
+      return [
+        ...common,
+        `- Unknown role \`${role}\`; available roles are contributor, reviewer, release, migration, and conflict.`,
+        "",
+      ].join("\n");
   }
 }
 
@@ -887,11 +1074,11 @@ Migrates folders of legacy Markdown changelog records into .ledger/entries,
 preserves IDs when possible, suggests duplicate ID suffixes, and writes a
 migration receipt. --rewrite-docs updates docs references from old paths to new
 Ledger entry paths.`;
-    case "agents":
+case "agents":
       return `Ledger agents
 
 Usage:
-  ledger agents
+  ledger agents [--role <contributor|reviewer|release|migration|conflict>]
 
 Prints ready-to-paste AGENTS.md instructions for the configured Ledger workflow.`;
     case "validate":
@@ -918,13 +1105,22 @@ Usage:
 
 Writes source record hashes to .ledger/indexes/integrity.json and a readable
 report to .ledger/reports/integrity.md.`;
-    case "render":
+case "render":
       return `Ledger render
 
 Usage:
   ledger render [--json]
 
-Builds the offline static reader at .ledger/dist/index.html.`;
+Builds the offline static reader at .ledger/dist/index.html plus lazy search
+and relationship graph JSON artifacts.`;
+    case "serve":
+      return `Ledger serve
+
+Usage:
+  ledger serve [--host <host>] [--port <port>] [--watch]
+
+Renders and serves the static reader from .ledger/dist. --watch rebuilds when
+Ledger source records change.`;
     case "coverage":
       return `Ledger coverage
 
@@ -963,14 +1159,31 @@ Usage:
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
 
 Filters Ledger records by metadata, tags, relationship ids, symbols, and paths.`;
-    case "packet":
+case "packet":
       return `Ledger packet
 
 Usage:
-  ledger packet <path> [--json] [--write-report]
+  ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]
 
-Builds a compact agent handoff packet for a file path.
+Builds a compact agent handoff packet for a file path. --budget compresses and
+omits lower-priority entries to keep context bounded.
 --write-report writes .ledger/reports/packet.md.`;
+    case "doctor":
+      return `Ledger doctor
+
+Usage:
+  ledger doctor [--no-baseline] [--json]
+
+Checks workspace health, Git availability, validation, docs references, index
+freshness, render output, and stale-knowledge signals.`;
+    case "stale":
+      return `Ledger stale
+
+Usage:
+  ledger stale [--current-only] [--no-baseline] [--check] [--write-report] [--json]
+
+Finds stale knowledge signals such as missing references, missing relationship
+targets, superseded relationships, stale symbols, and release verification gaps.`;
     case "mcp":
       return `Ledger MCP
 
@@ -1060,17 +1273,20 @@ Usage:
   ledger index
   ledger verify-integrity [--json]
   ledger render [--json]
+  ledger serve [--host <host>] [--port <port>] [--watch]
   ledger coverage [--staged] [--explain] [--json]
   ledger ci [--staged] [--current-only] [--no-baseline] [--json]
+  ledger doctor [--no-baseline] [--json]
+  ledger stale [--current-only] [--no-baseline] [--check] [--write-report] [--json]
   ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
-  ledger packet <path> [--json] [--write-report]
+  ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]
   ledger mcp
   ledger unreleased [--json]
   ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]
   ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--json]
-  ledger agents
+  ledger agents [--role <role>]
   ledger docs audit
   ledger docs check
   ledger docs classify [path...] [--json]
@@ -1083,8 +1299,9 @@ Examples:
   ledger feedback "Dogfood finding" --area product --tag dogfood
   ledger migrate changelog docs/changelog --rewrite-docs
   ledger explain src/cli.ts --agent
-  ledger packet src/cli.ts
+  ledger packet src/cli.ts --budget 1200
   ledger verify-integrity
+  ledger doctor
   ledger release v0.1.0 --include-unreleased
   ledger ci --json`;
   }

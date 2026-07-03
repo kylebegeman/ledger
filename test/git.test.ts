@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getChangedFileDetails,
+  inspectGit,
   parseNameStatusLine,
   parseStatusLine,
 } from "../src/git.js";
@@ -57,6 +58,16 @@ describe("git status parsing", () => {
         status: "untracked",
       },
     ]);
+  });
+
+  it("inspects Git availability", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-git-test-"));
+    await git("init");
+
+    await expect(inspectGit(tempDir)).resolves.toMatchObject({
+      available: true,
+      insideWorkTree: true,
+    });
   });
 });
 

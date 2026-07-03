@@ -44,6 +44,8 @@ interface LedgerMcpParsedArgs {
   readonly id?: string;
   readonly text?: string;
   readonly limit?: number;
+  readonly budgetTokens?: number;
+  readonly maxEntries?: number;
   readonly path?: string;
   readonly paths?: readonly string[];
   readonly changedFiles?: readonly string[];
@@ -61,7 +63,7 @@ const validateSchema = {
 
 const querySchema = {
   ...projectRootSchema,
-  kind: z.enum(["change", "backlog", "decision", "release"]).optional(),
+  kind: z.enum(["change", "backlog", "decision", "release", "product-note", "feedback"]).optional(),
   status: z.string().optional(),
   area: z.string().optional(),
   release: z.string().optional(),
@@ -89,6 +91,8 @@ const conflictSchema = {
 const packetSchema = {
   ...projectRootSchema,
   path: z.string().describe("File path to package for agent context."),
+  budgetTokens: z.number().int().positive().max(10000).optional().describe("Approximate token budget for the returned packet."),
+  maxEntries: z.number().int().positive().max(100).optional().describe("Maximum records to include."),
   writeReport: z.boolean().optional().describe("Write .ledger/reports/packet.md."),
 };
 
@@ -245,7 +249,10 @@ export async function runLedgerMcpTool(
     }
 
     case "ledger_packet": {
-      const packet = buildAgentPacket(documents, requiredString(parsed.path, "path"));
+      const packet = buildAgentPacket(documents, requiredString(parsed.path, "path"), {
+        budgetTokens: parsed.budgetTokens,
+        maxEntries: parsed.maxEntries,
+      });
       const reportPath = parsed.writeReport
         ? await writeAgentPacketReport(workspace, packet)
         : undefined;

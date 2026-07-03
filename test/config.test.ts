@@ -24,6 +24,11 @@ describe("parseLedgerConfig", () => {
         git: {
           requireEntryFor: ["src/**"],
         },
+        render: {
+          budgets: {
+            maxSearchIndexBytes: 12345,
+          },
+        },
       },
       "fixture.yaml",
     );
@@ -33,6 +38,8 @@ describe("parseLedgerConfig", () => {
     expect(config.docs.root).toBe("docs");
     expect(config.git.requireEntryFor).toEqual(["src/**"]);
     expect(config.git.ignore).toContain("dist/**");
+    expect(config.render.budgets.maxHtmlBytes).toBe(1_000_000);
+    expect(config.render.budgets.maxSearchIndexBytes).toBe(12345);
   });
 
   it("normalizes configured paths and glob patterns", () => {
@@ -105,6 +112,21 @@ describe("parseLedgerConfig", () => {
         "fixture.yaml",
       ),
     ).toThrow("fixture.yaml: validation.requiredSections.change must not be empty");
+  });
+
+  it("rejects invalid render budgets", () => {
+    expect(() =>
+      parseLedgerConfig(
+        {
+          render: {
+            budgets: {
+              maxTotalBytes: 0,
+            },
+          },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("fixture.yaml: render.budgets.maxTotalBytes must be a positive number");
   });
 
   it("prefixes YAML parse errors with the config path", async () => {

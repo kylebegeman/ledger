@@ -63,6 +63,13 @@ export interface LedgerConfig {
   };
   readonly render: {
     readonly output: string;
+    readonly budgets: {
+      readonly maxHtmlBytes: number;
+      readonly maxSearchIndexBytes: number;
+      readonly maxGraphBytes: number;
+      readonly maxTotalBytes: number;
+      readonly maxWriteMs: number;
+    };
   };
   readonly docs: {
     readonly root: string;

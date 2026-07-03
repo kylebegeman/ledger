@@ -36,6 +36,8 @@ describe("CLI end-to-end", () => {
 
     expect((await captureRun(["render"], tempDir)).exitCode).toBe(0);
     expect(await exists(path.join(tempDir, ".ledger", "dist", "index.html"))).toBe(true);
+    expect(await exists(path.join(tempDir, ".ledger", "dist", "search-index.json"))).toBe(true);
+    expect(await exists(path.join(tempDir, ".ledger", "dist", "graph.json"))).toBe(true);
 
     const query = await captureRun(["query", "--kind", "change", "--area", "cli"], tempDir);
     expect(query.exitCode).toBe(0);
@@ -57,9 +59,18 @@ describe("CLI end-to-end", () => {
       'kind: "product-note"',
     );
 
-    const agents = await captureRun(["agents"], tempDir);
+    const agents = await captureRun(["agents", "--role", "reviewer"], tempDir);
     expect(agents.exitCode).toBe(0);
     expect(agents.stdout).toContain("Ledger Workflow For Agents");
+    expect(agents.stdout).toContain("ledger doctor");
+
+    const doctor = await captureRun(["doctor"], tempDir);
+    expect(doctor.exitCode).toBe(0);
+    expect(doctor.stdout).toContain("Ledger doctor: passed.");
+
+    const stale = await captureRun(["stale"], tempDir);
+    expect(stale.exitCode).toBe(0);
+    expect(stale.stdout).toContain("Ledger Stale Knowledge Report");
 
     expect((await captureRun(["ci"], tempDir)).exitCode).toBe(0);
   });

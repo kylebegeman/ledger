@@ -148,6 +148,21 @@ The static reader is a single offline HTML file. It gives humans and agents a
 searchable, faceted view of entries, decisions, backlog, releases, invariants,
 verification checks, relationships, and raw Markdown source.
 
+`ledger render` also writes `.ledger/dist/search-index.json` and
+`.ledger/dist/graph.json`. The reader lazy-loads the compact search index for
+fuzzy search and keeps relationship data available as a static artifact that can
+be hosted anywhere static files are supported.
+
+Render output is checked against `render.budgets` in `.ledger/config.yaml`.
+`ledger render` prints artifact size and write-time status, while `ledger
+doctor` reports whether the generated reader is over budget.
+
+For local preview:
+
+```bash
+ledger serve --watch
+```
+
 ### Published Package Shape
 
 Ledger is intended to publish as the scoped public package
@@ -206,8 +221,11 @@ brew install ledger
 | `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
 | `ledger index` | Writes JSON indexes under `.ledger/indexes/`. |
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. |
-| `ledger render` | Builds the static HTML reader. |
+| `ledger render` | Builds the static HTML reader plus lazy search and relationship graph JSON. |
+| `ledger serve --watch` | Serves the static reader locally and rebuilds it when Ledger records change. |
 | `ledger coverage --explain` | Checks that changed source paths have Ledger coverage and explains required, ignored, covered, and missing paths. |
+| `ledger doctor` | Checks workspace health, Git availability, validation, docs references, index freshness, render output, and stale signals. |
+| `ledger stale --check` | Finds stale knowledge signals such as missing relationships, stale symbols, and release verification gaps. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
 | `ledger docs impact --check` | Fails when source changes lack docs impact. |
@@ -215,14 +233,14 @@ brew install ledger
 | `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
 | `ledger explain <path>` | Shows records related to a file. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
-| `ledger packet <path> --write-report` | Builds a compact agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
+| `ledger packet <path> --budget 1200 --write-report` | Builds a compact token-budgeted agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
 | `ledger mcp` | Starts a stdio MCP server for agent tools. |
 | `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
 | `ledger query --kind change --area cli --symbol run --text retry` | Filters records by kind, area, status, release, relationship, symbol, file, doc, id, or metadata text. |
 | `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
 | `ledger release v0.1.1 --include-unreleased --assign --status released --write` | Assigns selected entries and writes a release record. |
 | `ledger migrate changelog <dir> --rewrite-docs` | Migrates legacy Markdown changelog records into `.ledger/entries` and writes a receipt. |
-| `ledger agents` | Prints ready-to-paste `AGENTS.md` instructions for the configured workflow. |
+| `ledger agents --role reviewer` | Prints role-specific `AGENTS.md` instructions for the configured workflow. |
 | `ledger ci` | Runs validation, docs audit, coverage, and docs impact together. |
 
 Every command has focused help:
@@ -333,14 +351,20 @@ Before editing:
 
 ```bash
 ledger explain path/to/file.ts --agent
-ledger packet path/to/file.ts --write-report
+ledger packet path/to/file.ts --budget 1200 --write-report
 ledger conflict path/to/file.ts
 ```
+
+`ledger packet` reports an approximate token count, the requested budget, and
+how many matching entries were omitted. This keeps agent context bounded without
+requiring callers to trim output themselves.
 
 After editing:
 
 ```bash
 ledger new "Describe the change" --from-diff
+ledger doctor
+ledger stale
 ledger ci
 ```
 
@@ -355,6 +379,11 @@ ledger mcp
 
 The server exposes tools for validation, query, file explanation, conflict
 guidance, agent packets, docs impact checks, and integrity verification.
+
+Use `ledger agents --role contributor`, `ledger agents --role reviewer`,
+`ledger agents --role release`, `ledger agents --role migration`, or
+`ledger agents --role conflict` to generate narrower operating instructions for
+specialized agents.
 
 ## Release Workflow
 

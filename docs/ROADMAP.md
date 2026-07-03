@@ -151,7 +151,7 @@ Deliverables:
 
 ## Phase 6: Static Reader
 
-Status: faceted reader slice landed
+Status: faceted reader and lazy search slice landed
 
 Goals:
 
@@ -159,13 +159,18 @@ Goals:
 - filter and search entries
 - browse by file, area, release, decision, and backlog item
 - include Markdown source access
+- lazy-load compact fuzzy search data
+- emit static relationship graph data for hosted readers
 
 Deliverables:
 
 - `ledger render`
 - `.ledger/dist/index.html`
-- embedded manifest JSON
+- `.ledger/dist/search-index.json`
+- `.ledger/dist/graph.json`
 - faceted browse controls for kinds, releases, and areas
+- per-record agent packet digests
+- `ledger serve --watch`
 
 ## Phase 7: CI And GitHub
 
@@ -181,6 +186,8 @@ Deliverables:
 
 - `ledger/action`
 - `ledger ci`
+- `ledger doctor`
+- `ledger stale`
 - pull request annotations
 
 ## Phase 8: Agent Integrations
@@ -193,13 +200,15 @@ Goals:
 - editor integration
 - compact retrieval packets
 - agent handoff helpers
+- token-budgeted context packets
 
 Deliverables:
 
 - `ledger mcp` with read-oriented validation, query, explain, conflict, packet,
   and docs-impact tools
 - VS Code extension prototype
-- `ledger packet`
+- `ledger packet --budget <tokens>`
+- `ledger agents --role <role>`
 
 ## Phase 9: Integrity And Evidence
 

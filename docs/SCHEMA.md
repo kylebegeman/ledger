@@ -423,6 +423,25 @@ listed by Ledger entries.
 `docs` references, so generated outputs can stay out of source-control and
 validation churn.
 
+## Render Budget Config
+
+`render.budgets` keeps generated static reader artifacts from growing
+unnoticed.
+
+```yaml
+render:
+  output: .ledger/dist
+  budgets:
+    maxHtmlBytes: 1000000
+    maxSearchIndexBytes: 500000
+    maxGraphBytes: 500000
+    maxTotalBytes: 2000000
+    maxWriteMs: 3000
+```
+
+`ledger render` reports the generated artifact sizes and write time.
+`ledger doctor` warns when generated reader output is missing or over budget.
+
 ## Config Validation
 
 `.ledger/config.yaml` must be a YAML object. Known nested config sections must
@@ -431,6 +450,7 @@ use the expected primitive shapes:
 - path fields are non-empty strings
 - booleans are actual YAML booleans
 - numeric fields are numbers
+- render budget values are positive numbers
 - glob lists are arrays of strings
 - `validation.requiredSections.<kind>` values are non-empty arrays of strings
 

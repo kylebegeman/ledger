@@ -123,10 +123,21 @@ Writes:
 
 ### `ledger render`
 
-Validates the catalog and writes `.ledger/dist/index.html`, a single-file
-offline reader generated from source Markdown. The first reader embeds normalized
-Ledger data, shows summary counts, supports client-side filters, and exposes the
-Markdown source for each record. `--json` emits the render result for automation.
+Validates the catalog and writes `.ledger/dist/index.html`, a static reader
+generated from source Markdown. The reader writes lazy search and relationship
+sidecars (`search-index.json` and `graph.json`), shows summary counts, supports
+client-side filters and fuzzy search, exposes Markdown source for each record,
+and includes compact agent packet digests. `--json` emits the render result for
+automation.
+
+Render output is checked against `render.budgets` in `.ledger/config.yaml`.
+Budgets cover HTML bytes, search index bytes, graph bytes, total bytes, and
+write time.
+
+### `ledger serve`
+
+Renders and serves `.ledger/dist` for local preview. `--watch` rebuilds the
+static reader when source record directories change.
 
 ### `ledger coverage`
 
@@ -153,6 +164,18 @@ Runs the core Ledger guard set in one command: validation, docs reference audit,
 Git coverage, and docs impact. Human output is a compact pass/fail summary.
 `--json` emits the full result model, `--current-only` skips historical records,
 and `--staged` uses the staged Git diff for coverage and docs impact.
+
+### `ledger doctor`
+
+Checks workspace health, Git availability, validation state, docs references,
+index freshness, render output, render budget status, and stale-knowledge
+signals.
+
+### `ledger stale`
+
+Finds stale knowledge signals such as missing references, missing relationship
+targets, superseded relationships, potentially stale symbols, and release
+verification gaps. `--check` makes those signals fail the command.
 
 ### `ledger conflict <path...>`
 
@@ -196,6 +219,11 @@ Supports:
 
 - `--json` for machine-readable output.
 - `--agent` for compact invariants and verification context.
+
+### `ledger packet <path>`
+
+Builds compact agent handoff context for a path. `--budget <tokens>` estimates
+packet size and omits lower-priority matches to keep retrieval bounded.
 
 ### `ledger query`
 

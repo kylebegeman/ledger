@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat as statFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
@@ -31,6 +31,8 @@ export interface LedgerStaticReaderModel {
   readonly generatedAt: string;
   readonly project: string;
   readonly documents: readonly LedgerRenderedDocument[];
+  readonly searchIndex: readonly LedgerSearchDocument[];
+  readonly graph: LedgerRelationshipGraph;
   readonly facets: {
     readonly areas: readonly LedgerFacet[];
     readonly releases: readonly LedgerFacet[];
@@ -54,9 +56,68 @@ export interface LedgerFacet {
   readonly count: number;
 }
 
+export interface LedgerSearchDocument {
+  readonly id: string;
+  readonly title: string;
+  readonly path: string;
+  readonly kind: string;
+  readonly status: string;
+  readonly release?: string;
+  readonly areas: readonly string[];
+  readonly tags: readonly string[];
+  readonly files: readonly string[];
+  readonly symbols: readonly string[];
+  readonly docs: readonly string[];
+  readonly summary?: string;
+  readonly why?: string;
+  readonly terms: string;
+}
+
+export interface LedgerRelationshipGraph {
+  readonly nodes: readonly LedgerGraphNode[];
+  readonly edges: readonly LedgerGraphEdge[];
+}
+
+export interface LedgerGraphNode {
+  readonly id: string;
+  readonly label: string;
+  readonly type: "record" | "file" | "doc" | "symbol" | "area" | "release";
+}
+
+export interface LedgerGraphEdge {
+  readonly source: string;
+  readonly target: string;
+  readonly type: "file" | "doc" | "symbol" | "area" | "release" | "decision" | "backlog" | "related";
+}
+
 export interface RenderStaticReaderResult {
   readonly outputPath: string;
+  readonly searchIndexPath: string;
+  readonly graphPath: string;
   readonly documents: number;
+  readonly artifacts: readonly LedgerRenderArtifact[];
+  readonly totalBytes: number;
+  readonly writeMs: number;
+  readonly budget: LedgerRenderBudgetResult;
+}
+
+export type LedgerRenderArtifactKind = "html" | "search-index" | "graph";
+
+export interface LedgerRenderArtifact {
+  readonly kind: LedgerRenderArtifactKind;
+  readonly path: string;
+  readonly bytes: number;
+  readonly maxBytes: number;
+  readonly ok: boolean;
+}
+
+export interface LedgerRenderBudgetResult {
+  readonly ok: boolean;
+  readonly totalBytes: number;
+  readonly maxTotalBytes: number;
+  readonly writeMs: number;
+  readonly maxWriteMs: number;
+  readonly artifacts: readonly LedgerRenderArtifact[];
 }
 
 export function buildStaticReaderModel(
@@ -92,6 +153,8 @@ export function buildStaticReaderModel(
     generatedAt: new Date().toISOString(),
     project: workspace.config.project,
     documents: renderedDocuments,
+    searchIndex: buildSearchIndex(renderedDocuments),
+    graph: buildRelationshipGraph(renderedDocuments),
     facets: {
       areas: countFacet(renderedDocuments.flatMap((document) => document.areas)),
       releases: countFacet(
@@ -117,13 +180,59 @@ export async function writeStaticReader(
   workspace: LedgerWorkspace,
   model: LedgerStaticReaderModel,
 ): Promise<RenderStaticReaderResult> {
+  const startedAt = Date.now();
   const outputDirectory = path.join(workspace.projectRoot, workspace.config.render.output);
   await mkdir(outputDirectory, { recursive: true });
   const outputPath = path.join(outputDirectory, "index.html");
-  await writeFile(outputPath, renderStaticReaderHtml(model, { iconSvg: await readIconSvg() }), "utf8");
+  const searchIndexPath = path.join(outputDirectory, "search-index.json");
+  const graphPath = path.join(outputDirectory, "graph.json");
+  const html = renderStaticReaderHtml(model, { iconSvg: await readIconSvg() });
+  const searchIndex = `${JSON.stringify(model.searchIndex, null, 2)}\n`;
+  const graph = `${JSON.stringify(model.graph, null, 2)}\n`;
+  await writeFile(outputPath, html, "utf8");
+  await writeFile(searchIndexPath, searchIndex, "utf8");
+  await writeFile(graphPath, graph, "utf8");
+  const writeMs = Date.now() - startedAt;
+  const budget = await checkRenderBudgets(workspace, writeMs);
   return {
     outputPath: normalizeOutputPath(workspace, outputPath),
+    searchIndexPath: normalizeOutputPath(workspace, searchIndexPath),
+    graphPath: normalizeOutputPath(workspace, graphPath),
     documents: model.documents.length,
+    artifacts: budget.artifacts,
+    totalBytes: budget.totalBytes,
+    writeMs,
+    budget,
+  };
+}
+
+export async function checkRenderBudgets(
+  workspace: LedgerWorkspace,
+  writeMs = 0,
+): Promise<LedgerRenderBudgetResult> {
+  const outputDirectory = path.join(workspace.projectRoot, workspace.config.render.output);
+  const budgets = workspace.config.render.budgets;
+  const artifacts = await Promise.all([
+    renderArtifact(workspace, "html", path.join(outputDirectory, "index.html"), budgets.maxHtmlBytes),
+    renderArtifact(
+      workspace,
+      "search-index",
+      path.join(outputDirectory, "search-index.json"),
+      budgets.maxSearchIndexBytes,
+    ),
+    renderArtifact(workspace, "graph", path.join(outputDirectory, "graph.json"), budgets.maxGraphBytes),
+  ]);
+  const totalBytes = artifacts.reduce((sum, artifact) => sum + artifact.bytes, 0);
+  return {
+    ok:
+      artifacts.every((artifact) => artifact.ok) &&
+      totalBytes <= budgets.maxTotalBytes &&
+      writeMs <= budgets.maxWriteMs,
+    totalBytes,
+    maxTotalBytes: budgets.maxTotalBytes,
+    writeMs,
+    maxWriteMs: budgets.maxWriteMs,
+    artifacts,
   };
 }
 
@@ -432,8 +541,48 @@ export function renderStaticReaderHtml(
       <p class="empty" id="empty" hidden>No Ledger records match the current filters.</p>
     </section>
   </main>
-  <script id="ledger-data" type="application/json">${escapeScriptJson(model)}</script>
   <script>
+    let searchIndexPromise;
+    function loadSearchIndex() {
+      if (!searchIndexPromise) {
+        searchIndexPromise = fetch("search-index.json")
+          .then((response) => response.ok ? response.json() : [])
+          .catch(() => []);
+      }
+      return searchIndexPromise;
+    }
+
+    function fuzzyScore(query, terms) {
+      if (!query) return 1;
+      if (!terms) return 0;
+      const normalizedQuery = query.toLowerCase();
+      const normalizedTerms = terms.toLowerCase();
+      if (normalizedTerms.includes(normalizedQuery)) return 100 + normalizedQuery.length;
+      let score = 0;
+      let position = 0;
+      for (const character of normalizedQuery) {
+        const found = normalizedTerms.indexOf(character, position);
+        if (found === -1) return 0;
+        score += Math.max(1, 12 - (found - position));
+        position = found + 1;
+      }
+      return score;
+    }
+
+    async function searchMatches(query) {
+      const trimmed = query.trim().toLowerCase();
+      if (!trimmed) return undefined;
+      const index = await loadSearchIndex();
+      if (!Array.isArray(index) || index.length === 0) return undefined;
+      return new Set(
+        index
+          .map((document) => ({ id: document.id, score: fuzzyScore(trimmed, document.terms) }))
+          .filter((result) => result.score > 0)
+          .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))
+          .map((result) => result.id)
+      );
+    }
+
     const controls = {
       search: document.getElementById("search"),
       kind: document.getElementById("kind"),
@@ -450,8 +599,7 @@ export function renderStaticReaderHtml(
     const resultCount = document.getElementById("result-count");
     const empty = document.getElementById("empty");
 
-    function matches(entry) {
-      const search = controls.search.value.trim().toLowerCase();
+    function matches(entry, matchedIds, search) {
       const kind = controls.kind.value;
       const status = controls.status.value;
       const area = controls.area.value;
@@ -461,6 +609,8 @@ export function renderStaticReaderHtml(
       const duplicate = controls.duplicate.value;
       const coverage = controls.coverage.value;
       const tag = controls.tag.value;
+      if (matchedIds && !matchedIds.has(entry.dataset.id)) return false;
+      if (!matchedIds && search && !entry.dataset.search.includes(search)) return false;
       if (kind !== "all" && entry.dataset.kind !== kind) return false;
       if (status !== "all" && entry.dataset.status !== status) return false;
       if (area !== "all" && !entry.dataset.areas.split(" ").includes(area)) return false;
@@ -474,14 +624,15 @@ export function renderStaticReaderHtml(
       if (duplicate === "unique" && entry.dataset.duplicateId === "true") return false;
       if (coverage !== "all" && entry.dataset.coverage !== coverage) return false;
       if (tag !== "all" && !entry.dataset.tags.split(" ").includes(tag)) return false;
-      if (search && !entry.dataset.search.includes(search)) return false;
       return true;
     }
 
-    function applyFilters() {
+    async function applyFilters() {
+      const search = controls.search.value.trim().toLowerCase();
+      const matchedIds = await searchMatches(search);
       let visible = 0;
       for (const entry of entries) {
-        const show = matches(entry);
+        const show = matches(entry, matchedIds, search);
         entry.hidden = !show;
         if (show) visible += 1;
       }
@@ -490,7 +641,7 @@ export function renderStaticReaderHtml(
     }
 
     for (const control of Object.values(controls)) {
-      control.addEventListener("input", applyFilters);
+      control.addEventListener("input", () => { void applyFilters(); });
     }
     for (const button of document.querySelectorAll("[data-filter-field]")) {
       button.addEventListener("click", () => {
@@ -498,7 +649,7 @@ export function renderStaticReaderHtml(
         const value = button.dataset.filterValue;
         if (!field || value === undefined || !controls[field]) return;
         controls[field].value = value;
-        applyFilters();
+        void applyFilters();
       });
     }
   </script>
@@ -508,30 +659,7 @@ export function renderStaticReaderHtml(
 }
 
 function renderEntry(document: LedgerRenderedDocument): string {
-  const searchText = [
-    document.id,
-    document.title,
-    document.kind,
-    document.status,
-    document.release ?? "",
-    ...document.areas,
-    ...document.tags,
-    ...document.files,
-    ...document.symbols,
-    ...document.docs,
-    ...document.decisions,
-    ...document.backlog,
-    ...document.supersedes,
-    ...document.related,
-    document.summary ?? "",
-    document.why ?? "",
-    ...document.invariants,
-    ...document.verification,
-    ...document.issues.map((issue) => issue.message),
-  ]
-    .join(" ")
-    .toLowerCase();
-  return `<article class="entry" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(document.areas.join(" "))}" data-tags="${escapeHtml(document.tags.join(" "))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchText)}">
+  return `<article class="entry" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(document.areas.join(" "))}" data-tags="${escapeHtml(document.tags.join(" "))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document).toLowerCase())}">
           <h3>${escapeHtml(document.id)}: ${escapeHtml(document.title)}</h3>
           <div class="meta">
             <span class="pill">${escapeHtml(document.kind)}</span>
@@ -550,6 +678,7 @@ function renderEntry(document: LedgerRenderedDocument): string {
           ${detailList("Symbols", document.symbols)}
           ${detailList("Docs", document.docs)}
           ${relationships(document)}
+          ${agentPacketDigest(document)}
           <details class="source">
             <summary>Markdown Source</summary>
             <pre>${escapeHtml(document.source)}</pre>
@@ -600,6 +729,21 @@ function relationships(document: LedgerRenderedDocument): string {
   return `<div class="relationships">${sections.join("")}</div>`;
 }
 
+function agentPacketDigest(document: LedgerRenderedDocument): string {
+  const target = document.files[0] ?? document.docs[0] ?? document.path;
+  const lines = [
+    `ledger packet ${target} --budget 1200`,
+    "",
+    `${document.id}: ${document.title}`,
+    document.invariants.length > 0 ? `Invariants: ${document.invariants.slice(0, 3).join(" | ")}` : "",
+    document.verification.length > 0 ? `Verification: ${document.verification.slice(0, 3).join(" | ")}` : "",
+  ].filter((line) => line.length > 0);
+  return `<details class="paths">
+            <summary>Agent Packet</summary>
+            <pre>${escapeHtml(lines.join("\n"))}</pre>
+          </details>`;
+}
+
 function stat(label: string, value: number): string {
   return `<div class="stat"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`;
 }
@@ -622,6 +766,111 @@ function facetButtons(
     .join("")}</div>`;
 }
 
+export function buildSearchIndex(
+  documents: readonly LedgerRenderedDocument[],
+): readonly LedgerSearchDocument[] {
+  return documents.map((document) => {
+    const terms = searchTerms(document);
+    return {
+      id: document.id,
+      title: document.title,
+      path: document.path,
+      kind: document.kind,
+      status: document.status,
+      release: document.release,
+      areas: document.areas,
+      tags: document.tags,
+      files: document.files,
+      symbols: document.symbols,
+      docs: document.docs,
+      summary: document.summary,
+      why: document.why,
+      terms,
+    };
+  });
+}
+
+function searchTerms(document: LedgerRenderedDocument): string {
+  return [
+    document.id,
+    document.title,
+    document.kind,
+    document.status,
+    document.release ?? "",
+    document.path,
+    ...document.areas,
+    ...document.tags,
+    ...document.files,
+    ...document.symbols,
+    ...document.docs,
+    ...document.decisions,
+    ...document.backlog,
+    ...document.supersedes,
+    ...document.related,
+    document.summary ?? "",
+    document.why ?? "",
+    ...document.invariants,
+    ...document.verification,
+    ...document.issues.map((issue) => issue.message),
+  ].join(" ");
+}
+
+export function buildRelationshipGraph(
+  documents: readonly LedgerRenderedDocument[],
+): LedgerRelationshipGraph {
+  const nodes = new Map<string, LedgerGraphNode>();
+  const edges: LedgerGraphEdge[] = [];
+
+  const addNode = (node: LedgerGraphNode) => {
+    if (!nodes.has(node.id)) nodes.set(node.id, node);
+  };
+  const addEdge = (source: string, target: string, type: LedgerGraphEdge["type"]) => {
+    edges.push({ source, target, type });
+  };
+
+  for (const document of documents) {
+    const recordId = `record:${document.id}`;
+    addNode({ id: recordId, label: document.id, type: "record" });
+    for (const file of document.files) {
+      const target = `file:${file}`;
+      addNode({ id: target, label: file, type: "file" });
+      addEdge(recordId, target, "file");
+    }
+    for (const doc of document.docs) {
+      const target = `doc:${doc}`;
+      addNode({ id: target, label: doc, type: "doc" });
+      addEdge(recordId, target, "doc");
+    }
+    for (const symbol of document.symbols) {
+      const target = `symbol:${symbol}`;
+      addNode({ id: target, label: symbol, type: "symbol" });
+      addEdge(recordId, target, "symbol");
+    }
+    for (const area of document.areas) {
+      const target = `area:${area}`;
+      addNode({ id: target, label: area, type: "area" });
+      addEdge(recordId, target, "area");
+    }
+    if (document.release) {
+      const target = `release:${document.release}`;
+      addNode({ id: target, label: document.release, type: "release" });
+      addEdge(recordId, target, "release");
+    }
+    for (const decision of document.decisions) addEdge(recordId, `record:${decision}`, "decision");
+    for (const backlog of document.backlog) addEdge(recordId, `record:${backlog}`, "backlog");
+    for (const related of document.related) addEdge(recordId, `record:${related}`, "related");
+  }
+
+  return {
+    nodes: [...nodes.values()].sort((left, right) => left.id.localeCompare(right.id)),
+    edges: edges.sort((left, right) =>
+      left.source.localeCompare(right.source) ||
+      left.target.localeCompare(right.target) ||
+      left.type.localeCompare(right.type),
+    ),
+  };
+}
+
 function groupIssuesByPath(issues: readonly LedgerIssue[]): ReadonlyMap<string, readonly LedgerIssue[]> {
   const grouped = new Map<string, LedgerIssue[]>();
   for (const issue of issues) {
@@ -634,6 +883,27 @@ function groupIssuesByPath(issues: readonly LedgerIssue[]): ReadonlyMap<string, 
 function coverageStatus(files: readonly string[]): "none" | "exact" | "pattern" {
   if (files.length === 0) return "none";
   return files.some(isCoveragePattern) ? "pattern" : "exact";
+}
+
+async function renderArtifact(
+  workspace: LedgerWorkspace,
+  kind: LedgerRenderArtifactKind,
+  filePath: string,
+  maxBytes: number,
+): Promise<LedgerRenderArtifact> {
+  let bytes = 0;
+  try {
+    bytes = (await statFile(filePath)).size;
+  } catch {
+    bytes = 0;
+  }
+  return {
+    kind,
+    path: normalizeOutputPath(workspace, filePath),
+    bytes,
+    maxBytes,
+    ok: bytes > 0 && bytes <= maxBytes,
+  };
 }
 
 function sourceHref(workspace: LedgerWorkspace, documentPath: string): string {

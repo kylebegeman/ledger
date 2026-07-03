@@ -74,6 +74,13 @@ export const defaultConfig: LedgerConfig = {
   },
   render: {
     output: ".ledger/dist",
+    budgets: {
+      maxHtmlBytes: 1_000_000,
+      maxSearchIndexBytes: 500_000,
+      maxGraphBytes: 500_000,
+      maxTotalBytes: 2_000_000,
+      maxWriteMs: 3_000,
+    },
   },
   docs: {
     root: "docs",
@@ -169,7 +176,14 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
     },
     indexes: { ...base.indexes, ...override.indexes },
     reports: { ...base.reports, ...override.reports },
-    render: { ...base.render, ...override.render },
+    render: {
+      ...base.render,
+      ...override.render,
+      budgets: {
+        ...base.render.budgets,
+        ...override.render?.budgets,
+      },
+    },
     docs: {
       ...base.docs,
       ...override.docs,
@@ -198,6 +212,7 @@ function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
     },
     render: {
       output: normalizeConfigPath(config.render.output),
+      budgets: config.render.budgets,
     },
     docs: {
       ...config.docs,
@@ -276,6 +291,13 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
   });
   optionalObject(config, "render", configPath, (render) => {
     optionalString(render, "output", configPath, "render");
+    optionalObject(render, "budgets", configPath, (budgets) => {
+      optionalNumber(budgets, "maxHtmlBytes", configPath, "render.budgets");
+      optionalNumber(budgets, "maxSearchIndexBytes", configPath, "render.budgets");
+      optionalNumber(budgets, "maxGraphBytes", configPath, "render.budgets");
+      optionalNumber(budgets, "maxTotalBytes", configPath, "render.budgets");
+      optionalNumber(budgets, "maxWriteMs", configPath, "render.budgets");
+    }, "render");
   });
   optionalObject(config, "docs", configPath, (docs) => {
     optionalString(docs, "root", configPath, "docs");
@@ -320,6 +342,11 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
   for (const kind of documentKinds) {
     if (config.validation.requiredSections[kind].length === 0) {
       fail(configPath, `validation.requiredSections.${kind} must not be empty`);
+    }
+  }
+  for (const [label, value] of Object.entries(config.render.budgets)) {
+    if (!Number.isFinite(value) || value < 1) {
+      fail(configPath, `render.budgets.${label} must be a positive number`);
     }
   }
 }

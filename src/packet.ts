@@ -20,11 +20,21 @@ export interface LedgerPacketEntry {
 export interface LedgerAgentPacket {
   readonly target: string;
   readonly entries: readonly LedgerPacketEntry[];
+  readonly estimatedTokens: number;
+  readonly budgetTokens?: number;
+  readonly truncated: boolean;
+  readonly omittedEntries: number;
+}
+
+export interface LedgerAgentPacketOptions {
+  readonly budgetTokens?: number;
+  readonly maxEntries?: number;
 }
 
 export function buildAgentPacket(
   documents: readonly ParsedLedgerDocument[],
   target: string,
+  options: LedgerAgentPacketOptions = {},
 ): LedgerAgentPacket {
   const [conflictTarget] = buildConflictTargets(documents, [target]);
   const normalizedById = new Map(documents.map((document) => {
@@ -32,28 +42,42 @@ export function buildAgentPacket(
     return [normalized.id, normalized] as const;
   }));
 
+  const allEntries = (conflictTarget?.entries ?? []).map((entry) => {
+    const normalized = normalizedById.get(entry.id);
+    return {
+      id: entry.id,
+      title: entry.title,
+      path: entry.path,
+      areas: normalized?.areas ?? [],
+      symbols: normalized?.symbols ?? [],
+      docs: normalized?.docs ?? [],
+      matchedFiles: entry.matchedFiles,
+      conflictRules: entry.conflictRules,
+      invariants: entry.invariants,
+      verification: entry.verification,
+    };
+  });
+  const entries = selectPacketEntries(allEntries, conflictTarget?.target ?? target, options);
+
   return {
     target: conflictTarget?.target ?? target,
-    entries: (conflictTarget?.entries ?? []).map((entry) => {
-      const normalized = normalizedById.get(entry.id);
-      return {
-        id: entry.id,
-        title: entry.title,
-        path: entry.path,
-        areas: normalized?.areas ?? [],
-        symbols: normalized?.symbols ?? [],
-        docs: normalized?.docs ?? [],
-        matchedFiles: entry.matchedFiles,
-        conflictRules: entry.conflictRules,
-        invariants: entry.invariants,
-        verification: entry.verification,
-      };
-    }),
+    entries,
+    estimatedTokens: estimatePacketTokens(conflictTarget?.target ?? target, entries),
+    budgetTokens: options.budgetTokens,
+    truncated: entries.length < allEntries.length,
+    omittedEntries: Math.max(0, allEntries.length - entries.length),
   };
 }
 
 export function formatAgentPacket(packet: LedgerAgentPacket): string {
   const lines = ["# Ledger Agent Packet", "", `Target: \`${packet.target}\``, ""];
+  lines.push(`Estimated tokens: ${packet.estimatedTokens}`);
+  if (packet.budgetTokens) lines.push(`Budget: ${packet.budgetTokens}`);
+  if (packet.truncated) {
+    lines.push(`Omitted entries: ${packet.omittedEntries}`);
+  }
+  lines.push("");
+
   if (packet.entries.length === 0) {
     lines.push("No Ledger records mention this target.", "");
     return lines.join("\n");
@@ -83,6 +107,69 @@ export async function writeAgentPacketReport(
   await mkdir(reportDirectory, { recursive: true });
   await writeFile(reportPath, formatAgentPacket(packet), "utf8");
   return normalizePath(path.relative(workspace.projectRoot, reportPath));
+}
+
+export function estimatePacketTokens(
+  target: string,
+  entries: readonly LedgerPacketEntry[],
+): number {
+  const text = [
+    target,
+    ...entries.flatMap((entry) => [
+      entry.id,
+      entry.title,
+      entry.path,
+      ...entry.areas,
+      ...entry.symbols,
+      ...entry.docs,
+      ...entry.matchedFiles,
+      ...entry.conflictRules,
+      ...entry.invariants,
+      ...entry.verification,
+    ]),
+  ].join("\n");
+  return estimateTokens(text);
+}
+
+export function estimateTokens(text: string): number {
+  if (text.length === 0) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+function selectPacketEntries(
+  entries: readonly LedgerPacketEntry[],
+  target: string,
+  options: LedgerAgentPacketOptions,
+): readonly LedgerPacketEntry[] {
+  const maxEntries = options.maxEntries && options.maxEntries > 0
+    ? options.maxEntries
+    : entries.length;
+  let selected = entries.slice(0, maxEntries);
+
+  if (options.budgetTokens && options.budgetTokens > 0) {
+    selected = selected.map(compactPacketEntry);
+    while (
+      selected.length > 0 &&
+      estimatePacketTokens(target, selected) > options.budgetTokens
+    ) {
+      selected = selected.slice(0, -1);
+    }
+  }
+
+  return selected;
+}
+
+function compactPacketEntry(entry: LedgerPacketEntry): LedgerPacketEntry {
+  return {
+    ...entry,
+    areas: entry.areas.slice(0, 4),
+    symbols: entry.symbols.slice(0, 6),
+    docs: entry.docs.slice(0, 4),
+    matchedFiles: entry.matchedFiles.slice(0, 4),
+    conflictRules: entry.conflictRules.slice(0, 3),
+    invariants: entry.invariants.slice(0, 5),
+    verification: entry.verification.slice(0, 5),
+  };
 }
 
 function pushInlineList(lines: string[], label: string, values: readonly string[]): void {

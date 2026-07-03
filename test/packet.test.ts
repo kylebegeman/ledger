@@ -25,6 +25,8 @@ describe("agent packets", () => {
   it("combines metadata, conflict rules, invariants, and verification", () => {
     const packet = buildAgentPacket([document()], "src/cli.ts");
 
+    expect(packet.estimatedTokens).toBeGreaterThan(0);
+    expect(packet.truncated).toBe(false);
     expect(packet.entries).toHaveLength(1);
     expect(packet.entries[0]).toMatchObject({
       id: "0001",
@@ -44,6 +46,7 @@ describe("agent packets", () => {
 
     expect(markdown).toContain("# Ledger Agent Packet");
     expect(markdown).toContain("Target: `src/cli.ts`");
+    expect(markdown).toContain("Estimated tokens:");
     expect(markdown).toContain("## 0001: CLI");
     expect(markdown).toContain("- Symbols: `run`");
     expect(markdown).toContain("### Conflict Rules");
@@ -62,6 +65,18 @@ describe("agent packets", () => {
     expect(report).toContain("# Ledger Agent Packet");
     expect(report).toContain("## 0001: CLI");
   });
+
+  it("honors entry limits for token-bounded packets", () => {
+    const packet = buildAgentPacket(
+      [document("0001", "CLI one"), document("0002", "CLI two")],
+      "src/cli.ts",
+      { maxEntries: 1 },
+    );
+
+    expect(packet.entries).toHaveLength(1);
+    expect(packet.truncated).toBe(true);
+    expect(packet.omittedEntries).toBe(1);
+  });
 });
 
 async function createWorkspace(): Promise<LedgerWorkspace> {
@@ -76,11 +91,11 @@ async function createWorkspace(): Promise<LedgerWorkspace> {
   };
 }
 
-function document(): ParsedLedgerDocument {
+function document(id = "0001", title = "CLI"): ParsedLedgerDocument {
   const raw = `---
-id: "0001"
+id: "${id}"
 kind: "change"
-title: "CLI"
+title: "${title}"
 date: "2026-06-29"
 status: "landed"
 areas: ["cli"]
@@ -93,7 +108,7 @@ docs:
 commits: []
 ---
 
-# 0001: CLI
+# ${id}: ${title}
 
 ## Changed Files
 

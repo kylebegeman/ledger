@@ -21,6 +21,33 @@ export interface GitChangedFile {
   readonly status: GitChangeStatus;
 }
 
+export interface GitInspection {
+  readonly available: boolean;
+  readonly insideWorkTree: boolean;
+  readonly root?: string;
+  readonly error?: string;
+}
+
+export async function inspectGit(cwd: string): Promise<GitInspection> {
+  try {
+    const [{ stdout: insideStdout }, { stdout: rootStdout }] = await Promise.all([
+      execFileAsync("git", ["rev-parse", "--is-inside-work-tree"], { cwd }),
+      execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd }),
+    ]);
+    return {
+      available: true,
+      insideWorkTree: insideStdout.trim() === "true",
+      root: rootStdout.trim() || undefined,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      insideWorkTree: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function getChangedFiles(
   cwd: string,
   options: GetChangedFilesOptions = {},

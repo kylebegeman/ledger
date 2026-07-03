@@ -1,8 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { defaultConfig } from "../src/config.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
-import { buildStaticReaderModel, renderStaticReaderHtml } from "../src/render.js";
+import { buildStaticReaderModel, renderStaticReaderHtml, writeStaticReader } from "../src/render.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
+
+let tempDir: string | undefined;
+
+afterEach(async () => {
+  if (tempDir) {
+    await rm(tempDir, { recursive: true, force: true });
+    tempDir = undefined;
+  }
+});
 
 describe("buildStaticReaderModel", () => {
   it("normalizes documents and counts kinds", () => {
@@ -22,6 +34,41 @@ describe("buildStaticReaderModel", () => {
     expect(model.facets.kinds).toContainEqual({ value: "change", count: 1 });
     expect(model.facets.areas).toContainEqual({ value: "cli", count: 2 });
     expect(model.facets.releases).toContainEqual({ value: "v1.0.0", count: 2 });
+    expect(model.searchIndex[0]).toMatchObject({
+      id: "0001",
+      title: "Change",
+      terms: expect.stringContaining("src/cli.ts"),
+    });
+    expect(model.graph.nodes).toContainEqual({
+      id: "file:src/cli.ts",
+      label: "src/cli.ts",
+      type: "file",
+    });
+    expect(model.graph.edges).toContainEqual({
+      source: "record:0001",
+      target: "file:src/cli.ts",
+      type: "file",
+    });
+  });
+});
+
+describe("writeStaticReader", () => {
+  it("writes artifact metrics and budget status", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-render-test-"));
+    const testWorkspace = workspace(tempDir);
+    const result = await writeStaticReader(
+      testWorkspace,
+      buildStaticReaderModel(testWorkspace, [document("0001", "change", "Change")]),
+    );
+
+    expect(result.artifacts.map((artifact) => artifact.kind)).toEqual([
+      "html",
+      "search-index",
+      "graph",
+    ]);
+    expect(result.totalBytes).toBeGreaterThan(0);
+    expect(result.writeMs).toBeGreaterThanOrEqual(0);
+    expect(result.budget.ok).toBe(true);
   });
 });
 
@@ -33,10 +80,11 @@ describe("renderStaticReaderHtml", () => {
     const html = renderStaticReaderHtml(model, { iconSvg: "<svg><title>Ledger</title></svg>" });
 
     expect(html).toContain("Escape &lt;script&gt;");
-    expect(html).toContain('<script id="ledger-data" type="application/json">');
-    expect(html).toContain("\\u003cscript>");
+    expect(html).toContain('fetch("search-index.json")');
+    expect(html).toContain("fuzzyScore");
     expect(html).toContain("<svg><title>Ledger</title></svg>");
     expect(html).toContain("Markdown Source");
+    expect(html).toContain("Agent Packet");
     expect(html).toContain("Missing refs");
     expect(html).toContain("Coverage");
     expect(html).toContain("Tag");
@@ -50,11 +98,11 @@ describe("renderStaticReaderHtml", () => {
   });
 });
 
-function workspace(): LedgerWorkspace {
+function workspace(projectRoot = "/tmp/ledger"): LedgerWorkspace {
   return {
-    projectRoot: "/tmp/ledger",
-    ledgerRoot: "/tmp/ledger/.ledger",
-    configPath: "/tmp/ledger/.ledger/config.yaml",
+    projectRoot,
+    ledgerRoot: `${projectRoot}/.ledger`,
+    configPath: `${projectRoot}/.ledger/config.yaml`,
     config: defaultConfig,
   };
 }
