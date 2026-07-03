@@ -219,8 +219,12 @@ Lower-level helpers remain available from `@kylebegeman/ledger/unstable`.
 Those exports are useful for experimentation and project-local tooling, but can
 change between minor versions while the package is still pre-1.0.
 
+See [Ledger API](./docs/API.md) for promotion rules, compatibility expectations,
+and token-bounded agent retrieval APIs.
+
 The package builds from source during `prepare`; release checks use
-`npm run release:build`.
+`npm run release:build`. See [Release Prep](./docs/RELEASE_PREP.md) for the
+full local verification and publishing checklist.
 
 After the Homebrew tap is published, macOS users can install with:
 
@@ -521,8 +525,10 @@ packets, release tooling, or renderer adapters.
 
 - [Product Brief](./docs/PRODUCT.md)
 - [Architecture](./docs/ARCHITECTURE.md)
+- [API](./docs/API.md)
 - [Schema](./docs/SCHEMA.md)
 - [Ledger And Project Docs](./docs/DOCS_RELATIONSHIP.md)
+- [Release Prep](./docs/RELEASE_PREP.md)
 - [Roadmap](./docs/ROADMAP.md)
 - [Implementation Plan](./docs/IMPLEMENTATION_PLAN.md)
 
