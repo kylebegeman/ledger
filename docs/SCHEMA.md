@@ -500,11 +500,25 @@ use the expected primitive shapes:
 - numeric fields are numbers
 - render budget values are positive numbers
 - performance budget values are positive numbers
+- `validation.profile` is `standard` or `strict`
 - glob lists are arrays of strings
 - `validation.requiredSections.<kind>` values are non-empty arrays of strings
 
 Ledger merges valid partial config files with defaults, but malformed nested
 values fail during workspace discovery instead of being silently ignored.
+
+## Validation Profiles
+
+`validation.profile` controls how validation policy findings are reported.
+
+- `standard` preserves the default behavior: required structural issues are
+  errors and quality/reference findings are warnings.
+- `strict` escalates validation warnings to errors for projects that want CI to
+  fail on quality, unknown frontmatter, or missing-reference findings.
+
+Individual booleans such as `requireVerification`, `requireChangedFiles`, and
+`requireInvariants` still control whether those checks run. The profile only
+controls severity after a finding is produced.
 
 ## Config Versioning
 

@@ -56,6 +56,22 @@ describe("Ledger validation", () => {
     expect(messages).toContain("docs reference does not exist: docs/missing.md");
   });
 
+  it("can escalate validation warnings under the strict profile", async () => {
+    const workspace = await createFixtureWorkspace({
+      qualityIssues: true,
+      profile: "strict",
+    });
+    const documents = await readLedgerDocuments(workspace);
+    const result = validateDocuments(workspace, documents);
+    const messages = result.errors.map((issue) => issue.message);
+
+    expect(result.warnings).toEqual([]);
+    expect(messages).toContain("updated is missing");
+    expect(messages).toContain("files is empty");
+    expect(messages).toContain('unknown frontmatter field "customField"');
+    expect(messages).toContain("docs reference does not exist: docs/missing.md");
+  });
+
   it("supports historical records, stale ref acknowledgements, and typed extensions", async () => {
     const workspace = await createFixtureWorkspace({
       configTail: `schema:
@@ -97,7 +113,12 @@ describe("Ledger validation", () => {
 });
 
 async function createFixtureWorkspace(
-  options: { duplicate?: boolean; qualityIssues?: boolean; configTail?: string } = {},
+  options: {
+    duplicate?: boolean;
+    qualityIssues?: boolean;
+    configTail?: string;
+    profile?: "standard" | "strict";
+  } = {},
 ): Promise<LedgerWorkspace> {
   tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-test-"));
   await mkdir(path.join(tempDir, "src"), { recursive: true });
@@ -120,6 +141,7 @@ ids:
   backlogPrefix: B
   decisionPrefix: D
 validation:
+  profile: ${options.profile ?? "standard"}
   requireVerification: true
   requireChangedFiles: true
   requireInvariants: true

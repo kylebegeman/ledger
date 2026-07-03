@@ -19,6 +19,8 @@ export type LedgerSchemaFieldType =
 
 export type LedgerDocsAdoption = "none" | "partial" | "managed";
 
+export type LedgerValidationProfile = "standard" | "strict";
+
 export type LedgerIssueCode =
   | "duplicate-id"
   | "missing-frontmatter"
@@ -44,6 +46,7 @@ export interface LedgerConfig {
     readonly decisionPrefix: string;
   };
   readonly validation: {
+    readonly profile: LedgerValidationProfile;
     readonly requireVerification: boolean;
     readonly requireChangedFiles: boolean;
     readonly requireInvariants: boolean;

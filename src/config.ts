@@ -68,6 +68,7 @@ export const defaultConfig: LedgerConfig = {
     decisionPrefix: "D",
   },
   validation: {
+    profile: "standard",
     requireVerification: true,
     requireChangedFiles: true,
     requireInvariants: true,
@@ -349,6 +350,7 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
     optionalString(ids, "decisionPrefix", configPath, "ids");
   });
   optionalObject(config, "validation", configPath, (validation) => {
+    optionalValidationProfile(validation, "profile", configPath, "validation");
     optionalBoolean(validation, "requireVerification", configPath, "validation");
     optionalBoolean(validation, "requireChangedFiles", configPath, "validation");
     optionalBoolean(validation, "requireInvariants", configPath, "validation");
@@ -530,6 +532,22 @@ function optionalDocsAdoption(
     value !== "managed"
   ) {
     fail(configPath, `${fieldPath(key, prefix)} must be none, partial, or managed`);
+  }
+}
+
+function optionalValidationProfile(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (
+    value !== undefined &&
+    value !== "standard" &&
+    value !== "strict"
+  ) {
+    fail(configPath, `${fieldPath(key, prefix)} must be standard or strict`);
   }
 }
 

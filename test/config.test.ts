@@ -44,6 +44,7 @@ describe("parseLedgerConfig", () => {
     );
 
     expect(config.project).toBe("fixture");
+    expect(config.validation.profile).toBe("standard");
     expect(config.docs.managed).toBe(true);
     expect(config.docs.root).toBe("docs");
     expect(config.git.requireEntryFor).toEqual(["src/**"]);
@@ -203,6 +204,19 @@ describe("parseLedgerConfig", () => {
         "fixture.yaml",
       ),
     ).toThrow("fixture.yaml: performance.budgets.maxTotalMs must be a positive number");
+  });
+
+  it("rejects invalid validation profiles", () => {
+    expect(() =>
+      parseLedgerConfig(
+        {
+          validation: {
+            profile: "relaxed",
+          },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("fixture.yaml: validation.profile must be standard or strict");
   });
 
   it("prefixes YAML parse errors with the config path", async () => {

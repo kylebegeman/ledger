@@ -131,6 +131,7 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "  backlogPrefix: B",
     "  decisionPrefix: D",
     "validation:",
+    "  profile: standard",
     "  requireVerification: true",
     "  requireChangedFiles: true",
     "  requireInvariants: true",

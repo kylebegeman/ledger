@@ -5,6 +5,7 @@ import { isCoveragePattern, matchesGlob } from "./coverage.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import type {
   LedgerIssue,
+  LedgerIssueLevel,
   LedgerValidationResult,
   LedgerWorkspace,
   ParsedLedgerDocument,
@@ -53,6 +54,7 @@ export function validateDocuments(
     if (options.currentOnly && normalized.status === "historical") continue;
 
     const pathLabel = document.relativePath;
+    const warningLevel = validationWarningLevel(workspace);
 
     requireString(issues, pathLabel, normalized.id, "id");
     requireString(issues, pathLabel, normalized.title, "title");
@@ -75,7 +77,7 @@ export function validateDocuments(
 
     if (!document.frontmatter.kind) {
       issues.push({
-        level: "warning",
+        level: warningLevel,
         code: "quality",
         path: pathLabel,
         message: `missing kind; inferred ${document.kind}`,
@@ -84,7 +86,7 @@ export function validateDocuments(
 
     if (normalized.areas.length === 0) {
       issues.push({
-        level: "warning",
+        level: warningLevel,
         code: "quality",
         path: pathLabel,
         message: "areas is empty",
@@ -93,7 +95,7 @@ export function validateDocuments(
 
     if (!normalized.updated) {
       issues.push({
-        level: "warning",
+        level: warningLevel,
         code: "quality",
         path: pathLabel,
         message: "updated is missing",
@@ -106,7 +108,7 @@ export function validateDocuments(
       normalized.files.length === 0
     ) {
       issues.push({
-        level: "warning",
+        level: warningLevel,
         code: "quality",
         path: pathLabel,
         message: "files is empty",
@@ -130,7 +132,7 @@ export function validateDocuments(
       const verification = document.sections.find((section) => section.title === "Verification");
       if (!verification || verification.body.trim().length < 5) {
         issues.push({
-          level: "warning",
+          level: warningLevel,
           code: "quality",
           path: pathLabel,
           message: "verification section is empty or too short",
@@ -142,7 +144,7 @@ export function validateDocuments(
       const invariants = document.sections.find((section) => section.title === "Invariants");
       if (!invariants || invariants.body.trim().length < 5) {
         issues.push({
-          level: "warning",
+          level: warningLevel,
           code: "quality",
           path: pathLabel,
           message: "invariants section is empty or too short",
@@ -196,7 +198,7 @@ function warnUnknownFrontmatterFields(
     if (knownFrontmatterFields.has(field)) continue;
     if (allowed.has(field)) continue;
     issues.push({
-      level: "warning",
+      level: validationWarningLevel(workspace),
       code: "unknown-frontmatter",
       path: pathLabel,
       field,
@@ -243,7 +245,7 @@ function warnMissingPathReferences(
     if (staleRefs.has(normalized) || staleRefs.has(`${fieldName}:${normalized}`)) continue;
     if (existsSync(path.join(workspace.projectRoot, normalized))) continue;
     issues.push({
-      level: "warning",
+      level: validationWarningLevel(workspace),
       code: "missing-reference",
       path: pathLabel,
       field: fieldName,
@@ -263,6 +265,10 @@ function acknowledgedStaleRefs(frontmatter: Record<string, unknown>): ReadonlySe
     ...stringArrayValue(frontmatter.stale_refs),
   ].map(normalizePath);
   return new Set(refs);
+}
+
+function validationWarningLevel(workspace: LedgerWorkspace): LedgerIssueLevel {
+  return workspace.config.validation.profile === "strict" ? "error" : "warning";
 }
 
 function matchesSchemaType(value: unknown, type: string): boolean {
