@@ -206,7 +206,7 @@ Goals:
 Deliverables:
 
 - `ledger mcp` with read-oriented validation, query, explain, conflict, packet,
-  and docs-impact tools
+  search-packet, and docs-impact tools
 - VS Code extension prototype
 - `ledger packet --budget <tokens>`
 - `ledger agents --role <role>`

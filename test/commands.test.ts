@@ -6,10 +6,12 @@ import {
   formatLedgerMetricsResult,
   formatLedgerPacketResult,
   formatLedgerQueryResult,
+  formatLedgerSearchPacketResult,
   formatLedgerSearchResult,
   runLedgerMetricsCommand,
   runLedgerPacketCommand,
   runLedgerQueryCommand,
+  runLedgerSearchPacketCommand,
   runLedgerSearchCommand,
 } from "../src/commands/index.js";
 import { createChangeEntry } from "../src/newEntry.js";
@@ -84,6 +86,26 @@ describe("command result models", () => {
     expect(result.packet.entries).toHaveLength(1);
     expect(result.packet.entries[0]?.id).toBe("0001");
     expect(formatLedgerPacketResult(result)).toContain("# Ledger Agent Packet");
+  });
+
+  it("runs search-packet without intercepting console output", async () => {
+    const workspace = await fixtureWorkspace();
+    await mkdir(path.join(workspace.projectRoot, "src"), { recursive: true });
+    await writeFile(path.join(workspace.projectRoot, "src", "cli.ts"), "export function run() {}\n");
+    await writeFile(
+      path.join(workspace.projectRoot, ".ledger", "entries", "0001-packet.md"),
+      packetEntry(),
+    );
+
+    const result = await runLedgerSearchPacketCommand(workspace, "packet", {
+      budgetTokens: 1200,
+      limit: 1,
+    });
+
+    expect(result.packet.target).toBe("search:packet");
+    expect(result.packet.entries).toHaveLength(1);
+    expect(result.packet.entries[0]?.matchedFields).toContain("title");
+    expect(formatLedgerSearchPacketResult(result)).toContain("# Ledger Agent Packet");
   });
 });
 

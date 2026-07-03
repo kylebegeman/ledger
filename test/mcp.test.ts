@@ -104,6 +104,25 @@ describe("Ledger MCP", () => {
     });
   });
 
+  it("builds search agent packets as an MCP tool", async () => {
+    const projectRoot = await createWorkspace();
+    const payload = await callTool("ledger_search_packet", {
+      projectRoot,
+      query: "mcp",
+      limit: 1,
+    });
+
+    expect(payload.target).toBe("search:mcp");
+    expect(payload.entries[0].matchedFields).toContain("title");
+    expect(payload.entries[0].verification).toEqual(["npm run check"]);
+    expect(payload.summary).toMatchObject({
+      target: "search:mcp",
+      entries: 1,
+      truncated: false,
+      omittedEntries: 0,
+    });
+  });
+
   it("checks docs impact as an MCP tool", async () => {
     const projectRoot = await createWorkspace();
     const payload = await callTool("ledger_docs_impact", {

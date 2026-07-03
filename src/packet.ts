@@ -2,6 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildConflictTargets } from "./conflict.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import type { LedgerStaticReaderModel } from "./render.js";
+import { searchLedgerIndex } from "./search.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export interface LedgerPacketEntry {
@@ -15,6 +17,8 @@ export interface LedgerPacketEntry {
   readonly conflictRules: readonly string[];
   readonly invariants: readonly string[];
   readonly verification: readonly string[];
+  readonly searchScore?: number;
+  readonly matchedFields?: readonly string[];
 }
 
 export interface LedgerAgentPacket {
@@ -29,6 +33,10 @@ export interface LedgerAgentPacket {
 export interface LedgerAgentPacketOptions {
   readonly budgetTokens?: number;
   readonly maxEntries?: number;
+}
+
+export interface LedgerSearchAgentPacketOptions extends LedgerAgentPacketOptions {
+  readonly limit?: number;
 }
 
 export function buildAgentPacket(
@@ -69,6 +77,51 @@ export function buildAgentPacket(
   };
 }
 
+export function buildSearchAgentPacket(
+  model: LedgerStaticReaderModel,
+  query: string,
+  options: LedgerSearchAgentPacketOptions = {},
+): LedgerAgentPacket {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    throw new Error("Search query must not be empty");
+  }
+
+  const renderedById = new Map(model.documents.map((document) => [document.id, document]));
+  const maxEntries = options.maxEntries ?? options.limit;
+  const matches = searchLedgerIndex(model.searchIndex, normalizedQuery, {
+    limit: options.limit ?? maxEntries,
+  });
+  const allEntries = matches.map((match) => {
+    const rendered = renderedById.get(match.id);
+    return {
+      id: match.id,
+      title: match.title,
+      path: match.path,
+      areas: match.document.areas,
+      symbols: match.document.symbols,
+      docs: match.document.docs,
+      matchedFiles: match.document.files,
+      conflictRules: [],
+      invariants: rendered?.invariants ?? [],
+      verification: rendered?.verification ?? [],
+      searchScore: match.score,
+      matchedFields: match.matchedFields,
+    };
+  });
+  const target = `search:${normalizedQuery}`;
+  const entries = selectPacketEntries(allEntries, target, { ...options, maxEntries });
+
+  return {
+    target,
+    entries,
+    estimatedTokens: estimatePacketTokens(target, entries),
+    budgetTokens: options.budgetTokens,
+    truncated: entries.length < allEntries.length,
+    omittedEntries: Math.max(0, allEntries.length - entries.length),
+  };
+}
+
 export function formatAgentPacket(packet: LedgerAgentPacket): string {
   const lines = ["# Ledger Agent Packet", "", `Target: \`${packet.target}\``, ""];
   lines.push(`Estimated tokens: ${packet.estimatedTokens}`);
@@ -86,6 +139,8 @@ export function formatAgentPacket(packet: LedgerAgentPacket): string {
   for (const entry of packet.entries) {
     lines.push(`## ${entry.id}: ${entry.title}`, "");
     lines.push(`- Entry: \`${entry.path}\``);
+    if (typeof entry.searchScore === "number") lines.push(`- Search score: ${entry.searchScore}`);
+    pushInlineList(lines, "Matched fields", entry.matchedFields ?? []);
     pushInlineList(lines, "Matched files", entry.matchedFiles);
     pushInlineList(lines, "Areas", entry.areas);
     pushInlineList(lines, "Symbols", entry.symbols);
@@ -126,6 +181,8 @@ export function estimatePacketTokens(
       ...entry.conflictRules,
       ...entry.invariants,
       ...entry.verification,
+      entry.searchScore?.toString() ?? "",
+      ...(entry.matchedFields ?? []),
     ]),
   ].join("\n");
   return estimateTokens(text);

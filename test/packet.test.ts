@@ -2,13 +2,15 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readLedgerConfig } from "../src/config.js";
+import { defaultConfig, readLedgerConfig } from "../src/config.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import {
   buildAgentPacket,
+  buildSearchAgentPacket,
   formatAgentPacket,
   writeAgentPacketReport,
 } from "../src/packet.js";
+import { buildStaticReaderModel } from "../src/render.js";
 import { initWorkspace } from "../src/workspace.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
 
@@ -77,7 +79,34 @@ describe("agent packets", () => {
     expect(packet.truncated).toBe(true);
     expect(packet.omittedEntries).toBe(1);
   });
+
+  it("builds packets from weighted search results", () => {
+    const model = buildStaticReaderModel(workspace(), [document("0001", "CLI search")]);
+    const packet = buildSearchAgentPacket(model, "cli", { limit: 1 });
+
+    expect(packet.target).toBe("search:cli");
+    expect(packet.entries).toHaveLength(1);
+    expect(packet.entries[0]).toMatchObject({
+      id: "0001",
+      title: "CLI search",
+      searchScore: expect.any(Number),
+      matchedFields: expect.arrayContaining(["title"]),
+      matchedFiles: ["src/cli.ts"],
+      invariants: ["Exit codes stay stable."],
+      verification: ["npm test"],
+    });
+    expect(formatAgentPacket(packet)).toContain("Matched fields");
+  });
 });
+
+function workspace(): LedgerWorkspace {
+  return {
+    projectRoot: "/tmp/ledger",
+    ledgerRoot: "/tmp/ledger/.ledger",
+    configPath: "/tmp/ledger/.ledger/config.yaml",
+    config: defaultConfig,
+  };
+}
 
 async function createWorkspace(): Promise<LedgerWorkspace> {
   tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-packet-test-"));

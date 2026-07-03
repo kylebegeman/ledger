@@ -235,6 +235,12 @@ Supports:
 Builds compact agent handoff context for a path. `--budget <tokens>` estimates
 packet size and omits lower-priority matches to keep retrieval bounded.
 
+### `ledger search-packet <query>`
+
+Builds compact agent handoff context from weighted search results. This is the
+bounded retrieval path for agents that know the topic, symbol, area, invariant,
+or decision but do not know the exact file path yet.
+
 ### `ledger search`
 
 Runs weighted fuzzy search over the same fielded search index used by the

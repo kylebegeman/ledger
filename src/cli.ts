@@ -7,6 +7,10 @@ import { runCiChecks } from "./ci.js";
 import { formatLedgerMetricsResult, runLedgerMetricsCommand } from "./commands/metrics.js";
 import { formatLedgerPacketResult, runLedgerPacketCommand } from "./commands/packet.js";
 import { formatLedgerQueryResult, runLedgerQueryCommand } from "./commands/query.js";
+import {
+  formatLedgerSearchPacketResult,
+  runLedgerSearchPacketCommand,
+} from "./commands/searchPacket.js";
 import { formatLedgerSearchResult, runLedgerSearchCommand } from "./commands/search.js";
 import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
@@ -125,6 +129,9 @@ export async function run(
 
       case "search":
         return await searchCommand(parsed, context);
+
+      case "search-packet":
+        return await searchPacketCommand(parsed, context);
 
       case "packet":
         return await packetCommand(parsed, context);
@@ -438,6 +445,31 @@ async function searchCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   }
 
   console.log(formatLedgerSearchResult(result));
+  return 0;
+}
+
+async function searchPacketCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const query = parsed.positionals.join(" ").trim();
+  if (!query) {
+    console.error("Usage: ledger search-packet <query> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]");
+    return 2;
+  }
+
+  const limit = numberFlag(parsed, "limit");
+  const workspace = await findWorkspace(context.cwd);
+  const result = await runLedgerSearchPacketCommand(workspace, query, {
+    budgetTokens: numberFlag(parsed, "budget"),
+    limit,
+    maxEntries: limit,
+    writeReport: hasFlag(parsed, "write-report"),
+  });
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ ...result.packet, reportPath: result.reportPath }, null, 2));
+    return 0;
+  }
+
+  console.log(formatLedgerSearchPacketResult(result));
   return 0;
 }
 
@@ -1020,6 +1052,7 @@ function agentInstructions(project: string, docsMode: string, role: string | und
     "",
     `- Use Ledger for durable change memory in ${project}.`,
     "- Start with token-bounded context: `ledger packet <path> --budget 1200`.",
+    "- Use `ledger search-packet <term> --budget 1600` when you know the topic but not the file path.",
     "- Use `ledger explain <path> --agent` when you need only invariants and verification.",
     "- Use `ledger search <term> --json` or `ledger query --text <term> --json` for bounded retrieval instead of reading the whole catalog.",
     `- Docs adoption mode is \`${docsMode}\`; do not assume Ledger owns all docs unless config says \`managed\`.`,
@@ -1217,6 +1250,16 @@ Usage:
 
 Runs weighted fuzzy search over the same static reader search fields used by
 the browser UI.`;
+    case "search-packet":
+      return `Ledger search-packet
+
+Usage:
+  ledger search-packet <query> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]
+
+Builds a compact agent handoff packet from weighted search results. Use this
+when you know the topic but not the exact file path. --budget compresses and
+omits lower-priority matches to keep context bounded.
+--write-report writes .ledger/reports/packet.md.`;
 case "packet":
       return `Ledger packet
 
@@ -1348,6 +1391,7 @@ Usage:
   ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
   ledger search <query> [--limit <entries>] [--json]
+  ledger search-packet <query> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
   ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]
   ledger mcp
@@ -1368,6 +1412,7 @@ Examples:
   ledger migrate changelog docs/changelog --rewrite-docs
   ledger explain src/cli.ts --agent
   ledger search renderer --limit 5
+  ledger search-packet renderer --budget 1600 --limit 5
   ledger packet src/cli.ts --budget 1200
   ledger verify-integrity
   ledger metrics

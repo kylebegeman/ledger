@@ -7,8 +7,9 @@ import { buildDocsImpact } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { explainFile } from "./indexer.js";
 import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
-import { buildAgentPacket, writeAgentPacketReport } from "./packet.js";
+import { buildAgentPacket, buildSearchAgentPacket, writeAgentPacketReport } from "./packet.js";
 import { normalizeKindFilter, queryDocuments } from "./query.js";
+import { buildStaticReaderModel } from "./render.js";
 import { validateDocuments, writeValidationReport } from "./validate.js";
 import { readLedgerDocuments } from "./documents.js";
 import { findWorkspace } from "./workspace.js";
@@ -20,6 +21,7 @@ export type LedgerMcpToolName =
   | "ledger_explain"
   | "ledger_conflict"
   | "ledger_packet"
+  | "ledger_search_packet"
   | "ledger_docs_impact"
   | "ledger_verify_integrity";
 
@@ -43,6 +45,7 @@ interface LedgerMcpParsedArgs {
   readonly doc?: string;
   readonly id?: string;
   readonly text?: string;
+  readonly query?: string;
   readonly limit?: number;
   readonly budgetTokens?: number;
   readonly maxEntries?: number;
@@ -93,6 +96,14 @@ const packetSchema = {
   path: z.string().describe("File path to package for agent context."),
   budgetTokens: z.number().int().positive().max(10000).optional().describe("Approximate token budget for the returned packet."),
   maxEntries: z.number().int().positive().max(100).optional().describe("Maximum records to include."),
+  writeReport: z.boolean().optional().describe("Write .ledger/reports/packet.md."),
+};
+
+const searchPacketSchema = {
+  ...projectRootSchema,
+  query: z.string().min(1).describe("Search query to package for agent context."),
+  limit: z.number().int().positive().max(100).optional().describe("Maximum search matches to include."),
+  budgetTokens: z.number().int().positive().max(10000).optional().describe("Approximate token budget for the returned packet."),
   writeReport: z.boolean().optional().describe("Write .ledger/reports/packet.md."),
 };
 
@@ -161,6 +172,16 @@ export function createLedgerMcpServer(options: LedgerMcpOptions = {}): McpServer
       inputSchema: packetSchema,
     },
     (args) => runLedgerMcpTool("ledger_packet", args, options),
+  );
+
+  server.registerTool(
+    "ledger_search_packet",
+    {
+      title: "Build search agent packet",
+      description: "Return compact agent handoff context from weighted Ledger search results.",
+      inputSchema: searchPacketSchema,
+    },
+    (args) => runLedgerMcpTool("ledger_search_packet", args, options),
   );
 
   server.registerTool(
@@ -298,6 +319,32 @@ export async function runLedgerMcpTool(
       });
     }
 
+    case "ledger_search_packet": {
+      const query = requiredString(parsed.query, "query");
+      const model = buildStaticReaderModel(workspace, documents);
+      const packet = buildSearchAgentPacket(model, query, {
+        budgetTokens: parsed.budgetTokens,
+        limit: parsed.limit,
+        maxEntries: parsed.limit,
+      });
+      const reportPath = parsed.writeReport
+        ? await writeAgentPacketReport(workspace, packet)
+        : undefined;
+      return jsonToolResult({
+        summary: {
+          target: packet.target,
+          entries: packet.entries.length,
+          estimatedTokens: packet.estimatedTokens,
+          budgetTokens: packet.budgetTokens,
+          truncated: packet.truncated,
+          omittedEntries: packet.omittedEntries,
+          reportPath,
+        },
+        ...packet,
+        reportPath,
+      });
+    }
+
     case "ledger_docs_impact": {
       const changedFiles = parsed.changedFiles ?? await getChangedFiles(workspace.projectRoot, {
         staged: parsed.staged,
@@ -348,6 +395,8 @@ function schemaForTool(name: LedgerMcpToolName): z.ZodObject<z.ZodRawShape> {
       return z.object(conflictSchema);
     case "ledger_packet":
       return z.object(packetSchema);
+    case "ledger_search_packet":
+      return z.object(searchPacketSchema);
     case "ledger_docs_impact":
       return z.object(docsImpactSchema);
     case "ledger_verify_integrity":

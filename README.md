@@ -268,6 +268,7 @@ brew install ledger
 | `ledger explain <path>` | Shows records related to a file. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
 | `ledger search <query> --limit 5` | Runs weighted fuzzy search over the same fields used by the static reader. |
+| `ledger search-packet <query> --budget 1600 --limit 5` | Builds a token-budgeted agent packet from weighted search results when the exact file path is unknown. |
 | `ledger packet <path> --budget 1200 --write-report` | Builds a compact token-budgeted agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
 | `ledger mcp` | Starts a stdio MCP server for agent tools. |
 | `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
@@ -405,13 +406,14 @@ Before editing:
 ```bash
 ledger explain path/to/file.ts --agent
 ledger search "thing you need" --limit 5
+ledger search-packet "thing you need" --budget 1600 --limit 5
 ledger packet path/to/file.ts --budget 1200 --write-report
 ledger conflict path/to/file.ts
 ```
 
-`ledger packet` reports an approximate token count, the requested budget, and
-how many matching entries were omitted. This keeps agent context bounded without
-requiring callers to trim output themselves.
+`ledger packet` and `ledger search-packet` report an approximate token count,
+the requested budget, and how many matching entries were omitted. This keeps
+agent context bounded without requiring callers to trim output themselves.
 
 After editing:
 
@@ -432,7 +434,8 @@ ledger mcp
 ```
 
 The server exposes tools for validation, query, file explanation, conflict
-guidance, agent packets, docs impact checks, and integrity verification.
+guidance, file-based agent packets, search-based agent packets, docs impact
+checks, and integrity verification.
 Each MCP response includes a compact `summary` object before detailed payload
 fields so agents can decide whether to read the full result.
 

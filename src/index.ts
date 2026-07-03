@@ -2,10 +2,12 @@ export {
   formatLedgerMetricsResult,
   formatLedgerPacketResult,
   formatLedgerQueryResult,
+  formatLedgerSearchPacketResult,
   formatLedgerSearchResult,
   runLedgerMetricsCommand,
   runLedgerPacketCommand,
   runLedgerQueryCommand,
+  runLedgerSearchPacketCommand,
   runLedgerSearchCommand,
 } from "./commands/index.js";
 export {
@@ -38,6 +40,7 @@ export {
 export { createChangeEntry, createProductNoteEntry, inferAreas, nextEntryId } from "./newEntry.js";
 export {
   buildAgentPacket,
+  buildSearchAgentPacket,
   estimatePacketTokens,
   estimateTokens,
   formatAgentPacket,

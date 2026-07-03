@@ -13,6 +13,7 @@ describe("CLI help", () => {
     expect(result.stdout).toContain("ledger verify-integrity [--json]");
     expect(result.stdout).toContain("ledger doctor [--no-baseline] [--json]");
     expect(result.stdout).toContain("ledger serve [--host <host>] [--port <port>] [--watch]");
+    expect(result.stdout).toContain("ledger search-packet <query>");
     expect(result.stdout).toContain("ledger mcp");
   });
 
@@ -30,6 +31,14 @@ describe("CLI help", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Ledger doctor");
     expect(result.stdout).toContain("stale-knowledge");
+  });
+
+  it("prints search-packet help", async () => {
+    const result = await captureRun(["help", "search-packet"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Ledger search-packet");
+    expect(result.stdout).toContain("--budget");
   });
 
   it("prints nested docs help from command flags", async () => {

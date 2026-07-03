@@ -48,6 +48,14 @@ describe("CLI end-to-end", () => {
     expect(search.stdout).toContain("Ledger search: 1 match(es).");
     expect(search.stdout).toContain("Fixture change");
 
+    const searchPacket = await captureRun(
+      ["search-packet", "fixture", "--limit", "1", "--budget", "1200"],
+      tempDir,
+    );
+    expect(searchPacket.exitCode).toBe(0);
+    expect(searchPacket.stdout).toContain("# Ledger Agent Packet");
+    expect(searchPacket.stdout).toContain("Fixture change");
+
     const classify = await captureRun(
       ["docs", "classify", "docs/llm/START_HERE.md"],
       tempDir,

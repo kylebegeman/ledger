@@ -207,6 +207,7 @@ The first server exposes tools for:
 - file explanation
 - conflict guidance
 - agent packets
+- search-result agent packets
 - docs impact
 - integrity verification
 

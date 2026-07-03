@@ -6,11 +6,13 @@ describe("public API boundary", () => {
   it("exports stable high-level APIs from the package root", () => {
     expect(api).toMatchObject({
       buildAgentPacket: expect.any(Function),
+      buildSearchAgentPacket: expect.any(Function),
       buildStaticReaderModel: expect.any(Function),
       findWorkspace: expect.any(Function),
       readLedgerDocuments: expect.any(Function),
       runLedgerPacketCommand: expect.any(Function),
       runLedgerQueryCommand: expect.any(Function),
+      runLedgerSearchPacketCommand: expect.any(Function),
       searchLedgerIndex: expect.any(Function),
       validateDocuments: expect.any(Function),
     });
