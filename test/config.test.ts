@@ -2,7 +2,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseLedgerConfig, readLedgerConfig } from "../src/config.js";
+import {
+  currentConfigVersion,
+  migrateLedgerConfigObject,
+  parseLedgerConfig,
+  readLedgerConfig,
+} from "../src/config.js";
 
 let tempDir: string | undefined;
 
@@ -49,6 +54,44 @@ describe("parseLedgerConfig", () => {
     expect(config.performance.budgets.maxTotalMs).toBe(4_000);
   });
 
+  it("migrates legacy version 0 config before merging defaults", () => {
+    const config = parseLedgerConfig(
+      {
+        version: 0,
+        project: "legacy",
+        docs: {
+          managed: true,
+        },
+      },
+      "fixture.yaml",
+    );
+
+    expect(config.version).toBe(currentConfigVersion);
+    expect(config.docs.adoption).toBe("managed");
+  });
+
+  it("reports config migrations without mutating the source object", () => {
+    const source = {
+      version: 0,
+      docs: {
+        managed: false,
+      },
+    };
+    const result = migrateLedgerConfigObject(source, "fixture.yaml");
+
+    expect(result.config.version).toBe(1);
+    expect((result.config.docs as { adoption?: string }).adoption).toBe("partial");
+    expect(result.migrations).toEqual([
+      {
+        fromVersion: 0,
+        toVersion: 1,
+        description: "Add explicit config version and docs adoption defaults.",
+      },
+    ]);
+    expect(source.version).toBe(0);
+    expect(source.docs).toEqual({ managed: false });
+  });
+
   it("normalizes configured paths and glob patterns", () => {
     const config = parseLedgerConfig(
       {
@@ -80,6 +123,17 @@ describe("parseLedgerConfig", () => {
     expect(() => parseLedgerConfig([], "fixture.yaml")).toThrow(
       "fixture.yaml: config must be a YAML object",
     );
+  });
+
+  it("rejects config versions newer than this package supports", () => {
+    expect(() =>
+      parseLedgerConfig(
+        {
+          version: currentConfigVersion + 1,
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("fixture.yaml: version 2 is newer than supported version 1");
   });
 
   it("rejects malformed nested config", () => {

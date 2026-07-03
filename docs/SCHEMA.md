@@ -505,3 +505,14 @@ use the expected primitive shapes:
 
 Ledger merges valid partial config files with defaults, but malformed nested
 values fail during workspace discovery instead of being silently ignored.
+
+## Config Versioning
+
+`version` is the Ledger config schema version. The current supported version is
+`1`.
+
+Ledger migrates legacy `version: 0` config objects in memory before merging
+defaults. That migration sets `version: 1` and converts legacy `docs.managed`
+settings into explicit docs adoption defaults when `docs.adoption` is absent.
+Config files with a version newer than the installed package supports fail
+workspace discovery with a clear error instead of being partially interpreted.

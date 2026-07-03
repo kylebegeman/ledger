@@ -39,8 +39,21 @@ const requiredSections: Record<LedgerDocumentKind, readonly string[]> = {
   feedback: ["Context", "Finding", "Impact", "Recommendation", "Follow-ups"],
 };
 
+export const currentConfigVersion = 1;
+
+export interface LedgerConfigMigration {
+  readonly fromVersion: number;
+  readonly toVersion: number;
+  readonly description: string;
+}
+
+export interface LedgerConfigMigrationResult {
+  readonly config: Record<string, unknown>;
+  readonly migrations: readonly LedgerConfigMigration[];
+}
+
 export const defaultConfig: LedgerConfig = {
-  version: 1,
+  version: currentConfigVersion,
   project: "ledger-project",
   source: {
     entries: ".ledger/entries",
@@ -138,10 +151,41 @@ export function parseLedgerConfig(parsed: unknown, configPath = "config.yaml"): 
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`${configPath}: config must be a YAML object`);
   }
-  validatePartialConfig(parsed as Record<string, unknown>, configPath);
-  const config = normalizeConfigPaths(mergeConfig(defaultConfig, parsed as PartialLedgerConfig));
+  const source = parsed as Record<string, unknown>;
+  validatePartialConfig(source, configPath);
+  const migrated = migrateLedgerConfigObject(source, configPath);
+  const config = normalizeConfigPaths(mergeConfig(defaultConfig, migrated.config as PartialLedgerConfig));
   validateLedgerConfig(config, configPath);
   return config;
+}
+
+export function migrateLedgerConfigObject(
+  config: Record<string, unknown>,
+  configPath = "config.yaml",
+): LedgerConfigMigrationResult {
+  const version = rawConfigVersion(config, configPath);
+  if (version > currentConfigVersion) {
+    fail(configPath, `version ${version} is newer than supported version ${currentConfigVersion}`);
+  }
+  if (version === currentConfigVersion) {
+    return {
+      config: { ...config },
+      migrations: [],
+    };
+  }
+  if (version === 0) {
+    return {
+      config: migrateConfigV0ToV1(config),
+      migrations: [
+        {
+          fromVersion: 0,
+          toVersion: 1,
+          description: "Add explicit config version and docs adoption defaults.",
+        },
+      ],
+    };
+  }
+  fail(configPath, `version ${version} cannot be migrated`);
 }
 
 type PartialLedgerConfig = {
@@ -162,6 +206,28 @@ type PartialLedgerConfig = {
   };
   readonly git?: Partial<LedgerConfig["git"]>;
 };
+
+function rawConfigVersion(config: Record<string, unknown>, configPath: string): number {
+  const version = config.version ?? currentConfigVersion;
+  if (typeof version !== "number" || !Number.isInteger(version) || version < 0) {
+    fail(configPath, "version must be a non-negative integer");
+  }
+  return version;
+}
+
+function migrateConfigV0ToV1(config: Record<string, unknown>): Record<string, unknown> {
+  const migrated: Record<string, unknown> = {
+    ...config,
+    version: 1,
+  };
+  if (isRecord(config.docs) && !("adoption" in config.docs)) {
+    migrated.docs = {
+      ...config.docs,
+      adoption: config.docs.managed === true ? "managed" : "partial",
+    };
+  }
+  return migrated;
+}
 
 function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerConfig {
   return {
@@ -248,6 +314,10 @@ function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
       ignore: config.git.ignore.map(normalizeConfigPath),
     },
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function mapStringValues<T extends Record<string, string>>(
