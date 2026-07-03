@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { runCiChecks } from "./ci.js";
 import { formatLedgerMetricsResult, runLedgerMetricsCommand } from "./commands/metrics.js";
+import { formatLedgerPacketResult, runLedgerPacketCommand } from "./commands/packet.js";
+import { formatLedgerQueryResult, runLedgerQueryCommand } from "./commands/query.js";
 import { formatLedgerSearchResult, runLedgerSearchCommand } from "./commands/search.js";
 import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
@@ -26,12 +28,10 @@ import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
 import { startLedgerMcpServer } from "./mcp.js";
 import { migrateChangelog } from "./migrate.js";
 import { createChangeEntry, createProductNoteEntry } from "./newEntry.js";
-import { buildAgentPacket, formatAgentPacket, writeAgentPacketReport } from "./packet.js";
 import {
   extractBullets,
   getSectionBody,
   normalizeKindFilter,
-  queryDocuments,
 } from "./query.js";
 import {
   assignEntriesToRelease,
@@ -396,8 +396,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   }
 
   const workspace = await findWorkspace(context.cwd);
-  const documents = await readLedgerDocuments(workspace);
-  const matches = queryDocuments(documents, {
+  const result = await runLedgerQueryCommand(workspace, {
     kind,
     status,
     area,
@@ -413,20 +412,11 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ matches }, null, 2));
+    console.log(JSON.stringify(result, null, 2));
     return 0;
   }
 
-  console.log(`Ledger query: ${matches.length} match(es).`);
-  for (const document of matches) {
-    console.log(`- ${document.id} ${document.title} (${document.kind}, ${document.status})`);
-    if (document.release) console.log(`  Release: ${document.release}`);
-    if (document.areas.length > 0) console.log(`  Areas: ${document.areas.join(", ")}`);
-    if (document.tags.length > 0) console.log(`  Tags: ${document.tags.join(", ")}`);
-    if (document.files.length > 0) console.log(`  Files: ${document.files.join(", ")}`);
-    if (document.symbols.length > 0) console.log(`  Symbols: ${document.symbols.join(", ")}`);
-    if (document.docs.length > 0) console.log(`  Docs: ${document.docs.join(", ")}`);
-  }
+  console.log(formatLedgerQueryResult(result));
   return 0;
 }
 
@@ -459,22 +449,18 @@ async function packetCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   }
 
   const workspace = await findWorkspace(context.cwd);
-  const documents = await readLedgerDocuments(workspace);
-  const packet = buildAgentPacket(documents, target, {
+  const result = await runLedgerPacketCommand(workspace, target, {
     budgetTokens: numberFlag(parsed, "budget"),
     maxEntries: numberFlag(parsed, "limit"),
+    writeReport: hasFlag(parsed, "write-report"),
   });
-  const reportPath = hasFlag(parsed, "write-report")
-    ? await writeAgentPacketReport(workspace, packet)
-    : undefined;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ ...packet, reportPath }, null, 2));
+    console.log(JSON.stringify({ ...result.packet, reportPath: result.reportPath }, null, 2));
     return 0;
   }
 
-  console.log(formatAgentPacket(packet));
-  if (reportPath) console.log(`Wrote ${reportPath}`);
+  console.log(formatLedgerPacketResult(result));
   return 0;
 }
 
