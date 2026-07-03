@@ -4,6 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { runCiChecks } from "./ci.js";
+import { formatLedgerMetricsResult, runLedgerMetricsCommand } from "./commands/metrics.js";
+import { formatLedgerSearchResult, runLedgerSearchCommand } from "./commands/search.js";
 import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { checkCoverage } from "./coverage.js";
 import { readLedgerDocuments } from "./documents.js";
@@ -25,7 +27,6 @@ import { startLedgerMcpServer } from "./mcp.js";
 import { migrateChangelog } from "./migrate.js";
 import { createChangeEntry, createProductNoteEntry } from "./newEntry.js";
 import { buildAgentPacket, formatAgentPacket, writeAgentPacketReport } from "./packet.js";
-import { formatLedgerPerformance, measureLedgerPerformance } from "./performance.js";
 import {
   extractBullets,
   getSectionBody,
@@ -40,7 +41,6 @@ import {
   writeReleaseDocument,
 } from "./release.js";
 import { buildStaticReaderModel, writeStaticReader } from "./render.js";
-import { searchLedgerDocuments } from "./search.js";
 import { serveStaticReader } from "./serve.js";
 import { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
 import type { ParsedLedgerDocument } from "./types.js";
@@ -438,25 +438,16 @@ async function searchCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   }
 
   const workspace = await findWorkspace(context.cwd);
-  const documents = await readLedgerDocuments(workspace);
-  const matches = searchLedgerDocuments(workspace, documents, query, {
+  const result = await runLedgerSearchCommand(workspace, query, {
     limit: numberFlag(parsed, "limit"),
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ query, matches }, null, 2));
+    console.log(JSON.stringify(result, null, 2));
     return 0;
   }
 
-  console.log(`Ledger search: ${matches.length} match(es).`);
-  for (const result of matches) {
-    console.log(`- ${result.id} ${result.title} (${result.kind}, ${result.status})`);
-    console.log(`  Path: ${result.path}`);
-    console.log(`  Score: ${result.score}; fields: ${result.matchedFields.join(", ")}`);
-    if (result.document.files.length > 0) console.log(`  Files: ${result.document.files.join(", ")}`);
-    if (result.document.docs.length > 0) console.log(`  Docs: ${result.document.docs.join(", ")}`);
-    if (result.document.symbols.length > 0) console.log(`  Symbols: ${result.document.symbols.join(", ")}`);
-  }
+  console.log(formatLedgerSearchResult(result));
   return 0;
 }
 
@@ -724,15 +715,15 @@ async function doctorCommand(parsed: ParsedArgs, context: RunContext): Promise<n
 
 async function metricsCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const workspace = await findWorkspace(context.cwd);
-  const result = await measureLedgerPerformance(workspace);
+  const result = await runLedgerMetricsCommand(workspace);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(result.performance, null, 2));
   } else {
-    console.log(formatLedgerPerformance(result));
+    console.log(formatLedgerMetricsResult(result));
   }
 
-  return result.ok ? 0 : 1;
+  return result.performance.ok ? 0 : 1;
 }
 
 async function staleCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {

@@ -1,4 +1,5 @@
 export * from "./ci.js";
+export * from "./commands/index.js";
 export * from "./config.js";
 export * from "./conflict.js";
 export * from "./coverage.js";
