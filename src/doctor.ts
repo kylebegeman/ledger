@@ -3,6 +3,7 @@ import path from "node:path";
 import { auditDocs } from "./docs.js";
 import { normalizePath } from "./documents.js";
 import { inspectGit } from "./git.js";
+import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
 import { checkRenderBudgets } from "./render.js";
 import { detectStaleKnowledge } from "./stale.js";
 import type {
@@ -24,6 +25,7 @@ export interface LedgerDoctorResult {
   readonly ok: boolean;
   readonly checks: readonly LedgerDoctorCheck[];
   readonly docsAudit: LedgerDocsAudit;
+  readonly performance: LedgerPerformanceResult;
 }
 
 export async function runDoctor(
@@ -33,6 +35,7 @@ export async function runDoctor(
 ): Promise<LedgerDoctorResult> {
   const docsAudit = await auditDocs(workspace, documents);
   const stale = await detectStaleKnowledge(workspace, documents, validation);
+  const performance = await measureLedgerPerformance(workspace);
   const checks: LedgerDoctorCheck[] = [
     {
       name: "workspace",
@@ -57,6 +60,7 @@ export async function runDoctor(
     await indexFreshnessCheck(workspace, documents),
     await renderOutputCheck(workspace),
     await renderBudgetCheck(workspace),
+    performanceCheck(performance),
     {
       name: "stale-knowledge",
       level: stale.issues.length > 0 ? "warn" : "pass",
@@ -68,6 +72,7 @@ export async function runDoctor(
     ok: checks.every((check) => check.level !== "fail"),
     checks,
     docsAudit,
+    performance,
   };
 }
 
@@ -162,6 +167,19 @@ async function renderBudgetCheck(workspace: LedgerWorkspace): Promise<LedgerDoct
   return {
     name: "render-budget",
     level: budget.ok ? "pass" : "warn",
+    message: messages.join(", "),
+  };
+}
+
+function performanceCheck(result: LedgerPerformanceResult): LedgerDoctorCheck {
+  const failingSteps = result.steps.filter((step) => !step.ok);
+  const messages = [
+    `${result.totalMs}/${result.maxTotalMs}ms total`,
+    ...failingSteps.map((step) => `${step.name} ${step.durationMs}/${step.maxMs}ms`),
+  ];
+  return {
+    name: "performance",
+    level: result.ok ? "pass" : "warn",
     message: messages.join(", "),
   };
 }

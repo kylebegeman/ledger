@@ -82,6 +82,16 @@ export const defaultConfig: LedgerConfig = {
       maxWriteMs: 3_000,
     },
   },
+  performance: {
+    budgets: {
+      maxReadMs: 1_000,
+      maxValidateMs: 1_000,
+      maxIndexMs: 1_000,
+      maxRenderModelMs: 1_000,
+      maxSearchMs: 1_000,
+      maxTotalMs: 4_000,
+    },
+  },
   docs: {
     root: "docs",
     managed: false,
@@ -146,6 +156,7 @@ type PartialLedgerConfig = {
   readonly indexes?: Partial<LedgerConfig["indexes"]>;
   readonly reports?: Partial<LedgerConfig["reports"]>;
   readonly render?: Partial<LedgerConfig["render"]>;
+  readonly performance?: Partial<LedgerConfig["performance"]>;
   readonly docs?: Partial<LedgerConfig["docs"]> & {
     readonly routing?: Partial<LedgerConfig["docs"]["routing"]>;
   };
@@ -184,6 +195,14 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
         ...override.render?.budgets,
       },
     },
+    performance: {
+      ...base.performance,
+      ...override.performance,
+      budgets: {
+        ...base.performance.budgets,
+        ...override.performance?.budgets,
+      },
+    },
     docs: {
       ...base.docs,
       ...override.docs,
@@ -214,6 +233,7 @@ function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
       output: normalizeConfigPath(config.render.output),
       budgets: config.render.budgets,
     },
+    performance: config.performance,
     docs: {
       ...config.docs,
       root: normalizeConfigPath(config.docs.root),
@@ -299,6 +319,16 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
       optionalNumber(budgets, "maxWriteMs", configPath, "render.budgets");
     }, "render");
   });
+  optionalObject(config, "performance", configPath, (performance) => {
+    optionalObject(performance, "budgets", configPath, (budgets) => {
+      optionalNumber(budgets, "maxReadMs", configPath, "performance.budgets");
+      optionalNumber(budgets, "maxValidateMs", configPath, "performance.budgets");
+      optionalNumber(budgets, "maxIndexMs", configPath, "performance.budgets");
+      optionalNumber(budgets, "maxRenderModelMs", configPath, "performance.budgets");
+      optionalNumber(budgets, "maxSearchMs", configPath, "performance.budgets");
+      optionalNumber(budgets, "maxTotalMs", configPath, "performance.budgets");
+    }, "performance");
+  });
   optionalObject(config, "docs", configPath, (docs) => {
     optionalString(docs, "root", configPath, "docs");
     optionalBoolean(docs, "managed", configPath, "docs");
@@ -347,6 +377,11 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
   for (const [label, value] of Object.entries(config.render.budgets)) {
     if (!Number.isFinite(value) || value < 1) {
       fail(configPath, `render.budgets.${label} must be a positive number`);
+    }
+  }
+  for (const [label, value] of Object.entries(config.performance.budgets)) {
+    if (!Number.isFinite(value) || value < 1) {
+      fail(configPath, `performance.budgets.${label} must be a positive number`);
     }
   }
 }

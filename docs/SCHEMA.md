@@ -470,6 +470,26 @@ render:
 `ledger render` reports the generated artifact sizes and write time.
 `ledger doctor` warns when generated reader output is missing or over budget.
 
+## Performance Budget Config
+
+`performance.budgets` keeps the core Ledger pipeline from silently becoming
+more expensive.
+
+```yaml
+performance:
+  budgets:
+    maxReadMs: 1000
+    maxValidateMs: 1000
+    maxIndexMs: 1000
+    maxRenderModelMs: 1000
+    maxSearchMs: 1000
+    maxTotalMs: 4000
+```
+
+`ledger metrics` measures read, validate, index, render-model, and weighted
+search latency. `ledger doctor` includes the same check and warns when any step
+or total time exceeds its budget.
+
 ## Config Validation
 
 `.ledger/config.yaml` must be a YAML object. Known nested config sections must
@@ -479,6 +499,7 @@ use the expected primitive shapes:
 - booleans are actual YAML booleans
 - numeric fields are numbers
 - render budget values are positive numbers
+- performance budget values are positive numbers
 - glob lists are arrays of strings
 - `validation.requiredSections.<kind>` values are non-empty arrays of strings
 

@@ -139,6 +139,13 @@ write time.
 Renders and serves `.ledger/dist` for local preview. `--watch` rebuilds the
 static reader when source record directories change.
 
+### `ledger metrics`
+
+Measures the core source-read, validation, index, render-model, and weighted
+search pipeline against `performance.budgets`. `--json` emits the measured
+steps and budget status for automation, and `ledger doctor` includes the same
+signal.
+
 ### `ledger coverage`
 
 Reads changed files from Git and checks whether files matching
@@ -225,6 +232,12 @@ Supports:
 
 Builds compact agent handoff context for a path. `--budget <tokens>` estimates
 packet size and omits lower-priority matches to keep retrieval bounded.
+
+### `ledger search`
+
+Runs weighted fuzzy search over the same fielded search index used by the
+static reader. This gives terminal users and agents ranked retrieval without
+opening or parsing the full generated HTML.
 
 ### `ledger query`
 

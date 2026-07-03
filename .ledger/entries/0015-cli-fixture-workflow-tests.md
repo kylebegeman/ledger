@@ -8,10 +8,11 @@ status: "landed"
 areas: ["cli", "tests", "quality"]
 files:
   - "src/newEntry.ts"
+  - "src/template.ts"
   - "test/cliE2e.test.ts"
 symbols:
   - "captureRun"
-  - "renderTemplate"
+  - "renderLedgerTemplate"
 docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
@@ -37,7 +38,7 @@ together against the filesystem.
 
 - What changed: Keeps YAML quotes around template placeholders when rendering
   new entries.
-- Anchor: `renderTemplate`
+- Anchor: `renderLedgerTemplate`
 - On conflict: Preserve quoted string frontmatter so numeric-looking IDs remain
   strings after YAML parsing.
 

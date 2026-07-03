@@ -29,6 +29,11 @@ describe("parseLedgerConfig", () => {
             maxSearchIndexBytes: 12345,
           },
         },
+        performance: {
+          budgets: {
+            maxReadMs: 250,
+          },
+        },
       },
       "fixture.yaml",
     );
@@ -40,6 +45,8 @@ describe("parseLedgerConfig", () => {
     expect(config.git.ignore).toContain("dist/**");
     expect(config.render.budgets.maxHtmlBytes).toBe(1_000_000);
     expect(config.render.budgets.maxSearchIndexBytes).toBe(12345);
+    expect(config.performance.budgets.maxReadMs).toBe(250);
+    expect(config.performance.budgets.maxTotalMs).toBe(4_000);
   });
 
   it("normalizes configured paths and glob patterns", () => {
@@ -127,6 +134,21 @@ describe("parseLedgerConfig", () => {
         "fixture.yaml",
       ),
     ).toThrow("fixture.yaml: render.budgets.maxTotalBytes must be a positive number");
+  });
+
+  it("rejects invalid performance budgets", () => {
+    expect(() =>
+      parseLedgerConfig(
+        {
+          performance: {
+            budgets: {
+              maxTotalMs: 0,
+            },
+          },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("fixture.yaml: performance.budgets.maxTotalMs must be a positive number");
   });
 
   it("prefixes YAML parse errors with the config path", async () => {

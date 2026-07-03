@@ -3,6 +3,7 @@ import path from "node:path";
 import { isIgnoredByGitConfig } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
+import { renderLedgerTemplate } from "./template.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 const largeDiffFileThreshold = 40;
@@ -38,16 +39,22 @@ export async function createChangeEntry(
   const areas = options.areas.length > 0 ? options.areas : inferAreas(workspace, changedFiles);
   const date = new Date().toISOString().slice(0, 10);
   const template = await readTemplate(workspace);
-  const rendered = renderTemplate(template, {
-    id,
-    title: options.title,
-    date,
-    status: options.status,
-    areas: yamlStringArray(areas),
-    files: yamlStringArray(files),
-    symbols: yamlStringArray(symbols.all),
-    docs: yamlStringArray(docs),
-    changedFiles: renderChangedFiles(workspace, changedFiles, symbols.byFile),
+  const rendered = renderLedgerTemplate(template, {
+    scalars: {
+      id,
+      title: options.title,
+      date,
+      status: options.status,
+    },
+    arrays: {
+      areas,
+      files,
+      symbols: symbols.all,
+      docs,
+    },
+    blocks: {
+      changedFiles: renderChangedFiles(workspace, changedFiles, symbols.byFile),
+    },
   });
 
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -71,13 +78,17 @@ export async function createProductNoteEntry(
   const absolutePath = path.join(workspace.projectRoot, relativePath);
   const date = new Date().toISOString().slice(0, 10);
   const template = await readProductNoteTemplate(workspace);
-  const rendered = renderTemplate(template, {
-    id,
-    title: options.title,
-    date,
-    status: options.status,
-    areas: yamlStringArray(options.areas),
-    tags: yamlStringArray(options.tags),
+  const rendered = renderLedgerTemplate(template, {
+    scalars: {
+      id,
+      title: options.title,
+      date,
+      status: options.status,
+    },
+    arrays: {
+      areas: options.areas,
+      tags: options.tags,
+    },
   });
 
   await mkdir(path.dirname(absolutePath), { recursive: true });
@@ -126,49 +137,6 @@ async function readProductNoteTemplate(workspace: LedgerWorkspace): Promise<stri
   } catch {
     return defaultProductNoteTemplate();
   }
-}
-
-function renderTemplate(template: string, values: Record<string, string>): string {
-  let rendered = template;
-  for (const [key, value] of Object.entries(values)) {
-    rendered = rendered.replaceAll(`"{{${key}}}"`, `"${escapeYamlString(value)}"`);
-    rendered = rendered.replaceAll(`{{${key}}}`, value);
-  }
-  rendered = rendered.replace(
-    'status: "draft"',
-    `status: "${escapeYamlString(values.status ?? "draft")}"`,
-  );
-  rendered = rendered.replace(
-    'status: "captured"',
-    `status: "${escapeYamlString(values.status ?? "captured")}"`,
-  );
-  if (rendered.includes("files: []") && values.files) {
-    rendered = rendered.replace("files: []", `files:${values.files}`);
-  }
-  if (rendered.includes("symbols: []") && values.symbols) {
-    rendered = rendered.replace("symbols: []", `symbols:${values.symbols}`);
-  }
-  if (rendered.includes("docs: []") && values.docs) {
-    rendered = rendered.replace("docs: []", `docs:${values.docs}`);
-  }
-  if (rendered.includes("areas: []") && values.areas) {
-    rendered = rendered.replace("areas: []", `areas:${values.areas}`);
-  }
-  if (rendered.includes("tags: []") && values.tags) {
-    rendered = rendered.replace("tags: []", `tags:${values.tags}`);
-  }
-  if (rendered.includes("### path/to/file.ts") && values.changedFiles) {
-    rendered = rendered.replace("### path/to/file.ts", values.changedFiles);
-  }
-  if (rendered.includes("Add changed files.") && values.changedFiles) {
-    rendered = rendered.replace("Add changed files.", values.changedFiles);
-  }
-  return rendered;
-}
-
-function yamlStringArray(values: readonly string[]): string {
-  if (values.length === 0) return " []";
-  return `\n${values.map((value) => `  - "${escapeYamlString(value)}"`).join("\n")}`;
 }
 
 export function inferAreas(
@@ -408,10 +376,6 @@ function countStatuses(files: readonly GitChangedFile[]): string {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([status, count]) => `${status} ${count}`)
     .join(", ");
-}
-
-function escapeYamlString(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
 }
 
 function defaultTemplate(): string {

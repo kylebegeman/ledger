@@ -25,6 +25,7 @@ import { startLedgerMcpServer } from "./mcp.js";
 import { migrateChangelog } from "./migrate.js";
 import { createChangeEntry, createProductNoteEntry } from "./newEntry.js";
 import { buildAgentPacket, formatAgentPacket, writeAgentPacketReport } from "./packet.js";
+import { formatLedgerPerformance, measureLedgerPerformance } from "./performance.js";
 import {
   extractBullets,
   getSectionBody,
@@ -39,6 +40,7 @@ import {
   writeReleaseDocument,
 } from "./release.js";
 import { buildStaticReaderModel, writeStaticReader } from "./render.js";
+import { searchLedgerDocuments } from "./search.js";
 import { serveStaticReader } from "./serve.js";
 import { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
 import type { ParsedLedgerDocument } from "./types.js";
@@ -121,6 +123,9 @@ export async function run(
       case "query":
         return await queryCommand(parsed, context);
 
+      case "search":
+        return await searchCommand(parsed, context);
+
       case "packet":
         return await packetCommand(parsed, context);
 
@@ -154,6 +159,9 @@ export async function run(
 
       case "doctor":
         return await doctorCommand(parsed, context);
+
+      case "metrics":
+        return await metricsCommand(parsed, context);
 
       case "stale":
         return await staleCommand(parsed, context);
@@ -422,6 +430,36 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   return 0;
 }
 
+async function searchCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const query = parsed.positionals.join(" ").trim();
+  if (!query) {
+    console.error("Usage: ledger search <query> [--limit <entries>] [--json]");
+    return 2;
+  }
+
+  const workspace = await findWorkspace(context.cwd);
+  const documents = await readLedgerDocuments(workspace);
+  const matches = searchLedgerDocuments(workspace, documents, query, {
+    limit: numberFlag(parsed, "limit"),
+  });
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify({ query, matches }, null, 2));
+    return 0;
+  }
+
+  console.log(`Ledger search: ${matches.length} match(es).`);
+  for (const result of matches) {
+    console.log(`- ${result.id} ${result.title} (${result.kind}, ${result.status})`);
+    console.log(`  Path: ${result.path}`);
+    console.log(`  Score: ${result.score}; fields: ${result.matchedFields.join(", ")}`);
+    if (result.document.files.length > 0) console.log(`  Files: ${result.document.files.join(", ")}`);
+    if (result.document.docs.length > 0) console.log(`  Docs: ${result.document.docs.join(", ")}`);
+    if (result.document.symbols.length > 0) console.log(`  Symbols: ${result.document.symbols.join(", ")}`);
+  }
+  return 0;
+}
+
 async function packetCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const target = parsed.positionals[0];
   if (!target) {
@@ -679,6 +717,19 @@ async function doctorCommand(parsed: ParsedArgs, context: RunContext): Promise<n
     console.log(JSON.stringify(result, null, 2));
   } else {
     console.log(formatDoctorResult(result));
+  }
+
+  return result.ok ? 0 : 1;
+}
+
+async function metricsCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
+  const workspace = await findWorkspace(context.cwd);
+  const result = await measureLedgerPerformance(workspace);
+
+  if (hasFlag(parsed, "json")) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(formatLedgerPerformance(result));
   }
 
   return result.ok ? 0 : 1;
@@ -993,7 +1044,7 @@ function agentInstructions(project: string, docsMode: string, role: string | und
     `- Use Ledger for durable change memory in ${project}.`,
     "- Start with token-bounded context: `ledger packet <path> --budget 1200`.",
     "- Use `ledger explain <path> --agent` when you need only invariants and verification.",
-    "- Use `ledger query --text <term> --json` for precise retrieval instead of reading the whole catalog.",
+    "- Use `ledger search <term> --json` or `ledger query --text <term> --json` for bounded retrieval instead of reading the whole catalog.",
     `- Docs adoption mode is \`${docsMode}\`; do not assume Ledger owns all docs unless config says \`managed\`.`,
   ];
 
@@ -1181,6 +1232,14 @@ Usage:
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
 
 Filters Ledger records by metadata, tags, relationship ids, symbols, and paths.`;
+    case "search":
+      return `Ledger search
+
+Usage:
+  ledger search <query> [--limit <entries>] [--json]
+
+Runs weighted fuzzy search over the same static reader search fields used by
+the browser UI.`;
 case "packet":
       return `Ledger packet
 
@@ -1197,7 +1256,15 @@ Usage:
   ledger doctor [--no-baseline] [--json]
 
 Checks workspace health, Git availability, validation, docs references, index
-freshness, render output, and stale-knowledge signals.`;
+freshness, render output, performance budgets, and stale-knowledge signals.`;
+    case "metrics":
+      return `Ledger metrics
+
+Usage:
+  ledger metrics [--json]
+
+Measures read, validate, index, render-model, and search latency against
+configured performance budgets.`;
     case "stale":
       return `Ledger stale
 
@@ -1299,9 +1366,11 @@ Usage:
   ledger coverage [--staged] [--explain] [--json]
   ledger ci [--staged] [--current-only] [--no-baseline] [--json]
   ledger doctor [--no-baseline] [--json]
+  ledger metrics [--json]
   ledger stale [--current-only] [--no-baseline] [--check] [--write-report] [--json]
   ledger conflict <path...> [--json] [--write-report]
   ledger explain <path> [--json] [--agent]
+  ledger search <query> [--limit <entries>] [--json]
   ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--json]
   ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]
   ledger mcp
@@ -1321,8 +1390,10 @@ Examples:
   ledger feedback "Dogfood finding" --area product --tag dogfood
   ledger migrate changelog docs/changelog --rewrite-docs
   ledger explain src/cli.ts --agent
+  ledger search renderer --limit 5
   ledger packet src/cli.ts --budget 1200
   ledger verify-integrity
+  ledger metrics
   ledger doctor
   ledger release v0.1.0 --include-unreleased
   ledger ci --json`;

@@ -71,6 +71,16 @@ export interface LedgerConfig {
       readonly maxWriteMs: number;
     };
   };
+  readonly performance: {
+    readonly budgets: {
+      readonly maxReadMs: number;
+      readonly maxValidateMs: number;
+      readonly maxIndexMs: number;
+      readonly maxRenderModelMs: number;
+      readonly maxSearchMs: number;
+      readonly maxTotalMs: number;
+    };
+  };
   readonly docs: {
     readonly root: string;
     readonly managed: boolean;

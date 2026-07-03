@@ -158,6 +158,19 @@ Render output is checked against `render.budgets` in `.ledger/config.yaml`.
 `ledger render` prints artifact size and write-time status, while `ledger
 doctor` reports whether the generated reader is over budget.
 
+The same weighted search model is available from the terminal:
+
+```bash
+ledger search renderer --limit 5
+```
+
+Core read, validation, index, render-model, and search latency can be checked
+with:
+
+```bash
+ledger metrics
+```
+
 For local preview:
 
 ```bash
@@ -225,7 +238,8 @@ brew install ledger
 | `ledger render` | Builds the static HTML reader plus lazy search and relationship graph JSON. |
 | `ledger serve --watch` | Serves the static reader locally and rebuilds it when Ledger records change. |
 | `ledger coverage --explain` | Checks that changed source paths have Ledger coverage and explains required, ignored, covered, and missing paths. |
-| `ledger doctor` | Checks workspace health, Git availability, validation, docs references, index freshness, render output, and stale signals. |
+| `ledger doctor` | Checks workspace health, Git availability, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
+| `ledger metrics` | Measures read, validate, index, render-model, and search latency against configured budgets. |
 | `ledger stale --check` | Finds stale knowledge signals such as missing relationships, stale symbols, and release verification gaps. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
@@ -234,6 +248,7 @@ brew install ledger
 | `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
 | `ledger explain <path>` | Shows records related to a file. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
+| `ledger search <query> --limit 5` | Runs weighted fuzzy search over the same fields used by the static reader. |
 | `ledger packet <path> --budget 1200 --write-report` | Builds a compact token-budgeted agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
 | `ledger mcp` | Starts a stdio MCP server for agent tools. |
 | `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
@@ -370,6 +385,7 @@ Before editing:
 
 ```bash
 ledger explain path/to/file.ts --agent
+ledger search "thing you need" --limit 5
 ledger packet path/to/file.ts --budget 1200 --write-report
 ledger conflict path/to/file.ts
 ```

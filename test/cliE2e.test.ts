@@ -43,6 +43,11 @@ describe("CLI end-to-end", () => {
     expect(query.exitCode).toBe(0);
     expect(query.stdout).toContain("Fixture change");
 
+    const search = await captureRun(["search", "fixture", "--limit", "1"], tempDir);
+    expect(search.exitCode).toBe(0);
+    expect(search.stdout).toContain("Ledger search: 1 match(es).");
+    expect(search.stdout).toContain("Fixture change");
+
     const classify = await captureRun(
       ["docs", "classify", "docs/llm/START_HERE.md"],
       tempDir,
@@ -67,6 +72,11 @@ describe("CLI end-to-end", () => {
     const doctor = await captureRun(["doctor"], tempDir);
     expect(doctor.exitCode).toBe(0);
     expect(doctor.stdout).toContain("Ledger doctor: passed.");
+    expect(doctor.stdout).toContain("performance");
+
+    const metrics = await captureRun(["metrics"], tempDir);
+    expect(metrics.exitCode).toBe(0);
+    expect(metrics.stdout).toContain("Ledger metrics: passed");
 
     const stale = await captureRun(["stale"], tempDir);
     expect(stale.exitCode).toBe(0);
