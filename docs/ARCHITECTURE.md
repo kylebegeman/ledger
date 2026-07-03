@@ -161,7 +161,9 @@ The first coverage command is intentionally path based: files matching
 coverage exists.
 
 Drafting from Git diffs stays conservative. Ledger can infer areas from changed
-paths, extract TypeScript and Markdown anchors, and add docs-impact prompts, but
+paths, extract Markdown headings and parser-backed TypeScript or JavaScript
+top-level anchors when the host project has `typescript` available, and add
+docs-impact prompts. Regex extraction remains a fallback for portability, and
 generated prose remains marked as TODO so agents must still verify and finish
 the entry before landing it.
 

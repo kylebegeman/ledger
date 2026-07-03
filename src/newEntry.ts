@@ -3,6 +3,7 @@ import path from "node:path";
 import { isIgnoredByGitConfig } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
+import { extractFileSymbols } from "./symbols.js";
 import { renderLedgerTemplate } from "./template.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
@@ -186,54 +187,6 @@ async function collectChangedSymbols(
     all: [...all].sort(),
     byFile,
   };
-}
-
-async function extractFileSymbols(
-  workspace: LedgerWorkspace,
-  filePath: string,
-): Promise<readonly string[]> {
-  const extension = path.extname(filePath).toLowerCase();
-  if (![".ts", ".tsx", ".js", ".jsx", ".md", ".mdx"].includes(extension)) return [];
-
-  let raw: string;
-  try {
-    raw = await readFile(path.join(workspace.projectRoot, filePath), "utf8");
-  } catch {
-    return [];
-  }
-
-  return extension === ".md" || extension === ".mdx"
-    ? extractMarkdownSymbols(raw)
-    : extractCodeSymbols(raw);
-}
-
-function extractCodeSymbols(raw: string): readonly string[] {
-  const symbols = new Set<string>();
-  const patterns = [
-    /\bexport\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
-    /\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g,
-    /\bexport\s+(?:class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g,
-    /\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
-    /\b(?:class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/g,
-  ];
-  for (const pattern of patterns) {
-    for (const match of raw.matchAll(pattern)) {
-      const symbol = match[1];
-      if (symbol) symbols.add(symbol);
-    }
-  }
-  return [...symbols].sort();
-}
-
-function extractMarkdownSymbols(raw: string): readonly string[] {
-  const symbols = new Set<string>();
-  for (const line of raw.split(/\r?\n/)) {
-    const match = /^(#{1,6})\s+(.+?)\s*$/.exec(line);
-    if (!match) continue;
-    const title = match[2]?.replace(/\s+#+\s*$/, "").trim();
-    if (title) symbols.add(title);
-  }
-  return [...symbols].sort();
 }
 
 function renderChangedFiles(

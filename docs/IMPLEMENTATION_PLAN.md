@@ -339,5 +339,5 @@ Future repository tasks:
 - Whether the first public release should ship only the CLI or a documented
   library API too.
 - Whether static HTML rendering belongs in the core CLI or a sibling package.
-- Whether symbol extraction should use language-specific parsers or begin with
-  explicit frontmatter only.
+- Which additional language parsers, beyond the optional TypeScript/JavaScript
+  parser path, are worth supporting without bloating the package.

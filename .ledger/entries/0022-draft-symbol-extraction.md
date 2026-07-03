@@ -9,6 +9,7 @@ areas: ["cli", "git", "drafting", "symbols", "tests"]
 files:
   - "README.md"
   - "src/newEntry.ts"
+  - "src/symbols.ts"
   - "test/newEntry.test.ts"
   - ".ledger/entries/0022-draft-symbol-extraction.md"
 symbols:
@@ -84,5 +85,5 @@ for `ledger query --symbol`, generated symbol indexes, and agent context lookup.
 
 ## Notes
 
-Future extraction can use language-aware parsers, but this slice intentionally
-uses simple deterministic patterns.
+Extraction now lives in `src/symbols.ts` and prefers the TypeScript parser when
+available, with simple deterministic patterns retained as a fallback.

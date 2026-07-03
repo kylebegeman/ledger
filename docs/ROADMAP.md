@@ -58,7 +58,8 @@ Deliverables:
 
 - `ledger coverage`
 - `ledger new --from-diff --staged`
-- initial symbol extraction for TypeScript and Markdown headings
+- parser-backed symbol extraction for TypeScript/JavaScript with Markdown
+  heading extraction and regex fallback
 - inferred areas and docs-impact prompts for drafts
 
 ## Phase 3: Explain And Query
