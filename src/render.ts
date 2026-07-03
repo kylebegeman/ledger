@@ -95,13 +95,31 @@ export interface LedgerRelationshipGraph {
 export interface LedgerGraphNode {
   readonly id: string;
   readonly label: string;
-  readonly type: "record" | "file" | "doc" | "symbol" | "area" | "release";
+  readonly type:
+    | "record"
+    | "file"
+    | "doc"
+    | "symbol"
+    | "area"
+    | "release"
+    | "invariant"
+    | "verification";
 }
 
 export interface LedgerGraphEdge {
   readonly source: string;
   readonly target: string;
-  readonly type: "file" | "doc" | "symbol" | "area" | "release" | "decision" | "backlog" | "related";
+  readonly type:
+    | "file"
+    | "doc"
+    | "symbol"
+    | "area"
+    | "release"
+    | "decision"
+    | "backlog"
+    | "related"
+    | "invariant"
+    | "verification";
 }
 
 export interface RenderStaticReaderResult {
@@ -601,6 +619,16 @@ export function buildRelationshipGraph(
       addNode({ id: target, label: area, type: "area" });
       addEdge(recordId, target, "area");
     }
+    document.invariants.forEach((invariant, index) => {
+      const target = `invariant:${document.id}:${index + 1}`;
+      addNode({ id: target, label: invariant, type: "invariant" });
+      addEdge(recordId, target, "invariant");
+    });
+    document.verification.forEach((verification, index) => {
+      const target = `verification:${document.id}:${index + 1}`;
+      addNode({ id: target, label: verification, type: "verification" });
+      addEdge(recordId, target, "verification");
+    });
     if (document.release) {
       const target = `release:${document.release}`;
       addNode({ id: target, label: document.release, type: "release" });

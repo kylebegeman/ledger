@@ -76,6 +76,15 @@ docs: ["docs/ARCHITECTURE.md"]
 decisions: ["D001"]
 backlog: ["B001"]
 `,
+        body: `
+## Invariants
+
+- Keep graph stable.
+
+## Verification
+
+- npm test
+`,
       }),
       document("D001", "decision", "Decision", {
         relativePath: ".ledger/decisions/D001.md",
@@ -89,19 +98,23 @@ backlog: ["B001"]
         { id: "area:cli", label: "cli", type: "area" },
         { id: "doc:docs/ARCHITECTURE.md", label: "docs/ARCHITECTURE.md", type: "doc" },
         { id: "file:src/cli.ts", label: "src/cli.ts", type: "file" },
+        { id: "invariant:0001:1", label: "Keep graph stable.", type: "invariant" },
         { id: "record:0001", label: "0001", type: "record" },
         { id: "record:D001", label: "D001", type: "record" },
         { id: "release:v1.0.0", label: "v1.0.0", type: "release" },
         { id: "symbol:run", label: "run", type: "symbol" },
+        { id: "verification:0001:1", label: "npm test", type: "verification" },
       ],
       edges: [
         { source: "record:0001", target: "area:cli", type: "area" },
         { source: "record:0001", target: "doc:docs/ARCHITECTURE.md", type: "doc" },
         { source: "record:0001", target: "file:src/cli.ts", type: "file" },
+        { source: "record:0001", target: "invariant:0001:1", type: "invariant" },
         { source: "record:0001", target: "record:B001", type: "backlog" },
         { source: "record:0001", target: "record:D001", type: "decision" },
         { source: "record:0001", target: "release:v1.0.0", type: "release" },
         { source: "record:0001", target: "symbol:run", type: "symbol" },
+        { source: "record:0001", target: "verification:0001:1", type: "verification" },
         { source: "record:D001", target: "area:architecture", type: "area" },
       ],
     });

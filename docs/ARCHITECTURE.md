@@ -258,6 +258,11 @@ releases so the generated page can offer quick navigation without a server.
 Record cards surface relationship fields such as decisions and backlog links
 alongside files, symbols, docs, invariants, and verification.
 
+The graph sidecar also represents invariants and verification bullets as
+first-class nodes attached to their source record. That lets hosted readers and
+agents traverse from a record to its behavioral contracts without parsing the
+full Markdown body.
+
 `ledger serve` is a local development adapter over the generated static reader.
 It renders first, serves `.ledger/dist`, and can watch source record directories
 to rebuild while the reader is open.
