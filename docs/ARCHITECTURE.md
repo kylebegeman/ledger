@@ -241,9 +241,11 @@ indexes or emit richer multi-page output without changing the source document
 model.
 
 Renderer internals are split by concern: `src/render.ts` owns the static reader
-data model and HTML composition, while `src/renderAssets.ts` owns the embedded
-CSS and browser runtime. Keeping styles and runtime separate lowers renderer
-churn and makes future hosted or multi-page readers easier to transport.
+data model, search sidecar, graph sidecar, budgets, and file writes.
+`src/renderHtml.ts` owns HTML composition, and `src/renderAssets.ts` owns the
+embedded CSS and browser runtime. Keeping model, markup, and browser assets
+separate lowers renderer churn and makes future hosted or multi-page readers
+easier to transport.
 
 The search sidecar stores weighted fields rather than one undifferentiated text
 blob. ID, title, path, symbol, and file hits rank above metadata, summary, and
