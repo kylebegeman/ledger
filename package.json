@@ -25,7 +25,14 @@
     "ledger": "dist/cli.js"
   },
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./unstable": {
+      "types": "./dist/unstable.d.ts",
+      "import": "./dist/unstable.js"
+    }
   },
   "files": [
     "assets",

@@ -198,6 +198,25 @@ npx ledger init --with-docs
 npx ledger ci
 ```
 
+### Library API
+
+The package root exports the stable high-level API for agents, CLIs, and
+integrations:
+
+```ts
+import {
+  buildAgentPacket,
+  buildStaticReaderModel,
+  readLedgerDocuments,
+  searchLedgerIndex,
+  validateDocuments,
+} from "@kylebegeman/ledger";
+```
+
+Lower-level helpers remain available from `@kylebegeman/ledger/unstable`.
+Those exports are useful for experimentation and project-local tooling, but can
+change between minor versions while the package is still pre-1.0.
+
 The package builds from source during `prepare`; release checks use
 `npm run release:build`.
 
