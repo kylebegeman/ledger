@@ -3,7 +3,7 @@ id: "0017"
 kind: "change"
 title: "Polish static reader context"
 date: "2026-06-29"
-updated: "2026-06-29"
+updated: "2026-07-03"
 status: "landed"
 areas: ["render", "html", "agents", "tests"]
 files:
@@ -11,6 +11,7 @@ files:
   - "assets/ledger.svg"
   - "docs/ARCHITECTURE.md"
   - "package.json"
+  - "src/renderHtml.ts"
   - "src/render.ts"
   - "test/render.test.ts"
 symbols:
@@ -103,3 +104,4 @@ true and how each change was verified.
 ## Notes
 
 Future reader polish can add grouped navigation and release-focused views.
+`contextGrid` now lives in `src/renderHtml.ts` after the renderer HTML split.
