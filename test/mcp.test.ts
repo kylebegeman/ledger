@@ -28,6 +28,12 @@ describe("Ledger MCP", () => {
     expect(payload.errors).toEqual([]);
     expect(payload.warnings).toEqual([]);
     expect(payload.issueCount).toBe(0);
+    expect(payload.summary).toMatchObject({
+      ok: true,
+      issueCount: 0,
+      errorCount: 0,
+      warningCount: 0,
+    });
   });
 
   it("queries records as an MCP tool", async () => {
@@ -39,6 +45,11 @@ describe("Ledger MCP", () => {
     });
 
     expect(payload.total).toBe(1);
+    expect(payload.summary).toMatchObject({
+      total: 1,
+      returned: 1,
+      limited: false,
+    });
     expect(payload.matches[0]).toMatchObject({
       id: "0001",
       title: "MCP fixture",
@@ -53,6 +64,10 @@ describe("Ledger MCP", () => {
     });
 
     expect(payload.matches).toHaveLength(1);
+    expect(payload.summary).toEqual({
+      target: "src/cli.ts",
+      matches: 1,
+    });
     expect(payload.matches[0].id).toBe("0001");
   });
 
@@ -66,6 +81,10 @@ describe("Ledger MCP", () => {
     expect(payload.targets[0].entries[0].conflictRules).toEqual([
       "Keep MCP command behavior stable.",
     ]);
+    expect(payload.summary).toMatchObject({
+      targets: 1,
+      entries: 1,
+    });
   });
 
   it("builds agent packets as an MCP tool", async () => {
@@ -77,6 +96,12 @@ describe("Ledger MCP", () => {
 
     expect(payload.target).toBe("src/cli.ts");
     expect(payload.entries[0].verification).toEqual(["npm run check"]);
+    expect(payload.summary).toMatchObject({
+      target: "src/cli.ts",
+      entries: 1,
+      truncated: false,
+      omittedEntries: 0,
+    });
   });
 
   it("checks docs impact as an MCP tool", async () => {
@@ -88,6 +113,10 @@ describe("Ledger MCP", () => {
 
     expect(payload.sourceFiles).toEqual(["src/cli.ts"]);
     expect(payload.missingDocsImpact).toEqual(["src/cli.ts"]);
+    expect(payload.summary).toMatchObject({
+      sourceFiles: 1,
+      missingDocsImpact: 1,
+    });
   });
 
   it("returns integrity hashes as an MCP tool", async () => {
@@ -96,6 +125,8 @@ describe("Ledger MCP", () => {
 
     expect(payload.catalogHash).toMatch(/^[a-f0-9]{64}$/);
     expect(payload.documents[0].hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(payload.summary.documents).toBe(1);
+    expect(payload.summary.catalogHash).toBe(payload.catalogHash);
   });
 });
 

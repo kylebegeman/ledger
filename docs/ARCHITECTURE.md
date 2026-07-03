@@ -211,7 +211,9 @@ The first server exposes tools for:
 - integrity verification
 
 Each tool returns a JSON text payload derived from the same core functions used
-by the CLI. The MCP layer should stay thin; command behavior belongs in the
+by the CLI. Payloads include a top-level `summary` object with counts, status,
+and budget metadata before full detailed fields so agents can inspect compact
+signals first. The MCP layer should stay thin; command behavior belongs in the
 library modules so the CLI, tests, and MCP server remain consistent.
 
 ### Render And Export Adapters

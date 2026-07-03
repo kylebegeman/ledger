@@ -206,6 +206,13 @@ export async function runLedgerMcpTool(
       const result = validateDocuments(workspace, documents);
       if (parsed.writeReport) await writeValidationReport(workspace, result);
       return jsonToolResult({
+        summary: {
+          ok: result.errors.length === 0,
+          projectRoot: workspace.projectRoot,
+          issueCount: result.issues.length,
+          errorCount: result.errors.length,
+          warningCount: result.warnings.length,
+        },
         projectRoot: workspace.projectRoot,
         errors: result.errors,
         warnings: result.warnings,
@@ -227,16 +234,28 @@ export async function runLedgerMcpTool(
         id: parsed.id,
         text: parsed.text,
       });
+      const returned = typeof parsed.limit === "number" ? matches.slice(0, parsed.limit) : matches;
       return jsonToolResult({
-        matches: typeof parsed.limit === "number" ? matches.slice(0, parsed.limit) : matches,
+        summary: {
+          total: matches.length,
+          returned: returned.length,
+          limited: typeof parsed.limit === "number" && returned.length < matches.length,
+        },
+        matches: returned,
         total: matches.length,
       });
     }
 
     case "ledger_explain": {
+      const target = requiredString(parsed.path, "path");
+      const matches = explainFile(documents, target);
       return jsonToolResult({
-        target: requiredString(parsed.path, "path"),
-        matches: explainFile(documents, requiredString(parsed.path, "path")),
+        summary: {
+          target,
+          matches: matches.length,
+        },
+        target,
+        matches,
       });
     }
 
@@ -245,7 +264,15 @@ export async function runLedgerMcpTool(
       const reportPath = parsed.writeReport
         ? await writeConflictReport(workspace, targets)
         : undefined;
-      return jsonToolResult({ targets, reportPath });
+      return jsonToolResult({
+        summary: {
+          targets: targets.length,
+          entries: targets.reduce((sum, target) => sum + target.entries.length, 0),
+          reportPath,
+        },
+        targets,
+        reportPath,
+      });
     }
 
     case "ledger_packet": {
@@ -256,14 +283,35 @@ export async function runLedgerMcpTool(
       const reportPath = parsed.writeReport
         ? await writeAgentPacketReport(workspace, packet)
         : undefined;
-      return jsonToolResult({ ...packet, reportPath });
+      return jsonToolResult({
+        summary: {
+          target: packet.target,
+          entries: packet.entries.length,
+          estimatedTokens: packet.estimatedTokens,
+          budgetTokens: packet.budgetTokens,
+          truncated: packet.truncated,
+          omittedEntries: packet.omittedEntries,
+          reportPath,
+        },
+        ...packet,
+        reportPath,
+      });
     }
 
     case "ledger_docs_impact": {
       const changedFiles = parsed.changedFiles ?? await getChangedFiles(workspace.projectRoot, {
         staged: parsed.staged,
       });
-      return jsonToolResult(buildDocsImpact(workspace, documents, changedFiles));
+      const impact = buildDocsImpact(workspace, documents, changedFiles);
+      return jsonToolResult({
+        summary: {
+          sourceFiles: impact.sourceFiles.length,
+          docsFiles: impact.docsFiles.length,
+          declarations: impact.declarations.length,
+          missingDocsImpact: impact.missingDocsImpact.length,
+        },
+        ...impact,
+      });
     }
 
     case "ledger_verify_integrity": {
@@ -271,7 +319,15 @@ export async function runLedgerMcpTool(
       const written = parsed.writeArtifacts
         ? await writeIntegrityArtifacts(workspace, report)
         : undefined;
-      return jsonToolResult({ ...report, written });
+      return jsonToolResult({
+        summary: {
+          documents: report.documents.length,
+          catalogHash: report.catalogHash,
+          written,
+        },
+        ...report,
+        written,
+      });
     }
   }
 }

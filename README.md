@@ -414,6 +414,8 @@ ledger mcp
 
 The server exposes tools for validation, query, file explanation, conflict
 guidance, agent packets, docs impact checks, and integrity verification.
+Each MCP response includes a compact `summary` object before detailed payload
+fields so agents can decide whether to read the full result.
 
 Use `ledger agents --role contributor`, `ledger agents --role reviewer`,
 `ledger agents --role release`, `ledger agents --role migration`, or
