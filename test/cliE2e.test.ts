@@ -95,6 +95,35 @@ describe("CLI end-to-end", () => {
     expect(release.stderr).toContain("Release document already exists");
     expect(await readFile(entryPath, "utf8")).not.toContain('release: "v1.0.0"');
   });
+
+  it("emits machine-readable JSON errors for operational failures", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-cli-e2e-"));
+
+    const result = await captureRun(["validate", "--json"], tempDir);
+    const payload = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly error: { readonly code: string; readonly message: string };
+    };
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(payload.ok).toBe(false);
+    expect(payload.error.code).toBe("workspace-not-found");
+  });
+
+  it("emits machine-readable JSON errors for unknown commands", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-cli-e2e-"));
+
+    const result = await captureRun(["not-a-command", "--json"], tempDir);
+    const payload = JSON.parse(result.stdout) as {
+      readonly ok: boolean;
+      readonly error: { readonly code: string; readonly message: string };
+    };
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(payload.error.code).toBe("unknown-command");
+  });
 });
 
 async function exists(filePath: string): Promise<boolean> {

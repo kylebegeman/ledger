@@ -181,12 +181,21 @@ export async function run(
         return 0;
 
       default:
-        console.error(`Unknown command: ${parsed.command}`);
-        printHelp();
+        if (hasFlag(parsed, "json")) {
+          printJsonError("unknown-command", `Unknown command: ${parsed.command}`);
+        } else {
+          console.error(`Unknown command: ${parsed.command}`);
+          printHelp();
+        }
         return 2;
     }
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    if (hasFlag(parsed, "json")) {
+      printJsonError(errorCode(message), message);
+    } else {
+      console.error(message);
+    }
     return 2;
   }
 }
@@ -900,6 +909,19 @@ function helpTopicForCommand(parsed: ParsedArgs): string {
 
 function printValidation(errors: number, warnings: number): void {
   console.log(`Ledger validation: ${errors} error(s), ${warnings} warning(s).`);
+}
+
+function printJsonError(code: string, message: string): void {
+  console.log(JSON.stringify({ ok: false, error: { code, message } }, null, 2));
+}
+
+function errorCode(message: string): string {
+  if (message.includes("Could not find .ledger/config.yaml")) return "workspace-not-found";
+  if (message.includes("invalid YAML")) return "invalid-yaml";
+  if (message.includes("config must be a YAML object")) return "invalid-config";
+  if (message.includes("Release document already exists")) return "release-exists";
+  if (message.includes("Cannot serve reader with")) return "render-validation-failed";
+  return "operational-error";
 }
 
 function printIndentedList(label: string, values: readonly string[]): void {

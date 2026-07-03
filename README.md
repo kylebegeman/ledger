@@ -253,6 +253,19 @@ ledger docs impact --help
 ledger release --help
 ```
 
+Commands that support `--json` return machine-readable failures for operational
+errors:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "workspace-not-found",
+    "message": "Could not find .ledger/config.yaml from /path/to/repo"
+  }
+}
+```
+
 ## Adoption And Migration
 
 Established repos can use partial docs adoption:

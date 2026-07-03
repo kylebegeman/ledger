@@ -449,6 +449,12 @@ It can warn, rather than fail, for:
 - empty verification details
 - unknown future frontmatter fields
 
+When a command is invoked with `--json`, operational failures should be emitted
+as structured JSON with `ok: false`, a stable-ish error `code`, and a human
+message. This lets agents distinguish workspace discovery failures, invalid
+config, duplicate release output, and generic operational failures without
+scraping stderr. Human output should remain concise on stderr.
+
 ## Extension Points
 
 Ledger should eventually support:
