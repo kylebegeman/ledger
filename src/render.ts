@@ -70,7 +70,20 @@ export interface LedgerSearchDocument {
   readonly docs: readonly string[];
   readonly summary?: string;
   readonly why?: string;
+  readonly fields: LedgerSearchFields;
   readonly terms: string;
+}
+
+export interface LedgerSearchFields {
+  readonly id: string;
+  readonly title: string;
+  readonly path: string;
+  readonly metadata: string;
+  readonly files: string;
+  readonly symbols: string;
+  readonly docs: string;
+  readonly summary: string;
+  readonly context: string;
 }
 
 export interface LedgerRelationshipGraph {
@@ -552,6 +565,19 @@ export function renderStaticReaderHtml(
       return searchIndexPromise;
     }
 
+    const searchWeights = {
+      id: 16,
+      title: 14,
+      path: 10,
+      symbols: 9,
+      files: 8,
+      docs: 6,
+      metadata: 5,
+      context: 4,
+      summary: 3,
+      terms: 1
+    };
+
     function fuzzyScore(query, terms) {
       if (!query) return 1;
       if (!terms) return 0;
@@ -569,18 +595,24 @@ export function renderStaticReaderHtml(
       return score;
     }
 
+    function scoreSearchDocument(query, document) {
+      if (!document.fields) return fuzzyScore(query, document.terms);
+      return Object.entries(searchWeights).reduce((score, [field, weight]) => {
+        const value = field === "terms" ? document.terms : document.fields[field];
+        return score + fuzzyScore(query, value) * weight;
+      }, 0);
+    }
+
     async function searchMatches(query) {
       const trimmed = query.trim().toLowerCase();
       if (!trimmed) return undefined;
       const index = await loadSearchIndex();
       if (!Array.isArray(index) || index.length === 0) return undefined;
-      return new Set(
-        index
-          .map((document) => ({ id: document.id, score: fuzzyScore(trimmed, document.terms) }))
-          .filter((result) => result.score > 0)
-          .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))
-          .map((result) => result.id)
-      );
+      const scored = index
+        .map((document) => ({ id: document.id, score: scoreSearchDocument(trimmed, document) }))
+        .filter((result) => result.score > 0)
+        .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
+      return new Map(scored.map((result) => [result.id, result.score]));
     }
 
     const controls = {
@@ -596,10 +628,11 @@ export function renderStaticReaderHtml(
       tag: document.getElementById("tag")
     };
     const entries = Array.from(document.querySelectorAll(".entry"));
+    const entriesContainer = document.getElementById("entries");
     const resultCount = document.getElementById("result-count");
     const empty = document.getElementById("empty");
 
-    function matches(entry, matchedIds, search) {
+    function matches(entry, matchedScores, search) {
       const kind = controls.kind.value;
       const status = controls.status.value;
       const area = controls.area.value;
@@ -609,8 +642,8 @@ export function renderStaticReaderHtml(
       const duplicate = controls.duplicate.value;
       const coverage = controls.coverage.value;
       const tag = controls.tag.value;
-      if (matchedIds && !matchedIds.has(entry.dataset.id)) return false;
-      if (!matchedIds && search && !entry.dataset.search.includes(search)) return false;
+      if (matchedScores && !matchedScores.has(entry.dataset.id)) return false;
+      if (!matchedScores && search && !entry.dataset.search.includes(search)) return false;
       if (kind !== "all" && entry.dataset.kind !== kind) return false;
       if (status !== "all" && entry.dataset.status !== status) return false;
       if (area !== "all" && !entry.dataset.areas.split(" ").includes(area)) return false;
@@ -629,10 +662,17 @@ export function renderStaticReaderHtml(
 
     async function applyFilters() {
       const search = controls.search.value.trim().toLowerCase();
-      const matchedIds = await searchMatches(search);
+      const matchedScores = await searchMatches(search);
       let visible = 0;
+      const sortedEntries = matchedScores
+        ? [...entries].sort((left, right) =>
+            (matchedScores.get(right.dataset.id) || 0) -
+            (matchedScores.get(left.dataset.id) || 0)
+          )
+        : entries;
+      for (const entry of sortedEntries) entriesContainer.appendChild(entry);
       for (const entry of entries) {
-        const show = matches(entry, matchedIds, search);
+        const show = matches(entry, matchedScores, search);
         entry.hidden = !show;
         if (show) visible += 1;
       }
@@ -770,6 +810,7 @@ export function buildSearchIndex(
   documents: readonly LedgerRenderedDocument[],
 ): readonly LedgerSearchDocument[] {
   return documents.map((document) => {
+    const fields = searchFields(document);
     const terms = searchTerms(document);
     return {
       id: document.id,
@@ -785,9 +826,38 @@ export function buildSearchIndex(
       docs: document.docs,
       summary: document.summary,
       why: document.why,
+      fields,
       terms,
     };
   });
+}
+
+function searchFields(document: LedgerRenderedDocument): LedgerSearchFields {
+  return {
+    id: document.id,
+    title: document.title,
+    path: document.path,
+    metadata: [
+      document.kind,
+      document.status,
+      document.release ?? "",
+      ...document.areas,
+      ...document.tags,
+      ...document.decisions,
+      ...document.backlog,
+      ...document.supersedes,
+      ...document.related,
+    ].join(" "),
+    files: document.files.join(" "),
+    symbols: document.symbols.join(" "),
+    docs: document.docs.join(" "),
+    summary: [document.summary ?? "", document.why ?? ""].join(" "),
+    context: [
+      ...document.invariants,
+      ...document.verification,
+      ...document.issues.map((issue) => issue.message),
+    ].join(" "),
+  };
 }
 
 function searchTerms(document: LedgerRenderedDocument): string {

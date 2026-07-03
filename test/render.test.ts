@@ -37,6 +37,10 @@ describe("buildStaticReaderModel", () => {
     expect(model.searchIndex[0]).toMatchObject({
       id: "0001",
       title: "Change",
+      fields: {
+        path: ".ledger/entries/0001.md",
+        files: "src/cli.ts",
+      },
       terms: expect.stringContaining("src/cli.ts"),
     });
     expect(model.graph.nodes).toContainEqual({
@@ -82,6 +86,8 @@ describe("renderStaticReaderHtml", () => {
     expect(html).toContain("Escape &lt;script&gt;");
     expect(html).toContain('fetch("search-index.json")');
     expect(html).toContain("fuzzyScore");
+    expect(html).toContain("scoreSearchDocument");
+    expect(html).toContain("searchWeights");
     expect(html).toContain("<svg><title>Ledger</title></svg>");
     expect(html).toContain("Markdown Source");
     expect(html).toContain("Agent Packet");

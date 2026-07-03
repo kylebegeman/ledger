@@ -236,6 +236,12 @@ Markdown source access for each record. Later renderers can consume generated
 indexes or emit richer multi-page output without changing the source document
 model.
 
+The search sidecar stores weighted fields rather than one undifferentiated text
+blob. ID, title, path, symbol, and file hits rank above metadata, summary, and
+context hits, and the browser reorders visible cards by score when search data
+loads. If a browser blocks sidecar loading from a direct file open, the reader
+falls back to inline compact search text.
+
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
 Record cards surface relationship fields such as decisions and backlog links
