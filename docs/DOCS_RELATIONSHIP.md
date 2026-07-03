@@ -91,25 +91,40 @@ Every change entry can declare whether it affects durable docs:
 
 ```yaml
 docs:
-  impacts:
+  - docs/architecture/runtime.md
+docsImpact:
+  status: updated
+  reason: Runtime architecture docs changed with this behavior.
+  docs:
     - docs/architecture/runtime.md
-  required: true
-  updated: true
 ```
 
-Initial implementations can keep this simpler:
+When durable docs were reviewed and no update is needed:
+
+```yaml
+docsImpact:
+  status: not-needed
+  reason: Internal CLI formatting only; durable behavior docs did not change.
+```
+
+Older entries can still use a simple docs reference:
 
 ```yaml
 docs:
   - docs/architecture/runtime.md
 ```
 
-Future validation can enforce:
+`ledger docs impact --check` accepts direct docs changes, changed Ledger entries
+that reference docs, and reviewed `docsImpact` declarations. Placeholder reasons
+beginning with `TODO` are ignored so drafts do not accidentally satisfy the
+guard.
+
+Validation and future policy checks can enforce:
 
 - if source files changed under configured product surfaces, an entry must
   declare docs impact
-- if `docs.required` is true, a matching doc path must be changed or explicitly
-  marked `not-needed`
+- if docs are not needed, the entry should include a reviewed `not-needed` or
+  `none` reason
 - if docs changed, the entry should list the docs it changed
 - if backlog or decisions changed behavior, durable docs should link back to the
   related record

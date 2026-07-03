@@ -205,10 +205,11 @@ configured docs root using the same discovery path as `ledger docs audit`.
 
 Reads changed files from Git, classifies source files, docs files, and changed
 Ledger entries, then reports whether source changes have an explicit docs
-impact. A docs impact exists when a docs file changed directly or when a changed
-Ledger entry references docs. `--staged` inspects the staged diff, `--json`
-emits the raw model, and `--check` exits non-zero when source files lack docs
-impact.
+impact. A docs impact exists when a docs file changed directly, when a changed
+Ledger entry references docs, or when a changed entry includes a reviewed
+`docsImpact` declaration such as `status: not-needed` with a non-TODO reason.
+`--staged` inspects the staged diff, `--json` emits the raw model, and `--check`
+exits non-zero when source files lack docs impact.
 
 ### `ledger explain <path>`
 

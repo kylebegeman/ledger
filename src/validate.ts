@@ -29,6 +29,7 @@ const knownFrontmatterFields = new Set([
   "supersedes",
   "related",
   "docs",
+  "docsImpact",
   "entries",
   "staleRefs",
   "stale_refs",

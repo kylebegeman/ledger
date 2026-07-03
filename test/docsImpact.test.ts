@@ -28,6 +28,41 @@ describe("buildDocsImpact", () => {
     expect(impact.missingDocsImpact).toEqual(["src/cli.ts"]);
   });
 
+  it("accepts source changes with a reviewed not-needed declaration", () => {
+    const impact = buildDocsImpact(
+      workspace(),
+      [document([], {
+        status: "not-needed",
+        reason: "Internal CLI plumbing only.",
+      })],
+      ["src/cli.ts", ".ledger/entries/0001-docs.md"],
+    );
+
+    expect(impact.declarations).toEqual([
+      {
+        entry: ".ledger/entries/0001-docs.md",
+        status: "not-needed",
+        reason: "Internal CLI plumbing only.",
+        docs: [],
+      },
+    ]);
+    expect(impact.missingDocsImpact).toEqual([]);
+  });
+
+  it("ignores TODO not-needed declarations", () => {
+    const impact = buildDocsImpact(
+      workspace(),
+      [document([], {
+        status: "not-needed",
+        reason: "TODO: explain why docs are not needed.",
+      })],
+      ["src/cli.ts", ".ledger/entries/0001-docs.md"],
+    );
+
+    expect(impact.declarations).toEqual([]);
+    expect(impact.missingDocsImpact).toEqual(["src/cli.ts"]);
+  });
+
   it("accepts source changes when docs files changed directly", () => {
     const impact = buildDocsImpact(workspace(), [document([])], [
       "src/cli.ts",
@@ -44,6 +79,18 @@ describe("formatDocsImpactReport", () => {
     const impact = buildDocsImpact(workspace(), [document([])], ["src/cli.ts"]);
     expect(formatDocsImpactReport(impact)).toContain("- `src/cli.ts`");
   });
+
+  it("renders explicit docs impact declarations", () => {
+    const impact = buildDocsImpact(
+      workspace(),
+      [document([], { status: "none", reason: "No durable docs affected." })],
+      ["src/cli.ts", ".ledger/entries/0001-docs.md"],
+    );
+
+    expect(formatDocsImpactReport(impact)).toContain(
+      ".ledger/entries/0001-docs.md`: none: No durable docs affected.",
+    );
+  });
 });
 
 function workspace(): LedgerWorkspace {
@@ -55,9 +102,25 @@ function workspace(): LedgerWorkspace {
   };
 }
 
-function document(docs: readonly string[]): ParsedLedgerDocument {
+function document(
+  docs: readonly string[],
+  docsImpact?: { readonly status: string; readonly reason?: string; readonly docs?: readonly string[] },
+): ParsedLedgerDocument {
   const docsLines =
     docs.length > 0 ? docs.map((filePath) => `  - "${filePath}"`).join("\n") : "  []";
+  const docsImpactLines = docsImpact
+    ? [
+        "docsImpact:",
+        `  status: "${docsImpact.status}"`,
+        ...(docsImpact.reason ? [`  reason: "${docsImpact.reason}"`] : []),
+        ...(docsImpact.docs
+          ? [
+              "  docs:",
+              ...docsImpact.docs.map((filePath) => `    - "${filePath}"`),
+            ]
+          : []),
+      ].join("\n")
+    : "";
   const raw = `---
 id: "0001"
 kind: "change"
@@ -69,6 +132,7 @@ files:
   - "src/cli.ts"
 docs:
 ${docsLines}
+${docsImpactLines}
 symbols: []
 commits: []
 ---

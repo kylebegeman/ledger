@@ -112,6 +112,7 @@ export interface LedgerFrontmatter {
   readonly supersedes?: unknown;
   readonly related?: unknown;
   readonly docs?: unknown;
+  readonly docsImpact?: unknown;
   readonly entries?: unknown;
   readonly staleRefs?: unknown;
   readonly [key: string]: unknown;
@@ -237,7 +238,17 @@ export interface LedgerDocsImpact {
   readonly ledgerFiles: readonly string[];
   readonly changedEntries: readonly string[];
   readonly referencedDocs: readonly string[];
+  readonly declarations: readonly LedgerDocsImpactDeclaration[];
   readonly missingDocsImpact: readonly string[];
+}
+
+export type LedgerDocsImpactStatus = "updated" | "not-needed" | "none";
+
+export interface LedgerDocsImpactDeclaration {
+  readonly entry: string;
+  readonly status: LedgerDocsImpactStatus;
+  readonly reason?: string;
+  readonly docs: readonly string[];
 }
 
 export interface LedgerCoverageResult {

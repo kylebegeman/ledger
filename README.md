@@ -307,6 +307,11 @@ symbols:
   - "ledger release"
 docs:
   - "docs/PRODUCT.md"
+docsImpact:
+  status: "updated"
+  reason: "Product docs changed with the release workflow."
+  docs:
+    - "docs/PRODUCT.md"
 commits: []
 release: "v0.1.1"
 ---

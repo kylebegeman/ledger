@@ -40,6 +40,7 @@ Shared fields:
 | `supersedes` | string array | no | Documents superseded by this one. |
 | `related` | string array | no | Other related Ledger document IDs. |
 | `docs` | string array | no | Durable docs related to this record. |
+| `docsImpact` | object | no | Explicit docs-impact declaration for changed source work. |
 | `staleRefs` | string array | no | Missing historical path references that have been acknowledged. Use `path` or `files:path`. |
 
 Projects can allow local strict metadata through `.ledger/config.yaml`:
@@ -81,6 +82,13 @@ files:
   - "src/cli.ts"
 symbols:
   - "run"
+docs:
+  - "docs/architecture/runtime.md"
+docsImpact:
+  status: "updated"
+  reason: "Runtime architecture docs changed with this behavior."
+  docs:
+    - "docs/architecture/runtime.md"
 commits: []
 release: null
 ```
@@ -155,6 +163,26 @@ files:
 Exact paths are preferred for ordinary changes. Patterns are intended for large
 migrations, generated surfaces, or directory-wide changes where listing every
 file would make entries less useful.
+
+### Docs Impact Declaration
+
+Source changes can satisfy `ledger docs impact --check` by changing docs files,
+referencing docs through `docs`, or adding an explicit docs-impact declaration:
+
+```yaml
+docsImpact:
+  status: "not-needed"
+  reason: "Internal command formatting only; durable behavior docs did not change."
+```
+
+Supported statuses:
+
+- `updated`: durable docs were updated or explicitly referenced.
+- `not-needed`: durable docs were reviewed and no update is needed.
+- `none`: no durable docs are affected.
+
+For `not-needed` and `none`, `reason` must be reviewed prose. Placeholder
+reasons beginning with `TODO` are ignored by docs-impact checks.
 
 ### Invariants Section
 

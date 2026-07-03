@@ -381,9 +381,10 @@ use generated indexes when conflict rules are promoted into the index model.
 
 Reports changed source files, changed docs files, changed Ledger entries, and
 docs referenced by those changed entries. With `--check`, it becomes a guard for
-source changes that have no visible docs impact. The command does not rewrite
-documentation; it only surfaces whether docs were touched or intentionally
-referenced.
+source changes that have no visible docs impact. Explicit `docsImpact`
+declarations can mark docs as updated, not needed, or unaffected when a reviewed
+reason is present. The command does not rewrite documentation; it only surfaces
+whether docs were touched, referenced, or intentionally declared unnecessary.
 
 ### `ledger docs classify`
 

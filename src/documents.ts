@@ -27,6 +27,7 @@ const coreFrontmatterFields = new Set([
   "supersedes",
   "related",
   "docs",
+  "docsImpact",
   "entries",
   "staleRefs",
 ]);

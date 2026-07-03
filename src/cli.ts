@@ -845,7 +845,7 @@ async function docsImpactCommand(parsed: ParsedArgs, context: RunContext): Promi
     console.log(JSON.stringify(impact, null, 2));
   } else {
     console.log(
-      `Ledger docs impact: ${impact.sourceFiles.length} source file(s), ${impact.docsFiles.length} docs file(s), ${impact.referencedDocs.length} referenced doc(s), ${impact.missingDocsImpact.length} missing docs impact.`,
+      `Ledger docs impact: ${impact.sourceFiles.length} source file(s), ${impact.docsFiles.length} docs file(s), ${impact.referencedDocs.length} referenced doc(s), ${impact.declarations.length} explicit declaration(s), ${impact.missingDocsImpact.length} missing docs impact.`,
     );
     for (const filePath of impact.missingDocsImpact) {
       console.log(`- missing docs impact: ${filePath}`);

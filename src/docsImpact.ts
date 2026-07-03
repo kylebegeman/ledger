@@ -3,6 +3,8 @@ import path from "node:path";
 import { isCoverageRequired } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import type {
+  LedgerDocsImpactDeclaration,
+  LedgerDocsImpactStatus,
   LedgerDocsImpact,
   LedgerWorkspace,
   ParsedLedgerDocument,
@@ -25,11 +27,18 @@ export function buildDocsImpact(
     .filter((document) => changedSet.has(normalizePath(document.relativePath)))
     .map((document) => normalizePath(document.relativePath))
     .sort();
+  const changedEntryDocuments = documents.filter((document) =>
+    changedSet.has(normalizePath(document.relativePath)),
+  );
   const referencedDocs = collectChangedEntryDocs(
-    documents.filter((document) => changedSet.has(normalizePath(document.relativePath))),
+    changedEntryDocuments,
     docsRoot,
   );
-  const hasDocsImpact = docsFiles.length > 0 || referencedDocs.length > 0;
+  const declarations = collectDocsImpactDeclarations(changedEntryDocuments, docsRoot);
+  const hasDocsImpact =
+    docsFiles.length > 0 ||
+    referencedDocs.length > 0 ||
+    declarations.length > 0;
 
   return {
     docsRoot,
@@ -39,6 +48,7 @@ export function buildDocsImpact(
     ledgerFiles,
     changedEntries,
     referencedDocs,
+    declarations,
     missingDocsImpact: sourceFiles.length > 0 && !hasDocsImpact ? sourceFiles : [],
   };
 }
@@ -70,6 +80,7 @@ export function formatDocsImpactReport(impact: LedgerDocsImpact): string {
     `- Ledger files: ${impact.ledgerFiles.length}`,
     `- Changed Ledger entries: ${impact.changedEntries.length}`,
     `- Referenced docs from changed entries: ${impact.referencedDocs.length}`,
+    `- Explicit docs impact declarations: ${impact.declarations.length}`,
     `- Missing docs impact: ${impact.missingDocsImpact.length}`,
     "",
     "## Source Files",
@@ -83,6 +94,10 @@ export function formatDocsImpactReport(impact: LedgerDocsImpact): string {
     "## Referenced Docs",
     "",
     ...listOrNone(impact.referencedDocs),
+    "",
+    "## Explicit Docs Impact",
+    "",
+    ...declarationLines(impact.declarations),
     "",
     "## Missing Docs Impact",
     "",
@@ -129,6 +144,65 @@ function collectChangedEntryDocs(
     }
   }
   return [...refs].sort();
+}
+
+function collectDocsImpactDeclarations(
+  documents: readonly ParsedLedgerDocument[],
+  docsRoot: string,
+): readonly LedgerDocsImpactDeclaration[] {
+  return documents
+    .map((document) => docsImpactDeclaration(document, docsRoot))
+    .filter((declaration): declaration is LedgerDocsImpactDeclaration => Boolean(declaration))
+    .sort((left, right) => left.entry.localeCompare(right.entry));
+}
+
+function docsImpactDeclaration(
+  document: ParsedLedgerDocument,
+  docsRoot: string,
+): LedgerDocsImpactDeclaration | undefined {
+  const value = document.frontmatter.docsImpact;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const status = docsImpactStatus(record.status);
+  if (!status) return undefined;
+  const reason = typeof record.reason === "string" ? record.reason.trim() : undefined;
+  if ((status === "not-needed" || status === "none") && !isReviewedReason(reason)) {
+    return undefined;
+  }
+  const docs = Array.isArray(record.docs)
+    ? record.docs.filter((item): item is string => typeof item === "string")
+        .map(normalizePath)
+        .filter((filePath) => isDocsPath(filePath, docsRoot))
+    : [];
+  return {
+    entry: normalizePath(document.relativePath),
+    status,
+    reason,
+    docs,
+  };
+}
+
+function docsImpactStatus(value: unknown): LedgerDocsImpactStatus | undefined {
+  if (value === "updated" || value === "not-needed" || value === "none") return value;
+  return undefined;
+}
+
+function isReviewedReason(reason: string | undefined): boolean {
+  if (!reason) return false;
+  return reason.length > 0 && !/^todo\b/i.test(reason);
+}
+
+function declarationLines(
+  declarations: readonly LedgerDocsImpactDeclaration[],
+): readonly string[] {
+  if (declarations.length === 0) return ["None."];
+  return declarations.map((declaration) => {
+    const reason = declaration.reason ? `: ${declaration.reason}` : "";
+    const docs = declaration.docs.length > 0
+      ? ` Docs: ${declaration.docs.map((doc) => `\`${doc}\``).join(", ")}.`
+      : "";
+    return `- \`${declaration.entry}\`: ${declaration.status}${reason}.${docs}`;
+  });
 }
 
 function listOrNone(values: readonly string[]): readonly string[] {
