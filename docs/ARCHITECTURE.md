@@ -261,6 +261,10 @@ command returns those metrics, and `ledger doctor` reports over-budget artifacts
 as warnings so projects can catch reader and token-cost growth before it becomes
 normal.
 
+Search-index and graph sidecars have golden-style contract tests. Those tests
+pin the deterministic JSON projections used by hosted readers and agent tools,
+while leaving the full HTML shell free to evolve.
+
 Core pipeline performance is measured separately from generated artifact size.
 `ledger metrics` times source reading, validation, index construction,
 static-reader model construction, and weighted search scoring against

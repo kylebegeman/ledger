@@ -132,7 +132,9 @@ automation.
 
 Render output is checked against `render.budgets` in `.ledger/config.yaml`.
 Budgets cover HTML bytes, search index bytes, graph bytes, total bytes, and
-write time.
+write time. Search-index and graph JSON projections are covered by
+golden-style artifact tests because they are the stable transport contract for
+hosted readers and agent tooling.
 
 ### `ledger serve`
 
