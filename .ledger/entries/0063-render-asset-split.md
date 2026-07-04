@@ -28,6 +28,7 @@ backlog:
   - "B005"
   - "B006"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0063: Render Asset Split

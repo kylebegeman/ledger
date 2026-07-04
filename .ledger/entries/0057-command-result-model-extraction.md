@@ -29,6 +29,7 @@ docsImpact:
 commits: []
 backlog:
   - "B005"
+release: "v0.1.13"
 ---
 
 # 0057: Command Result Model Extraction

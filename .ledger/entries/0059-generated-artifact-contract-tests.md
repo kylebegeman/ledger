@@ -30,6 +30,7 @@ backlog:
   - "B005"
   - "B006"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0059: Generated Artifact Contract Tests

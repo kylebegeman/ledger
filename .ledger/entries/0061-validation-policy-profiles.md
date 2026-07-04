@@ -33,6 +33,7 @@ docsImpact:
 backlog:
   - "B005"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0061: Validation Policy Profiles

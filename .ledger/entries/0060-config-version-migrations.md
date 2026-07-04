@@ -28,6 +28,7 @@ docsImpact:
 backlog:
   - "B005"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0060: Config Version Migrations

@@ -51,6 +51,7 @@ backlog:
   - "B003"
   - "B006"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0068: Search Result Agent Packets

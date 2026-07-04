@@ -56,6 +56,7 @@ backlog:
   - "B005"
   - "B006"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0056: CLI Search, Performance Metrics, And Template Renderer

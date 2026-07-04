@@ -29,6 +29,7 @@ backlog:
   - "B005"
   - "B006"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0064: Graph Invariant And Verification Nodes

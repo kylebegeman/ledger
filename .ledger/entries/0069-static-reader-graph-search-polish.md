@@ -33,6 +33,7 @@ docsImpact:
 backlog:
   - "B006"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0069: Static Reader Graph And Search Polish

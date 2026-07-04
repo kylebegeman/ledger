@@ -45,6 +45,7 @@ docsImpact:
 backlog:
   - "B005"
 commits: []
+release: "v0.1.13"
 ---
 
 # 0054: Explicit Docs Impact Declarations
