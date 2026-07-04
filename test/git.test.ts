@@ -69,6 +69,15 @@ describe("git status parsing", () => {
       insideWorkTree: true,
     });
   });
+
+  it("distinguishes Git availability from worktree membership", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-git-test-"));
+
+    await expect(inspectGit(tempDir)).resolves.toMatchObject({
+      available: true,
+      insideWorkTree: false,
+    });
+  });
 });
 
 async function git(...args: readonly string[]): Promise<void> {

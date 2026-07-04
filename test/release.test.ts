@@ -92,6 +92,15 @@ describe("assignReleaseInMarkdown", () => {
     expect(updated).toContain('release: "v1.2.3"');
     expect(updated).not.toContain("release: null");
   });
+
+  it("requires the closing frontmatter fence to be its own line", () => {
+    expect(() =>
+      assignReleaseInMarkdown(`---
+id: "0001"
+---not-a-fence
+`, "v1.2.3"),
+    ).toThrow("Cannot assign release: missing YAML frontmatter");
+  });
 });
 
 describe("assertReleaseDocumentWritable", () => {

@@ -48,7 +48,7 @@ export function searchLedgerIndex(
 ): readonly LedgerSearchResult[] {
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return [];
-  const limit = options.limit ?? 10;
+  const limit = validLimit(options.limit) ?? 10;
   return index
     .map((document) => scoreSearchDocument(document, normalizedQuery))
     .filter((result): result is LedgerSearchResult => result.score > 0)
@@ -59,6 +59,11 @@ export function searchLedgerIndex(
         left.path.localeCompare(right.path),
     )
     .slice(0, limit);
+}
+
+function validLimit(value: number | undefined): number | undefined {
+  if (!Number.isFinite(value) || value === undefined || value <= 0) return undefined;
+  return Math.floor(value);
 }
 
 export function scoreSearchDocument(

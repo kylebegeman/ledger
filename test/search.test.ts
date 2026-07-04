@@ -46,6 +46,19 @@ describe("searchLedgerIndex", () => {
     expect(matches[0]?.id).toBe("0001");
     expect(matches[0]?.matchedFields.length).toBeGreaterThan(0);
   });
+
+  it("ignores invalid limits instead of returning no matches", () => {
+    const model = buildStaticReaderModel(workspace(), [
+      document("0001", "Metrics CLI", {
+        files: ["src/metrics.ts"],
+        symbols: [],
+        summary: "Adds metrics.",
+      }),
+    ]);
+
+    expect(searchLedgerIndex(model.searchIndex, "metrics", { limit: Number.NaN })).toHaveLength(1);
+    expect(searchLedgerIndex(model.searchIndex, "metrics", { limit: 0 })).toHaveLength(1);
+  });
 });
 
 function workspace(projectRoot = "/tmp/ledger"): LedgerWorkspace {

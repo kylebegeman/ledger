@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { access } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { normalizePath } from "./documents.js";
@@ -31,8 +31,17 @@ export async function serveStaticReader(
       response.end("Not found\n");
       return;
     }
-    response.writeHead(200, { "content-type": contentType(filePath) });
-    createReadStream(filePath).pipe(response);
+    const stream = createReadStream(filePath);
+    stream.on("error", () => {
+      if (!response.headersSent) {
+        response.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
+      }
+      response.end("Could not read file\n");
+    });
+    stream.on("open", () => {
+      response.writeHead(200, { "content-type": contentType(filePath) });
+      stream.pipe(response);
+    });
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -53,7 +62,8 @@ export async function serveStaticReader(
 }
 
 async function resolveRequestPath(root: string, pathname: string): Promise<string | undefined> {
-  const decoded = decodeURIComponent(pathname);
+  const decoded = safeDecodeURIComponent(pathname);
+  if (!decoded) return undefined;
   const relative = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
   const candidate = path.resolve(root, relative);
   const normalizedRoot = path.resolve(root);
@@ -61,8 +71,17 @@ async function resolveRequestPath(root: string, pathname: string): Promise<strin
     return undefined;
   }
   try {
-    await access(candidate);
+    const stats = await stat(candidate);
+    if (!stats.isFile()) return undefined;
     return candidate;
+  } catch {
+    return undefined;
+  }
+}
+
+function safeDecodeURIComponent(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
   } catch {
     return undefined;
   }

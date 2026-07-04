@@ -94,6 +94,8 @@ describe("renderStaticReaderHtml", () => {
     expect(html).toContain("Missing refs");
     expect(html).toContain("Coverage");
     expect(html).toContain("Tag");
+    expect(html).toContain('data-areas="[&quot;cli&quot;]"');
+    expect(html).toContain("datasetList");
     expect(html).toContain('href="../entries/0001.md"');
     expect(html).toContain("Invariants");
     expect(html).toContain("Verification");

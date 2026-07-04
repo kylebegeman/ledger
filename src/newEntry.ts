@@ -104,14 +104,19 @@ export function nextEntryId(
   const width = workspace.config.ids.entryWidth;
   const prefix = workspace.config.ids.entryPrefix;
   const max = documents
-    .filter((document) => document.kind === "change")
     .map((document) => String(document.frontmatter.id ?? ""))
-    .map((id) => id.replace(prefix, ""))
-    .map((id) => Number.parseInt(id, 10))
-    .filter((id) => Number.isFinite(id))
+    .map((id) => entrySequenceNumber(id, prefix))
+    .filter((id): id is number => id !== undefined)
     .reduce((current, candidate) => Math.max(current, candidate), 0);
 
   return `${prefix}${String(max + 1).padStart(width, "0")}`;
+}
+
+function entrySequenceNumber(id: string, prefix: string): number | undefined {
+  if (prefix && !id.startsWith(prefix)) return undefined;
+  const value = prefix ? id.slice(prefix.length) : id;
+  if (!/^\d+$/.test(value)) return undefined;
+  return Number.parseInt(value, 10);
 }
 
 function slugify(input: string): string {

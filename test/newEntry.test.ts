@@ -3,9 +3,10 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readLedgerConfig } from "../src/config.js";
-import { createChangeEntry, inferAreas } from "../src/newEntry.js";
-import type { LedgerWorkspace } from "../src/types.js";
+import { defaultConfig, readLedgerConfig } from "../src/config.js";
+import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
+import { createChangeEntry, inferAreas, nextEntryId } from "../src/newEntry.js";
+import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
 import { initWorkspace } from "../src/workspace.js";
 
 let tempDir: string | undefined;
@@ -83,7 +84,66 @@ describe("createChangeEntry", () => {
       ]),
     ).toEqual(["docs", "runtime", "tests"]);
   });
+
+  it("allocates IDs across all entry-like records", () => {
+    expect(
+      nextEntryId(workspaceWithConfig(), [
+        document("0001", "change"),
+        document("0002", "product-note"),
+      ]),
+    ).toBe("0003");
+  });
+
+  it("only strips configured ID prefixes from the start of IDs", () => {
+    expect(
+      nextEntryId(workspaceWithConfig({
+        ...defaultConfig,
+        ids: { ...defaultConfig.ids, entryPrefix: "C" },
+      }), [
+        document("AC002", "change"),
+        document("C001", "change"),
+      ]),
+    ).toBe("C0002");
+  });
 });
+
+function workspaceWithConfig(config = defaultConfig): LedgerWorkspace {
+  return {
+    projectRoot: "/tmp/ledger",
+    ledgerRoot: "/tmp/ledger/.ledger",
+    configPath: "/tmp/ledger/.ledger/config.yaml",
+    config,
+  };
+}
+
+function document(id: string, kind: "change" | "product-note"): ParsedLedgerDocument {
+  const raw = `---
+id: "${id}"
+kind: "${kind}"
+title: "Entry ${id}"
+date: "2026-07-03"
+updated: "2026-07-03"
+status: "landed"
+areas: ["test"]
+files: []
+symbols: []
+commits: []
+---
+
+# ${id}: Entry ${id}
+`;
+  const parsed = parseMarkdownWithFrontmatter(raw);
+  return {
+    absolutePath: `/tmp/ledger/.ledger/entries/${id}.md`,
+    relativePath: `.ledger/entries/${id}.md`,
+    raw,
+    frontmatterRaw: parsed.frontmatterRaw,
+    frontmatter: parsed.frontmatter,
+    body: parsed.body,
+    sections: parsed.sections,
+    kind,
+  };
+}
 
 async function readWorkspace(): Promise<LedgerWorkspace> {
   if (!tempDir) throw new Error("missing tempDir");

@@ -37,6 +37,24 @@ One.
     );
   });
 
+  it("supports CRLF frontmatter fences", () => {
+    const parsed = parseMarkdownWithFrontmatter(
+      "---\r\nid: \"0001\"\r\nkind: \"change\"\r\ntitle: \"Test\"\r\ndate: \"2026-06-29\"\r\nstatus: \"landed\"\r\n---\r\n\r\n## Summary\r\n\r\nOne.\r\n",
+    );
+
+    expect(parsed.frontmatter.id).toBe("0001");
+    expect(parsed.sections[0]?.body).toBe("One.");
+  });
+
+  it("requires the closing frontmatter fence to be its own line", () => {
+    expect(() =>
+      parseMarkdownWithFrontmatter(`---
+id: "0001"
+---not-a-fence
+`),
+    ).toThrow(/missing closing YAML frontmatter fence/);
+  });
+
   it("prefixes YAML parse errors with the document path", () => {
     expect(() =>
       parseMarkdownWithFrontmatter(

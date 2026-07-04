@@ -49,7 +49,7 @@ describe("CLI end-to-end", () => {
     expect(search.stdout).toContain("Fixture change");
 
     const searchPacket = await captureRun(
-      ["search-packet", "fixture", "--limit", "1", "--budget", "1200"],
+      ["search-packet", "fixture", "--limit=1", "--budget=1200"],
       tempDir,
     );
     expect(searchPacket.exitCode).toBe(0);

@@ -935,7 +935,15 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       if (arg) positionals.push(arg);
       continue;
     }
-    const flag = arg.slice(2);
+    const rawFlag = arg.slice(2);
+    const equalsIndex = rawFlag.indexOf("=");
+    if (equalsIndex > 0) {
+      const flag = rawFlag.slice(0, equalsIndex);
+      const value = rawFlag.slice(equalsIndex + 1);
+      flags[flag] = [...(flags[flag] ?? []), value];
+      continue;
+    }
+    const flag = rawFlag;
     const next = rest[index + 1];
     if (next && !next.startsWith("--")) {
       flags[flag] = [...(flags[flag] ?? []), next];
@@ -959,6 +967,7 @@ function flagValues(parsed: ParsedArgs, flag: string): readonly string[] {
 function numberFlag(parsed: ParsedArgs, flag: string): number | undefined {
   const value = flagValues(parsed, flag)[0];
   if (!value) return undefined;
+  if (!/^[1-9]\d*$/.test(value)) return undefined;
   const parsedValue = Number.parseInt(value, 10);
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : undefined;
 }
@@ -1299,8 +1308,9 @@ targets, superseded relationships, stale symbols, and release verification gaps.
 Usage:
   ledger mcp
 
-Starts a stdio Model Context Protocol server exposing read-only Ledger tools for
-agents: validate, query, explain, conflict, packet, and docs impact.`;
+Starts a stdio Model Context Protocol server exposing Ledger tools for agents:
+validate, query, explain, conflict, packet, search-packet, docs impact, and
+integrity verification.`;
     case "unreleased":
       return `Ledger unreleased
 

@@ -113,7 +113,7 @@ export async function assignEntriesToRelease(
 
 export function assignReleaseInMarkdown(markdown: string, version: string): string {
   validateReleaseVersion(version);
-  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
+  const match = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?=\r?\n|$)/.exec(markdown);
   if (!match) throw new Error("Cannot assign release: missing YAML frontmatter");
   const frontmatter = match[1] ?? "";
   const releaseLine = `release: "${escapeYamlString(version)}"`;

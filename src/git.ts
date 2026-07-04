@@ -30,18 +30,33 @@ export interface GitInspection {
 
 export async function inspectGit(cwd: string): Promise<GitInspection> {
   try {
-    const [{ stdout: insideStdout }, { stdout: rootStdout }] = await Promise.all([
-      execFileAsync("git", ["rev-parse", "--is-inside-work-tree"], { cwd }),
-      execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd }),
-    ]);
+    await execFileAsync("git", ["--version"], { cwd });
+  } catch (error) {
+    return {
+      available: false,
+      insideWorkTree: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  try {
+    const { stdout: insideStdout } = await execFileAsync(
+      "git",
+      ["rev-parse", "--is-inside-work-tree"],
+      { cwd },
+    );
+    const insideWorkTree = insideStdout.trim() === "true";
+    const { stdout: rootStdout } = insideWorkTree
+      ? await execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd })
+      : { stdout: "" };
     return {
       available: true,
-      insideWorkTree: insideStdout.trim() === "true",
+      insideWorkTree,
       root: rootStdout.trim() || undefined,
     };
   } catch (error) {
     return {
-      available: false,
+      available: true,
       insideWorkTree: false,
       error: error instanceof Error ? error.message : String(error),
     };

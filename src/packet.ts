@@ -88,11 +88,12 @@ export function buildSearchAgentPacket(
   }
 
   const renderedById = new Map(model.documents.map((document) => [document.id, document]));
-  const maxEntries = options.maxEntries ?? options.limit;
+  const searchLimit = positiveInteger(options.limit) ?? positiveInteger(options.maxEntries) ?? 10;
+  const maxEntries = positiveInteger(options.maxEntries) ?? searchLimit;
   const matches = searchLedgerIndex(model.searchIndex, normalizedQuery, {
-    limit: options.limit ?? maxEntries,
+    limit: Number.MAX_SAFE_INTEGER,
   });
-  const allEntries = matches.map((match) => {
+  const candidateEntries = matches.slice(0, searchLimit).map((match) => {
     const rendered = renderedById.get(match.id);
     return {
       id: match.id,
@@ -110,16 +111,21 @@ export function buildSearchAgentPacket(
     };
   });
   const target = `search:${normalizedQuery}`;
-  const entries = selectPacketEntries(allEntries, target, { ...options, maxEntries });
+  const entries = selectPacketEntries(candidateEntries, target, { ...options, maxEntries });
 
   return {
     target,
     entries,
     estimatedTokens: estimatePacketTokens(target, entries),
     budgetTokens: options.budgetTokens,
-    truncated: entries.length < allEntries.length,
-    omittedEntries: Math.max(0, allEntries.length - entries.length),
+    truncated: entries.length < matches.length,
+    omittedEntries: Math.max(0, matches.length - entries.length),
   };
+}
+
+function positiveInteger(value: number | undefined): number | undefined {
+  if (!Number.isFinite(value) || value === undefined || value <= 0) return undefined;
+  return Math.floor(value);
 }
 
 export function formatAgentPacket(packet: LedgerAgentPacket): string {

@@ -12,18 +12,21 @@ export function parseMarkdownWithFrontmatter(
   raw: string,
   filePath = "document.md",
 ): ParsedMarkdownWithFrontmatter {
-  if (!raw.startsWith("---\n") && raw.trim() !== "---") {
+  const openingFence = /^---[ \t]*(?:\r?\n)/.exec(raw);
+  if (!openingFence) {
     throw new Error(`${filePath}: missing YAML frontmatter fence`);
   }
 
-  const closingFenceIndex = raw.indexOf("\n---", 4);
-  if (closingFenceIndex === -1) {
+  const frontmatterStart = openingFence[0].length;
+  const closingFence = /\r?\n---[ \t]*(?:\r?\n|$)/g;
+  closingFence.lastIndex = frontmatterStart;
+  const closingMatch = closingFence.exec(raw);
+  if (!closingMatch) {
     throw new Error(`${filePath}: missing closing YAML frontmatter fence`);
   }
 
-  const frontmatterRaw = raw.slice(4, closingFenceIndex).trim();
-  const bodyStart = raw.indexOf("\n", closingFenceIndex + 1);
-  const body = bodyStart === -1 ? "" : raw.slice(bodyStart + 1);
+  const frontmatterRaw = raw.slice(frontmatterStart, closingMatch.index).trim();
+  const body = raw.slice(closingMatch.index + closingMatch[0].length);
   let parsed: unknown;
   try {
     parsed = parseYaml(frontmatterRaw);

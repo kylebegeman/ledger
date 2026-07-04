@@ -41,6 +41,14 @@ describe("CLI help", () => {
     expect(result.stdout).toContain("--budget");
   });
 
+  it("prints MCP help with all agent retrieval tools", async () => {
+    const result = await captureRun(["help", "mcp"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("search-packet");
+    expect(result.stdout).toContain("integrity verification");
+  });
+
   it("prints nested docs help from command flags", async () => {
     const result = await captureRun(["docs", "impact", "--help"]);
 

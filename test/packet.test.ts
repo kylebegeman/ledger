@@ -97,6 +97,32 @@ describe("agent packets", () => {
     });
     expect(formatAgentPacket(packet)).toContain("Matched fields");
   });
+
+  it("reports omitted search matches beyond the selected packet entries", () => {
+    const model = buildStaticReaderModel(workspace(), [
+      document("0001", "CLI search one"),
+      document("0002", "CLI search two"),
+      document("0003", "CLI search three"),
+    ]);
+
+    const packet = buildSearchAgentPacket(model, "cli", { limit: 1 });
+
+    expect(packet.entries).toHaveLength(1);
+    expect(packet.truncated).toBe(true);
+    expect(packet.omittedEntries).toBe(2);
+  });
+
+  it("uses the default search packet limit when limits are invalid", () => {
+    const model = buildStaticReaderModel(workspace(), [
+      document("0001", "CLI search one"),
+      document("0002", "CLI search two"),
+    ]);
+
+    const packet = buildSearchAgentPacket(model, "cli", { limit: Number.NaN });
+
+    expect(packet.entries).toHaveLength(2);
+    expect(packet.truncated).toBe(false);
+  });
 });
 
 function workspace(): LedgerWorkspace {

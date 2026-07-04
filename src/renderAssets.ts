@@ -319,6 +319,15 @@ export const staticReaderRuntime = `    let searchIndexPromise;
     const resultCount = document.getElementById("result-count");
     const empty = document.getElementById("empty");
 
+    function datasetList(entry, key) {
+      try {
+        const parsed = JSON.parse(entry.dataset[key] || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
     function matches(entry, matchedScores, search) {
       const kind = controls.kind.value;
       const status = controls.status.value;
@@ -333,7 +342,7 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       if (!matchedScores && search && !entry.dataset.search.includes(search)) return false;
       if (kind !== "all" && entry.dataset.kind !== kind) return false;
       if (status !== "all" && entry.dataset.status !== status) return false;
-      if (area !== "all" && !entry.dataset.areas.split(" ").includes(area)) return false;
+      if (area !== "all" && !datasetList(entry, "areas").includes(area)) return false;
       if (release === "__none" && entry.dataset.release !== "") return false;
       if (release !== "all" && release !== "__none" && entry.dataset.release !== release) return false;
       if (warning === "with" && entry.dataset.warnings === "0") return false;
@@ -343,7 +352,7 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       if (duplicate === "duplicate" && entry.dataset.duplicateId !== "true") return false;
       if (duplicate === "unique" && entry.dataset.duplicateId === "true") return false;
       if (coverage !== "all" && entry.dataset.coverage !== coverage) return false;
-      if (tag !== "all" && !entry.dataset.tags.split(" ").includes(tag)) return false;
+      if (tag !== "all" && !datasetList(entry, "tags").includes(tag)) return false;
       return true;
     }
 

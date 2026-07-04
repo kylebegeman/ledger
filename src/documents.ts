@@ -30,6 +30,7 @@ const coreFrontmatterFields = new Set([
   "docsImpact",
   "entries",
   "staleRefs",
+  "stale_refs",
 ]);
 
 export async function readLedgerDocuments(
