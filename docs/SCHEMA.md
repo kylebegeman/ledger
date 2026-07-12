@@ -41,7 +41,7 @@ Shared fields:
 | `related` | string array | no | Other related Ledger document IDs. |
 | `docs` | string array | no | Durable docs related to this record. |
 | `docsImpact` | object | no | Explicit docs-impact declaration for changed source work. |
-| `staleRefs` | string array | no | Missing historical path references that have been acknowledged. Use `path` or `files:path`. |
+| `staleRefs` | string array | no | Historical path or symbol references that are intentionally stale. Use `path`, `files:path`, or `symbols:name`. |
 
 Projects can allow local strict metadata through `.ledger/config.yaml`:
 

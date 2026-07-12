@@ -1,7 +1,7 @@
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isCoveragePattern } from "./coverage.js";
-import { normalizeDocument, normalizePath } from "./documents.js";
+import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import { extractBullets, getSectionBody } from "./query.js";
 import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
 import type {
@@ -85,8 +85,14 @@ export async function detectStaleKnowledge(
     }
 
     if (document.symbols.length > 0 && document.files.length > 0) {
+      const parsed = parsedByPath.get(document.path);
+      const acknowledged = new Set([
+        ...stringArrayValue(parsed?.frontmatter.staleRefs),
+        ...stringArrayValue(parsed?.frontmatter.stale_refs),
+      ]);
       const missingSymbols = await symbolsMissingFromFiles(workspace, document.files, document.symbols);
       for (const symbol of missingSymbols) {
+        if (acknowledged.has(symbol) || acknowledged.has(`symbols:${symbol}`)) continue;
         issues.push({
           kind: "stale-symbol",
           path: document.path,

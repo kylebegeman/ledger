@@ -44,9 +44,31 @@ describe("stale knowledge detection", () => {
     }));
     expect(formatStaleReport(report)).toContain("Ledger Stale Knowledge Report");
   });
+
+  it("honors explicit historical symbol acknowledgements", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-ack-test-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "cli.ts"), "export function run() {}\n");
+    await writeFile(
+      path.join(tempDir, ".ledger", "entries", "0001-stale.md"),
+      entry({ acknowledgeSymbol: true }),
+      "utf8",
+    );
+
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const validation = validateDocuments(workspace, documents);
+    const report = await detectStaleKnowledge(workspace, documents, validation);
+
+    expect(report.issues).not.toContainEqual(expect.objectContaining({
+      kind: "stale-symbol",
+      target: "oldRun",
+    }));
+  });
 });
 
-function entry(): string {
+function entry(options: { readonly acknowledgeSymbol?: boolean } = {}): string {
   return `---
 id: "0001"
 kind: "change"
@@ -61,7 +83,7 @@ symbols:
   - "oldRun"
 decisions:
   - "D999"
-commits: []
+${options.acknowledgeSymbol ? 'staleRefs:\n  - "symbols:oldRun"\n' : ""}commits: []
 ---
 
 # 0001: Stale Fixture

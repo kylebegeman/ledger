@@ -18,6 +18,9 @@ symbols:
   - "printJsonError"
   - "errorCode"
   - "ledger --json"
+staleRefs:
+  - "symbols:printJsonError"
+  - "symbols:errorCode"
 docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"
