@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { normalizePath } from "./documents.js";
+import { LedgerError } from "./machine.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import type { LedgerWorkspace } from "./types.js";
 
@@ -213,7 +214,11 @@ async function prepareChanges(
   const prepared: PreparedChange[] = [];
   for (const change of changes) {
     const normalized = normalizePath(change.path);
-    if (seen.has(normalized)) throw new Error(`Duplicate transaction path: ${normalized}`);
+    if (seen.has(normalized)) {
+      throw new LedgerError("invalid-argument", `Duplicate transaction path: ${normalized}`, {
+        path: normalized,
+      });
+    }
     seen.add(normalized);
     const targetPath = await resolveSafeProjectPath(workspace.projectRoot, normalized, "transaction path");
     await mkdir(path.dirname(targetPath), { recursive: true });

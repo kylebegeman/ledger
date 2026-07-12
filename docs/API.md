@@ -71,6 +71,26 @@ Good candidates:
 
 Small one-off commands can stay in `src/cli.ts` until reuse is clear.
 
+## Machine Result Envelope
+
+CLI `--json` output and MCP JSON text payloads share this top-level contract:
+
+```ts
+type LedgerMachineResult<T> =
+  | { schemaVersion: 1; ok: true; command: string; data: T }
+  | {
+      schemaVersion: 1;
+      ok: false;
+      command: string;
+      error: { code: string; message: string; details?: Record<string, unknown> };
+    };
+```
+
+Use `machineSuccess`, `machineFailure`, and `normalizeLedgerError` when building
+integrations that need the same contract. `LedgerError` carries a stable code
+and optional safe details. System errors are normalized without copying
+arbitrary fields from thrown objects.
+
 ## Token Boundaries
 
 Agent-facing APIs should avoid forcing consumers to load the full ledger when a

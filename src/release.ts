@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
+import { LedgerError } from "./machine.js";
 import type {
   LedgerWorkspace,
   NormalizedLedgerDocument,
@@ -101,7 +102,10 @@ export async function assertReleaseDocumentWritable(
   } catch {
     return;
   }
-  throw new Error(`Release document already exists: ${normalizePath(path.relative(workspace.projectRoot, releasePath))}`);
+  const relativePath = normalizePath(path.relative(workspace.projectRoot, releasePath));
+  throw new LedgerError("release-exists", `Release document already exists: ${relativePath}`, {
+    path: relativePath,
+  });
 }
 
 export async function assignEntriesToRelease(
@@ -136,7 +140,11 @@ export async function applyRelease(
     const parsedByPath = new Map(documents.map((document) => [normalizePath(document.relativePath), document]));
     for (const entry of release.entries) {
       const parsed = parsedByPath.get(normalizePath(entry.path));
-      if (!parsed) throw new Error(`Cannot assign missing Ledger entry: ${entry.path}`);
+      if (!parsed) {
+        throw new LedgerError("invalid-argument", `Cannot assign missing Ledger entry: ${entry.path}`, {
+          path: entry.path,
+        });
+      }
       changes.push({
         path: entry.path,
         content: assignReleaseInMarkdown(parsed.raw, release.version),
@@ -174,7 +182,9 @@ export async function applyRelease(
 export function assignReleaseInMarkdown(markdown: string, version: string): string {
   validateReleaseVersion(version);
   const match = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?=\r?\n|$)/.exec(markdown);
-  if (!match) throw new Error("Cannot assign release: missing YAML frontmatter");
+  if (!match) {
+    throw new LedgerError("invalid-markdown", "Cannot assign release: missing YAML frontmatter");
+  }
   const frontmatter = match[1] ?? "";
   const releaseLine = `release: "${escapeYamlString(version)}"`;
   const updatedFrontmatter = /^\s*release\s*:/m.test(frontmatter)
@@ -231,7 +241,7 @@ export function formatReleaseMarkdown(
 
 export function validateReleaseVersion(version: string): void {
   if (!/^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
-    throw new Error(`Invalid release version: ${version}`);
+    throw new LedgerError("invalid-release", `Invalid release version: ${version}`, { version });
   }
 }
 

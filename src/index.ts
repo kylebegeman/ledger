@@ -33,6 +33,13 @@ export { buildDocsImpact } from "./docsImpact.js";
 export { explainFile, buildIndexes, writeIndexes } from "./indexer.js";
 export { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
 export {
+  LedgerError,
+  ledgerMachineSchemaVersion,
+  machineFailure,
+  machineSuccess,
+  normalizeLedgerError,
+} from "./machine.js";
+export {
   createLedgerMcpServer,
   runLedgerMcpTool,
   startLedgerMcpServer,
@@ -87,6 +94,7 @@ export type * from "./docsImpact.js";
 export type * from "./doctor.js";
 export type * from "./integrity.js";
 export type * from "./mcp.js";
+export type * from "./machine.js";
 export type * from "./packet.js";
 export type * from "./performance.js";
 export type * from "./query.js";

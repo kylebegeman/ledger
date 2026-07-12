@@ -509,11 +509,13 @@ It can warn, rather than fail, for:
 - empty verification details
 - unknown future frontmatter fields
 
-When a command is invoked with `--json`, operational failures should be emitted
-as structured JSON with `ok: false`, a stable-ish error `code`, and a human
-message. This lets agents distinguish workspace discovery failures, invalid
-config, duplicate release output, and generic operational failures without
-scraping stderr. Human output should remain concise on stderr.
+When a command is invoked with `--json`, success and failure use a
+schema-versioned envelope containing `schemaVersion`, `ok`, and `command`.
+Success data lives under `data`; failures contain a typed error `code`, human
+message, and optional safe details. MCP JSON text payloads use the same shape.
+This lets agents distinguish workspace discovery, invalid config, concurrent
+write, release output, filesystem, and generic failures without scraping stderr
+or depending on message wording. Human output remains concise on stderr.
 
 ## Extension Points
 

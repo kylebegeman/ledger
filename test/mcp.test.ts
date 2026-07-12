@@ -36,6 +36,28 @@ describe("Ledger MCP", () => {
     });
   });
 
+  it("wraps successes and failures in the versioned machine envelope", async () => {
+    const projectRoot = await createWorkspace();
+    const success = await callToolEnvelope("ledger_validate", { projectRoot });
+    expect(success).toMatchObject({
+      schemaVersion: 1,
+      ok: true,
+      command: "ledger_validate",
+    });
+
+    const result = await runLedgerMcpTool("ledger_packet", {});
+    const [content] = result.content;
+    if (!content || content.type !== "text") throw new Error("Expected text MCP result");
+    const failure = JSON.parse(content.text);
+    expect(result.isError).toBe(true);
+    expect(failure).toMatchObject({
+      schemaVersion: 1,
+      ok: false,
+      command: "ledger_packet",
+      error: { code: "invalid-argument" },
+    });
+  });
+
   it("queries records as an MCP tool", async () => {
     const projectRoot = await createWorkspace();
     const payload = await callTool("ledger_query", {
@@ -150,6 +172,12 @@ describe("Ledger MCP", () => {
 });
 
 async function callTool(name: Parameters<typeof runLedgerMcpTool>[0], args: unknown) {
+  const envelope = await callToolEnvelope(name, args);
+  if (!envelope.ok) throw new Error(envelope.error?.message ?? "MCP tool failed");
+  return envelope.data;
+}
+
+async function callToolEnvelope(name: Parameters<typeof runLedgerMcpTool>[0], args: unknown) {
   const result = await runLedgerMcpTool(name, args);
   const [content] = result.content;
   if (!content || content.type !== "text") {

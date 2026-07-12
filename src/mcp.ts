@@ -7,6 +7,7 @@ import { buildDocsImpact } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { explainFile } from "./indexer.js";
 import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
+import { LedgerError, machineFailure, machineSuccess } from "./machine.js";
 import { buildAgentPacket, buildSearchAgentPacket, writeAgentPacketReport } from "./packet.js";
 import { normalizeKindFilter, queryDocuments } from "./query.js";
 import { buildStaticReaderModel } from "./render.js";
@@ -217,6 +218,18 @@ export async function runLedgerMcpTool(
   args: unknown,
   options: LedgerMcpOptions = {},
 ): Promise<CallToolResult> {
+  try {
+    return await executeLedgerMcpTool(name, args, options);
+  } catch (error) {
+    return jsonToolError(name, error);
+  }
+}
+
+async function executeLedgerMcpTool(
+  name: LedgerMcpToolName,
+  args: unknown,
+  options: LedgerMcpOptions,
+): Promise<CallToolResult> {
   const parsed = parseArgs(name, args);
   const cwd = parsed.projectRoot ?? options.cwd ?? process.cwd();
   const workspace = await findWorkspace(cwd);
@@ -226,7 +239,7 @@ export async function runLedgerMcpTool(
     case "ledger_validate": {
       const result = validateDocuments(workspace, documents);
       if (parsed.writeReport) await writeValidationReport(workspace, result);
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           ok: result.errors.length === 0,
           projectRoot: workspace.projectRoot,
@@ -256,7 +269,7 @@ export async function runLedgerMcpTool(
         text: parsed.text,
       });
       const returned = typeof parsed.limit === "number" ? matches.slice(0, parsed.limit) : matches;
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           total: matches.length,
           returned: returned.length,
@@ -270,7 +283,7 @@ export async function runLedgerMcpTool(
     case "ledger_explain": {
       const target = requiredString(parsed.path, "path");
       const matches = explainFile(documents, target);
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           target,
           matches: matches.length,
@@ -285,7 +298,7 @@ export async function runLedgerMcpTool(
       const reportPath = parsed.writeReport
         ? await writeConflictReport(workspace, targets)
         : undefined;
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           targets: targets.length,
           entries: targets.reduce((sum, target) => sum + target.entries.length, 0),
@@ -304,7 +317,7 @@ export async function runLedgerMcpTool(
       const reportPath = parsed.writeReport
         ? await writeAgentPacketReport(workspace, packet)
         : undefined;
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           target: packet.target,
           entries: packet.entries.length,
@@ -330,7 +343,7 @@ export async function runLedgerMcpTool(
       const reportPath = parsed.writeReport
         ? await writeAgentPacketReport(workspace, packet)
         : undefined;
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           target: packet.target,
           entries: packet.entries.length,
@@ -350,7 +363,7 @@ export async function runLedgerMcpTool(
         staged: parsed.staged,
       });
       const impact = buildDocsImpact(workspace, documents, changedFiles);
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           sourceFiles: impact.sourceFiles.length,
           docsFiles: impact.docsFiles.length,
@@ -366,7 +379,7 @@ export async function runLedgerMcpTool(
       const written = parsed.writeArtifacts
         ? await writeIntegrityArtifacts(workspace, report)
         : undefined;
-      return jsonToolResult({
+      return jsonToolResult(name, {
         summary: {
           documents: report.documents.length,
           catalogHash: report.catalogHash,
@@ -408,18 +421,34 @@ function parseKind(value: LedgerDocumentKind | undefined): LedgerDocumentKind | 
   return normalizeKindFilter(value);
 }
 
-function jsonToolResult(value: unknown): CallToolResult {
+function jsonToolResult(command: string, value: unknown): CallToolResult {
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify(value, null, 2),
+        text: JSON.stringify(machineSuccess(command, value), null, 2),
+      },
+    ],
+  };
+}
+
+function jsonToolError(command: string, error: unknown): CallToolResult {
+  return {
+    isError: true,
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(machineFailure(command, error), null, 2),
       },
     ],
   };
 }
 
 function requiredString(value: string | undefined, fieldName: string): string {
-  if (!value) throw new Error(`Missing required MCP argument: ${fieldName}`);
+  if (!value) {
+    throw new LedgerError("invalid-argument", `Missing required MCP argument: ${fieldName}`, {
+      fieldName,
+    });
+  }
   return value;
 }

@@ -307,18 +307,27 @@ ledger docs impact --help
 ledger release --help
 ```
 
-Commands that support `--json` return machine-readable failures for operational
-errors:
+Commands that support `--json` return a versioned envelope for both success and
+failure. MCP tools use the same envelope:
 
 ```json
 {
+  "schemaVersion": 1,
   "ok": false,
+  "command": "validate",
   "error": {
     "code": "workspace-not-found",
-    "message": "Could not find .ledger/config.yaml from /path/to/repo"
+    "message": "Could not find .ledger/config.yaml from /path/to/repo",
+    "details": {
+      "startDir": "/path/to/repo"
+    }
   }
 }
 ```
+
+Successful envelopes place command-specific output under `data`. Error codes
+come from typed boundaries; human message wording is not used to classify
+failures.
 
 ## Adoption And Migration
 

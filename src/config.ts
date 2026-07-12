@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
 import { assertSafeProjectRelativePath, normalizeProjectRelativePath } from "./projectPaths.js";
+import { LedgerError } from "./machine.js";
 import type {
   LedgerConfig,
   LedgerDocsAdoption,
@@ -148,7 +149,11 @@ export const defaultConfig: LedgerConfig = {
 export async function readLedgerConfig(configPath: string): Promise<LedgerConfig> {
   const configStats = await stat(configPath);
   if (configStats.size > maxConfigBytes) {
-    throw new Error(`${configPath}: config exceeds ${maxConfigBytes} bytes`);
+    throw new LedgerError(
+      "resource-limit-exceeded",
+      `${configPath}: config exceeds ${maxConfigBytes} bytes`,
+      { configPath, maxConfigBytes },
+    );
   }
   const raw = await readFile(configPath, "utf8");
   let parsed: unknown;
@@ -156,14 +161,18 @@ export async function readLedgerConfig(configPath: string): Promise<LedgerConfig
     parsed = parseYaml(raw, { maxAliasCount: maxYamlAliases });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${configPath}: invalid YAML: ${message}`);
+    throw new LedgerError("invalid-yaml", `${configPath}: invalid YAML: ${message}`, {
+      configPath,
+    }, { cause: error });
   }
   return parseLedgerConfig(parsed, configPath);
 }
 
 export function parseLedgerConfig(parsed: unknown, configPath = "config.yaml"): LedgerConfig {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`${configPath}: config must be a YAML object`);
+    throw new LedgerError("invalid-config", `${configPath}: config must be a YAML object`, {
+      configPath,
+    });
   }
   const source = parsed as Record<string, unknown>;
   validatePartialConfig(source, configPath);
@@ -623,5 +632,5 @@ function isSchemaFieldType(value: unknown): value is LedgerSchemaFieldType {
 }
 
 function fail(configPath: string, message: string): never {
-  throw new Error(`${configPath}: ${message}`);
+  throw new LedgerError("invalid-config", `${configPath}: ${message}`, { configPath });
 }

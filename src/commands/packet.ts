@@ -7,6 +7,7 @@ import {
   type LedgerAgentPacketOptions,
 } from "../packet.js";
 import type { LedgerWorkspace } from "../types.js";
+import { LedgerError } from "../machine.js";
 
 export interface LedgerPacketCommandOptions extends LedgerAgentPacketOptions {
   readonly writeReport?: boolean;
@@ -24,7 +25,7 @@ export async function runLedgerPacketCommand(
 ): Promise<LedgerPacketCommandResult> {
   const normalizedTarget = target.trim();
   if (!normalizedTarget) {
-    throw new Error("Packet target must not be empty");
+    throw new LedgerError("invalid-argument", "Packet target must not be empty");
   }
   const documents = await readLedgerDocuments(workspace);
   const packet = buildAgentPacket(documents, normalizedTarget, {

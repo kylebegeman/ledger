@@ -12,6 +12,7 @@ export * from "./fileTransaction.js";
 export * from "./git.js";
 export * from "./indexer.js";
 export * from "./integrity.js";
+export * from "./machine.js";
 export * from "./mcp.js";
 export * from "./migrate.js";
 export * from "./newEntry.js";

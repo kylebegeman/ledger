@@ -2,6 +2,7 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { defaultConfig, readLedgerConfig } from "./config.js";
 import { assertNoEscapingSymlink, resolveProjectPath } from "./projectPaths.js";
+import { LedgerError } from "./machine.js";
 import type { LedgerDocsAdoption, LedgerWorkspace } from "./types.js";
 
 const configRelativePath = path.join(".ledger", "config.yaml");
@@ -48,7 +49,11 @@ export async function findProjectRoot(startDir: string): Promise<string> {
 
     const parent = path.dirname(current);
     if (parent === current) {
-      throw new Error(`Could not find ${configRelativePath} from ${startDir}`);
+      throw new LedgerError(
+        "workspace-not-found",
+        `Could not find ${configRelativePath} from ${startDir}`,
+        { startDir },
+      );
     }
     current = parent;
   }

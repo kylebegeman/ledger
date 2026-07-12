@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseMarkdownWithFrontmatter } from "./frontmatter.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
+import { LedgerError } from "./machine.js";
 import type {
   LedgerDocumentKind,
   LedgerWorkspace,
@@ -59,20 +60,24 @@ export async function readLedgerDocuments(
     });
     for (const absolutePath of files) {
       if (documents.length >= workspace.config.limits.maxDocuments) {
-        throw new Error(`Ledger document limit exceeded (${workspace.config.limits.maxDocuments})`);
+        throw resourceLimitError("documents", workspace.config.limits.maxDocuments);
       }
       const fileStats = await stat(absolutePath);
       if (fileStats.size > workspace.config.limits.maxDocumentBytes) {
-        throw new Error(
+        throw new LedgerError(
+          "resource-limit-exceeded",
           `${normalizePath(path.relative(workspace.projectRoot, absolutePath))}: document exceeds ${workspace.config.limits.maxDocumentBytes} bytes`,
+          { limit: workspace.config.limits.maxDocumentBytes, kind: "document-bytes" },
         );
       }
       const raw = await readFile(absolutePath, "utf8");
       const bytes = Buffer.byteLength(raw, "utf8");
       totalBytes += bytes;
       if (totalBytes > workspace.config.limits.maxTotalDocumentBytes) {
-        throw new Error(
+        throw new LedgerError(
+          "resource-limit-exceeded",
           `Ledger document bytes exceed ${workspace.config.limits.maxTotalDocumentBytes}`,
+          { limit: workspace.config.limits.maxTotalDocumentBytes, kind: "total-document-bytes" },
         );
       }
       const relativePath = normalizePath(path.relative(workspace.projectRoot, absolutePath));
@@ -104,7 +109,11 @@ export async function findMarkdownFiles(
   depth = 0,
 ): Promise<readonly string[]> {
   if (options.maxDepth !== undefined && depth > options.maxDepth) {
-    throw new Error(`Ledger source nesting exceeds ${options.maxDepth} directories: ${directory}`);
+    throw new LedgerError(
+      "resource-limit-exceeded",
+      `Ledger source nesting exceeds ${options.maxDepth} directories: ${directory}`,
+      { limit: options.maxDepth, kind: "directory-depth" },
+    );
   }
   let entries;
   try {
@@ -119,7 +128,7 @@ export async function findMarkdownFiles(
     if (entry.isDirectory()) {
       results.push(...(await findMarkdownFiles(absolutePath, options, depth + 1)));
       if (options.maxFiles !== undefined && results.length > options.maxFiles) {
-        throw new Error(`Ledger document limit exceeded (${options.maxFiles})`);
+        throw resourceLimitError("documents", options.maxFiles);
       }
       continue;
     }
@@ -129,6 +138,14 @@ export async function findMarkdownFiles(
   }
 
   return results.sort();
+}
+
+function resourceLimitError(kind: string, limit: number): LedgerError {
+  return new LedgerError(
+    "resource-limit-exceeded",
+    `Ledger document limit exceeded (${limit})`,
+    { kind, limit },
+  );
 }
 
 export function normalizeDocument(document: ParsedLedgerDocument): NormalizedLedgerDocument {

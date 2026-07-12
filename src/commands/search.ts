@@ -1,5 +1,6 @@
 import { readLedgerDocuments } from "../documents.js";
 import { searchLedgerDocuments, type LedgerSearchResult } from "../search.js";
+import { LedgerError } from "../machine.js";
 import type { LedgerWorkspace } from "../types.js";
 
 export interface LedgerSearchCommandOptions {
@@ -18,7 +19,7 @@ export async function runLedgerSearchCommand(
 ): Promise<LedgerSearchCommandResult> {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) {
-    throw new Error("Search query must not be empty");
+    throw new LedgerError("invalid-argument", "Search query must not be empty");
   }
   const documents = await readLedgerDocuments(workspace);
   return {

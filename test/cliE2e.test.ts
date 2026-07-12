@@ -48,6 +48,14 @@ describe("CLI end-to-end", () => {
     expect(search.stdout).toContain("Ledger search: 1 match(es).");
     expect(search.stdout).toContain("Fixture change");
 
+    const searchJson = await captureRun(["search", "fixture", "--limit", "1", "--json"], tempDir);
+    expect(JSON.parse(searchJson.stdout)).toMatchObject({
+      schemaVersion: 1,
+      ok: true,
+      command: "search",
+      data: { query: "fixture", matches: [expect.objectContaining({ id: "0001" })] },
+    });
+
     const searchPacket = await captureRun(
       ["search-packet", "fixture", "--limit=1", "--budget=1200"],
       tempDir,
@@ -126,7 +134,33 @@ describe("CLI end-to-end", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toBe("");
     expect(payload.ok).toBe(false);
+    expect(payload).toMatchObject({ schemaVersion: 1, command: "validate" });
     expect(payload.error.code).toBe("workspace-not-found");
+
+    expect((await captureRun(["init"], tempDir)).exitCode).toBe(0);
+    await writeFile(path.join(tempDir, ".ledger", "config.yaml"), "project: [broken\n", "utf8");
+    const invalidConfig = JSON.parse(
+      (await captureRun(["validate", "--json"], tempDir)).stdout,
+    );
+    expect(invalidConfig).toMatchObject({
+      schemaVersion: 1,
+      ok: false,
+      command: "validate",
+      error: { code: "invalid-yaml" },
+    });
+  });
+
+  it("uses the failure envelope for invalid command arguments", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-cli-e2e-"));
+    const result = await captureRun(["search", "--json"], tempDir);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toBe("");
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      schemaVersion: 1,
+      ok: false,
+      command: "search",
+      error: { code: "invalid-argument" },
+    });
   });
 
   it("emits machine-readable JSON errors for unknown commands", async () => {
@@ -140,6 +174,7 @@ describe("CLI end-to-end", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toBe("");
+    expect(payload).toMatchObject({ schemaVersion: 1, command: "not-a-command" });
     expect(payload.error.code).toBe("unknown-command");
   });
 });

@@ -4,6 +4,7 @@ import { buildConflictTargets } from "./conflict.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import type { LedgerStaticReaderModel } from "./render.js";
 import { searchLedgerIndex } from "./search.js";
+import { LedgerError } from "./machine.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export interface LedgerPacketEntry {
@@ -84,7 +85,7 @@ export function buildSearchAgentPacket(
 ): LedgerAgentPacket {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) {
-    throw new Error("Search query must not be empty");
+    throw new LedgerError("invalid-argument", "Search query must not be empty");
   }
 
   const renderedById = new Map(model.documents.map((document) => [document.id, document]));

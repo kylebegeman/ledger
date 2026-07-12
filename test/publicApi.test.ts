@@ -8,6 +8,8 @@ describe("public API boundary", () => {
       buildAgentPacket: expect.any(Function),
       buildSearchAgentPacket: expect.any(Function),
       buildStaticReaderModel: expect.any(Function),
+      ledgerMachineSchemaVersion: 1,
+      machineSuccess: expect.any(Function),
       findWorkspace: expect.any(Function),
       readLedgerDocuments: expect.any(Function),
       runLedgerPacketCommand: expect.any(Function),

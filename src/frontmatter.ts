@@ -1,4 +1,5 @@
 import { parse as parseYaml } from "yaml";
+import { LedgerError } from "./machine.js";
 import type { LedgerFrontmatter, MarkdownSection } from "./types.js";
 
 export interface ParsedMarkdownWithFrontmatter {
@@ -16,7 +17,7 @@ export function parseMarkdownWithFrontmatter(
 ): ParsedMarkdownWithFrontmatter {
   const openingFence = /^---[ \t]*(?:\r?\n)/.exec(raw);
   if (!openingFence) {
-    throw new Error(`${filePath}: missing YAML frontmatter fence`);
+    throw new LedgerError("invalid-markdown", `${filePath}: missing YAML frontmatter fence`, { filePath });
   }
 
   const frontmatterStart = openingFence[0].length;
@@ -24,7 +25,7 @@ export function parseMarkdownWithFrontmatter(
   closingFence.lastIndex = frontmatterStart;
   const closingMatch = closingFence.exec(raw);
   if (!closingMatch) {
-    throw new Error(`${filePath}: missing closing YAML frontmatter fence`);
+    throw new LedgerError("invalid-markdown", `${filePath}: missing closing YAML frontmatter fence`, { filePath });
   }
 
   const frontmatterRaw = raw.slice(frontmatterStart, closingMatch.index).trim();
@@ -34,11 +35,16 @@ export function parseMarkdownWithFrontmatter(
     parsed = parseYaml(frontmatterRaw, { maxAliasCount: maxYamlAliases });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${filePath}: invalid YAML frontmatter: ${message}`);
+    throw new LedgerError(
+      "invalid-yaml",
+      `${filePath}: invalid YAML frontmatter: ${message}`,
+      { filePath },
+      { cause: error },
+    );
   }
 
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`${filePath}: frontmatter must be a YAML object`);
+    throw new LedgerError("invalid-markdown", `${filePath}: frontmatter must be a YAML object`, { filePath });
   }
 
   return {

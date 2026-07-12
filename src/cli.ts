@@ -29,6 +29,7 @@ import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
 import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
 import { startLedgerMcpServer } from "./mcp.js";
+import { LedgerError, machineFailure, machineSuccess } from "./machine.js";
 import { migrateChangelog } from "./migrate.js";
 import { createChangeEntry, createProductNoteEntry } from "./newEntry.js";
 import {
@@ -194,7 +195,12 @@ export async function run(
 
       default:
         if (hasFlag(parsed, "json")) {
-          printJsonError("unknown-command", `Unknown command: ${parsed.command}`);
+          printJsonFailure(
+            machineCommand(parsed),
+            new LedgerError("unknown-command", `Unknown command: ${parsed.command}`, {
+              command: parsed.command,
+            }),
+          );
         } else {
           console.error(`Unknown command: ${parsed.command}`);
           printHelp();
@@ -202,11 +208,10 @@ export async function run(
         return 2;
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
     if (hasFlag(parsed, "json")) {
-      printJsonError(errorCode(message), message);
+      printJsonFailure(machineCommand(parsed), error);
     } else {
-      console.error(message);
+      console.error(error instanceof Error ? error.message : String(error));
     }
     return 2;
   }
@@ -224,12 +229,19 @@ async function validateCommand(parsed: ParsedArgs, context: RunContext): Promise
     baseline,
   });
   await writeValidationReport(workspace, result);
+  let baselinePath: string | undefined;
   if (hasFlag(parsed, "update-baseline")) {
     const rawResult = validateDocuments(workspace, documents, {
       currentOnly: hasFlag(parsed, "current-only"),
     });
-    const baselinePath = await writeValidationBaseline(workspace, rawResult);
-    console.log(`Updated validation baseline at ${baselinePath}.`);
+    baselinePath = await writeValidationBaseline(workspace, rawResult);
+    if (!hasFlag(parsed, "json")) {
+      console.log(`Updated validation baseline at ${baselinePath}.`);
+    }
+  }
+  if (hasFlag(parsed, "json")) {
+    printJsonSuccess("validate", { ...result, baselinePath });
+    return result.errors.length === 0 ? 0 : 1;
   }
   printValidation(result.errors.length, result.warnings.length);
   if (result.suppressed.length > 0) {
@@ -259,7 +271,7 @@ async function verifyIntegrityCommand(parsed: ParsedArgs, context: RunContext): 
   const written = await writeIntegrityArtifacts(workspace, report);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ ...report, written }, null, 2));
+    printJsonSuccess("verify-integrity", { ...report, written });
     return 0;
   }
 
@@ -276,7 +288,18 @@ async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   const result = validateDocuments(workspace, documents);
   if (result.errors.length > 0) {
     await writeValidationReport(workspace, result);
-    printValidation(result.errors.length, result.warnings.length);
+    if (hasFlag(parsed, "json")) {
+      printJsonFailure(
+        "render",
+        new LedgerError(
+          "render-validation-failed",
+          `Cannot render reader with ${result.errors.length} validation error(s).`,
+          { errors: result.errors.length, warnings: result.warnings.length },
+        ),
+      );
+    } else {
+      printValidation(result.errors.length, result.warnings.length);
+    }
     return 1;
   }
 
@@ -284,7 +307,7 @@ async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   const rendered = await writeStaticReader(workspace, model);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(rendered, null, 2));
+    printJsonSuccess("render", rendered);
   } else {
     console.log(
       `Rendered ${rendered.documents} Ledger document(s) to ${rendered.outputPath}.`,
@@ -304,7 +327,11 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     const result = validateDocuments(workspace, documents);
     if (result.errors.length > 0) {
       await writeValidationReport(workspace, result);
-      throw new Error(`Cannot serve reader with ${result.errors.length} validation error(s).`);
+      throw new LedgerError(
+        "render-validation-failed",
+        `Cannot serve reader with ${result.errors.length} validation error(s).`,
+        { errors: result.errors.length },
+      );
     }
     await writeStaticReader(workspace, buildStaticReaderModel(workspace, documents, {
       validation: result,
@@ -348,15 +375,14 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
 async function explainCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const filePath = parsed.positionals[0];
   if (!filePath) {
-    console.error("Usage: ledger explain <path> [--json] [--agent]");
-    return 2;
+    throw invalidArgument("Usage: ledger explain <path> [--json] [--agent]");
   }
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const matches = explainFile(documents, filePath);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ target: filePath, matches }, null, 2));
+    printJsonSuccess("explain", { target: filePath, matches });
     return 0;
   }
 
@@ -401,8 +427,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   const text = flagValues(parsed, "text")[0];
 
   if (flagValues(parsed, "kind")[0] && !kind) {
-    console.error(`Invalid kind: ${flagValues(parsed, "kind")[0]}`);
-    return 2;
+    throw invalidArgument(`Invalid kind: ${flagValues(parsed, "kind")[0]}`);
   }
 
   const workspace = await findWorkspace(context.cwd);
@@ -422,7 +447,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result, null, 2));
+    printJsonSuccess("query", result);
     return 0;
   }
 
@@ -433,8 +458,7 @@ async function queryCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
 async function searchCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const query = parsed.positionals.join(" ").trim();
   if (!query) {
-    console.error("Usage: ledger search <query> [--limit <entries>] [--json]");
-    return 2;
+    throw invalidArgument("Usage: ledger search <query> [--limit <entries>] [--json]");
   }
 
   const workspace = await findWorkspace(context.cwd);
@@ -443,7 +467,7 @@ async function searchCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result, null, 2));
+    printJsonSuccess("search", result);
     return 0;
   }
 
@@ -454,8 +478,7 @@ async function searchCommand(parsed: ParsedArgs, context: RunContext): Promise<n
 async function searchPacketCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const query = parsed.positionals.join(" ").trim();
   if (!query) {
-    console.error("Usage: ledger search-packet <query> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]");
-    return 2;
+    throw invalidArgument("Usage: ledger search-packet <query> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]");
   }
 
   const limit = numberFlag(parsed, "limit");
@@ -468,7 +491,7 @@ async function searchPacketCommand(parsed: ParsedArgs, context: RunContext): Pro
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ ...result.packet, reportPath: result.reportPath }, null, 2));
+    printJsonSuccess("search-packet", { ...result.packet, reportPath: result.reportPath });
     return 0;
   }
 
@@ -479,8 +502,7 @@ async function searchPacketCommand(parsed: ParsedArgs, context: RunContext): Pro
 async function packetCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const target = parsed.positionals[0];
   if (!target) {
-    console.error("Usage: ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]");
-    return 2;
+    throw invalidArgument("Usage: ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]");
   }
 
   const workspace = await findWorkspace(context.cwd);
@@ -491,7 +513,7 @@ async function packetCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ ...result.packet, reportPath: result.reportPath }, null, 2));
+    printJsonSuccess("packet", { ...result.packet, reportPath: result.reportPath });
     return 0;
   }
 
@@ -510,7 +532,7 @@ async function unreleasedCommand(parsed: ParsedArgs, context: RunContext): Promi
   const matches = getUnreleasedChanges(documents);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ matches }, null, 2));
+    printJsonSuccess("unreleased", { matches });
     return 0;
   }
 
@@ -525,16 +547,14 @@ async function unreleasedCommand(parsed: ParsedArgs, context: RunContext): Promi
 async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const version = parsed.positionals[0];
   if (!version) {
-    console.error(
+    throw invalidArgument(
       "Usage: ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]",
     );
-    return 2;
   }
 
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
   const status = releaseStatus(parsed);
-  if (!status) return 2;
   const release = buildReleaseDocument(documents, version, {
     includeUnreleased: hasFlag(parsed, "include-unreleased"),
     date: flagValues(parsed, "date")[0],
@@ -547,7 +567,7 @@ async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<
   const { assignment, writtenPath } = applied;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ ...release, assignment, writtenPath }, null, 2));
+    printJsonSuccess("release", { ...release, assignment, writtenPath });
     return 0;
   }
 
@@ -565,8 +585,7 @@ async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<
 async function newCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const title = parsed.positionals.join(" ").trim();
   if (!title) {
-    console.error("Usage: ledger new <title> [--from-diff] [--area <area>]");
-    return 2;
+    throw invalidArgument("Usage: ledger new <title> [--from-diff] [--area <area>]");
   }
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
@@ -584,8 +603,7 @@ async function newCommand(parsed: ParsedArgs, context: RunContext): Promise<numb
 async function productNoteCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const title = parsed.positionals.join(" ").trim();
   if (!title) {
-    console.error("Usage: ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>]");
-    return 2;
+    throw invalidArgument("Usage: ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>]");
   }
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
@@ -602,13 +620,11 @@ async function productNoteCommand(parsed: ParsedArgs, context: RunContext): Prom
 async function migrateCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const subcommand = parsed.positionals[0];
   if (subcommand !== "changelog") {
-    console.error("Usage: ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>]");
-    return 2;
+    throw invalidArgument("Usage: ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>]");
   }
   const sourceDir = parsed.positionals[1];
   if (!sourceDir) {
-    console.error("Usage: ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>]");
-    return 2;
+    throw invalidArgument("Usage: ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>]");
   }
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
@@ -619,7 +635,7 @@ async function migrateCommand(parsed: ParsedArgs, context: RunContext): Promise<
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result, null, 2));
+    printJsonSuccess("migrate.changelog", result);
     return 0;
   }
 
@@ -661,7 +677,7 @@ async function coverageCommand(parsed: ParsedArgs, context: RunContext): Promise
   });
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result, null, 2));
+    printJsonSuccess("coverage", result);
   } else {
     console.log(
       `Ledger coverage: ${result.requiredFiles.length} required file(s), ${result.missingFiles.length} missing coverage.`,
@@ -699,7 +715,7 @@ async function ciCommand(parsed: ParsedArgs, context: RunContext): Promise<numbe
   await writeDocsImpactReport(workspace, result.docsImpact);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result, null, 2));
+    printJsonSuccess("ci", result);
   } else {
     console.log(`Ledger CI: ${result.ok ? "passed" : "failed"}.`);
     for (const check of result.checks) {
@@ -722,7 +738,7 @@ async function doctorCommand(parsed: ParsedArgs, context: RunContext): Promise<n
   const result = await runDoctor(workspace, documents, validation);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result, null, 2));
+    printJsonSuccess("doctor", result);
   } else {
     console.log(formatDoctorResult(result));
   }
@@ -735,7 +751,7 @@ async function metricsCommand(parsed: ParsedArgs, context: RunContext): Promise<
   const result = await runLedgerMetricsCommand(workspace);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(result.performance, null, 2));
+    printJsonSuccess("metrics", result.performance);
   } else {
     console.log(formatLedgerMetricsResult(result));
   }
@@ -756,7 +772,7 @@ async function staleCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     : undefined;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ ...report, reportPath }, null, 2));
+    printJsonSuccess("stale", { ...report, reportPath });
   } else {
     console.log(formatStaleReport(report).trimEnd());
     if (reportPath) console.log(`Wrote ${reportPath}`);
@@ -767,8 +783,7 @@ async function staleCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
 
 async function conflictCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   if (parsed.positionals.length === 0) {
-    console.error("Usage: ledger conflict <path...> [--json] [--write-report]");
-    return 2;
+    throw invalidArgument("Usage: ledger conflict <path...> [--json] [--write-report]");
   }
 
   const workspace = await findWorkspace(context.cwd);
@@ -779,7 +794,7 @@ async function conflictCommand(parsed: ParsedArgs, context: RunContext): Promise
     : undefined;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ targets, reportPath }, null, 2));
+    printJsonSuccess("conflict", { targets, reportPath });
     return 0;
   }
 
@@ -821,11 +836,9 @@ async function docsCommand(parsed: ParsedArgs, context: RunContext): Promise<num
     case "migrate":
       return await docsMigrateCommand(context);
     case undefined:
-      console.error("Usage: ledger docs <audit|check|classify|impact|reconcile|migrate>");
-      return 2;
+      throw invalidArgument("Usage: ledger docs <audit|check|classify|impact|reconcile|migrate>");
     default:
-      console.error(`Unknown docs command: ${subcommand}`);
-      return 2;
+      throw invalidArgument(`Unknown docs command: ${subcommand}`);
   }
 }
 
@@ -861,7 +874,7 @@ async function docsClassifyCommand(
       : (await auditDocs(workspace, await readLedgerDocuments(workspace))).files;
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify({ files }, null, 2));
+    printJsonSuccess("docs.classify", { files });
     return 0;
   }
 
@@ -909,7 +922,7 @@ async function docsImpactCommand(parsed: ParsedArgs, context: RunContext): Promi
   await writeDocsImpactReport(workspace, impact);
 
   if (hasFlag(parsed, "json")) {
-    console.log(JSON.stringify(impact, null, 2));
+    printJsonSuccess("docs.impact", impact);
   } else {
     console.log(
       `Ledger docs impact: ${impact.sourceFiles.length} source file(s), ${impact.docsFiles.length} docs file(s), ${impact.referencedDocs.length} referenced doc(s), ${impact.declarations.length} explicit declaration(s), ${impact.missingDocsImpact.length} missing docs impact.`,
@@ -978,17 +991,26 @@ function printValidation(errors: number, warnings: number): void {
   console.log(`Ledger validation: ${errors} error(s), ${warnings} warning(s).`);
 }
 
-function printJsonError(code: string, message: string): void {
-  console.log(JSON.stringify({ ok: false, error: { code, message } }, null, 2));
+function printJsonSuccess(command: string, data: unknown): void {
+  console.log(JSON.stringify(machineSuccess(command, data), null, 2));
 }
 
-function errorCode(message: string): string {
-  if (message.includes("Could not find .ledger/config.yaml")) return "workspace-not-found";
-  if (message.includes("invalid YAML")) return "invalid-yaml";
-  if (message.includes("config must be a YAML object")) return "invalid-config";
-  if (message.includes("Release document already exists")) return "release-exists";
-  if (message.includes("Cannot serve reader with")) return "render-validation-failed";
-  return "operational-error";
+function printJsonFailure(command: string, error: unknown): void {
+  console.log(JSON.stringify(machineFailure(command, error), null, 2));
+}
+
+function invalidArgument(message: string): LedgerError {
+  return new LedgerError("invalid-argument", message);
+}
+
+function machineCommand(parsed: ParsedArgs): string {
+  if (parsed.command === "docs" && parsed.positionals[0]) {
+    return `docs.${parsed.positionals[0]}`;
+  }
+  if (parsed.command === "migrate" && parsed.positionals[0]) {
+    return `migrate.${parsed.positionals[0]}`;
+  }
+  return parsed.command ?? "ledger";
 }
 
 function printIndentedList(label: string, values: readonly string[]): void {
@@ -1175,7 +1197,7 @@ Prints ready-to-paste AGENTS.md instructions for the configured Ledger workflow.
       return `Ledger validate
 
 Usage:
-  ledger validate [--current-only] [--update-baseline] [--no-baseline]
+  ledger validate [--current-only] [--update-baseline] [--no-baseline] [--json]
 
 Validates Ledger source records and writes .ledger/reports/latest-validation.md.
 --current-only skips historical records. --update-baseline records current
@@ -1387,7 +1409,7 @@ Usage:
   ledger adopt
   ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>]
   ledger feedback <title> [--area <area>] [--tag <tag>]
-  ledger validate [--current-only] [--update-baseline] [--no-baseline]
+  ledger validate [--current-only] [--update-baseline] [--no-baseline] [--json]
   ledger index
   ledger verify-integrity [--json]
   ledger render [--json]
@@ -1431,11 +1453,10 @@ Examples:
   }
 }
 
-function releaseStatus(parsed: ParsedArgs): "planned" | "released" | undefined {
+function releaseStatus(parsed: ParsedArgs): "planned" | "released" {
   const value = flagValues(parsed, "status")[0] ?? "planned";
   if (value === "planned" || value === "released") return value;
-  console.error(`Invalid release status: ${value}`);
-  return undefined;
+  throw invalidArgument(`Invalid release status: ${value}`);
 }
 
 function packageVersion(): string {

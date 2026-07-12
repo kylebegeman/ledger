@@ -7,6 +7,7 @@ import {
   type LedgerSearchAgentPacketOptions,
 } from "../packet.js";
 import { buildStaticReaderModel } from "../render.js";
+import { LedgerError } from "../machine.js";
 import type { LedgerWorkspace } from "../types.js";
 
 export interface LedgerSearchPacketCommandOptions extends LedgerSearchAgentPacketOptions {
@@ -25,7 +26,7 @@ export async function runLedgerSearchPacketCommand(
 ): Promise<LedgerSearchPacketCommandResult> {
   const normalizedQuery = query.trim();
   if (!normalizedQuery) {
-    throw new Error("Search query must not be empty");
+    throw new LedgerError("invalid-argument", "Search query must not be empty");
   }
   const documents = await readLedgerDocuments(workspace);
   const model = buildStaticReaderModel(workspace, documents);

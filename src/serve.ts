@@ -10,6 +10,7 @@ import {
 import path from "node:path";
 import { normalizePath } from "./documents.js";
 import { isPathInside, resolveSafeProjectPath } from "./projectPaths.js";
+import { LedgerError } from "./machine.js";
 import type { LedgerWorkspace } from "./types.js";
 
 export type LedgerServeMode = "local" | "network";
@@ -190,10 +191,18 @@ async function resolveRequestPath(root: string, pathname: string): Promise<strin
 
 function validateExposure(mode: LedgerServeMode, host: string, token: string | undefined): void {
   if (mode === "local" && !isLoopbackHost(host)) {
-    throw new Error(`Refusing non-loopback host ${host} without network exposure mode`);
+    throw new LedgerError(
+      "invalid-argument",
+      `Refusing non-loopback host ${host} without network exposure mode`,
+      { host, mode },
+    );
   }
   if (mode === "network" && (!token || token.length < 24)) {
-    throw new Error("Network exposure requires an access token of at least 24 characters");
+    throw new LedgerError(
+      "invalid-argument",
+      "Network exposure requires an access token of at least 24 characters",
+      { mode },
+    );
   }
 }
 
