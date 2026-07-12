@@ -11,6 +11,7 @@ import path from "node:path";
 import { normalizePath } from "./documents.js";
 import { isPathInside, resolveSafeProjectPath } from "./projectPaths.js";
 import { LedgerError } from "./machine.js";
+import type { LedgerRenderProfile } from "./render.js";
 import type { LedgerWorkspace } from "./types.js";
 
 export type LedgerServeMode = "local" | "network";
@@ -20,6 +21,7 @@ export interface LedgerServeOptions {
   readonly port?: number;
   readonly mode?: LedgerServeMode;
   readonly accessToken?: string;
+  readonly profile?: LedgerRenderProfile;
 }
 
 export interface LedgerServeResult {
@@ -28,6 +30,7 @@ export interface LedgerServeResult {
   readonly root: string;
   readonly mode: LedgerServeMode;
   readonly authenticated: boolean;
+  readonly profile: LedgerRenderProfile;
 }
 
 const contentSecurityPolicy = [
@@ -45,16 +48,26 @@ export async function serveStaticReader(
   workspace: LedgerWorkspace,
   options: LedgerServeOptions = {},
 ): Promise<LedgerServeResult> {
+  const profile = options.profile ?? "internal";
+  const output = profile === "public"
+    ? `${workspace.config.render.output}/public`
+    : workspace.config.render.output;
   const root = await resolveSafeProjectPath(
     workspace.projectRoot,
-    workspace.config.render.output,
+    output,
     "render output",
   );
+  const realRoot = await realpath(root);
+  if (!(await stat(realRoot)).isDirectory()) {
+    throw new LedgerError("filesystem-error", `Render output is not a directory: ${root}`, {
+      path: root,
+    });
+  }
   const mode = options.mode ?? "local";
   const host = options.host ?? (mode === "network" ? "0.0.0.0" : "127.0.0.1");
   const port = options.port ?? 4173;
   const token = options.accessToken;
-  validateExposure(mode, host, token);
+  validateExposure(mode, host, port, token);
 
   const server = createServer(
     {
@@ -64,7 +77,7 @@ export async function serveStaticReader(
       keepAliveTimeout: 5_000,
     },
     (request, response) => {
-      void handleRequest(root, mode, token, request, response).catch(() => {
+      void handleRequest(realRoot, mode, token, request, response).catch(() => {
         if (!response.headersSent) {
           response.writeHead(500, securityHeaders("text/plain; charset=utf-8"));
         }
@@ -90,6 +103,7 @@ export async function serveStaticReader(
     root: normalizePath(path.relative(workspace.projectRoot, root)),
     mode,
     authenticated: Boolean(token),
+    profile,
   };
 }
 
@@ -147,6 +161,11 @@ async function handleRequest(
     response.end("URI too long\n");
     return;
   }
+  if (!request.url?.startsWith("/") || request.url.startsWith("//")) {
+    response.writeHead(400, securityHeaders("text/plain; charset=utf-8"));
+    response.end("Invalid request target\n");
+    return;
+  }
 
   const requestUrl = new URL(request.url ?? "/", "http://ledger.local");
   const filePath = await resolveRequestPath(root, requestUrl.pathname);
@@ -174,22 +193,25 @@ async function resolveRequestPath(root: string, pathname: string): Promise<strin
   if (!decoded) return undefined;
   const relative = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
   const candidate = path.resolve(root, relative);
-  const normalizedRoot = path.resolve(root);
-  if (!isPathInside(normalizedRoot, candidate)) return undefined;
+  if (!isPathInside(root, candidate)) return undefined;
   try {
-    const [realRoot, realCandidate, stats] = await Promise.all([
-      realpath(normalizedRoot),
-      realpath(candidate),
-      stat(candidate),
-    ]);
-    if (!isPathInside(realRoot, realCandidate) || !stats.isFile()) return undefined;
+    const realCandidate = await realpath(candidate);
+    if (!isPathInside(root, realCandidate) || !(await stat(realCandidate)).isFile()) return undefined;
     return realCandidate;
   } catch {
     return undefined;
   }
 }
 
-function validateExposure(mode: LedgerServeMode, host: string, token: string | undefined): void {
+function validateExposure(
+  mode: LedgerServeMode,
+  host: string,
+  port: number,
+  token: string | undefined,
+): void {
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new LedgerError("invalid-argument", `Invalid server port: ${port}`, { port });
+  }
   if (mode === "local" && !isLoopbackHost(host)) {
     throw new LedgerError(
       "invalid-argument",
@@ -220,18 +242,30 @@ function isLoopbackHost(host: string): boolean {
   return (
     normalized === "localhost" ||
     normalized === "::1" ||
-    /^127(?:\.\d{1,3}){3}$/.test(normalized)
+    isIpv4Loopback(normalized) ||
+    (normalized.startsWith("::ffff:") && isIpv4Loopback(normalized.slice("::ffff:".length)))
+  );
+}
+
+function isIpv4Loopback(value: string): boolean {
+  const octets = value.split(".");
+  return (
+    octets.length === 4 &&
+    octets[0] === "127" &&
+    octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
   );
 }
 
 function isAuthorized(header: string | undefined, expectedToken: string): boolean {
   if (!header) return false;
   let supplied: string | undefined;
-  if (header.startsWith("Bearer ")) {
-    supplied = header.slice("Bearer ".length);
-  } else if (header.startsWith("Basic ")) {
+  const bearer = /^Bearer[ \t]+(.+)$/i.exec(header);
+  const basic = /^Basic[ \t]+(.+)$/i.exec(header);
+  if (bearer) {
+    supplied = bearer[1];
+  } else if (basic) {
     try {
-      const decoded = Buffer.from(header.slice("Basic ".length), "base64").toString("utf8");
+      const decoded = Buffer.from(basic[1] ?? "", "base64").toString("utf8");
       const separator = decoded.indexOf(":");
       if (separator >= 0 && decoded.slice(0, separator) === "ledger") {
         supplied = decoded.slice(separator + 1);

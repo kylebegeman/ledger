@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { stringify as stringifyYaml } from "yaml";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { findMarkdownFiles, normalizeKind, normalizePath, stringArrayValue } from "./documents.js";
 import { extractSections, parseMarkdownWithFrontmatter } from "./frontmatter.js";
 import {
@@ -8,7 +8,8 @@ import {
   hashFileContent,
   type LedgerFileChange,
 } from "./fileTransaction.js";
-import { resolveProjectPath } from "./projectPaths.js";
+import { LedgerError } from "./machine.js";
+import { resolveSafeProjectPath } from "./projectPaths.js";
 import type {
   LedgerDocumentKind,
   LedgerWorkspace,
@@ -55,18 +56,38 @@ export async function migrateChangelog(
   sourceDir: string,
   options: MigrateChangelogOptions = {},
 ): Promise<ChangelogMigrationResult> {
-  const absoluteSourceDir = resolveProjectPath(workspace.projectRoot, sourceDir, "migration source");
-  const sourceFiles = await findMarkdownFiles(absoluteSourceDir);
+  const absoluteSourceDir = await resolveSafeProjectPath(
+    workspace.projectRoot,
+    sourceDir,
+    "migration source",
+  );
+  const sourceFiles = await findMarkdownFiles(absoluteSourceDir, {
+    maxDepth: workspace.config.limits.maxDirectoryDepth,
+    maxFiles: workspace.config.limits.maxDocuments,
+  });
   const usedIds = new Set(
     documents.map((document) => String(document.frontmatter.id ?? "")).filter(Boolean),
   );
   const migrated: ChangelogMigrationEntry[] = [];
   const duplicates: ChangelogDuplicate[] = [];
   const fileChanges: LedgerFileChange[] = [];
+  let sourceBytes = 0;
 
   for (const sourcePath of sourceFiles) {
     const relativeSourcePath = normalizePath(path.relative(workspace.projectRoot, sourcePath));
-    const raw = await readFile(sourcePath, "utf8");
+    const raw = await readUtf8FileLimited(
+      sourcePath,
+      workspace.config.limits.maxDocumentBytes,
+      "migration source document",
+    );
+    sourceBytes += Buffer.byteLength(raw, "utf8");
+    if (sourceBytes > workspace.config.limits.maxTotalDocumentBytes) {
+      throw new LedgerError(
+        "resource-limit-exceeded",
+        `Migration source exceeds ${workspace.config.limits.maxTotalDocumentBytes} bytes`,
+        { kind: "migration-total-bytes", limit: workspace.config.limits.maxTotalDocumentBytes },
+      );
+    }
     const legacy = parseLegacyMarkdown(raw, relativeSourcePath);
     const originalId = legacyId(legacy.frontmatter, sourcePath);
     const id = uniqueId(originalId, usedIds);
@@ -132,7 +153,7 @@ export async function migrateChangelog(
 }
 
 function parseLegacyMarkdown(raw: string, filePath: string): LegacyMarkdown {
-  if (raw.startsWith("---\n")) {
+  if (/^---[ \t]*\r?\n/.test(raw)) {
     const parsed = parseMarkdownWithFrontmatter(raw, filePath);
     return {
       frontmatter: parsed.frontmatter,
@@ -229,12 +250,19 @@ async function planDocsReferenceRewrites(
   entries: readonly ChangelogMigrationEntry[],
 ): Promise<{ readonly paths: readonly string[]; readonly changes: readonly LedgerFileChange[] }> {
   const docsRoot = path.join(workspace.projectRoot, workspace.config.docs.root);
-  const docsFiles = await findMarkdownFiles(docsRoot);
+  const docsFiles = await findMarkdownFiles(docsRoot, {
+    maxDepth: workspace.config.limits.maxDirectoryDepth,
+    maxFiles: workspace.config.limits.maxDocuments,
+  });
   const rewritten: string[] = [];
   const changes: LedgerFileChange[] = [];
 
   for (const docsFile of docsFiles) {
-    const raw = await readFile(docsFile, "utf8");
+    const raw = await readUtf8FileLimited(
+      docsFile,
+      workspace.config.limits.maxDocumentBytes,
+      "docs rewrite source",
+    );
     const next = replaceAllMappings(raw, entries);
     if (next === raw) continue;
     const relativePath = normalizePath(path.relative(workspace.projectRoot, docsFile));
@@ -346,7 +374,10 @@ function omitEmpty(values: Record<string, unknown>): Record<string, unknown> {
 }
 
 function safeFileName(value: string): string {
-  return value.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "entry";
+  return value
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "entry";
 }
 
 function slugify(input: string): string {
@@ -354,7 +385,7 @@ function slugify(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return slug || "migrated-record";
+  return slug.slice(0, 80).replace(/-+$/, "") || "migrated-record";
 }
 
 function titleFromSlug(input: string): string {

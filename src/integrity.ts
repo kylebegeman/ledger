@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
+import { isSafeProjectRelativePath, resolveSafeProjectPath } from "./projectPaths.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export interface LedgerDocumentIntegrity {
@@ -88,21 +89,19 @@ export async function writeIntegrityArtifacts(
 export async function readIntegrityReport(
   workspace: LedgerWorkspace,
 ): Promise<LedgerIntegrityReport> {
-  const indexPath = path.join(
+  const indexPath = await resolveSafeProjectPath(
     workspace.projectRoot,
-    workspace.config.indexes.output,
-    "integrity.json",
+    `${workspace.config.indexes.output}/integrity.json`,
+    "integrity baseline",
   );
   try {
-    const stats = await stat(indexPath);
-    if (stats.size > workspace.config.limits.maxTotalDocumentBytes) {
-      throw new LedgerError(
-        "resource-limit-exceeded",
-        `Integrity baseline exceeds ${workspace.config.limits.maxTotalDocumentBytes} bytes`,
-        { kind: "integrity-baseline-bytes", limit: workspace.config.limits.maxTotalDocumentBytes },
-      );
-    }
-    const parsed: unknown = JSON.parse(await readFile(indexPath, "utf8"));
+    const parsed: unknown = JSON.parse(
+      await readUtf8FileLimited(
+        indexPath,
+        workspace.config.limits.maxTotalDocumentBytes,
+        "integrity baseline",
+      ),
+    );
     if (!isIntegrityReport(parsed)) {
       throw invalidIntegrityBaseline(indexPath);
     }
@@ -131,8 +130,9 @@ function isIntegrityReport(value: unknown): value is LedgerIntegrityReport {
   const report = value as Partial<LedgerIntegrityReport>;
   if (
     report.version !== 1 ||
-    typeof report.generatedAt !== "string" ||
-    typeof report.project !== "string" ||
+    !isBoundedText(report.generatedAt, 100) ||
+    !Number.isFinite(Date.parse(report.generatedAt)) ||
+    !isBoundedText(report.project, 1_000) ||
     report.algorithm !== "sha256" ||
     !isSha256(report.catalogHash) ||
     !Array.isArray(report.documents)
@@ -144,10 +144,11 @@ function isIntegrityReport(value: unknown): value is LedgerIntegrityReport {
     if (
       document === null ||
       typeof document !== "object" ||
-      typeof document.id !== "string" ||
-      typeof document.kind !== "string" ||
-      typeof document.title !== "string" ||
-      typeof document.path !== "string" ||
+      !isBoundedText(document.id, 1_000) ||
+      !isBoundedText(document.kind, 100) ||
+      !isBoundedText(document.title, 10_000) ||
+      !isBoundedText(document.path, 4_096) ||
+      !isSafeProjectRelativePath(document.path) ||
       document.algorithm !== "sha256" ||
       !isSha256(document.hash) ||
       !Number.isSafeInteger(document.bytes) ||
@@ -163,6 +164,15 @@ function isIntegrityReport(value: unknown): value is LedgerIntegrityReport {
 
 function isSha256(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function isBoundedText(value: unknown, maxLength: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maxLength &&
+    !/[\u0000-\u001f\u007f]/.test(value)
+  );
 }
 
 export function verifyIntegrityReport(
@@ -205,7 +215,7 @@ export function formatIntegrityReport(report: LedgerIntegrityReport): string {
   const lines = [
     "# Ledger Integrity Report",
     "",
-    `Project: \`${report.project}\``,
+    `Project: \`${markdownCode(report.project)}\``,
     `Generated: \`${report.generatedAt}\``,
     `Algorithm: \`${report.algorithm}\``,
     `Catalog hash: \`${report.catalogHash}\``,
@@ -213,11 +223,19 @@ export function formatIntegrityReport(report: LedgerIntegrityReport): string {
     "## Documents",
     "",
     ...report.documents.map((document) =>
-      `- \`${document.hash}\` ${document.id} ${document.title} (${document.path}, ${document.bytes} bytes)`,
+      `- \`${document.hash}\` ${markdownText(document.id)} ${markdownText(document.title)} (\`${markdownCode(document.path)}\`, ${document.bytes} bytes)`,
     ),
     "",
   ];
   return `${lines.join("\n")}\n`;
+}
+
+function markdownText(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").replace(/([\\`*_{}[\]()#+.!|-])/g, "\\$1");
+}
+
+function markdownCode(value: string): string {
+  return value.replace(/`/g, "\\`").replace(/[\r\n]+/g, " ");
 }
 
 function sha256(value: string): string {

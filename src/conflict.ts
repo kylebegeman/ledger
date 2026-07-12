@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import { extractBullets, getSectionBody } from "./query.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
@@ -43,11 +43,11 @@ export async function writeConflictReport(
   workspace: LedgerWorkspace,
   targets: readonly LedgerConflictTarget[],
 ): Promise<string> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  const reportPath = path.join(reportDirectory, "conflict.md");
-  await mkdir(reportDirectory, { recursive: true });
-  await writeFile(reportPath, formatConflictReport(targets), "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, reportPath));
+  const reportPath = normalizePath(path.join(workspace.config.reports.output, "conflict.md"));
+  await applyFileTransaction(workspace, "write conflict report", [
+    { path: reportPath, content: formatConflictReport(targets) },
+  ]);
+  return reportPath;
 }
 
 export function formatConflictReport(targets: readonly LedgerConflictTarget[]): string {

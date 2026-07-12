@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readLedgerDocuments } from "../src/documents.js";
+import { findMarkdownFiles, readLedgerDocuments } from "../src/documents.js";
 import { findWorkspace, initWorkspace } from "../src/workspace.js";
 
 let tempDir: string | undefined;
@@ -25,6 +25,17 @@ describe("Ledger document resource limits", () => {
       .rejects.toThrow("document exceeds 80 bytes");
   });
 
+  it("rejects invalid UTF-8 source documents", async () => {
+    const workspace = await limitedWorkspace({});
+    await writeFile(
+      path.join(workspace.projectRoot, ".ledger", "entries", "0001-invalid.md"),
+      Buffer.from([0xff, 0xfe, 0xfd]),
+    );
+
+    await expect(readLedgerDocuments(await findWorkspace(workspace.projectRoot)))
+      .rejects.toThrow("document is not valid UTF-8");
+  });
+
   it("rejects catalogs over the document count limit", async () => {
     const workspace = await limitedWorkspace({ maxDocuments: 1 });
     await writeFile(path.join(workspace.projectRoot, ".ledger", "entries", "0001-one.md"), validEntry("0001"), "utf8");
@@ -42,6 +53,14 @@ describe("Ledger document resource limits", () => {
 
     await expect(readLedgerDocuments(await findWorkspace(workspace.projectRoot)))
       .rejects.toThrow("source nesting exceeds 1 directories");
+  });
+
+  it("does not hide source directory read failures", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-source-read-test-"));
+    const filePath = path.join(tempDir, "not-a-directory");
+    await writeFile(filePath, "content\n", "utf8");
+
+    await expect(findMarkdownFiles(filePath)).rejects.toMatchObject({ code: "ENOTDIR" });
   });
 });
 

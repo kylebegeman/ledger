@@ -1,9 +1,11 @@
-import { access, mkdir, readFile } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
+import { resolveSafeProjectPath } from "./projectPaths.js";
 import type {
   LedgerWorkspace,
   NormalizedLedgerDocument,
@@ -61,6 +63,8 @@ export function buildReleaseDocument(
   options: BuildReleaseDocumentOptions = {},
 ): LedgerReleaseDocument {
   validateReleaseVersion(version);
+  const date = options.date ?? today();
+  validateReleaseDate(date);
   const entries = options.includeUnreleased
     ? getUnreleasedChanges(documents)
     : getReleaseChanges(documents, version);
@@ -70,7 +74,7 @@ export function buildReleaseDocument(
     status,
     entries,
     markdown: formatReleaseMarkdown(version, entries, {
-      date: options.date ?? today(),
+      date,
       status,
     }),
   };
@@ -99,8 +103,9 @@ export async function assertReleaseDocumentWritable(
   await access(path.dirname(releasePath), constants.W_OK);
   try {
     await access(releasePath, constants.F_OK);
-  } catch {
-    return;
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return;
+    throw error;
   }
   const relativePath = normalizePath(path.relative(workspace.projectRoot, releasePath));
   throw new LedgerError("release-exists", `Release document already exists: ${relativePath}`, {
@@ -116,8 +121,16 @@ export async function assignEntriesToRelease(
   validateReleaseVersion(version);
   const changes = [];
   for (const entry of entries) {
-    const absolutePath = path.join(workspace.projectRoot, entry.path);
-    const raw = await readFile(absolutePath, "utf8");
+    const absolutePath = await resolveSafeProjectPath(
+      workspace.projectRoot,
+      entry.path,
+      "release entry",
+    );
+    const raw = await readUtf8FileLimited(
+      absolutePath,
+      workspace.config.limits.maxDocumentBytes,
+      "release entry",
+    );
     changes.push({
       path: entry.path,
       content: assignReleaseInMarkdown(raw, version),
@@ -187,8 +200,8 @@ export function assignReleaseInMarkdown(markdown: string, version: string): stri
   }
   const frontmatter = match[1] ?? "";
   const releaseLine = `release: "${escapeYamlString(version)}"`;
-  const updatedFrontmatter = /^\s*release\s*:/m.test(frontmatter)
-    ? frontmatter.replace(/^\s*release\s*:.*$/m, releaseLine)
+  const updatedFrontmatter = /^release[ \t]*:/m.test(frontmatter)
+    ? frontmatter.replace(/^release[ \t]*:.*$/m, releaseLine)
     : `${frontmatter}\n${releaseLine}`;
   return markdown.replace(match[0], `---\n${updatedFrontmatter}\n---`);
 }
@@ -240,8 +253,19 @@ export function formatReleaseMarkdown(
 }
 
 export function validateReleaseVersion(version: string): void {
-  if (!/^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+  if (!/^v?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(version)) {
     throw new LedgerError("invalid-release", `Invalid release version: ${version}`, { version });
+  }
+}
+
+function validateReleaseDate(value: string): void {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== value
+  ) {
+    throw new LedgerError("invalid-release", `Invalid release date: ${value}`, { date: value });
   }
 }
 
@@ -288,4 +312,13 @@ function today(): string {
 
 function escapeYamlString(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }

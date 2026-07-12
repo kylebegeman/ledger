@@ -37,7 +37,11 @@ export function assertSafeProjectRelativePath(value: string, label = "path"): st
   if (segments.includes("..")) {
     throw new UnsafeProjectPathError(label, value, "parent traversal is not allowed");
   }
-  return normalized;
+  const canonical = path.posix.normalize(normalized);
+  if (canonical === ".") {
+    throw new UnsafeProjectPathError(label, value, "a project-relative path is required");
+  }
+  return canonical;
 }
 
 export function isSafeProjectRelativePath(value: string): boolean {

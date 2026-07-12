@@ -1,7 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildConflictTargets } from "./conflict.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import type { LedgerStaticReaderModel } from "./render.js";
 import { searchLedgerIndex } from "./search.js";
 import { LedgerError } from "./machine.js";
@@ -164,11 +164,11 @@ export async function writeAgentPacketReport(
   workspace: LedgerWorkspace,
   packet: LedgerAgentPacket,
 ): Promise<string> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  const reportPath = path.join(reportDirectory, "packet.md");
-  await mkdir(reportDirectory, { recursive: true });
-  await writeFile(reportPath, formatAgentPacket(packet), "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, reportPath));
+  const reportPath = normalizePath(path.join(workspace.config.reports.output, "packet.md"));
+  await applyFileTransaction(workspace, "write agent packet report", [
+    { path: reportPath, content: formatAgentPacket(packet) },
+  ]);
+  return reportPath;
 }
 
 export function estimatePacketTokens(

@@ -13,7 +13,7 @@ describe("CLI help", () => {
     expect(result.stdout).toContain("ledger verify-integrity [--check] [--json]");
     expect(result.stdout).toContain("ledger render [--profile <internal|public>] [--json]");
     expect(result.stdout).toContain("ledger doctor [--no-baseline] [--json]");
-    expect(result.stdout).toContain("ledger serve [--host <host>] [--port <port>] [--watch]");
+    expect(result.stdout).toContain("ledger serve [--host <host>] [--port <port>] [--profile <internal|public>]");
     expect(result.stdout).toContain("ledger search-packet <query>");
     expect(result.stdout).toContain("ledger mcp");
   });

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import os from "node:os";
+import path from "node:path";
 import { defaultConfig } from "../src/config.js";
 import { runCiChecks } from "../src/ci.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
@@ -26,11 +28,15 @@ describe("runCiChecks", () => {
 });
 
 function workspace(): LedgerWorkspace {
+  const projectRoot = os.tmpdir();
   return {
-    projectRoot: "/tmp/ledger",
-    ledgerRoot: "/tmp/ledger/.ledger",
-    configPath: "/tmp/ledger/.ledger/config.yaml",
-    config: defaultConfig,
+    projectRoot,
+    ledgerRoot: path.join(projectRoot, ".ledger"),
+    configPath: path.join(projectRoot, ".ledger", "config.yaml"),
+    config: {
+      ...defaultConfig,
+      docs: { ...defaultConfig.docs, root: "ledger-ci-test-docs-not-present" },
+    },
   };
 }
 

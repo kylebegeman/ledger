@@ -45,17 +45,111 @@ ${staticReaderStyles}
       </div>
     </div>
     <div class="stats">
-      ${stat("Documents", model.stats.documents)}
-      ${stat("Changes", model.stats.changes)}
-      ${stat("Backlog", model.stats.backlog)}
-      ${stat("Decisions", model.stats.decisions)}
-      ${stat("Releases", model.stats.releases)}
-      ${stat("Product Notes", model.stats.productNotes + model.stats.feedback)}
+      ${model.profile === "public"
+        ? stat("Releases", model.stats.releases)
+        : [
+            stat("Documents", model.stats.documents),
+            stat("Changes", model.stats.changes),
+            stat("Backlog", model.stats.backlog),
+            stat("Decisions", model.stats.decisions),
+            stat("Releases", model.stats.releases),
+            stat("Product Notes", model.stats.productNotes + model.stats.feedback),
+          ].join("\n      ")}
     </div>
   </header>
   <main>
     <aside aria-label="Filters">
-      <h2>Filters</h2>
+      ${model.profile === "public"
+        ? publicFilterControls()
+        : internalFilterControls(model, areas, statuses, releases, tags)}
+      ${model.profile === "internal" ? graphSummary(model) : ""}
+    </aside>
+    <section>
+      <h2 id="result-count" data-result-noun="${model.profile === "public" ? "release" : "document"}">${model.documents.length} ${model.profile === "public" ? "release(s)" : "document(s)"}</h2>
+      <div class="entries" id="entries">
+        ${model.documents.map((document) => renderEntry(document, model.profile)).join("\n        ")}
+      </div>
+      <p class="empty" id="empty" hidden>No Ledger records match the current filters.</p>
+    </section>
+  </main>
+  <script>
+${staticReaderRuntime}
+  </script>
+</body>
+</html>
+`;
+}
+
+function renderEntry(
+  document: LedgerRenderedDocument,
+  profile: LedgerStaticReaderModel["profile"],
+): string {
+  if (profile === "public") return renderPublicEntry(document);
+  return `<article class="entry" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document).toLowerCase())}">
+          <h3>${escapeHtml(document.id)}: ${escapeHtml(document.title)}</h3>
+          <div class="meta">
+            <span class="pill">${escapeHtml(document.kind)}</span>
+            <span class="pill">${escapeHtml(document.status)}</span>
+            <span class="pill">${escapeHtml(document.coverageStatus)} coverage</span>
+            <span class="pill score-pill" data-score-label hidden></span>
+            ${document.warningCount > 0 ? `<span class="pill">${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}</span>` : ""}
+            ${document.release ? `<span class="pill">${escapeHtml(document.release)}</span>` : ""}
+            ${document.areas.map((area) => `<span class="pill">${escapeHtml(area)}</span>`).join("")}
+            ${document.tags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}
+          </div>
+          ${document.sourceHref ? `<p><strong>Source:</strong> <a href="${escapeHtml(document.sourceHref)}">${escapeHtml(document.path)}</a></p>` : ""}
+          ${document.summary ? `<p class="summary">${escapeHtml(document.summary)}</p>` : ""}
+          ${detailList("Public Notes", document.publicNotes)}
+          ${contextGrid(document)}
+          ${issueList(document.issues)}
+          ${detailList("Files", document.files)}
+          ${detailList("Symbols", document.symbols)}
+          ${detailList("Docs", document.docs)}
+          ${relationships(document)}
+          ${document.source ? agentPacketDigest(document) : ""}
+          ${document.source ? `<details class="source">
+            <summary>Markdown Source</summary>
+            <pre>${escapeHtml(document.source)}</pre>
+          </details>` : ""}
+        </article>`;
+}
+
+function renderPublicEntry(document: LedgerRenderedDocument): string {
+  return `<article class="entry" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-search="${escapeHtml(searchTerms(document).toLowerCase())}">
+          <h3>${escapeHtml(document.title)}</h3>
+          <div class="meta">
+            <span class="pill">${escapeHtml(document.id)}</span>
+            <span class="pill">${escapeHtml(document.date)}</span>
+            <span class="pill score-pill" data-score-label hidden></span>
+          </div>
+          ${publicNotesList(document.publicNotes)}
+        </article>`;
+}
+
+function publicNotesList(values: readonly string[]): string {
+  if (values.length === 0) return '<p class="summary">No public notes were recorded.</p>';
+  return `<div class="context"><strong>What changed</strong><ul>${values
+    .map((value) => `<li>${escapeHtml(value)}</li>`)
+    .join("")}</ul></div>`;
+}
+
+function publicFilterControls(): string {
+  return `<h2>Release notes</h2>
+      <label for="search">Search</label>
+      <input id="search" type="search" placeholder="Version or release note">
+      ${["kind", "warning", "missingRef", "duplicate", "coverage", "status", "area", "release", "tag"]
+        .map((id) => `<input id="${id}" type="hidden" value="all">`)
+        .join("\n      ")}`;
+}
+
+function internalFilterControls(
+  model: LedgerStaticReaderModel,
+  areas: readonly string[],
+  statuses: readonly string[],
+  releases: readonly string[],
+  tags: readonly string[],
+): string {
+  return `<h2>Filters</h2>
       <label for="search">Search</label>
       <input id="search" type="search" placeholder="Title, id, file, symbol, invariant">
       <label for="kind">Kind</label>
@@ -120,53 +214,7 @@ ${staticReaderStyles}
         ${facetButtons("Releases", "release", model.facets.releases)}
         ${facetButtons("Areas", "area", model.facets.areas)}
         ${facetButtons("Tags", "tag", model.facets.tags)}
-      </div>
-      ${model.profile === "internal" ? graphSummary(model) : ""}
-    </aside>
-    <section>
-      <h2 id="result-count">${model.documents.length} document(s)</h2>
-      <div class="entries" id="entries">
-        ${model.documents.map(renderEntry).join("\n        ")}
-      </div>
-      <p class="empty" id="empty" hidden>No Ledger records match the current filters.</p>
-    </section>
-  </main>
-  <script>
-${staticReaderRuntime}
-  </script>
-</body>
-</html>
-`;
-}
-
-function renderEntry(document: LedgerRenderedDocument): string {
-  return `<article class="entry" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document).toLowerCase())}">
-          <h3>${escapeHtml(document.id)}: ${escapeHtml(document.title)}</h3>
-          <div class="meta">
-            <span class="pill">${escapeHtml(document.kind)}</span>
-            <span class="pill">${escapeHtml(document.status)}</span>
-            <span class="pill">${escapeHtml(document.coverageStatus)} coverage</span>
-            <span class="pill score-pill" data-score-label hidden></span>
-            ${document.warningCount > 0 ? `<span class="pill">${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}</span>` : ""}
-            ${document.release ? `<span class="pill">${escapeHtml(document.release)}</span>` : ""}
-            ${document.areas.map((area) => `<span class="pill">${escapeHtml(area)}</span>`).join("")}
-            ${document.tags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}
-          </div>
-          ${document.sourceHref ? `<p><strong>Source:</strong> <a href="${escapeHtml(document.sourceHref)}">${escapeHtml(document.path)}</a></p>` : ""}
-          ${document.summary ? `<p class="summary">${escapeHtml(document.summary)}</p>` : ""}
-          ${detailList("Public Notes", document.publicNotes)}
-          ${contextGrid(document)}
-          ${issueList(document.issues)}
-          ${detailList("Files", document.files)}
-          ${detailList("Symbols", document.symbols)}
-          ${detailList("Docs", document.docs)}
-          ${relationships(document)}
-          ${document.source ? agentPacketDigest(document) : ""}
-          ${document.source ? `<details class="source">
-            <summary>Markdown Source</summary>
-            <pre>${escapeHtml(document.source)}</pre>
-          </details>` : ""}
-        </article>`;
+      </div>`;
 }
 
 function issueList(issues: readonly LedgerIssue[]): string {

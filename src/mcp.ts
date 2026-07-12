@@ -63,8 +63,11 @@ interface LedgerMcpParsedArgs {
 }
 
 const projectRootSchema = {
-  projectRoot: z.string().optional().describe("Project directory containing .ledger/."),
+  projectRoot: z.string().min(1).max(4096).optional().describe("Project directory containing .ledger/."),
 };
+
+const shortString = z.string().min(1).max(500);
+const pathString = z.string().min(1).max(4096);
 
 const validateSchema = {
   ...projectRootSchema,
@@ -74,33 +77,33 @@ const validateSchema = {
 const querySchema = {
   ...projectRootSchema,
   kind: z.enum(["change", "backlog", "decision", "release", "product-note", "feedback"]).optional(),
-  status: z.string().optional(),
-  area: z.string().optional(),
-  release: z.string().optional(),
-  decision: z.string().optional(),
-  backlog: z.string().optional(),
-  symbol: z.string().optional(),
-  file: z.string().optional(),
-  doc: z.string().optional(),
-  id: z.string().optional(),
-  text: z.string().optional(),
+  status: shortString.optional(),
+  area: shortString.optional(),
+  release: shortString.optional(),
+  decision: shortString.optional(),
+  backlog: shortString.optional(),
+  symbol: shortString.optional(),
+  file: pathString.optional(),
+  doc: pathString.optional(),
+  id: shortString.optional(),
+  text: z.string().min(1).max(10_000).optional(),
   limit: z.number().int().positive().max(100).optional(),
 };
 
 const explainSchema = {
   ...projectRootSchema,
-  path: z.string().describe("File path to explain."),
+  path: pathString.describe("File path to explain."),
 };
 
 const conflictSchema = {
   ...projectRootSchema,
-  paths: z.array(z.string()).min(1).describe("File paths to inspect."),
+  paths: z.array(pathString).min(1).max(1_000).describe("File paths to inspect."),
   writeReport: z.boolean().optional().describe("Write .ledger/reports/conflict.md."),
 };
 
 const packetSchema = {
   ...projectRootSchema,
-  path: z.string().describe("File path to package for agent context."),
+  path: pathString.describe("File path to package for agent context."),
   budgetTokens: z.number().int().positive().max(10000).optional().describe("Approximate token budget for the returned packet."),
   maxEntries: z.number().int().positive().max(100).optional().describe("Maximum records to include."),
   writeReport: z.boolean().optional().describe("Write .ledger/reports/packet.md."),
@@ -108,7 +111,7 @@ const packetSchema = {
 
 const searchPacketSchema = {
   ...projectRootSchema,
-  query: z.string().min(1).describe("Search query to package for agent context."),
+  query: z.string().min(1).max(10_000).describe("Search query to package for agent context."),
   limit: z.number().int().positive().max(100).optional().describe("Maximum search matches to include."),
   budgetTokens: z.number().int().positive().max(10000).optional().describe("Approximate token budget for the returned packet."),
   writeReport: z.boolean().optional().describe("Write .ledger/reports/packet.md."),
@@ -116,7 +119,7 @@ const searchPacketSchema = {
 
 const docsImpactSchema = {
   ...projectRootSchema,
-  changedFiles: z.array(z.string()).optional().describe("Changed files to inspect. Uses git status when omitted."),
+  changedFiles: z.array(pathString).max(10_000).optional().describe("Changed files to inspect. Uses git status when omitted."),
   staged: z.boolean().optional().describe("Use staged git diff when changedFiles is omitted."),
 };
 
@@ -382,12 +385,6 @@ async function executeLedgerMcpTool(
     }
 
     case "ledger_verify_integrity": {
-      if (parsed.check && parsed.writeArtifacts) {
-        throw new LedgerError(
-          "invalid-argument",
-          "Integrity check cannot replace the baseline in the same operation.",
-        );
-      }
       const expected = parsed.check ? await readIntegrityReport(workspace) : undefined;
       const report = buildIntegrityReport(workspace, documents);
       const written = parsed.writeArtifacts
@@ -410,27 +407,34 @@ async function executeLedgerMcpTool(
 }
 
 function parseArgs(name: LedgerMcpToolName, args: unknown): LedgerMcpParsedArgs {
-  return schemaForTool(name).parse(args ?? {}) as unknown as LedgerMcpParsedArgs;
+  const parsed = schemaForTool(name).parse(args ?? {}) as unknown as LedgerMcpParsedArgs;
+  if (name === "ledger_verify_integrity" && parsed.check && parsed.writeArtifacts) {
+    throw new LedgerError(
+      "invalid-argument",
+      "Integrity check cannot replace the baseline in the same operation.",
+    );
+  }
+  return parsed;
 }
 
 function schemaForTool(name: LedgerMcpToolName): z.ZodObject<z.ZodRawShape> {
   switch (name) {
     case "ledger_validate":
-      return z.object(validateSchema);
+      return z.object(validateSchema).strict();
     case "ledger_query":
-      return z.object(querySchema);
+      return z.object(querySchema).strict();
     case "ledger_explain":
-      return z.object(explainSchema);
+      return z.object(explainSchema).strict();
     case "ledger_conflict":
-      return z.object(conflictSchema);
+      return z.object(conflictSchema).strict();
     case "ledger_packet":
-      return z.object(packetSchema);
+      return z.object(packetSchema).strict();
     case "ledger_search_packet":
-      return z.object(searchPacketSchema);
+      return z.object(searchPacketSchema).strict();
     case "ledger_docs_impact":
-      return z.object(docsImpactSchema);
+      return z.object(docsImpactSchema).strict();
     case "ledger_verify_integrity":
-      return z.object(integritySchema);
+      return z.object(integritySchema).strict();
   }
 }
 

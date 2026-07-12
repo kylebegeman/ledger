@@ -1,6 +1,8 @@
 # Ledger Schema
 
-Ledger documents are Markdown files with YAML frontmatter.
+Ledger documents are UTF-8 Markdown files with YAML frontmatter. Invalid UTF-8
+is rejected at the file boundary instead of being decoded with replacement
+characters.
 
 This document defines the initial schema. It is intentionally practical rather
 than exhaustive. Projects can add fields, but Ledger should validate and index
@@ -529,7 +531,9 @@ limits:
 
 Ledger also caps config files at 1 MB and limits YAML alias expansion. File and
 docs references inside records must remain project-relative; unsafe references
-are validation errors and are never opened by stale-symbol checks.
+are validation errors and are never opened by stale-symbol checks. Source,
+baseline, template, migration, and generated-artifact reads use bounded file
+handles and reject final symlinks to avoid size-check races and link swaps.
 
 Ledger merges valid partial config files with defaults, but malformed nested
 values fail during workspace discovery instead of being silently ignored.
@@ -546,6 +550,11 @@ values fail during workspace discovery instead of being silently ignored.
 Individual booleans such as `requireVerification`, `requireChangedFiles`, and
 `requireInvariants` still control whether those checks run. The profile only
 controls severity after a finding is produced.
+
+Document `kind` values must be recognized by Ledger. `date` and `updated` values,
+when present, must be real calendar dates in `YYYY-MM-DD` form. Validation and
+integrity baseline files are versioned and schema validated; malformed or
+unsupported baselines fail closed instead of silently resetting prior state.
 
 ## Config Versioning
 

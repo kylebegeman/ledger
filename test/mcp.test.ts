@@ -56,6 +56,27 @@ describe("Ledger MCP", () => {
       command: "ledger_packet",
       error: { code: "invalid-argument" },
     });
+
+    const unknownField = await callToolEnvelope("ledger_validate", {
+      projectRoot,
+      writeReprot: true,
+    });
+    expect(unknownField).toMatchObject({
+      ok: false,
+      error: { code: "invalid-argument" },
+    });
+
+    const conflictingIntegrity = await callToolEnvelope("ledger_verify_integrity", {
+      check: true,
+      writeArtifacts: true,
+    });
+    expect(conflictingIntegrity).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid-argument",
+        message: "Integrity check cannot replace the baseline in the same operation.",
+      },
+    });
   });
 
   it("queries records as an MCP tool", async () => {

@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { isCoveragePattern, matchesGlob } from "./coverage.js";
-import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
-import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
+import { normalizeDocument, normalizeKind, normalizePath, stringArrayValue } from "./documents.js";
+import { isSafeProjectRelativePath, resolveProjectPath, resolveSafeProjectPath } from "./projectPaths.js";
 import { applyFileTransaction } from "./fileTransaction.js";
+import { LedgerError } from "./machine.js";
 import type {
   LedgerIssue,
   LedgerIssueLevel,
@@ -62,6 +62,21 @@ export function validateDocuments(
     requireString(issues, pathLabel, normalized.title, "title");
     requireString(issues, pathLabel, normalized.date, "date");
     requireString(issues, pathLabel, normalized.status, "status");
+    validateDate(issues, pathLabel, normalized.date, "date");
+    if (normalized.updated) validateDate(issues, pathLabel, normalized.updated, "updated");
+
+    if (
+      document.frontmatter.kind !== undefined &&
+      normalizeKind(document.frontmatter.kind) === undefined
+    ) {
+      issues.push({
+        level: "error",
+        code: "invalid-frontmatter",
+        path: pathLabel,
+        field: "kind",
+        message: `invalid document kind "${String(document.frontmatter.kind)}"`,
+      });
+    }
 
     if (normalized.id) {
       const existingPath = ids.get(normalized.id);
@@ -310,10 +325,10 @@ export async function writeValidationReport(
   workspace: LedgerWorkspace,
   result: LedgerValidationResult,
 ): Promise<void> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  await mkdir(reportDirectory, { recursive: true });
-  const reportPath = path.join(reportDirectory, "latest-validation.md");
-  await writeFile(reportPath, formatValidationReport(result), "utf8");
+  const reportPath = normalizePath(`${workspace.config.reports.output}/latest-validation.md`);
+  await applyFileTransaction(workspace, "write validation report", [
+    { path: reportPath, content: formatValidationReport(result) },
+  ]);
 }
 
 export function formatValidationReport(result: LedgerValidationResult): string {
@@ -355,7 +370,7 @@ function requireString(
   value: string,
   fieldName: string,
 ): void {
-  if (value.length > 0) return;
+  if (value.trim().length > 0) return;
   issues.push({
     level: "error",
     code: "missing-frontmatter",
@@ -379,15 +394,83 @@ export function issueKey(issue: LedgerIssue): string {
 export async function readValidationBaseline(
   workspace: LedgerWorkspace,
 ): Promise<ReadonlySet<string>> {
-  const baselinePath = path.join(workspace.projectRoot, workspace.config.validation.baseline);
+  const baselinePath = await resolveSafeProjectPath(
+    workspace.projectRoot,
+    workspace.config.validation.baseline,
+    "validation baseline",
+  );
   try {
-    const raw = await readFile(baselinePath, "utf8");
-    const parsed = JSON.parse(raw) as { readonly issues?: unknown };
-    if (!Array.isArray(parsed.issues)) return new Set();
-    return new Set(parsed.issues.filter((issue): issue is string => typeof issue === "string"));
-  } catch {
-    return new Set();
+    const raw = await readUtf8FileLimited(
+      baselinePath,
+      workspace.config.limits.maxTotalDocumentBytes,
+      "validation baseline",
+    );
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      (parsed as { readonly version?: unknown }).version !== 1 ||
+      !Array.isArray((parsed as { readonly issues?: unknown }).issues) ||
+      !(parsed as { readonly issues: readonly unknown[] }).issues.every(
+        (issue) => typeof issue === "string",
+      )
+    ) {
+      throw invalidValidationBaseline(baselinePath);
+    }
+    const issues = (parsed as { readonly issues: readonly string[] }).issues;
+    const maxIssues = workspace.config.limits.maxDocuments * 20;
+    if (issues.length > maxIssues) {
+      throw new LedgerError(
+        "resource-limit-exceeded",
+        `Validation baseline exceeds ${maxIssues} issues`,
+        { kind: "validation-baseline-issues", limit: maxIssues },
+      );
+    }
+    return new Set(issues);
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return new Set();
+    if (error instanceof SyntaxError) throw invalidValidationBaseline(baselinePath);
+    throw error;
   }
+}
+
+function validateDate(
+  issues: LedgerIssue[],
+  pathLabel: string,
+  value: string,
+  field: "date" | "updated",
+): void {
+  if (!value || isCalendarDate(value)) return;
+  issues.push({
+    level: "error",
+    code: "invalid-frontmatter",
+    path: pathLabel,
+    field,
+    message: `frontmatter field "${field}" must be a valid YYYY-MM-DD date`,
+  });
+}
+
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function invalidValidationBaseline(filePath: string): LedgerError {
+  return new LedgerError(
+    "validation-baseline-invalid",
+    `Invalid validation baseline: ${filePath}`,
+    { path: filePath },
+  );
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }
 
 export async function writeValidationBaseline(

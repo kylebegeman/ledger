@@ -1,4 +1,4 @@
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -28,6 +28,18 @@ describe("initWorkspace", () => {
     await expectPath("docs/README.md");
     await expectPath("docs/llm/START_HERE.md");
     await expectPath("docs/llm/manifest.json");
+  });
+
+  it("quotes project directory names when creating YAML config", async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), "ledger-init-name-test-"));
+    tempDir = parent;
+    const project = path.join(parent, "project: #fixture");
+    await mkdir(project);
+
+    await initWorkspace(project);
+
+    expect(await readFile(path.join(project, ".ledger", "config.yaml"), "utf8"))
+      .toContain('project: "project: #fixture"');
   });
 });
 

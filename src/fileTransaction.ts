@@ -3,18 +3,17 @@ import { hostname } from "node:os";
 import {
   mkdir,
   open,
-  readFile,
   readdir,
   rename,
   rm,
   stat,
   unlink,
-  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { normalizePath } from "./documents.js";
 import { LedgerError } from "./machine.js";
-import { resolveSafeProjectPath } from "./projectPaths.js";
+import { assertSafeProjectRelativePath, resolveSafeProjectPath } from "./projectPaths.js";
 import type { LedgerWorkspace } from "./types.js";
 
 export interface LedgerFileChange {
@@ -76,6 +75,10 @@ interface LockOwner {
 }
 
 const staleLockMs = 15 * 60 * 1000;
+const maxLockBytes = 16 * 1024;
+const maxOperationLength = 500;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const sha256Pattern = /^[a-f0-9]{64}$/;
 
 export class WorkspaceWriteLockedError extends Error {
   readonly code = "workspace-write-locked";
@@ -104,8 +107,9 @@ export async function applyFileTransaction(
   operation: string,
   changes: readonly LedgerFileChange[],
 ): Promise<LedgerFileTransactionResult> {
+  validateTransactionInput(workspace, operation, changes);
   return await withWorkspaceWriteLock(workspace, operation, async () => {
-    await recoverInterruptedTransactions(workspace);
+    await recoverInterruptedTransactionsUnlocked(workspace);
     const id = randomUUID();
     const prepared = await prepareChanges(workspace, id, changes);
     const changed = prepared.filter((change) => change.originalHash !== change.nextHash);
@@ -131,7 +135,7 @@ export async function applyFileTransaction(
       };
     } catch (error) {
       if (!committed) {
-        await rollbackTransaction(changed);
+        await rollbackTransaction(changed, workspace.config.limits.maxTotalDocumentBytes);
         await rm(journalPath, { force: true });
       }
       throw error;
@@ -144,6 +148,12 @@ export function hashFileContent(content: string): string {
 }
 
 export async function recoverInterruptedTransactions(workspace: LedgerWorkspace): Promise<void> {
+  await withWorkspaceWriteLock(workspace, "recover interrupted transactions", async () => {
+    await recoverInterruptedTransactionsUnlocked(workspace);
+  });
+}
+
+async function recoverInterruptedTransactionsUnlocked(workspace: LedgerWorkspace): Promise<void> {
   const directory = await resolveSafeProjectPath(
     workspace.projectRoot,
     ".ledger/transactions",
@@ -159,11 +169,14 @@ export async function recoverInterruptedTransactions(workspace: LedgerWorkspace)
 
   for (const name of names.filter((value) => value.endsWith(".json")).sort()) {
     const journalPath = path.join(directory, name);
-    const parsed = JSON.parse(await readFile(journalPath, "utf8")) as TransactionJournal;
+    const expectedId = name.slice(0, -".json".length);
+    const parsed = await readTransactionJournal(workspace, journalPath, expectedId);
     const changes = await Promise.all(
       parsed.changes.map((change) => hydrateJournalChange(workspace, parsed.id, change)),
     );
-    if (parsed.phase !== "committed") await rollbackTransaction(changes);
+    if (parsed.phase !== "committed") {
+      await rollbackTransaction(changes, workspace.config.limits.maxTotalDocumentBytes);
+    }
     await cleanupTransaction(journalPath, changes);
   }
 }
@@ -189,17 +202,16 @@ export async function inspectWorkspaceWriteState(
     ".ledger/write.lock",
     "workspace lock",
   );
-  const lockExists = await exists(lockPath);
-  const owner = await readLockOwner(lockPath);
+  const lock = await readLockMetadata(lockPath);
   return {
     pendingTransactions,
-    lock: lockExists
+    lock: lock.exists
       ? {
-          operation: owner?.operation,
-          pid: owner?.pid,
-          hostname: owner?.hostname,
-          createdAt: owner?.createdAt,
-          stale: isStaleLock(owner),
+          operation: lock.owner?.operation,
+          pid: lock.owner?.pid,
+          hostname: lock.owner?.hostname,
+          createdAt: lock.owner?.createdAt,
+          stale: isStaleLock(lock.owner, lock.modifiedAt),
         }
       : undefined,
   };
@@ -213,16 +225,22 @@ async function prepareChanges(
   const seen = new Set<string>();
   const prepared: PreparedChange[] = [];
   for (const change of changes) {
-    const normalized = normalizePath(change.path);
-    if (seen.has(normalized)) {
+    const normalized = assertSafeProjectRelativePath(
+      normalizePath(change.path),
+      "transaction path",
+    );
+    const targetPath = await resolveSafeProjectPath(workspace.projectRoot, normalized, "transaction path");
+    const key = process.platform === "win32" ? targetPath.toLowerCase() : targetPath;
+    if (seen.has(key)) {
       throw new LedgerError("invalid-argument", `Duplicate transaction path: ${normalized}`, {
         path: normalized,
       });
     }
-    seen.add(normalized);
-    const targetPath = await resolveSafeProjectPath(workspace.projectRoot, normalized, "transaction path");
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    const current = await readCurrentFile(targetPath);
+    seen.add(key);
+    const current = await readCurrentFile(
+      targetPath,
+      workspace.config.limits.maxTotalDocumentBytes,
+    );
     if (change.expectedHash !== undefined && change.expectedHash !== current.hash) {
       throw new ConcurrentFileChangeError(normalized);
     }
@@ -235,15 +253,24 @@ async function prepareChanges(
       originalHash: current.hash,
       nextHash: hashFileContent(change.content),
       content: change.content,
-      mode: current.mode,
+      mode: current.mode === undefined ? undefined : current.mode & 0o777,
     });
+  }
+  for (const directory of new Set(prepared.map((change) => path.dirname(change.targetPath)))) {
+    await mkdir(directory, { recursive: true });
   }
   return prepared;
 }
 
-async function readCurrentFile(filePath: string): Promise<{ hash: string | null; mode?: number }> {
+async function readCurrentFile(
+  filePath: string,
+  maxBytes: number,
+): Promise<{ hash: string | null; mode?: number }> {
   try {
-    const [content, fileStats] = await Promise.all([readFile(filePath, "utf8"), stat(filePath)]);
+    const [content, fileStats] = await Promise.all([
+      readUtf8FileLimited(filePath, maxBytes, "transaction target"),
+      stat(filePath),
+    ]);
     return { hash: hashFileContent(content), mode: fileStats.mode };
   } catch (error) {
     if (isCode(error, "ENOENT")) return { hash: null };
@@ -261,10 +288,13 @@ async function writeStage(change: PreparedChange): Promise<void> {
   }
 }
 
-async function rollbackTransaction(changes: readonly PreparedChange[]): Promise<void> {
+async function rollbackTransaction(
+  changes: readonly PreparedChange[],
+  maxBytes: number,
+): Promise<void> {
   for (const change of [...changes].reverse()) {
     const backupExists = await exists(change.backupPath);
-    const target = await readCurrentFile(change.targetPath);
+    const target = await readCurrentFile(change.targetPath, maxBytes);
     if (backupExists) {
       if (target.hash !== null && target.hash !== change.nextHash) {
         throw new ConcurrentFileChangeError(change.path);
@@ -338,8 +368,22 @@ async function transactionJournalPath(workspace: LedgerWorkspace, id: string): P
 
 async function writeJournal(filePath: string, value: TransactionJournal): Promise<void> {
   const temporary = `${filePath}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "w" });
-  await rename(temporary, filePath);
+  const handle = await open(temporary, "wx");
+  try {
+    await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await handle.sync();
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    await rm(temporary, { force: true }).catch(() => undefined);
+    throw error;
+  }
+  await handle.close();
+  try {
+    await rename(temporary, filePath);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => undefined);
+    throw error;
+  }
 }
 
 async function withWorkspaceWriteLock<T>(
@@ -373,34 +417,55 @@ async function acquireLock(lockPath: string, owner: LockOwner) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const handle = await open(lockPath, "wx");
-      await handle.writeFile(`${JSON.stringify(owner, null, 2)}\n`, "utf8");
-      await handle.sync();
-      return handle;
+      try {
+        await handle.writeFile(`${JSON.stringify(owner, null, 2)}\n`, "utf8");
+        await handle.sync();
+        return handle;
+      } catch (error) {
+        await handle.close().catch(() => undefined);
+        await rm(lockPath, { force: true }).catch(() => undefined);
+        throw error;
+      }
     } catch (error) {
       if (!isCode(error, "EEXIST")) throw error;
-      const existing = await readLockOwner(lockPath);
-      if (attempt === 0 && isStaleLock(existing)) {
-        await rm(lockPath, { force: true });
+      const existing = await readLockMetadata(lockPath);
+      if (attempt === 0 && isStaleLock(existing.owner, existing.modifiedAt)) {
+        await removeStaleLock(lockPath);
         continue;
       }
-      throw new WorkspaceWriteLockedError(existing);
+      throw new WorkspaceWriteLockedError(existing.owner);
     }
   }
   throw new WorkspaceWriteLockedError();
 }
 
 async function readLockOwner(lockPath: string): Promise<Partial<LockOwner> | undefined> {
+  let content: string;
   try {
-    return JSON.parse(await readFile(lockPath, "utf8")) as Partial<LockOwner>;
-  } catch {
+    content = await readUtf8FileLimited(lockPath, maxLockBytes, "workspace lock");
+  } catch (error) {
+    if (isCode(error, "ENOENT") || isCode(error, "resource-limit-exceeded")) return undefined;
+    throw error;
+  }
+  try {
+    return JSON.parse(content) as Partial<LockOwner>;
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
     return undefined;
   }
 }
 
-function isStaleLock(owner: Partial<LockOwner> | undefined): boolean {
-  if (!owner) return false;
+function isStaleLock(
+  owner: Partial<LockOwner> | undefined,
+  modifiedAt?: number,
+): boolean {
+  if (!owner) {
+    return modifiedAt !== undefined && Date.now() - modifiedAt > staleLockMs;
+  }
   const created = Date.parse(owner.createdAt ?? "");
-  if (!Number.isFinite(created)) return false;
+  if (!Number.isFinite(created)) {
+    return modifiedAt !== undefined && Date.now() - modifiedAt > staleLockMs;
+  }
   if (owner.hostname === hostname() && typeof owner.pid === "number") {
     try {
       process.kill(owner.pid, 0);
@@ -410,6 +475,55 @@ function isStaleLock(owner: Partial<LockOwner> | undefined): boolean {
     }
   }
   return Date.now() - created > staleLockMs;
+}
+
+async function readLockMetadata(lockPath: string): Promise<{
+  readonly exists: boolean;
+  readonly owner?: Partial<LockOwner>;
+  readonly modifiedAt?: number;
+}> {
+  try {
+    const [owner, stats] = await Promise.all([readLockOwner(lockPath), stat(lockPath)]);
+    return { exists: true, owner, modifiedAt: stats.mtimeMs };
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return { exists: false };
+    throw error;
+  }
+}
+
+async function removeStaleLock(lockPath: string): Promise<void> {
+  const recoveryPath = `${lockPath}.recovery`;
+  const handle = await acquireRecoveryLock(recoveryPath);
+  try {
+    const current = await readLockMetadata(lockPath);
+    if (current.exists && isStaleLock(current.owner, current.modifiedAt)) {
+      await rm(lockPath, { force: true });
+    }
+  } finally {
+    await handle.close();
+    await rm(recoveryPath, { force: true });
+  }
+}
+
+async function acquireRecoveryLock(recoveryPath: string) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await open(recoveryPath, "wx");
+    } catch (error) {
+      if (!isCode(error, "EEXIST")) throw error;
+      const stats = await stat(recoveryPath).catch((statError: unknown) => {
+        if (isCode(statError, "ENOENT")) return undefined;
+        throw statError;
+      });
+      if (!stats) continue;
+      if (attempt === 0 && Date.now() - stats.mtimeMs > staleLockMs) {
+        await rm(recoveryPath, { force: true });
+        continue;
+      }
+      throw new WorkspaceWriteLockedError();
+    }
+  }
+  throw new WorkspaceWriteLockedError();
 }
 
 async function releaseOwnedLock(lockPath: string, ownerId: string): Promise<void> {
@@ -425,6 +539,134 @@ async function exists(filePath: string): Promise<boolean> {
     if (isCode(error, "ENOENT")) return false;
     throw error;
   }
+}
+
+function validateTransactionInput(
+  workspace: LedgerWorkspace,
+  operation: string,
+  changes: readonly LedgerFileChange[],
+): void {
+  if (!operation.trim() || operation.length > maxOperationLength) {
+    throw new LedgerError("invalid-argument", "Transaction operation must be 1 to 500 characters");
+  }
+  if (changes.length > workspace.config.limits.maxDocuments) {
+    throw new LedgerError(
+      "resource-limit-exceeded",
+      `Transaction exceeds ${workspace.config.limits.maxDocuments} file changes`,
+      { kind: "transaction-files", limit: workspace.config.limits.maxDocuments },
+    );
+  }
+  let totalBytes = 0;
+  for (const change of changes) {
+    if (typeof change.path !== "string" || typeof change.content !== "string") {
+      throw new LedgerError("invalid-argument", "Transaction changes require string paths and content");
+    }
+    const bytes = Buffer.byteLength(change.content, "utf8");
+    if (bytes > workspace.config.limits.maxTotalDocumentBytes) {
+      throw new LedgerError(
+        "resource-limit-exceeded",
+        `${change.path}: transaction content exceeds ${workspace.config.limits.maxTotalDocumentBytes} bytes`,
+        { kind: "transaction-file-bytes", limit: workspace.config.limits.maxTotalDocumentBytes },
+      );
+    }
+    totalBytes += bytes;
+    if (totalBytes > workspace.config.limits.maxTotalDocumentBytes) {
+      throw new LedgerError(
+        "resource-limit-exceeded",
+        `Transaction content exceeds ${workspace.config.limits.maxTotalDocumentBytes} bytes`,
+        { kind: "transaction-total-bytes", limit: workspace.config.limits.maxTotalDocumentBytes },
+      );
+    }
+    if (
+      change.expectedHash !== undefined &&
+      change.expectedHash !== null &&
+      !sha256Pattern.test(change.expectedHash)
+    ) {
+      throw new LedgerError("invalid-argument", `Invalid expected hash for ${change.path}`);
+    }
+  }
+}
+
+async function readTransactionJournal(
+  workspace: LedgerWorkspace,
+  journalPath: string,
+  expectedId: string,
+): Promise<TransactionJournal> {
+  if (!uuidPattern.test(expectedId)) throw invalidJournal(journalPath);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      await readUtf8FileLimited(
+        journalPath,
+        workspace.config.limits.maxTotalDocumentBytes,
+        "transaction journal",
+      ),
+    );
+  } catch (error) {
+    if (error instanceof SyntaxError) throw invalidJournal(journalPath);
+    throw error;
+  }
+  if (parsed === null || typeof parsed !== "object") throw invalidJournal(journalPath);
+  const value = parsed as Partial<TransactionJournal>;
+  if (
+    value.version !== 1 ||
+    value.id !== expectedId ||
+    typeof value.operation !== "string" ||
+    !value.operation.trim() ||
+    value.operation.length > maxOperationLength ||
+    (value.phase !== "prepared" && value.phase !== "applying" && value.phase !== "committed") ||
+    typeof value.createdAt !== "string" ||
+    !Number.isFinite(Date.parse(value.createdAt)) ||
+    !Array.isArray(value.changes) ||
+    value.changes.length > workspace.config.limits.maxDocuments
+  ) {
+    throw invalidJournal(journalPath);
+  }
+  const seen = new Set<string>();
+  const changes: JournalChange[] = [];
+  for (const item of value.changes) {
+    if (item === null || typeof item !== "object") throw invalidJournal(journalPath);
+    const change = item as Partial<JournalChange>;
+    if (
+      typeof change.path !== "string" ||
+      (change.originalHash !== null && !sha256Pattern.test(change.originalHash ?? "")) ||
+      !sha256Pattern.test(change.nextHash ?? "") ||
+      (change.mode !== undefined &&
+        (!Number.isInteger(change.mode) || change.mode < 0 || change.mode > 0o177777))
+    ) {
+      throw invalidJournal(journalPath);
+    }
+    let canonicalPath: string;
+    try {
+      canonicalPath = assertSafeProjectRelativePath(change.path, "transaction journal path");
+    } catch {
+      throw invalidJournal(journalPath);
+    }
+    if (seen.has(canonicalPath)) throw invalidJournal(journalPath);
+    seen.add(canonicalPath);
+    changes.push({
+      path: canonicalPath,
+      originalHash: change.originalHash as string | null,
+      nextHash: change.nextHash as string,
+      mode: change.mode,
+    });
+  }
+  return {
+    version: 1,
+    id: value.id,
+    operation: value.operation,
+    phase: value.phase,
+    createdAt: value.createdAt,
+    changes,
+  };
+}
+
+function invalidJournal(journalPath: string): LedgerError {
+  return new LedgerError(
+    "invalid-transaction-journal",
+    `Invalid transaction journal: ${journalPath}`,
+    { path: journalPath },
+  );
 }
 
 function isCode(error: unknown, code: string): boolean {

@@ -1,7 +1,8 @@
-import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import { extractBullets, getSectionBody } from "./query.js";
 import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
 import type {
@@ -117,11 +118,11 @@ export async function writeStaleReport(
   workspace: LedgerWorkspace,
   report: LedgerStaleReport,
 ): Promise<string> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  const reportPath = path.join(reportDirectory, "stale-knowledge.md");
-  await mkdir(reportDirectory, { recursive: true });
-  await writeFile(reportPath, formatStaleReport(report), "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, reportPath));
+  const reportPath = normalizePath(path.join(workspace.config.reports.output, "stale-knowledge.md"));
+  await applyFileTransaction(workspace, "write stale knowledge report", [
+    { path: reportPath, content: formatStaleReport(report) },
+  ]);
+  return reportPath;
 }
 
 export function formatStaleReport(report: LedgerStaleReport): string {
@@ -166,18 +167,30 @@ async function symbolsMissingFromFiles(
     .filter((filePath) => !isCoveragePattern(filePath) && isSafeProjectRelativePath(filePath));
   if (exactFiles.length === 0) return [];
 
-  const contents = await Promise.all(
-    exactFiles.map(async (filePath) => {
-      try {
-        return await readFile(resolveProjectPath(workspace.projectRoot, filePath, "files reference"), "utf8");
-      } catch {
-        return "";
-      }
-    }),
-  );
+  const contents: string[] = [];
+  let remainingBytes = workspace.config.limits.maxTotalDocumentBytes;
+  for (const filePath of exactFiles) {
+    try {
+      const content = await readUtf8FileLimited(
+        resolveProjectPath(workspace.projectRoot, filePath, "files reference"),
+        remainingBytes,
+        "symbol source",
+      );
+      contents.push(content);
+      remainingBytes -= Buffer.byteLength(content, "utf8");
+    } catch (error) {
+      if (isCode(error, "ENOENT")) continue;
+      throw error;
+    }
+  }
   const combined = contents.join("\n");
   if (combined.length === 0) return [];
   return checkableSymbols.filter((symbol) => !combined.includes(symbol));
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return error !== null && typeof error === "object" && "code" in error &&
+    (error as { readonly code?: unknown }).code === code;
 }
 
 function isCheckableSymbol(symbol: string): boolean {

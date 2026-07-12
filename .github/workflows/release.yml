@@ -47,11 +47,20 @@ jobs:
             exit 1
           fi
 
-          if npm view "$name@$version" version >/dev/null 2>&1; then
+          set +e
+          view_output="$(npm view "$name@$version" version --json 2>&1)"
+          view_status=$?
+          set -e
+
+          if [[ $view_status -eq 0 ]]; then
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "$name@$version is already published; skipping npm publish."
-          else
+          elif grep -q "E404" <<<"$view_output"; then
             echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$view_output" >&2
+            echo "Could not determine whether $name@$version is already published." >&2
+            exit "$view_status"
           fi
 
       - name: Publish

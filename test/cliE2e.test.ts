@@ -174,6 +174,43 @@ describe("CLI end-to-end", () => {
       command: "render",
       error: { code: "invalid-argument" },
     });
+
+    const unknownOption = await captureRun(
+      ["render", "--profle", "public", "--json"],
+      tempDir,
+    );
+    expect(unknownOption.exitCode).toBe(2);
+    expect(JSON.parse(unknownOption.stdout)).toMatchObject({
+      schemaVersion: 1,
+      ok: false,
+      command: "render",
+      error: { code: "invalid-argument", message: expect.stringContaining("--profle") },
+    });
+
+    const invalidLimit = await captureRun(
+      ["search", "fixture", "--limit", "many", "--json"],
+      tempDir,
+    );
+    expect(invalidLimit.exitCode).toBe(2);
+    expect(JSON.parse(invalidLimit.stdout)).toMatchObject({
+      ok: false,
+      error: { code: "invalid-argument", message: "--limit must be a positive integer" },
+    });
+  });
+
+  it("does not consume positionals after boolean flags", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-cli-args-"));
+    expect((await captureRun(["init"], tempDir)).exitCode).toBe(0);
+    expect((await captureRun(["new", "Boolean flag fixture"], tempDir)).exitCode).toBe(0);
+
+    const result = await captureRun(["search", "--json", "Boolean flag"], tempDir);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      command: "search",
+      data: { matches: [expect.objectContaining({ id: "0001" })] },
+    });
   });
 
   it("checks integrity without replacing a mismatched baseline", async () => {

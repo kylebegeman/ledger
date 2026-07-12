@@ -18,6 +18,9 @@ describe("project path safety", () => {
   it("accepts normalized project-relative paths", () => {
     expect(assertSafeProjectRelativePath("./.ledger\\entries", "source.entries"))
       .toBe(".ledger/entries");
+    expect(assertSafeProjectRelativePath("docs//guides/./start.md")).toBe(
+      "docs/guides/start.md",
+    );
     expect(resolveProjectPath("/repo", "docs/README.md")).toBe("/repo/docs/README.md");
   });
 

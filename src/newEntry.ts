@@ -1,9 +1,10 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { isIgnoredByGitConfig } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import { applyFileTransaction } from "./fileTransaction.js";
+import { resolveSafeProjectPath } from "./projectPaths.js";
 import { extractFileSymbols } from "./symbols.js";
 import { renderLedgerTemplate } from "./template.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
@@ -33,7 +34,7 @@ export async function createChangeEntry(
       )
     : [];
   const files = coverageReferencesForChangedFiles(changedFiles);
-  const symbols = options.fromDiff
+  const symbols = options.fromDiff && changedFiles.length <= largeDiffFileThreshold
     ? await collectChangedSymbols(workspace, changedFiles)
     : { all: [], byFile: new Map<string, readonly string[]>() };
   const docs = files.filter((file) => isDocsPath(file, workspace.config.docs.root));
@@ -125,25 +126,52 @@ function slugify(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return slug || "change";
+  return slug.slice(0, 80).replace(/-+$/, "") || "change";
 }
 
 async function readTemplate(workspace: LedgerWorkspace): Promise<string> {
-  const templatePath = path.join(workspace.ledgerRoot, "templates", "change.md");
+  const templatePath = await resolveSafeProjectPath(
+    workspace.projectRoot,
+    ".ledger/templates/change.md",
+    "change template",
+  );
   try {
-    return await readFile(templatePath, "utf8");
-  } catch {
+    return await readUtf8FileLimited(
+      templatePath,
+      workspace.config.limits.maxDocumentBytes,
+      "change template",
+    );
+  } catch (error) {
+    if (!isCode(error, "ENOENT")) throw error;
     return defaultTemplate();
   }
 }
 
 async function readProductNoteTemplate(workspace: LedgerWorkspace): Promise<string> {
-  const templatePath = path.join(workspace.ledgerRoot, "templates", "product-note.md");
+  const templatePath = await resolveSafeProjectPath(
+    workspace.projectRoot,
+    ".ledger/templates/product-note.md",
+    "product note template",
+  );
   try {
-    return await readFile(templatePath, "utf8");
-  } catch {
+    return await readUtf8FileLimited(
+      templatePath,
+      workspace.config.limits.maxDocumentBytes,
+      "product note template",
+    );
+  } catch (error) {
+    if (!isCode(error, "ENOENT")) throw error;
     return defaultProductNoteTemplate();
   }
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }
 
 export function inferAreas(

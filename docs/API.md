@@ -51,7 +51,9 @@ The package root should stay focused on:
 `serveStaticReader` defaults to local-only exposure. Library callers selecting
 `mode: "network"` must provide an access token of at least 24 characters and
 should terminate TLS outside the embedded development server. Use
-`closeStaticReader` for bounded graceful shutdown.
+`closeStaticReader` for bounded graceful shutdown. Set `profile: "public"` to
+serve the isolated `.ledger/dist/public/` artifact set rather than the internal
+reader.
 
 `buildStaticReaderModel` accepts `profile: "internal" | "public"`. The public
 profile only includes released release records and strips internal source,

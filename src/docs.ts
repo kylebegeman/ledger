@@ -1,7 +1,9 @@
-import { access, mkdir, readdir, writeFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
+import { LedgerError } from "./machine.js";
+import { resolveSafeProjectPath } from "./projectPaths.js";
 import type {
   LedgerDocsAudit,
   LedgerDocsClassification,
@@ -16,8 +18,15 @@ export async function auditDocs(
   documents: readonly ParsedLedgerDocument[],
 ): Promise<LedgerDocsAudit> {
   const docsRoot = normalizePath(workspace.config.docs.root);
-  const docsRootAbsolutePath = path.join(workspace.projectRoot, docsRoot);
-  const docsFiles = (await findFiles(docsRootAbsolutePath)).map((filePath) =>
+  const docsRootAbsolutePath = await resolveSafeProjectPath(
+    workspace.projectRoot,
+    docsRoot,
+    "docs root",
+  );
+  const docsFiles = (await findFiles(docsRootAbsolutePath, {
+    maxDepth: workspace.config.limits.maxDirectoryDepth,
+    maxFiles: workspace.config.limits.maxDocuments,
+  })).map((filePath) =>
     normalizePath(path.relative(workspace.projectRoot, filePath)),
   );
   const files = docsFiles.map((filePath) => ({
@@ -59,13 +68,12 @@ export async function writeDocsAuditReport(
   workspace: LedgerWorkspace,
   audit: LedgerDocsAudit,
 ): Promise<void> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  await mkdir(reportDirectory, { recursive: true });
-  await writeFile(
-    path.join(reportDirectory, "docs-audit.md"),
-    formatDocsAuditReport(audit),
-    "utf8",
-  );
+  await applyFileTransaction(workspace, "write docs audit report", [
+    {
+      path: normalizePath(`${workspace.config.reports.output}/docs-audit.md`),
+      content: formatDocsAuditReport(audit),
+    },
+  ]);
 }
 
 export function buildDocsRoutingManifest(audit: LedgerDocsAudit): LedgerDocsRoutingManifest {
@@ -123,11 +131,11 @@ export async function writeDocsMigrationReport(
   workspace: LedgerWorkspace,
   audit: LedgerDocsAudit,
 ): Promise<string> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  const reportPath = path.join(reportDirectory, "docs-migration.md");
-  await mkdir(reportDirectory, { recursive: true });
-  await writeFile(reportPath, formatDocsMigrationReport(audit), "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, reportPath));
+  const reportPath = normalizePath(`${workspace.config.reports.output}/docs-migration.md`);
+  await applyFileTransaction(workspace, "write docs migration report", [
+    { path: reportPath, content: formatDocsMigrationReport(audit) },
+  ]);
+  return reportPath;
 }
 
 export function formatDocsAuditReport(audit: LedgerDocsAudit): string {
@@ -215,9 +223,9 @@ export function formatDocsStartHere(audit: LedgerDocsAudit): string {
     "",
     "## Generated Outputs",
     "",
-    "- `docs/llm/manifest.json` contains machine-readable routing metadata.",
-    "- `.ledger/reports/docs-audit.md` contains the latest full docs audit.",
-    "- `.ledger/reports/docs-migration.md` contains migration guidance when generated.",
+    "- The configured routing manifest contains machine-readable routing metadata.",
+    "- The configured reports directory contains the latest full docs audit.",
+    "- The configured reports directory contains migration guidance when generated.",
     "",
   ];
   return `${lines.join("\n")}\n`;
@@ -335,30 +343,53 @@ function collectReferencedDocs(
   return [...refs].sort();
 }
 
-async function findFiles(directory: string): Promise<readonly string[]> {
-  if (!(await pathExists(directory))) return [];
-  const entries = await readdir(directory, { withFileTypes: true });
+async function findFiles(
+  directory: string,
+  options: { readonly maxDepth: number; readonly maxFiles: number },
+  depth = 0,
+): Promise<readonly string[]> {
+  if (depth > options.maxDepth) {
+    throw new LedgerError(
+      "resource-limit-exceeded",
+      `Docs nesting exceeds ${options.maxDepth} directories: ${directory}`,
+      { kind: "docs-directory-depth", limit: options.maxDepth },
+    );
+  }
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return [];
+    throw error;
+  }
   const results: string[] = [];
 
   for (const entry of entries) {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      results.push(...(await findFiles(absolutePath)));
+      results.push(...(await findFiles(absolutePath, options, depth + 1)));
     } else if (entry.isFile()) {
       results.push(absolutePath);
+    }
+    if (results.length > options.maxFiles) {
+      throw new LedgerError(
+        "resource-limit-exceeded",
+        `Docs file limit exceeded (${options.maxFiles})`,
+        { kind: "docs-files", limit: options.maxFiles },
+      );
     }
   }
 
   return results.sort();
 }
 
-async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }
 
 function countByClassification(

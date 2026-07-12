@@ -230,11 +230,24 @@ describe("parseLedgerConfig", () => {
     expect(() =>
       parseLedgerConfig(
         {
+          source: { decisions: "../decisions" },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("source.decisions must stay inside the project root");
+
+    expect(() =>
+      parseLedgerConfig(
+        {
           git: { ignore: ["../secret/**"] },
         },
         "fixture.yaml",
       ),
     ).toThrow("git.ignore must stay inside the project root");
+  });
+
+  it("does not treat the project display name as a filesystem path", () => {
+    expect(parseLedgerConfig({ project: "." }, "fixture.yaml").project).toBe(".");
   });
 
   it("rejects invalid document resource limits", () => {

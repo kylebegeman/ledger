@@ -1,5 +1,6 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { parseMarkdownWithFrontmatter } from "./frontmatter.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import { LedgerError } from "./machine.js";
@@ -62,15 +63,11 @@ export async function readLedgerDocuments(
       if (documents.length >= workspace.config.limits.maxDocuments) {
         throw resourceLimitError("documents", workspace.config.limits.maxDocuments);
       }
-      const fileStats = await stat(absolutePath);
-      if (fileStats.size > workspace.config.limits.maxDocumentBytes) {
-        throw new LedgerError(
-          "resource-limit-exceeded",
-          `${normalizePath(path.relative(workspace.projectRoot, absolutePath))}: document exceeds ${workspace.config.limits.maxDocumentBytes} bytes`,
-          { limit: workspace.config.limits.maxDocumentBytes, kind: "document-bytes" },
-        );
-      }
-      const raw = await readFile(absolutePath, "utf8");
+      const raw = await readUtf8FileLimited(
+        absolutePath,
+        workspace.config.limits.maxDocumentBytes,
+        "document",
+      );
       const bytes = Buffer.byteLength(raw, "utf8");
       totalBytes += bytes;
       if (totalBytes > workspace.config.limits.maxTotalDocumentBytes) {
@@ -118,8 +115,9 @@ export async function findMarkdownFiles(
   let entries;
   try {
     entries = await readdir(directory, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return [];
+    throw error;
   }
 
   const results: string[] = [];
@@ -138,6 +136,15 @@ export async function findMarkdownFiles(
   }
 
   return results.sort();
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }
 
 function resourceLimitError(kind: string, limit: number): LedgerError {

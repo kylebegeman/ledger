@@ -36,6 +36,9 @@ describe("repository automation", () => {
     expect(source).toContain('[[ "$tag_version" != "$version" ]]');
     expect(source).toContain("npm publish --provenance --access public");
     expect(source).toContain("id-token: write");
+    expect(source).toContain("view_status=$?");
+    expect(source).toContain('grep -q "E404"');
+    expect(source).toContain("Could not determine whether");
     expectActionsPinned(source);
   });
 });

@@ -7,6 +7,8 @@ export type LedgerErrorCode =
   | "invalid-config"
   | "invalid-markdown"
   | "invalid-release"
+  | "invalid-transaction-journal"
+  | "invalid-utf8"
   | "invalid-yaml"
   | "integrity-baseline-missing"
   | "integrity-baseline-invalid"
@@ -15,7 +17,9 @@ export type LedgerErrorCode =
   | "render-validation-failed"
   | "resource-limit-exceeded"
   | "unsafe-project-path"
+  | "validation-baseline-invalid"
   | "unknown-command"
+  | "validation-failed"
   | "workspace-not-found"
   | "workspace-write-locked";
 
@@ -83,7 +87,7 @@ export function normalizeLedgerError(error: unknown): LedgerMachineFailure["erro
         details: isDetails(coded.details) ? coded.details : undefined,
       });
     }
-    if (typeof coded.code === "string" && /^[A-Z][A-Z0-9_]+$/.test(coded.code)) {
+    if (typeof coded.code === "string" && isSystemErrorCode(coded.code)) {
       return omitUndefined({
         code: "filesystem-error",
         message: coded.message,
@@ -100,6 +104,10 @@ export function normalizeLedgerError(error: unknown): LedgerMachineFailure["erro
     return { code: "operational-error", message: coded.message };
   }
   return { code: "operational-error", message: String(error) };
+}
+
+function isSystemErrorCode(value: string): boolean {
+  return /^E(?!RR_)[A-Z0-9]+$/.test(value);
 }
 
 function isLedgerCode(value: string): boolean {

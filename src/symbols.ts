@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { resolveProjectPath } from "./projectPaths.js";
 import type { LedgerWorkspace } from "./types.js";
 
@@ -22,13 +22,23 @@ export async function extractFileSymbols(
 
   let raw: string;
   try {
-    raw = await readFile(resolveProjectPath(workspace.projectRoot, filePath, "symbol source"), "utf8");
-  } catch {
+    raw = await readUtf8FileLimited(
+      resolveProjectPath(workspace.projectRoot, filePath, "symbol source"),
+      workspace.config.limits.maxDocumentBytes,
+      "symbol source",
+    );
+  } catch (error) {
+    if (!isCode(error, "ENOENT")) throw error;
     return [];
   }
 
   if (extension === ".md" || extension === ".mdx") return extractMarkdownSymbols(raw);
   return await extractCodeSymbols(raw, filePath, options);
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return error !== null && typeof error === "object" && "code" in error &&
+    (error as { readonly code?: unknown }).code === code;
 }
 
 export async function extractCodeSymbols(

@@ -68,6 +68,11 @@ describe("buildReleaseDocument", () => {
     expect(release.markdown).toContain('- "0001"');
     expect(release.markdown).toContain("- 0001: Change 0001 [cli]");
   });
+
+  it("rejects invalid release dates", () => {
+    expect(() => buildReleaseDocument([], "v1.0.0", { date: "2026-02-30" }))
+      .toThrow("Invalid release date: 2026-02-30");
+  });
 });
 
 describe("formatReleaseMarkdown", () => {
@@ -104,6 +109,16 @@ id: "0001"
 `, "v1.2.3"),
     ).toThrow("Cannot assign release: missing YAML frontmatter");
   });
+
+  it("does not replace nested release-like keys", () => {
+    const updated = assignReleaseInMarkdown(
+      markdownWithoutRelease().replace("commits: []", "metadata:\n  release: internal\ncommits: []"),
+      "v1.2.3",
+    );
+
+    expect(updated).toContain("  release: internal");
+    expect(updated).toContain('release: "v1.2.3"\n---');
+  });
 });
 
 describe("assertReleaseDocumentWritable", () => {
@@ -135,6 +150,8 @@ describe("validateReleaseVersion", () => {
     expect(() => validateReleaseVersion("../bad")).toThrow(
       "Invalid release version: ../bad",
     );
+    expect(() => validateReleaseVersion("v1.2.3-.."))
+      .toThrow("Invalid release version: v1.2.3-..");
   });
 });
 

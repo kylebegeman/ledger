@@ -28,6 +28,7 @@ export type LedgerIssueCode =
   | "missing-reference"
   | "unsafe-reference"
   | "unknown-frontmatter"
+  | "invalid-frontmatter"
   | "invalid-extension"
   | "quality";
 

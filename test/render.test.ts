@@ -122,9 +122,34 @@ describe("writeStaticReader", () => {
     expect(result.outputPath).toBe(".ledger/dist/public/index.html");
     const html = await readFile(path.join(tempDir, result.outputPath), "utf8");
     expect(html).toContain("Safe public feature.");
+    expect(html).toContain("What changed");
+    expect(html).toContain("Version or release note");
     expect(html).not.toContain("Markdown Source");
     expect(html).not.toContain("src/private.ts");
     expect(html).not.toContain("Agent Packet");
+    expect(html).not.toContain("No files");
+    expect(html).not.toContain("Missing refs");
+    const searchIndex = JSON.parse(
+      await readFile(path.join(tempDir, ".ledger/dist/public/search-index.json"), "utf8"),
+    ) as readonly Record<string, unknown>[];
+    expect(searchIndex[0]).toMatchObject({
+      id: "v1.0.0",
+      publicNotes: ["Safe public feature."],
+    });
+    for (const forbidden of [
+      "path",
+      "areas",
+      "tags",
+      "files",
+      "symbols",
+      "docs",
+      "summary",
+      "why",
+      "release",
+    ]) {
+      expect(searchIndex[0]).not.toHaveProperty(forbidden);
+      expect(searchIndex[0]?.fields).not.toHaveProperty(forbidden);
+    }
   });
 });
 

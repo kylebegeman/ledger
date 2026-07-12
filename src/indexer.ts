@@ -1,7 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { coveragePatternMatches } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import type {
   LedgerIndexes,
   LedgerManifest,
@@ -40,15 +40,16 @@ export async function writeIndexes(
   workspace: LedgerWorkspace,
   indexes: LedgerIndexes,
 ): Promise<void> {
-  const outputDirectory = path.join(workspace.projectRoot, workspace.config.indexes.output);
-  await mkdir(outputDirectory, { recursive: true });
-  await writeJson(path.join(outputDirectory, "manifest.json"), indexes.manifest);
-  await writeJson(path.join(outputDirectory, "by-file.json"), indexes.byFile);
-  await writeJson(path.join(outputDirectory, "by-area.json"), indexes.byArea);
-  await writeJson(path.join(outputDirectory, "by-release.json"), indexes.byRelease);
-  await writeJson(path.join(outputDirectory, "by-symbol.json"), indexes.bySymbol);
-  await writeJson(path.join(outputDirectory, "by-decision.json"), indexes.byDecision);
-  await writeJson(path.join(outputDirectory, "by-backlog.json"), indexes.byBacklog);
+  const output = workspace.config.indexes.output;
+  await applyFileTransaction(workspace, "write Ledger indexes", [
+    jsonChange(output, "manifest.json", indexes.manifest),
+    jsonChange(output, "by-file.json", indexes.byFile),
+    jsonChange(output, "by-area.json", indexes.byArea),
+    jsonChange(output, "by-release.json", indexes.byRelease),
+    jsonChange(output, "by-symbol.json", indexes.bySymbol),
+    jsonChange(output, "by-decision.json", indexes.byDecision),
+    jsonChange(output, "by-backlog.json", indexes.byBacklog),
+  ]);
 }
 
 export function explainFile(
@@ -91,6 +92,9 @@ function groupByMany(
   );
 }
 
-async function writeJson(filePath: string, value: unknown): Promise<void> {
-  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+function jsonChange(output: string, filename: string, value: unknown) {
+  return {
+    path: normalizePath(path.join(output, filename)),
+    content: `${JSON.stringify(value, null, 2)}\n`,
+  };
 }

@@ -70,6 +70,12 @@ describe("serveStaticReader", () => {
     await expect(
       serveStaticReader(workspace, { mode: "network", host: "127.0.0.1", port: 0 }),
     ).rejects.toThrow("Network exposure requires an access token");
+    await expect(
+      serveStaticReader(workspace, { host: "127.999.1.1", port: 0 }),
+    ).rejects.toThrow("Refusing non-loopback host");
+    await expect(
+      serveStaticReader(workspace, { port: 70_000 }),
+    ).rejects.toThrow("Invalid server port");
   });
 
   it("requires a constant-time access token in network mode", async () => {
@@ -85,10 +91,25 @@ describe("serveStaticReader", () => {
 
     await expectStatus(served.url, 401);
     const authorized = await fetch(served.url, {
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `bearer ${token}` },
     });
     expect(authorized.status).toBe(200);
     expect(await authorized.text()).toContain("Ledger fixture");
+  });
+
+  it("serves the isolated public render profile", async () => {
+    const workspace = await fixtureWorkspace();
+    const publicDirectory = path.join(tempDir!, defaultConfig.render.output, "public");
+    await mkdir(publicDirectory, { recursive: true });
+    await writeFile(path.join(publicDirectory, "index.html"), "<h1>Public notes</h1>\n");
+    const served = await serveStaticReader(workspace, { port: 0, profile: "public" });
+    servedReader = served;
+
+    const response = await fetch(served.url);
+
+    expect(served.profile).toBe("public");
+    expect(served.root).toBe(".ledger/dist/public");
+    expect(await response.text()).toContain("Public notes");
   });
 });
 

@@ -168,7 +168,8 @@ async function renderOutputCheck(workspace: LedgerWorkspace): Promise<LedgerDoct
       level: "pass",
       message: `${normalizePath(path.relative(workspace.projectRoot, indexPath))} exists`,
     };
-  } catch {
+  } catch (error) {
+    if (!isCode(error, "ENOENT")) throw error;
     return {
       name: "render",
       level: "warn",
@@ -212,7 +213,17 @@ function performanceCheck(result: LedgerPerformanceResult): LedgerDoctorCheck {
 async function modifiedAt(filePath: string): Promise<number | undefined> {
   try {
     return (await stat(filePath)).mtimeMs;
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return undefined;
+    throw error;
   }
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }

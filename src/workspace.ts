@@ -10,6 +10,7 @@ const configRelativePath = path.join(".ledger", "config.yaml");
 export async function findWorkspace(startDir = process.cwd()): Promise<LedgerWorkspace> {
   const projectRoot = await findProjectRoot(startDir);
   const configPath = path.join(projectRoot, configRelativePath);
+  await assertNoEscapingSymlink(projectRoot, configPath, "config");
   const config = await readLedgerConfig(configPath);
   await validateWorkspacePaths(projectRoot, config);
   return {
@@ -128,16 +129,20 @@ export async function initWorkspace(
 }
 
 async function writeFileIfMissing(filePath: string, content: string): Promise<void> {
-  if (await pathExists(filePath)) return;
-  await writeFile(filePath, content, "utf8");
+  try {
+    await writeFile(filePath, content, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    if (!isCode(error, "EEXIST")) throw error;
+  }
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return false;
+    throw error;
   }
 }
 
@@ -146,7 +151,7 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
   const adoption = options.adoption ?? "partial";
   return [
     "version: 1",
-    `project: ${project}`,
+    `project: ${JSON.stringify(project)}`,
     "source:",
     "  entries: .ledger/entries",
     "  backlog: .ledger/backlog",
@@ -214,6 +219,15 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     ...defaultConfig.git.ignore.map((pattern) => `    - ${JSON.stringify(pattern)}`),
     "",
   ].join("\n");
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }
 
 function initialLedgerReadme(): string {

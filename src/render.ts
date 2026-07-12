@@ -1,8 +1,9 @@
-import { mkdir, readFile, stat as statFile, writeFile } from "node:fs/promises";
+import { readFile, stat as statFile } from "node:fs/promises";
 import path from "node:path";
 import { isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { extractBullets, getSectionBody } from "./query.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import { renderStaticReaderHtml } from "./renderHtml.js";
 import type {
   LedgerIssue,
@@ -234,16 +235,17 @@ export async function writeStaticReader(
 ): Promise<RenderStaticReaderResult> {
   const startedAt = Date.now();
   const outputDirectory = renderOutputDirectory(workspace, model.profile);
-  await mkdir(outputDirectory, { recursive: true });
   const outputPath = path.join(outputDirectory, "index.html");
   const searchIndexPath = path.join(outputDirectory, "search-index.json");
   const graphPath = path.join(outputDirectory, "graph.json");
   const html = renderStaticReaderHtml(model, { iconSvg: await readIconSvg() });
-  const searchIndex = `${JSON.stringify(model.searchIndex, null, 2)}\n`;
+  const searchIndex = `${JSON.stringify(serializedSearchIndex(model), null, 2)}\n`;
   const graph = `${JSON.stringify(model.graph, null, 2)}\n`;
-  await writeFile(outputPath, html, "utf8");
-  await writeFile(searchIndexPath, searchIndex, "utf8");
-  await writeFile(graphPath, graph, "utf8");
+  await applyFileTransaction(workspace, `render ${model.profile} reader`, [
+    { path: normalizeOutputPath(workspace, outputPath), content: html },
+    { path: normalizeOutputPath(workspace, searchIndexPath), content: searchIndex },
+    { path: normalizeOutputPath(workspace, graphPath), content: graph },
+  ]);
   const writeMs = Date.now() - startedAt;
   const budget = await checkRenderBudgets(workspace, writeMs, model.profile);
   return {
@@ -257,6 +259,28 @@ export async function writeStaticReader(
     writeMs,
     budget,
   };
+}
+
+function serializedSearchIndex(model: LedgerStaticReaderModel): readonly unknown[] {
+  if (model.profile === "internal") return model.searchIndex;
+  return model.documents.map((document) => {
+    const metadata = [document.kind, document.status].join(" ");
+    const context = document.publicNotes.join(" ");
+    return {
+      id: document.id,
+      title: document.title,
+      kind: "release",
+      status: "released",
+      publicNotes: document.publicNotes,
+      fields: {
+        id: document.id,
+        title: document.title,
+        metadata,
+        context,
+      },
+      terms: [document.id, document.title, metadata, context].join(" "),
+    };
+  });
 }
 
 export async function checkRenderBudgets(
@@ -461,8 +485,8 @@ async function renderArtifact(
   let bytes = 0;
   try {
     bytes = (await statFile(filePath)).size;
-  } catch {
-    bytes = 0;
+  } catch (error) {
+    if (!isCode(error, "ENOENT")) throw error;
   }
   return {
     kind,
@@ -497,7 +521,13 @@ function compactSection(value: string | undefined): string | undefined {
 
 function publicDocument(document: LedgerRenderedDocument): LedgerRenderedDocument {
   return {
-    ...document,
+    id: document.id,
+    kind: "release",
+    title: document.title,
+    status: "released",
+    date: document.date,
+    updated: document.updated,
+    publicNotes: document.publicNotes,
     source: "",
     sourceHref: "",
     summary: undefined,
@@ -546,4 +576,13 @@ async function readIconSvg(): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }

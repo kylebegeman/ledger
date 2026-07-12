@@ -85,6 +85,35 @@ describe("createChangeEntry", () => {
     ).toEqual(["docs", "runtime", "tests"]);
   });
 
+  it("groups large diffs without flooding frontmatter with every symbol", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-new-entry-large-test-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    for (let index = 0; index < 41; index += 1) {
+      await writeFile(path.join(tempDir, "src", `file-${index}.ts`), `export const before${index} = true;\n`);
+    }
+    await git("init");
+    await git("add", ".");
+    await git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial");
+    for (let index = 0; index < 41; index += 1) {
+      await writeFile(path.join(tempDir, "src", `file-${index}.ts`), `export const after${index} = true;\n`);
+    }
+
+    const createdPath = await createChangeEntry(await readWorkspace(), [], {
+      title: "Large migration",
+      fromDiff: true,
+      staged: false,
+      areas: ["migration"],
+      status: "draft",
+    });
+    const entry = await readFile(path.join(tempDir, createdPath), "utf8");
+
+    expect(entry).toContain('  - "src/**"');
+    expect(entry).toContain("symbols: []");
+    expect(entry).toContain("### Pattern: src/**");
+    expect(entry).not.toContain("after0");
+  });
+
   it("allocates IDs across all entry-like records", () => {
     expect(
       nextEntryId(workspaceWithConfig(), [
@@ -104,6 +133,22 @@ describe("createChangeEntry", () => {
         document("C001", "change"),
       ]),
     ).toBe("C0002");
+  });
+
+  it("bounds generated filename slugs", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-new-entry-slug-test-"));
+    await initWorkspace(tempDir);
+    const workspace = await readWorkspace();
+
+    const createdPath = await createChangeEntry(workspace, [], {
+      title: "A".repeat(400),
+      fromDiff: false,
+      staged: false,
+      areas: ["test"],
+      status: "draft",
+    });
+
+    expect(path.basename(createdPath).length).toBeLessThan(100);
   });
 });
 

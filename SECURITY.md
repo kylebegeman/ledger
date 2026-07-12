@@ -21,11 +21,12 @@ behind TLS. Generated static files carry a restrictive CSP meta policy, but a
 third-party static host remains responsible for transport security and response
 headers.
 
-Use `ledger render --profile public` when preparing an externally hosted reader.
-This profile only selects released release records and strips internal source,
-paths, relationships, validation findings, invariants, and verification details.
-It is a data-minimization control, not an access-control layer. Review the
-explicit `Public Notes` content before publication.
+Use `ledger render --profile public` when preparing an externally hosted reader,
+or `ledger serve --profile public` to preview that isolated output locally. This
+profile only selects released release records and strips internal source, paths,
+relationships, validation findings, invariants, and verification details. It is
+a data-minimization control, not an access-control layer. Review the explicit
+`Public Notes` content before publication.
 
 Supported releases require maintained Node.js LTS lines. CI tests Node 22 and
 Node 24 on Linux, macOS, and Windows, audits production dependencies, and

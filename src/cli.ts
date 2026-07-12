@@ -78,6 +78,50 @@ interface RunContext {
 }
 
 const fallbackVersion = "0.1.0";
+const booleanFlags = new Set([
+  "agent",
+  "assign",
+  "check",
+  "current-only",
+  "dry-run",
+  "explain",
+  "expose",
+  "from-diff",
+  "help",
+  "include-unreleased",
+  "json",
+  "managed-docs",
+  "migrate",
+  "no-baseline",
+  "rewrite-docs",
+  "staged",
+  "update-baseline",
+  "watch",
+  "with-docs",
+  "write",
+  "write-report",
+]);
+const valueFlags = new Set([
+  "area",
+  "backlog",
+  "budget",
+  "date",
+  "decision",
+  "doc",
+  "file",
+  "host",
+  "id",
+  "kind",
+  "limit",
+  "port",
+  "profile",
+  "release",
+  "role",
+  "status",
+  "symbol",
+  "tag",
+  "text",
+]);
 
 export async function run(
   argv = process.argv.slice(2),
@@ -91,27 +135,32 @@ export async function run(
       printHelp(helpTopicForCommand(parsed));
       return 0;
     }
+    validateParsedArgs(parsed);
 
     switch (parsed.command) {
-      case "init":
+      case "init": {
+        const adoption = hasFlag(parsed, "managed-docs") ? "managed" : "partial";
         await initWorkspace(context.cwd, {
           withDocs: hasFlag(parsed, "with-docs") || hasFlag(parsed, "migrate"),
-          adoption: hasFlag(parsed, "managed-docs") ? "managed" : "partial",
+          adoption,
         });
         console.log(
           hasFlag(parsed, "with-docs") || hasFlag(parsed, "migrate")
-            ? "Initialized .ledger/ and docs/ in partial adoption mode"
+            ? `Initialized .ledger/ and docs/ in ${adoption} adoption mode`
             : "Initialized .ledger/",
         );
         return 0;
+      }
 
-      case "adopt":
+      case "adopt": {
+        const adoption = hasFlag(parsed, "managed-docs") ? "managed" : "partial";
         await initWorkspace(context.cwd, {
           withDocs: true,
-          adoption: hasFlag(parsed, "managed-docs") ? "managed" : "partial",
+          adoption,
         });
-        console.log("Initialized Ledger adoption scaffold in partial docs mode.");
+        console.log(`Initialized Ledger adoption scaffold in ${adoption} docs mode.`);
         return 0;
+      }
 
       case "validate":
         return await validateCommand(parsed, context);
@@ -361,6 +410,7 @@ function renderProfile(parsed: ParsedArgs): LedgerRenderProfile {
 
 async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const workspace = await findWorkspace(context.cwd);
+  const profile = renderProfile(parsed);
   const render = async () => {
     const documents = await readLedgerDocuments(workspace);
     const result = validateDocuments(workspace, documents);
@@ -374,6 +424,7 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     }
     await writeStaticReader(workspace, buildStaticReaderModel(workspace, documents, {
       validation: result,
+      profile,
     }));
   };
   await render();
@@ -382,6 +433,7 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     port: numberFlag(parsed, "port") ?? 4173,
     mode: hasFlag(parsed, "expose") ? "network" : "local",
     accessToken: process.env.LEDGER_SERVE_TOKEN,
+    profile,
   });
   const watchers = hasFlag(parsed, "watch")
     ? watchStaticReaderSources(workspace, async () => {
@@ -391,6 +443,8 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
         } catch (error) {
           console.error(error instanceof Error ? error.message : String(error));
         }
+      }, (directory, error) => {
+        console.error(`Could not watch ${directory}: ${error.message}`);
       })
     : [];
 
@@ -402,6 +456,8 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   await new Promise<void>((resolve) => {
     const close = () => {
       for (const watcher of watchers) watcher.close();
+      process.off("SIGINT", close);
+      process.off("SIGTERM", close);
       resolve();
     };
     process.once("SIGINT", close);
@@ -593,6 +649,15 @@ async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<
 
   const workspace = await findWorkspace(context.cwd);
   const documents = await readLedgerDocuments(workspace);
+  const validation = validateDocuments(workspace, documents);
+  if (validation.errors.length > 0) {
+    await writeValidationReport(workspace, validation);
+    throw new LedgerError(
+      "validation-failed",
+      `Cannot build a release with ${validation.errors.length} validation error(s).`,
+      { errors: validation.errors.length, warnings: validation.warnings.length },
+    );
+  }
   const status = releaseStatus(parsed);
   const release = buildReleaseDocument(documents, version, {
     includeUnreleased: hasFlag(parsed, "include-unreleased"),
@@ -994,6 +1059,10 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
       continue;
     }
     const flag = rawFlag;
+    if (booleanFlags.has(flag)) {
+      flags[flag] = [...(flags[flag] ?? []), "true"];
+      continue;
+    }
     const next = rest[index + 1];
     if (next && !next.startsWith("--")) {
       flags[flag] = [...(flags[flag] ?? []), next];
@@ -1007,7 +1076,8 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 }
 
 function hasFlag(parsed: ParsedArgs, flag: string): boolean {
-  return Boolean(parsed.flags[flag]);
+  const values = parsed.flags[flag];
+  return Boolean(values && values[values.length - 1] !== "false");
 }
 
 function flagValues(parsed: ParsedArgs, flag: string): readonly string[] {
@@ -1017,9 +1087,82 @@ function flagValues(parsed: ParsedArgs, flag: string): readonly string[] {
 function numberFlag(parsed: ParsedArgs, flag: string): number | undefined {
   const value = flagValues(parsed, flag)[0];
   if (!value) return undefined;
-  if (!/^[1-9]\d*$/.test(value)) return undefined;
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw invalidArgument(`--${flag} must be a positive integer`);
+  }
   const parsedValue = Number.parseInt(value, 10);
-  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : undefined;
+  if (!Number.isSafeInteger(parsedValue) || parsedValue <= 0) {
+    throw invalidArgument(`--${flag} must be a positive safe integer`);
+  }
+  return parsedValue;
+}
+
+function validateParsedArgs(parsed: ParsedArgs): void {
+  const allowed = allowedFlags(parsed);
+  if (!allowed) return;
+  for (const [flag, values] of Object.entries(parsed.flags)) {
+    if (flag === "help") continue;
+    if (!allowed.has(flag)) throw invalidArgument(`Unknown option for ${machineCommand(parsed)}: --${flag}`);
+    if (booleanFlags.has(flag)) {
+      if (values.some((value) => value !== "true" && value !== "false")) {
+        throw invalidArgument(`--${flag} must be true or false`);
+      }
+      continue;
+    }
+    if (valueFlags.has(flag) && values.some((value) => value === "true" || value.length === 0)) {
+      throw invalidArgument(`--${flag} requires a value`);
+    }
+    if (values.length > 1 && flag !== "area" && flag !== "tag") {
+      throw invalidArgument(`--${flag} may only be provided once`);
+    }
+  }
+}
+
+function allowedFlags(parsed: ParsedArgs): ReadonlySet<string> | undefined {
+  const command = parsed.command;
+  const flags: Record<string, readonly string[]> = {
+    init: ["with-docs", "migrate", "managed-docs"],
+    adopt: ["managed-docs"],
+    validate: ["current-only", "update-baseline", "no-baseline", "json"],
+    index: [],
+    "verify-integrity": ["check", "json"],
+    render: ["profile", "json"],
+    serve: ["host", "port", "profile", "watch", "expose"],
+    explain: ["json", "agent"],
+    query: ["kind", "status", "area", "tag", "release", "decision", "backlog", "symbol", "file", "doc", "id", "text", "json"],
+    search: ["limit", "json"],
+    "search-packet": ["limit", "budget", "json", "write-report"],
+    packet: ["limit", "budget", "json", "write-report"],
+    mcp: [],
+    unreleased: ["json"],
+    release: ["include-unreleased", "assign", "status", "date", "write", "json"],
+    new: ["from-diff", "staged", "area", "status"],
+    feedback: ["area", "tag", "status"],
+    "product-note": ["area", "tag", "status"],
+    migrate: ["dry-run", "rewrite-docs", "status", "json"],
+    agents: ["role"],
+    coverage: ["staged", "explain", "json"],
+    ci: ["staged", "current-only", "no-baseline", "json"],
+    doctor: ["no-baseline", "json"],
+    metrics: ["json"],
+    stale: ["current-only", "no-baseline", "check", "write-report", "json"],
+    conflict: ["json", "write-report"],
+    help: [],
+    version: [],
+    "--version": [],
+    "-v": [],
+  };
+  if (command === "docs") {
+    const subcommand = parsed.positionals[0];
+    if (subcommand === "classify") return new Set(["json"]);
+    if (subcommand === "impact") return new Set(["staged", "check", "json"]);
+    if (subcommand === "audit" || subcommand === "check" || subcommand === "reconcile" || subcommand === "migrate" || subcommand === undefined) {
+      return new Set();
+    }
+    return new Set();
+  }
+  const values = command ? flags[command] : [];
+  return values ? new Set(values) : undefined;
 }
 
 function helpTopicForCommand(parsed: ParsedArgs): string {
@@ -1088,6 +1231,7 @@ function printAgentExplanation(
 function watchStaticReaderSources(
   workspace: Awaited<ReturnType<typeof findWorkspace>>,
   rebuild: () => Promise<void>,
+  onError: (directory: string, error: Error) => void,
 ): readonly FSWatcher[] {
   const directories = [
     workspace.config.source.entries,
@@ -1097,18 +1241,36 @@ function watchStaticReaderSources(
   ];
   const watchers: FSWatcher[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let rebuilding = false;
+  let rebuildAgain = false;
+  const runRebuild = async () => {
+    if (rebuilding) {
+      rebuildAgain = true;
+      return;
+    }
+    rebuilding = true;
+    try {
+      do {
+        rebuildAgain = false;
+        await rebuild();
+      } while (rebuildAgain);
+    } finally {
+      rebuilding = false;
+    }
+  };
   const schedule = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      void rebuild();
+      timer = undefined;
+      void runRebuild();
     }, 150);
   };
 
   for (const directory of directories) {
     try {
       watchers.push(watch(path.join(workspace.projectRoot, directory), { recursive: true }, schedule));
-    } catch {
-      // Some platforms do not support recursive watching for every path.
+    } catch (error) {
+      onError(directory, error instanceof Error ? error : new Error(String(error)));
     }
   }
   return watchers;
@@ -1270,11 +1432,12 @@ and relationship graph JSON artifacts. The public profile writes to
       return `Ledger serve
 
 Usage:
-  ledger serve [--host <host>] [--port <port>] [--watch] [--expose]
+  ledger serve [--host <host>] [--port <port>] [--profile <internal|public>] [--watch] [--expose]
 
-Renders and serves the static reader from .ledger/dist. --watch rebuilds when
-Ledger source records change. Non-loopback binding requires --expose and an
-access token of at least 24 characters from LEDGER_SERVE_TOKEN.`;
+Renders and serves the selected static reader profile. --watch rebuilds when
+Ledger source records change. The public profile serves .ledger/dist/public.
+Non-loopback binding requires --expose and an access token of at least 24
+characters from LEDGER_SERVE_TOKEN.`;
     case "coverage":
       return `Ledger coverage
 
@@ -1454,7 +1617,7 @@ Usage:
   ledger index
   ledger verify-integrity [--check] [--json]
   ledger render [--profile <internal|public>] [--json]
-  ledger serve [--host <host>] [--port <port>] [--watch] [--expose]
+  ledger serve [--host <host>] [--port <port>] [--profile <internal|public>] [--watch] [--expose]
   ledger coverage [--staged] [--explain] [--json]
   ledger ci [--staged] [--current-only] [--no-baseline] [--json]
   ledger doctor [--no-baseline] [--json]

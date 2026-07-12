@@ -51,4 +51,15 @@ describe("machine envelopes", () => {
       },
     });
   });
+
+  it("does not misclassify Node argument errors as filesystem failures", () => {
+    const error = Object.assign(new TypeError("invalid argument"), {
+      code: "ERR_INVALID_ARG_TYPE",
+    });
+
+    expect(normalizeLedgerError(error)).toEqual({
+      code: "operational-error",
+      message: "invalid argument",
+    });
+  });
 });

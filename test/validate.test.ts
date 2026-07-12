@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -6,7 +6,7 @@ import { readLedgerConfig } from "../src/config.js";
 import { readLedgerDocuments } from "../src/documents.js";
 import { buildIndexes, explainFile } from "../src/indexer.js";
 import type { LedgerWorkspace } from "../src/types.js";
-import { validateDocuments } from "../src/validate.js";
+import { readValidationBaseline, validateDocuments } from "../src/validate.js";
 
 let tempDir: string | undefined;
 
@@ -128,6 +128,35 @@ describe("Ledger validation", () => {
       expect.objectContaining({ code: "unsafe-reference", field: "files" }),
       expect.objectContaining({ code: "unsafe-reference", field: "docs" }),
     ]));
+  });
+
+  it("rejects invalid document kinds and calendar dates", async () => {
+    const workspace = await createFixtureWorkspace();
+    const filePath = path.join(tempDir!, ".ledger", "entries", "0001-test.md");
+    const raw = await readFile(filePath, "utf8");
+    await writeFile(
+      filePath,
+      raw.replace('kind: "change"', 'kind: "unknown"').replace('date: "2026-06-29"', 'date: "2026-02-30"'),
+      "utf8",
+    );
+
+    const result = validateDocuments(workspace, await readLedgerDocuments(workspace));
+
+    expect(result.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "invalid-frontmatter", field: "kind" }),
+      expect.objectContaining({ code: "invalid-frontmatter", field: "date" }),
+    ]));
+  });
+
+  it("fails closed for a corrupt validation baseline", async () => {
+    const workspace = await createFixtureWorkspace();
+    const baselinePath = path.join(tempDir!, ".ledger", "reports", "validation-baseline.json");
+    await mkdir(path.dirname(baselinePath), { recursive: true });
+    await writeFile(baselinePath, "{broken", "utf8");
+
+    await expect(readValidationBaseline(workspace)).rejects.toMatchObject({
+      code: "validation-baseline-invalid",
+    });
   });
 });
 

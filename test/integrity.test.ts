@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -82,6 +82,26 @@ describe("integrity reports", () => {
       added: [".ledger/entries/0003.md"],
       removed: [".ledger/entries/0001.md"],
       changed: [".ledger/entries/0002.md"],
+    });
+  });
+
+  it("rejects unsafe paths in a persisted baseline", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-integrity-invalid-test-"));
+    const testWorkspace = workspace(tempDir);
+    const report = buildIntegrityReport(testWorkspace, [document("0001")]);
+    const baselinePath = path.join(tempDir, ".ledger", "indexes", "integrity.json");
+    await mkdir(path.dirname(baselinePath), { recursive: true });
+    await writeFile(
+      baselinePath,
+      `${JSON.stringify({
+        ...report,
+        documents: [{ ...report.documents[0], path: "../outside.md" }],
+      })}\n`,
+      "utf8",
+    );
+
+    await expect(readIntegrityReport(testWorkspace)).rejects.toMatchObject({
+      code: "integrity-baseline-invalid",
     });
   });
 });

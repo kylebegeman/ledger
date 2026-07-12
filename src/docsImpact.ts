@@ -1,7 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isCoverageRequired } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import type {
   LedgerDocsImpactDeclaration,
   LedgerDocsImpactStatus,
@@ -57,13 +57,10 @@ export async function writeDocsImpactReport(
   workspace: LedgerWorkspace,
   impact: LedgerDocsImpact,
 ): Promise<void> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  await mkdir(reportDirectory, { recursive: true });
-  await writeFile(
-    path.join(reportDirectory, "docs-impact.md"),
-    formatDocsImpactReport(impact),
-    "utf8",
-  );
+  const reportPath = normalizePath(path.join(workspace.config.reports.output, "docs-impact.md"));
+  await applyFileTransaction(workspace, "write docs impact report", [
+    { path: reportPath, content: formatDocsImpactReport(impact) },
+  ]);
 }
 
 export function formatDocsImpactReport(impact: LedgerDocsImpact): string {

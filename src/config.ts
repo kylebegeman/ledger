@@ -1,5 +1,5 @@
-import { readFile, stat } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { assertSafeProjectRelativePath, normalizeProjectRelativePath } from "./projectPaths.js";
 import { LedgerError } from "./machine.js";
 import type {
@@ -147,15 +147,7 @@ export const defaultConfig: LedgerConfig = {
 };
 
 export async function readLedgerConfig(configPath: string): Promise<LedgerConfig> {
-  const configStats = await stat(configPath);
-  if (configStats.size > maxConfigBytes) {
-    throw new LedgerError(
-      "resource-limit-exceeded",
-      `${configPath}: config exceeds ${maxConfigBytes} bytes`,
-      { configPath, maxConfigBytes },
-    );
-  }
-  const raw = await readFile(configPath, "utf8");
+  const raw = await readUtf8FileLimited(configPath, maxConfigBytes, "config");
   let parsed: unknown;
   try {
     parsed = parseYaml(raw, { maxAliasCount: maxYamlAliases });
@@ -453,10 +445,13 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
   if (!Number.isInteger(config.ids.entryWidth) || config.ids.entryWidth < 1) {
     fail(configPath, "ids.entryWidth must be a positive integer");
   }
+  if (config.project.trim().length === 0) {
+    fail(configPath, "project must be a non-empty string");
+  }
   for (const [label, value] of [
-    ["project", config.project],
     ["source.entries", config.source.entries],
     ["source.backlog", config.source.backlog],
+    ["source.decisions", config.source.decisions],
     ["source.releases", config.source.releases],
     ["indexes.output", config.indexes.output],
     ["reports.output", config.reports.output],

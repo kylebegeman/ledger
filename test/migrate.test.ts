@@ -49,6 +49,21 @@ describe("migrateChangelog", () => {
     expect(docsReadme).toContain(result.migrated[0]!.targetPath);
     expect(docsReadme).toContain(result.migrated[1]!.targetPath);
   });
+
+  it("parses CRLF legacy frontmatter", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-migrate-crlf-test-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "legacy"), { recursive: true });
+    await writeFile(
+      path.join(tempDir, "legacy", "0001-crlf.md"),
+      legacyRecord("0001", "CRLF").replace(/\n/g, "\r\n"),
+    );
+
+    const workspace = await readWorkspace();
+    const result = await migrateChangelog(workspace, [], "legacy", { dryRun: true });
+
+    expect(result.migrated[0]).toMatchObject({ originalId: "0001", id: "0001" });
+  });
 });
 
 async function readWorkspace(): Promise<LedgerWorkspace> {

@@ -317,6 +317,7 @@ export const staticReaderRuntime = `    let searchIndexPromise;
     const entries = Array.from(document.querySelectorAll(".entry"));
     const entriesContainer = document.getElementById("entries");
     const resultCount = document.getElementById("result-count");
+    const resultNoun = resultCount.dataset.resultNoun || "document";
     const empty = document.getElementById("empty");
 
     function datasetList(entry, key) {
@@ -380,7 +381,7 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       }
       resultCount.textContent = search && matchedScores
         ? visible + " ranked match(es)"
-        : visible + " document(s)";
+        : visible + " " + resultNoun + "(s)";
       empty.hidden = visible !== 0;
     }
 
