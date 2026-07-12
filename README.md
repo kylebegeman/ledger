@@ -156,8 +156,11 @@ weighted fuzzy search, ranking exact ID, title, path, symbol, and file matches
 above incidental summary or context matches. Relationship data is kept available
 as a static artifact that can be hosted anywhere static files are supported. The
 reader offers a keyboard search palette, shareable filter URLs, light and dark
-themes, responsive filters, and ranked search results. The visual shell uses
-filled surfaces and depth instead of ornamental edge strokes.
+themes, dropdown filter pills, pagination with a configurable page size,
+compact and expanded result densities, and ranked search results. The visual
+shell is a flat editorial layout: records read as a hairline-divided list,
+and the few remaining container surfaces use a thin stroke outline instead of
+fills, shadows, or ornamental edge strokes.
 
 Render output is checked against `render.budgets` in `.ledger/config.yaml`.
 `ledger render` prints artifact size and write-time status, while `ledger

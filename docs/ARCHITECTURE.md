@@ -299,17 +299,39 @@ retrieval the same ranking behavior.
 
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
-The reader uses a borderless, responsive visual shell with filled surfaces,
-clear editorial hierarchy, compact collapsed records, and a dedicated public
-release feed. Expanded records surface relationship fields alongside files,
-symbols, docs, invariants, and verification. Raw Markdown remains available to
-library consumers but is not embedded into the initial HTML payload.
+The reader uses a flat, responsive editorial shell: a full-width search field
+sits above dropdown filter pills, records read as a hairline-divided list
+with visible dates, expanded context renders as plain content groups, and a
+right-hand rail carries facet quick views and the relationship graph summary.
+The few remaining container surfaces (search field, filter pills, graph
+summary, empty state) use a thin stroke outline with no background fill.
+Opaque surfaces and shadow are reserved for the search palette overlay.
+Decorative leading strokes remain excluded. The stylesheet defines its color
+system once with CSS `light-dark()` tokens, so light and dark themes share
+one declaration and native controls follow the active `color-scheme`. Icons
+ship as a single SVG symbol sprite referenced per use. Expanded records
+surface relationship fields alongside files, symbols, docs, invariants, and
+verification. Raw Markdown remains available to library consumers but is not
+embedded into the initial HTML payload.
 
 Browser behavior remains dependency-free and progressively enhanced. Search is
 available inline and through a native dialog opened with `/` or `Cmd/Ctrl+K`.
-Filters synchronize with the URL, mobile filters use a bottom sheet, themes
-respect system preferences, and supported browsers animate result changes with
-the View Transition API. Reduced-motion preferences disable nonessential motion.
+Search input is debounced, ranked results label the top match and ordinal
+ranks, and a polite status region announces result counts, page position, and
+active filter counts to assistive technology. Filters are native selects
+styled as pills that highlight when active, synchronize with the URL, and
+reset pagination on change. Results paginate with a configurable page size
+(10 to 100 or all) and windowed page controls, both preserved in the URL.
+A density toggle switches between the expanded composition and a compact
+scanning list, remembered like the theme. Hero metrics act as one-click kind
+filters, filter pills wrap on small screens where the rail stacks below the
+results, and the theme toggle cycles system, light, and dark, storing only
+explicit overrides. Supported browsers animate result changes with the View
+Transition API, including per-record morphs for rows near the viewport,
+guarded by a duplicate-name check and a skip watchdog. Reduced-motion
+preferences disable nonessential motion. If a browser blocks the search
+sidecar from a direct file open, inline fallback text still supports
+multi-word token matching.
 
 The graph sidecar also represents invariants and verification bullets as
 first-class nodes attached to their source record. That lets hosted readers and

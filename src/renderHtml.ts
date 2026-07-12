@@ -33,12 +33,13 @@ export function renderStaticReaderHtml(
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="light dark">
   <title>${escapeHtml(model.project)} Ledger</title>
-  <script>try{const t=localStorage.getItem("ledger-theme");if(t)document.documentElement.dataset.theme=t}catch{}</script>
+  <script>try{const t=localStorage.getItem("ledger-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
   <style>
 ${staticReaderStyles}
   </style>
 </head>
 <body data-profile="${model.profile}">
+  ${iconSprite()}
   <a class="skip-link" href="#library">Skip to records</a>
   <div class="app-shell" id="top">
     <header class="topbar">
@@ -50,14 +51,14 @@ ${staticReaderStyles}
         </span>
       </a>
       <button class="command-trigger" id="search-trigger" type="button" aria-haspopup="dialog" aria-controls="command-palette">
-        ${searchIcon()}
+        ${icon("search")}
         <span>Search ${isPublic ? "release notes" : "project memory"}</span>
         <kbd>⌘ K</kbd>
       </button>
       <div class="topbar-actions">
         <span class="profile-badge">${isPublic ? "Public notes" : "Internal"}</span>
         <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
-          ${themeIcon()}
+          ${icon("theme-system", 'data-theme-icon="system"')}${icon("theme-light", 'data-theme-icon="light"')}${icon("theme-dark", 'data-theme-icon="dark"')}
         </button>
       </div>
     </header>
@@ -75,42 +76,50 @@ ${staticReaderStyles}
           ${isPublic
             ? metric("Releases", model.stats.releases)
             : [
-                metric("Records", model.stats.documents),
-                metric("Changes", model.stats.changes),
-                metric("Decisions", model.stats.decisions),
-                metric("Backlog", model.stats.backlog),
+                metricButton("Records", model.stats.documents, "data-reset-filters"),
+                metricButton("Changes", model.stats.changes, 'data-filter-field="kind" data-filter-value="change" aria-pressed="false"'),
+                metricButton("Decisions", model.stats.decisions, 'data-filter-field="kind" data-filter-value="decision" aria-pressed="false"'),
+                metricButton("Backlog", model.stats.backlog, 'data-filter-field="kind" data-filter-value="backlog" aria-pressed="false"'),
               ].join("")}
         </div>
       </section>
 
+      <section class="search-region" aria-label="Search and filters">
+        <div class="search-dock">
+          ${icon("search")}
+          <label class="sr-only" for="search">Search Ledger</label>
+          <input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="${isPublic ? "Search versions and release notes" : "Search titles, files, symbols, decisions, or invariants"}">
+          <button class="search-clear" id="search-clear" type="button" aria-label="Clear search" hidden>Clear</button>
+          <kbd>/</kbd>
+        </div>
+        ${isPublic ? "" : filterBar(statuses, areas, releases, tags)}
+        <p class="sr-only" id="filter-status" role="status"></p>
+      </section>
+
       <div class="workspace${isPublic ? " workspace-public" : ""}">
-        ${isPublic ? publicFilterControls() : internalSidebar(model, areas, statuses, releases, tags)}
         <section class="library" id="library" aria-labelledby="result-count">
-          <div class="search-dock">
-            ${searchIcon()}
-            <label class="sr-only" for="search">Search Ledger</label>
-            <input id="search" type="search" autocomplete="off" spellcheck="false" placeholder="${isPublic ? "Search versions and release notes" : "Search titles, files, symbols, decisions, or invariants"}">
-            <button class="search-clear" id="search-clear" type="button" aria-label="Clear search" hidden>Clear</button>
-            <kbd>/</kbd>
-          </div>
           <div class="library-toolbar">
             <div>
               <p class="eyebrow">${isPublic ? "Changelog" : "Knowledge library"}</p>
               <h2 id="result-count" data-result-noun="${isPublic ? "release" : "record"}">${model.documents.length} ${isPublic ? "releases" : "records"}</h2>
             </div>
-            ${isPublic ? "" : `<button class="filter-toggle" id="filter-toggle" type="button" aria-controls="filters" aria-expanded="false">${filterIcon()} Filters</button>`}
+            <div class="view-controls">
+              ${isPublic ? "" : densityToggle()}
+              ${perPageControl()}
+            </div>
           </div>
-          <div class="active-filters" id="active-filters" aria-live="polite"></div>
-          <div class="entries${isPublic ? " release-feed" : ""}" id="entries">
+          <div class="entries${isPublic ? " release-feed" : ""}" id="entries" role="feed" aria-busy="false">
             ${model.documents.map((document) => renderEntry(document, model.profile)).join("\n            ")}
           </div>
+          <nav class="pagination" id="pagination" aria-label="Pagination" hidden></nav>
           <div class="empty" id="empty" hidden>
-            <span class="empty-icon" aria-hidden="true">${searchIcon()}</span>
+            <span class="empty-icon" aria-hidden="true">${icon("search")}</span>
             <h3>No matching records</h3>
             <p>Try a broader phrase or reset the active filters.</p>
             <button type="button" data-reset-filters>Reset filters</button>
           </div>
         </section>
+        ${isPublic ? "" : internalRail(model)}
       </div>
     </main>
 
@@ -129,26 +138,8 @@ ${staticReaderRuntime}
 `;
 }
 
-function internalSidebar(
-  model: LedgerStaticReaderModel,
-  areas: readonly string[],
-  statuses: readonly string[],
-  releases: readonly string[],
-  tags: readonly string[],
-): string {
-  return `<button class="filter-scrim" id="filter-scrim" type="button" aria-label="Close filters"></button>
-        <aside class="sidebar" id="filters" aria-label="Filters">
-          <div class="sidebar-header">
-            <div>
-              <p class="eyebrow">Refine</p>
-              <h2>Filters</h2>
-            </div>
-            <div class="sidebar-actions">
-              <button class="text-button" type="button" data-reset-filters>Reset</button>
-              <button class="sidebar-close" id="filter-close" type="button" aria-label="Close filters">${closeIcon()}</button>
-            </div>
-          </div>
-          ${internalFilterControls(areas, statuses, releases, tags)}
+function internalRail(model: LedgerStaticReaderModel): string {
+  return `<aside class="rail" aria-label="Browse">
           <div class="browse-section">
             <p class="filter-label">Quick views</p>
             ${facetButtons("Kinds", "kind", model.facets.kinds)}
@@ -165,11 +156,13 @@ function renderEntry(
 ): string {
   if (profile === "public") return renderPublicEntry(document);
   const recordId = domId(document.id);
-  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document).toLowerCase())}">
+  const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
+  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document))}">
               <div class="entry-heading">
                 <div class="record-type" data-kind-tone="${escapeHtml(document.kind)}">${kindIcon(document.kind)}<span>${escapeHtml(labelForKind(document.kind))}</span></div>
                 <span class="record-id">${escapeHtml(document.id)}</span>
-                <span class="status-dot" data-status-tone="${escapeHtml(document.status)}"><i aria-hidden="true"></i>${escapeHtml(document.status)}</span>
+                <span class="status-dot" data-status-tone="${escapeHtml(document.status)}">${escapeHtml(document.status)}</span>
+                ${document.date ? `<time class="record-date" datetime="${escapeHtml(updatedDate || document.date)}"${updatedDate ? ` title="Created ${escapeHtml(formatDate(document.date))}"` : ""}>${escapeHtml(formatDate(updatedDate || document.date))}</time>` : ""}
                 <span class="score-label" data-score-label hidden></span>
               </div>
               <h3>${escapeHtml(document.title)}</h3>
@@ -179,11 +172,12 @@ function renderEntry(
                 ${document.areas.slice(0, 4).map((value) => tag(value)).join("")}
                 ${document.tags.slice(0, 3).map((value) => tag(`#${value}`)).join("")}
                 ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
+                ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
               </div>
               <details class="entry-details">
-                <summary><span>Open record</span>${chevronIcon()}</summary>
+                <summary><span>Open record</span>${icon("chevron")}</summary>
                 <div class="entry-body">
-                  ${document.sourceHref ? `<div class="source-reference">${fileIcon()}<span><small>Source record</small><code>${escapeHtml(document.path)}</code></span></div>` : ""}
+                  ${document.sourceHref ? `<div class="source-reference">${icon("file")}<span><small>Source record${document.date ? ` · Created ${escapeHtml(formatDate(document.date))}` : ""}${updatedDate ? ` · Updated ${escapeHtml(formatDate(updatedDate))}` : ""}</small><code>${escapeHtml(document.path)}</code></span></div>` : ""}
                   ${contextGrid(document)}
                   ${issueList(document.issues)}
                   <div class="record-columns">
@@ -199,9 +193,9 @@ function renderEntry(
 }
 
 function renderPublicEntry(document: LedgerRenderedDocument): string {
-  return `<article class="entry release-entry" id="record-${domId(document.id)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-search="${escapeHtml(searchTerms(document).toLowerCase())}">
+  return `<article class="entry release-entry" id="record-${domId(document.id)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-year="${escapeHtml(document.date.slice(0, 4))}" data-search="${escapeHtml(searchTerms(document))}">
               <div class="release-date">
-                <span>${escapeHtml(document.id)}</span>
+                <span class="version-badge">${escapeHtml(document.id)}</span>
                 <time datetime="${escapeHtml(document.date)}">${escapeHtml(formatDate(document.date))}</time>
               </div>
               <div class="release-content">
@@ -215,25 +209,17 @@ function renderPublicEntry(document: LedgerRenderedDocument): string {
 function publicNotesList(values: readonly string[]): string {
   if (values.length === 0) return '<p class="entry-summary">No public notes were recorded.</p>';
   return `<ul class="release-notes">${values
-    .map((value) => `<li><span aria-hidden="true">${checkIcon()}</span><span>${escapeHtml(value)}</span></li>`)
+    .map((value) => `<li><span aria-hidden="true">${icon("check")}</span><span>${escapeHtml(value)}</span></li>`)
     .join("")}</ul>`;
 }
 
-function publicFilterControls(): string {
-  return `<div hidden>
-          ${["kind", "warning", "missingRef", "duplicate", "coverage", "status", "area", "release", "tag"]
-            .map((id) => `<input id="${id}" type="hidden" value="all">`)
-            .join("")}
-        </div>`;
-}
-
-function internalFilterControls(
-  areas: readonly string[],
+function filterBar(
   statuses: readonly string[],
+  areas: readonly string[],
   releases: readonly string[],
   tags: readonly string[],
 ): string {
-  return `<div class="filter-stack">
+  return `<div class="filter-bar">
           ${selectControl("kind", "Type", [
             ["all", "All record types"],
             ["change", "Changes"],
@@ -248,7 +234,7 @@ function internalFilterControls(
           ${selectControl("release", "Release", [["all", "All releases"], ["__none", "No release"], ...releases.map((value) => [value, value] as const)])}
           ${selectControl("tag", "Tag", [["all", "All tags"], ...tags.map((value) => [value, value] as const)])}
           <details class="advanced-filters">
-            <summary>Quality signals ${chevronIcon()}</summary>
+            <summary>Quality signals ${icon("chevron")}</summary>
             <div>
               ${selectControl("warning", "Warnings", [["all", "Any warning state"], ["with", "With warnings"], ["without", "Without warnings"]])}
               ${selectControl("missingRef", "References", [["all", "Any reference state"], ["missing", "Missing references"], ["ok", "References resolved"]])}
@@ -256,7 +242,25 @@ function internalFilterControls(
               ${selectControl("coverage", "Coverage", [["all", "Any coverage"], ["exact", "Exact paths"], ["pattern", "Pattern coverage"], ["none", "No file coverage"]])}
             </div>
           </details>
+          <button class="text-button" type="button" data-reset-filters>Reset</button>
         </div>`;
+}
+
+function densityToggle(): string {
+  return `<div class="density-toggle" role="group" aria-label="Result density">
+                <button type="button" data-density="compact" aria-pressed="false">Compact</button>
+                <button type="button" data-density="expanded" aria-pressed="true">Expanded</button>
+              </div>`;
+}
+
+function perPageControl(): string {
+  return `<select id="per-page" aria-label="Results per page">
+                <option value="10">10 per page</option>
+                <option value="25" selected>25 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+                <option value="all">All results</option>
+              </select>`;
 }
 
 function selectControl(
@@ -264,24 +268,21 @@ function selectControl(
   label: string,
   values: readonly (readonly [string, string])[],
 ): string {
-  return `<label class="filter-control" for="${id}">
-            <span>${escapeHtml(label)}</span>
-            <select id="${id}">${values.map(([value, text]) => option(value, text)).join("")}</select>
-          </label>`;
+  return `<select id="${id}" aria-label="${escapeHtml(label)}">${values.map(([value, text]) => option(value, text)).join("")}</select>`;
 }
 
 function issueList(issues: readonly LedgerIssue[]): string {
   if (issues.length === 0) return "";
   return `<section class="signal-panel" aria-label="Validation issues">
-            <div class="section-heading"><span>${warningIcon()}</span><strong>Validation issues</strong><small>${issues.length}</small></div>
+            <div class="section-heading"><span>${icon("warning")}</span><h4>Validation issues</h4><small>${issues.length}</small></div>
             <ul>${issues.map((issue) => `<li><span>${escapeHtml(issue.level)}</span>${escapeHtml(issue.message)}</li>`).join("")}</ul>
           </section>`;
 }
 
 function contextGrid(document: LedgerRenderedDocument): string {
   const sections = [
-    contextBlock("Invariants", "What must stay true", document.invariants, shieldIcon()),
-    contextBlock("Verification", "How this was proven", document.verification, checkIcon()),
+    contextBlock("Invariants", "What must stay true", document.invariants, icon("shield")),
+    contextBlock("Verification", "How this was proven", document.verification, icon("check")),
   ].filter((section) => section.length > 0);
   return sections.length === 0 ? "" : `<div class="context-grid">${sections.join("")}</div>`;
 }
@@ -289,7 +290,7 @@ function contextGrid(document: LedgerRenderedDocument): string {
 function contextBlock(label: string, description: string, values: readonly string[], icon: string): string {
   if (values.length === 0) return "";
   return `<section class="context-panel">
-            <div class="section-heading"><span>${icon}</span><div><strong>${escapeHtml(label)}</strong><small>${escapeHtml(description)}</small></div></div>
+            <div class="section-heading"><span>${icon}</span><div><h4>${escapeHtml(label)}</h4><small>${escapeHtml(description)}</small></div></div>
             <ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul>
           </section>`;
 }
@@ -297,7 +298,7 @@ function contextBlock(label: string, description: string, values: readonly strin
 function detailList(label: string, values: readonly string[]): string {
   if (values.length === 0) return "";
   return `<details class="record-list">
-            <summary><span>${escapeHtml(label)} <small>${values.length}</small></span>${chevronIcon()}</summary>
+            <summary><span>${escapeHtml(label)} <small>${values.length}</small></span>${icon("chevron")}</summary>
             <ul>${values.map((value) => `<li><code>${escapeHtml(value)}</code></li>`).join("")}</ul>
           </details>`;
 }
@@ -322,7 +323,7 @@ function agentPacketDigest(document: LedgerRenderedDocument): string {
     document.verification.length > 0 ? `Verification: ${document.verification.slice(0, 3).join(" | ")}` : "",
   ].filter((line) => line.length > 0);
   return `<details class="agent-packet">
-            <summary><span>${sparkIcon()} Agent-ready context</span>${chevronIcon()}</summary>
+            <summary><span>${icon("spark")} Agent-ready context</span>${icon("chevron")}</summary>
             <pre>${escapeHtml(lines.join("\n"))}</pre>
           </details>`;
 }
@@ -331,13 +332,13 @@ function graphSummary(model: LedgerStaticReaderModel): string {
   const nodeTypes = countTypes(model.graph.nodes);
   const recordCount = nodeTypes.find((type) => type.value === "record")?.count ?? 0;
   return `<div class="graph-summary">
-          <div class="section-heading"><span>${graphIcon()}</span><div><strong>Relationship graph</strong><small>Structured project context</small></div></div>
+          <div class="section-heading"><span>${icon("graph")}</span><div><h3>Relationship graph</h3><small>Structured project context</small></div></div>
           <div class="graph-metrics">
             ${miniMetric("Records", recordCount)}
             ${miniMetric("Nodes", model.graph.nodes.length)}
             ${miniMetric("Links", model.graph.edges.length)}
           </div>
-          <a class="graph-link" href="graph.json">Open graph data ${arrowIcon()}</a>
+          <a class="graph-link" href="graph.json">Open graph data ${icon("arrow")}</a>
         </div>`;
 }
 
@@ -357,9 +358,9 @@ function searchDialog(isPublic: boolean): string {
   return `<dialog class="command-palette" id="command-palette" aria-labelledby="command-title">
       <div class="command-shell">
         <div class="command-input-row">
-          ${searchIcon()}
+          ${icon("search")}
           <label class="sr-only" id="command-title" for="command-search">Search Ledger</label>
-          <input id="command-search" type="search" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="command-results" aria-autocomplete="list" placeholder="Search ${isPublic ? "release notes" : "project memory"}">
+          <input id="command-search" type="search" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="command-results" aria-autocomplete="list" placeholder="Search ${isPublic ? "release notes" : "project memory"}">
           <button class="command-close" id="command-close" type="button" aria-label="Close search">esc</button>
         </div>
         <div class="command-status" id="command-status">Start typing or choose a recent record</div>
@@ -371,6 +372,10 @@ function searchDialog(isPublic: boolean): string {
 
 function metric(label: string, value: number): string {
   return `<div class="metric"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`;
+}
+
+function metricButton(label: string, value: number, attrs: string): string {
+  return `<button class="metric" type="button" ${attrs}><strong>${value}</strong><span>${escapeHtml(label)}</span></button>`;
 }
 
 function miniMetric(label: string, value: number): string {
@@ -394,9 +399,9 @@ function countTypes(values: readonly LedgerGraphNode[] | readonly LedgerGraphEdg
 }
 
 function searchTerms(document: LedgerRenderedDocument): string {
-  return [
+  const titleTokens = new Set(document.title.toLowerCase().split(/\s+/).filter(Boolean));
+  const values = [
     document.id,
-    document.title,
     document.kind,
     document.status,
     document.release ?? "",
@@ -416,7 +421,14 @@ function searchTerms(document: LedgerRenderedDocument): string {
     ...document.invariants,
     ...document.verification,
     ...document.issues.map((issue) => issue.message),
-  ].join(" ");
+  ];
+  const tokens = new Set<string>();
+  for (const value of values) {
+    for (const token of value.toLowerCase().split(/\s+/)) {
+      if (token && !titleTokens.has(token)) tokens.add(token);
+    }
+  }
+  return [...tokens].join(" ");
 }
 
 function labelForKind(kind: string): string {
@@ -443,33 +455,45 @@ function domId(value: string): string {
 }
 
 function kindIcon(kind: string): string {
-  if (kind === "decision") return compassIcon();
-  if (kind === "backlog") return backlogIcon();
-  if (kind === "release") return releaseIcon();
-  if (kind === "product-note" || kind === "feedback") return sparkIcon();
-  return changeIcon();
+  if (kind === "decision") return icon("compass");
+  if (kind === "backlog") return icon("backlog");
+  if (kind === "release") return icon("release");
+  if (kind === "product-note" || kind === "feedback") return icon("spark");
+  return icon("change");
 }
 
-function icon(paths: string, viewBox = "0 0 24 24"): string {
-  return `<svg class="ui-icon" viewBox="${viewBox}" aria-hidden="true" focusable="false">${paths}</svg>`;
+const iconPaths: Record<string, string> = {
+  search: '<path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>',
+  "theme-system": '<rect x="3" y="5" width="18" height="13" rx="2.5"/><path d="M12 18v3m-3.5 0h7"/>',
+  "theme-light":
+    '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5m0 14v2.5M4.57 4.57 6.34 6.34m11.32 11.32 1.77 1.77M2.5 12H5m14 0h2.5M4.57 19.43l1.77-1.77M17.66 6.34l1.77-1.77"/>',
+  "theme-dark": '<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>',
+  chevron: '<path d="m8 10 4 4 4-4"/>',
+  arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+  file: '<path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  warning: '<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v4m0 3h.01"/>',
+  shield: '<path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/>',
+  spark:
+    '<path d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35L12 3Z"/><path d="m18.5 14 .75 2.25L21.5 17l-2.25.75L18.5 20l-.75-2.25L15.5 17l2.25-.75.75-2.25Z"/>',
+  graph:
+    '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="10" cy="18" r="2"/><path d="m8 6.5 8 1M7 8l2 8m3-1 5-5"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/>',
+  backlog: '<path d="M5 5h14v14H5z"/><path d="M8 9h8M8 12h6m-6 3h4"/>',
+  release:
+    '<path d="M14 5c2.5-2 5-2 5-2s0 2.5-2 5l-5 5-4-4 6-4Z"/><path d="m8 9-3 1-2 3 5 1m4-1 1 5 3-2 1-4M7 17l-2 2"/>',
+  change: '<path d="M4 7h12m0 0-3-3m3 3-3 3M20 17H8m0 0 3 3m-3-3 3-3"/>',
+};
+
+function iconSprite(): string {
+  return `<svg aria-hidden="true" style="display:none">${Object.entries(iconPaths)
+    .map(([name, paths]) => `<symbol id="i-${name}" viewBox="0 0 24 24">${paths}</symbol>`)
+    .join("")}</svg>`;
 }
 
-function searchIcon(): string { return icon('<path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>'); }
-function themeIcon(): string { return icon('<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>'); }
-function filterIcon(): string { return icon('<path d="M4 7h16M7 12h10m-7 5h4"/>'); }
-function closeIcon(): string { return icon('<path d="m6 6 12 12M18 6 6 18"/>'); }
-function chevronIcon(): string { return icon('<path d="m8 10 4 4 4-4"/>'); }
-function arrowIcon(): string { return icon('<path d="M5 12h14m-5-5 5 5-5 5"/>'); }
-function fileIcon(): string { return icon('<path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5"/>'); }
-function checkIcon(): string { return icon('<path d="m5 12 4 4L19 6"/>'); }
-function warningIcon(): string { return icon('<path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v4m0 3h.01"/>'); }
-function shieldIcon(): string { return icon('<path d="M12 3 5 6v5c0 4.6 2.8 8 7 10 4.2-2 7-5.4 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/>'); }
-function sparkIcon(): string { return icon('<path d="m12 3 1.35 4.15L17.5 8.5l-4.15 1.35L12 14l-1.35-4.15L6.5 8.5l4.15-1.35L12 3Z"/><path d="m18.5 14 .75 2.25L21.5 17l-2.25.75L18.5 20l-.75-2.25L15.5 17l2.25-.75.75-2.25Z"/>'); }
-function graphIcon(): string { return icon('<circle cx="6" cy="6" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="10" cy="18" r="2"/><path d="m8 6.5 8 1M7 8l2 8m3-1 5-5"/>'); }
-function compassIcon(): string { return icon('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/>'); }
-function backlogIcon(): string { return icon('<path d="M5 5h14v14H5z"/><path d="M8 9h8M8 12h6m-6 3h4"/>'); }
-function releaseIcon(): string { return icon('<path d="M14 5c2.5-2 5-2 5-2s0 2.5-2 5l-5 5-4-4 6-4Z"/><path d="m8 9-3 1-2 3 5 1m4-1 1 5 3-2 1-4M7 17l-2 2"/>'); }
-function changeIcon(): string { return icon('<path d="M4 7h12m0 0-3-3m3 3-3 3M20 17H8m0 0 3 3m-3-3 3-3"/>'); }
+function icon(name: string, attrs = ""): string {
+  return `<svg class="ui-icon"${attrs ? ` ${attrs}` : ""} aria-hidden="true"><use href="#i-${name}"/></svg>`;
+}
 
 function escapeHtml(value: string): string {
   return value
