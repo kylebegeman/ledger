@@ -1,7 +1,7 @@
 export const staticReaderStyles = `    :root {
       color-scheme: light dark;
       --canvas: light-dark(#f3f3ef, #111311);
-      --canvas-glow: light-dark(rgba(108, 92, 231, 0.13), rgba(126, 121, 255, 0.16));
+      --canvas-glow: light-dark(rgba(191, 94, 40, 0.12), rgba(240, 146, 94, 0.13));
       --surface: light-dark(#ffffff, #1b1e1b);
       --surface-raised: light-dark(rgba(243, 243, 239, 0.88), rgba(17, 19, 17, 0.88));
       --surface-soft: light-dark(#ebece7, #252925);
@@ -12,10 +12,10 @@ export const staticReaderStyles = `    :root {
       --faint: light-dark(#a5a99f, #6f756c);
       --line: light-dark(rgba(23, 24, 21, 0.14), rgba(242, 243, 239, 0.16));
       --line-strong: light-dark(rgba(23, 24, 21, 0.24), rgba(242, 243, 239, 0.28));
-      --accent: light-dark(#5e5ce6, #9b98ff);
-      --accent-strong: light-dark(#4743d2, #b7b5ff);
-      --accent-soft: light-dark(#e9e8ff, #2f2d58);
-      --on-accent: light-dark(#ffffff, #171630);
+      --accent: light-dark(#b34a1f, #f0925e);
+      --accent-strong: light-dark(#8f3a17, #f7ac83);
+      --accent-soft: light-dark(#f9e7dc, #47230f);
+      --on-accent: light-dark(#ffffff, #2b1508);
       --positive: light-dark(#23856d, #6fd3b5);
       --positive-soft: light-dark(#dcf4eb, #173d34);
       --warning: light-dark(#a86616, #efb65f);
@@ -24,8 +24,8 @@ export const staticReaderStyles = `    :root {
       --danger-soft: light-dark(#ffe5e8, #4c2329);
       --info: light-dark(#2c66a1, #8dc3ff);
       --info-soft: light-dark(#e5f1ff, #1f354c);
-      --accent-alt: light-dark(#8649a8, #dda6f7);
-      --accent-alt-soft: light-dark(#f5e5ff, #40294d);
+      --accent-alt: light-dark(#0f7788, #7fd6e2);
+      --accent-alt-soft: light-dark(#e0f3f6, #123c44);
       --code: light-dark(#171a18, #0c0e0d);
       --shadow-float: 0 32px 100px light-dark(rgba(15, 16, 14, 0.22), rgba(0, 0, 0, 0.58));
       --radius-xs: 8px;
@@ -520,7 +520,7 @@ export const staticReaderStyles = `    :root {
       font-size: 0.7rem;
       font-weight: 700;
     }
-    .record-type { background: var(--accent-soft); color: var(--accent-strong); }
+    .record-type { background: var(--surface-soft); color: var(--ink-soft); }
     .record-type .ui-icon { width: 14px; height: 14px; }
     .record-type[data-kind-tone="decision"] { background: var(--info-soft); color: var(--info); }
     .record-type[data-kind-tone="backlog"] { background: var(--warning-soft); color: var(--warning); }

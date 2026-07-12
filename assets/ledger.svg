@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="ledger-mark-title">
   <title id="ledger-mark-title">Ledger</title>
-  <rect x="4" y="4" width="56" height="56" rx="18" fill="#5e5ce6"/>
+  <rect x="4" y="4" width="56" height="56" rx="18" fill="#b34a1f"/>
   <path d="M19 16h9v24h18v8H19V16Z" fill="#fff"/>
-  <circle cx="46" cy="18" r="4" fill="#b9b7ff"/>
+  <circle cx="46" cy="18" r="4" fill="#f7ac83"/>
 </svg>
