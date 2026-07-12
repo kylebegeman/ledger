@@ -55,7 +55,7 @@
     "ci": "npm run check && npm run build && npm run ledger:ci && npm run pack:dry-run"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

@@ -81,8 +81,16 @@ npm run release:build
 npm publish --access public
 ```
 
-Tagged GitHub releases can publish through `.github/workflows/release.yml` when
-repository secrets and npm trusted publishing are configured.
+Tagged releases publish through `.github/workflows/release.yml`. The workflow
+requires the `vX.Y.Z` tag to match `package.json`, runs the complete package
+verification, skips versions already present on npm, and otherwise fails if it
+cannot authenticate.
+
+Configure npm trusted publishing for repository `kylebegeman/ledger` and
+workflow `release.yml` as the preferred authentication path. It uses short-lived
+OIDC credentials and automatic provenance. `NPM_TOKEN` remains an optional
+fallback during migration and should be removed after trusted publishing is
+verified.
 
 ## After Publish
 

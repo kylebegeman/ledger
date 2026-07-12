@@ -3,8 +3,8 @@ id: "B002"
 kind: "backlog"
 title: "Standalone static reader"
 date: "2026-06-29"
-updated: "2026-06-29"
-status: "proposed"
+updated: "2026-07-12"
+status: "shipped"
 areas: ["render", "html", "search"]
 ---
 
@@ -47,4 +47,6 @@ Excluded:
 
 ## Promotion Notes
 
-Promote after the core parser, validator, and indexer are stable.
+Shipped as the internal static reader with lazy weighted search, facets,
+relationship graph data, local serving, performance budgets, and a separate
+sanitized public release-note profile.

@@ -3,8 +3,8 @@ id: "B003"
 kind: "backlog"
 title: "Agent query tools"
 date: "2026-06-29"
-updated: "2026-06-29"
-status: "proposed"
+updated: "2026-07-12"
+status: "shipped"
 areas: ["agents", "mcp", "query"]
 ---
 
@@ -47,4 +47,5 @@ Excluded:
 
 ## Promotion Notes
 
-Promote in stages: CLI query first, MCP second.
+Shipped in stages across CLI query, explain, search, token-budgeted packets, and
+the read-oriented MCP server. Machine results now share a versioned envelope.

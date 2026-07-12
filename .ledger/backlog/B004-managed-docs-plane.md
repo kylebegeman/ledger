@@ -3,8 +3,8 @@ id: "B004"
 kind: "backlog"
 title: "Managed docs plane"
 date: "2026-06-29"
-updated: "2026-06-29"
-status: "accepted"
+updated: "2026-07-12"
+status: "shipped"
 areas: ["docs", "cli", "agents"]
 ---
 
@@ -58,5 +58,6 @@ Excluded:
 
 ## Promotion Notes
 
-Promote after the core parser, validator, indexer, and `explain` workflow are
-stable. The first slice should audit and report before it rewrites anything.
+Shipped through partial adoption, docs audit and classification, explicit impact
+declarations, migration reports, and recoverable routing reconciliation. Ledger
+still avoids rewriting durable prose automatically.

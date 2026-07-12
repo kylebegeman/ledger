@@ -3,8 +3,8 @@ id: "B006"
 kind: "backlog"
 title: "Static Search And Agent Context Site"
 date: "2026-07-03"
-updated: "2026-07-03"
-status: "accepted"
+updated: "2026-07-12"
+status: "shipped"
 areas:
   - "render"
   - "search"
@@ -71,7 +71,7 @@ Excluded for now:
 
 ## Promotion Notes
 
-The first slice should land sidecar search and graph artifacts, packet budgets,
-doctor/stale diagnostics, local serve, and role-specific agent instructions.
-Later slices can add multi-page output, richer graph navigation, search field
-weights, and package-size budgets.
+The accepted slice shipped with sidecar weighted search and graph artifacts,
+packet budgets, doctor and stale diagnostics, hardened local serving, public
+render isolation, and role-specific agent instructions. Sharded search,
+multi-page output, and richer graph navigation remain future scale work.

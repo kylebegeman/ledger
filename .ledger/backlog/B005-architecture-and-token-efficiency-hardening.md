@@ -3,8 +3,8 @@ id: "B005"
 kind: "backlog"
 title: "Architecture And Token Efficiency Hardening"
 date: "2026-07-03"
-updated: "2026-07-03"
-status: "accepted"
+updated: "2026-07-12"
+status: "in-progress"
 areas:
   - "architecture"
   - "agents"
@@ -81,6 +81,8 @@ Token-efficiency techniques to prioritize:
 
 ## Promotion Notes
 
-Promote this item through small slices that each improve a user-visible workflow:
-packet budget first, health diagnostics second, command result models third,
-then deeper parser and API cleanup.
+Most accepted slices have shipped: packet budgets, health diagnostics, shared
+command models, parser-backed extraction, graph data, artifact budgets, config
+migrations, validation profiles, versioned machine results, and a stable versus
+unstable package boundary. Further command extraction from `src/cli.ts` remains
+incremental cleanup rather than a release blocker.

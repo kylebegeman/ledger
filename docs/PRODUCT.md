@@ -131,6 +131,8 @@ Ledger's default root directory is `.ledger/`:
 
   dist/
     index.html
+    public/
+      index.html
 ```
 
 The directory makes the system visible at the root of a project without taking
@@ -271,11 +273,13 @@ and `On conflict` instructions.
 ### Promote Backlog
 
 ```bash
-ledger promote B001 "Implement git-aware entry drafting"
+ledger new "Implement git-aware entry drafting" --from-diff
 ```
 
-The generated change entry should carry links to the backlog item and preserve
-the original acceptance checks.
+Backlog promotion is currently explicit: add `backlog: ["B001"]` to the new
+change entry and preserve the relevant acceptance checks in its implementation
+and verification sections. A dedicated `ledger promote` convenience command is
+a future workflow, not part of the current CLI.
 
 ### Prepare Release Notes
 

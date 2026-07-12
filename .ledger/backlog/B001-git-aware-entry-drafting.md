@@ -3,8 +3,8 @@ id: "B001"
 kind: "backlog"
 title: "Git-aware entry drafting"
 date: "2026-06-29"
-updated: "2026-06-29"
-status: "accepted"
+updated: "2026-07-12"
+status: "shipped"
 areas: ["cli", "git", "automation"]
 ---
 
@@ -49,5 +49,6 @@ Excluded from the first slice:
 
 ## Promotion Notes
 
-Promote this backlog item when `ledger new --from-diff` is reliable enough for
-Ledger to dogfood it on its own changes.
+Shipped through the initial drafting work and later parser-backed symbol,
+docs-impact, and staged-diff improvements. Ledger now dogfoods this workflow for
+its own milestone receipts.

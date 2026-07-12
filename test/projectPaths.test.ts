@@ -22,10 +22,30 @@ describe("project path safety", () => {
   });
 
   it("rejects traversal, absolute paths, and null bytes", () => {
+    expect(() => assertSafeProjectRelativePath("")).toThrow("path is required");
+    expect(() => assertSafeProjectRelativePath(".")).toThrow("path is required");
     expect(() => assertSafeProjectRelativePath("../outside")).toThrow("parent traversal");
     expect(() => assertSafeProjectRelativePath("/tmp/outside")).toThrow("absolute paths");
     expect(() => assertSafeProjectRelativePath("C:\\outside")).toThrow("absolute paths");
+    expect(() => assertSafeProjectRelativePath("C:outside")).toThrow("absolute paths");
     expect(() => assertSafeProjectRelativePath("docs/\0secret")).toThrow("null bytes");
+  });
+
+  it("rejects deterministic traversal variants", () => {
+    const separators = ["/", "\\"];
+    const prefixes = ["", ".", "safe", "safe/nested"];
+    const suffixes = ["outside", "outside/file.md", ".."];
+    for (const separator of separators) {
+      for (const prefix of prefixes) {
+        for (const suffix of suffixes) {
+          const segments = [prefix, "..", suffix].filter(Boolean);
+          expect(
+            () => assertSafeProjectRelativePath(segments.join(separator)),
+            segments.join(separator),
+          ).toThrow("parent traversal");
+        }
+      }
+    }
   });
 
   it("rejects configured paths whose existing ancestor is an escaping symlink", async () => {

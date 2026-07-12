@@ -20,10 +20,17 @@ export function normalizeProjectRelativePath(value: string): string {
 
 export function assertSafeProjectRelativePath(value: string, label = "path"): string {
   const normalized = normalizeProjectRelativePath(value);
+  if (normalized.length === 0 || normalized === ".") {
+    throw new UnsafeProjectPathError(label, value, "a project-relative path is required");
+  }
   if (normalized.includes("\0")) {
     throw new UnsafeProjectPathError(label, value, "null bytes are not allowed");
   }
-  if (path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized)) {
+  if (
+    path.posix.isAbsolute(normalized) ||
+    path.win32.isAbsolute(normalized) ||
+    /^[A-Za-z]:/.test(normalized)
+  ) {
     throw new UnsafeProjectPathError(label, value, "absolute paths are not allowed");
   }
   const segments = normalized.split("/");

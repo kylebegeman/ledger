@@ -1,6 +1,7 @@
 # Security
 
-Please do not open public issues for security-sensitive reports.
+Please do not open public issues for security-sensitive reports. Use the
+[private GitHub security advisory form](https://github.com/kylebegeman/ledger/security/advisories/new).
 
 Send a private report to the repository owner with:
 
@@ -25,3 +26,8 @@ This profile only selects released release records and strips internal source,
 paths, relationships, validation findings, invariants, and verification details.
 It is a data-minimization control, not an access-control layer. Review the
 explicit `Public Notes` content before publication.
+
+Supported releases require maintained Node.js LTS lines. CI tests Node 22 and
+Node 24 on Linux, macOS, and Windows, audits production dependencies, and
+installs the packed artifact before release. GitHub Actions are pinned to exact
+commits and updated through Dependabot.

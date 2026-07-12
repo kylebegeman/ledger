@@ -1,6 +1,10 @@
 # Ledger Implementation Plan
 
-This plan captures the initial build sequence for the standalone Ledger package.
+Status: completed bootstrap snapshot.
+
+This document preserves the initial build sequence for the standalone Ledger
+package. It is historical planning context, not a current capability list. Use
+`README.md`, `docs/ROADMAP.md`, and CLI help for shipped behavior.
 
 ## Initial Repository
 

@@ -4,7 +4,7 @@ Ledger should grow from a useful CLI into a durable change-memory protocol.
 
 ## Phase 0: Bootstrap
 
-Status: in progress
+Status: complete
 
 Goals:
 
@@ -23,6 +23,8 @@ Initial commands:
 - `ledger new`
 
 ## Phase 1: Reliable Core
+
+Status: complete
 
 Goals:
 
@@ -64,6 +66,8 @@ Deliverables:
 
 ## Phase 3: Explain And Query
 
+Status: complete
+
 Goals:
 
 - make `ledger explain <path>` excellent
@@ -79,6 +83,8 @@ Deliverables:
 - richer by-file and by-symbol indexes
 
 ## Phase 3.5: Docs Lifecycle Cleanup
+
+Status: core workflow shipped
 
 Goals:
 
@@ -98,6 +104,8 @@ Deliverables:
 - docs-to-Ledger migration report
 
 ## Phase 3.6: Partial Docs Adoption And Managed Docs Plane
+
+Status: core workflow shipped
 
 Goals:
 
@@ -119,6 +127,8 @@ Deliverables:
 - optional docs migration reports
 
 ## Phase 4: Conflict Assistant
+
+Status: core workflow shipped
 
 Goals:
 
@@ -175,6 +185,8 @@ Deliverables:
 
 ## Phase 7: CI And GitHub
 
+Status: local and repository CI shipped; richer PR annotations remain future work
+
 Goals:
 
 - GitHub Action
@@ -213,7 +225,7 @@ Deliverables:
 
 ## Phase 9: Integrity And Evidence
 
-Status: first integrity slice landed
+Status: hash generation and read-only baseline verification shipped
 
 Goals:
 
@@ -227,6 +239,30 @@ Deliverables:
 - `ledger verify-integrity`
 - optional record hash chains
 - evidence references in entries and releases
+
+## Phase 10: 2.0 Production Hardening
+
+Status: core hardening complete
+
+Shipped foundations:
+
+- project-confined paths, symlink checks, and bounded source ingestion
+- journaled, optimistic, recoverable source mutations
+- loopback-only serving by default with authenticated explicit network exposure
+- versioned CLI and MCP machine result envelopes
+- validated integrity baselines with read-only mismatch checks
+- fail-closed public release-note exports
+- maintained Node LTS and cross-platform CI coverage
+- production dependency audit and installed-package smoke testing
+
+Next product slices:
+
+- sharded or on-demand static search indexes for catalogs that outgrow the
+  compact JSON search artifact
+- optional Go and HTMX mini-app adapters that consume Ledger's stable JSON and
+  machine contracts without replacing Markdown as source of truth
+- signed integrity records or transparency-log adapters
+- richer graph navigation and pull request annotations
 
 ## Long-Term Product Direction
 

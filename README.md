@@ -25,7 +25,7 @@
   <a href="https://github.com/kylebegeman/ledger/blob/master/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/kylebegeman/ledger?style=for-the-badge">
   </a>
-  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-43853D?style=for-the-badge&logo=node.js&logoColor=white">
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D22-43853D?style=for-the-badge&logo=node.js&logoColor=white">
   <img alt="TypeScript" src="https://img.shields.io/badge/typescript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
   <img alt="Markdown source" src="https://img.shields.io/badge/source-markdown-111111?style=for-the-badge&logo=markdown&logoColor=white">
 </p>
@@ -55,7 +55,7 @@ automation without making the project dependent on a hosted service.
 | Human workflow | Fully available through the CLI, Markdown records, reports, and static reader. |
 | Source format | Markdown with YAML frontmatter. |
 | Default root | `.ledger/` |
-| Runtime | Node >=20 |
+| Runtime | Node >=22, tested on maintained Node 22 and Node 24 LTS lines. |
 | Outputs | JSON indexes, validation reports, docs reports, release records, static HTML. |
 | Product boundary | Ledger stands alone. It can later export into Dossier or other renderers. |
 
