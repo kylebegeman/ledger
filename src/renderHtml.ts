@@ -28,6 +28,8 @@ export function renderStaticReaderHtml(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <title>${escapeHtml(model.project)} Ledger</title>
   <style>
 ${staticReaderStyles}

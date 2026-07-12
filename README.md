@@ -179,6 +179,19 @@ For local preview:
 ledger serve --watch
 ```
 
+The default server binds only to loopback, validates the request host, serves
+only `GET` and `HEAD`, and sends no-store plus browser security headers. To bind
+to a network interface, opt in explicitly and provide a token through the
+environment:
+
+```bash
+LEDGER_SERVE_TOKEN="use-a-random-token-at-least-24-characters" \
+  ledger serve --expose --host 0.0.0.0
+```
+
+Network mode accepts HTTP Basic authentication with user `ledger` or a Bearer
+token. Prefer a TLS reverse proxy when traffic leaves the local machine.
+
 ### Published Package Shape
 
 Ledger is intended to publish as the scoped public package
@@ -261,7 +274,7 @@ brew install ledger
 | `ledger index` | Writes JSON indexes under `.ledger/indexes/`. |
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. |
 | `ledger render` | Builds the static HTML reader plus lazy search and relationship graph JSON. |
-| `ledger serve --watch` | Serves the static reader locally and rebuilds it when Ledger records change. |
+| `ledger serve --watch` | Serves the static reader on loopback and rebuilds it when Ledger records change. |
 | `ledger coverage --explain` | Checks that changed source paths have Ledger coverage and explains required, ignored, covered, and missing paths. |
 | `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
 | `ledger metrics` | Measures read, validate, index, render-model, and search latency against configured budgets. |

@@ -67,7 +67,7 @@ export {
   searchLedgerIndex,
   scoreSearchDocument,
 } from "./search.js";
-export { serveStaticReader } from "./serve.js";
+export { closeStaticReader, serveStaticReader } from "./serve.js";
 export { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
 export { extractCodeSymbols, extractFileSymbols, extractMarkdownSymbols } from "./symbols.js";
 export { renderLedgerTemplate, yamlStringArray } from "./template.js";

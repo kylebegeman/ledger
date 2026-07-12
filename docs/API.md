@@ -48,6 +48,11 @@ The package root should stay focused on:
 - command result models for reusable CLI behavior
 - MCP server construction and direct tool execution
 
+`serveStaticReader` defaults to local-only exposure. Library callers selecting
+`mode: "network"` must provide an access token of at least 24 characters and
+should terminate TLS outside the embedded development server. Use
+`closeStaticReader` for bounded graceful shutdown.
+
 Avoid exporting low-level parser, git, template, runtime asset, and migration
 helpers from the root unless they become a deliberate integration point.
 

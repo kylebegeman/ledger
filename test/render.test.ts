@@ -84,6 +84,8 @@ describe("renderStaticReaderHtml", () => {
     const html = renderStaticReaderHtml(model, { iconSvg: "<svg><title>Ledger</title></svg>" });
 
     expect(html).toContain("Escape &lt;script&gt;");
+    expect(html).toContain('http-equiv="Content-Security-Policy"');
+    expect(html).toContain('name="referrer" content="no-referrer"');
     expect(html).toContain('fetch("search-index.json")');
     expect(html).toContain("fuzzyScore");
     expect(html).toContain("scoreSearchDocument");

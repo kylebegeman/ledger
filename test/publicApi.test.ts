@@ -14,6 +14,8 @@ describe("public API boundary", () => {
       runLedgerQueryCommand: expect.any(Function),
       runLedgerSearchPacketCommand: expect.any(Function),
       searchLedgerIndex: expect.any(Function),
+      closeStaticReader: expect.any(Function),
+      serveStaticReader: expect.any(Function),
       validateDocuments: expect.any(Function),
     });
   });

@@ -42,7 +42,7 @@ import {
   getUnreleasedChanges,
 } from "./release.js";
 import { buildStaticReaderModel, writeStaticReader } from "./render.js";
-import { serveStaticReader } from "./serve.js";
+import { closeStaticReader, serveStaticReader } from "./serve.js";
 import { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
 import type { ParsedLedgerDocument } from "./types.js";
 import {
@@ -314,6 +314,8 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
   const served = await serveStaticReader(workspace, {
     host: flagValues(parsed, "host")[0],
     port: numberFlag(parsed, "port") ?? 4173,
+    mode: hasFlag(parsed, "expose") ? "network" : "local",
+    accessToken: process.env.LEDGER_SERVE_TOKEN,
   });
   const watchers = hasFlag(parsed, "watch")
     ? watchStaticReaderSources(workspace, async () => {
@@ -327,15 +329,19 @@ async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<nu
     : [];
 
   console.log(`Serving ${served.root} at ${served.url}`);
+  if (served.mode === "network") {
+    console.log("Network exposure enabled; HTTP Basic user is ledger and the configured token is required.");
+  }
   if (watchers.length > 0) console.log(`Watching ${watchers.length} Ledger source director${watchers.length === 1 ? "y" : "ies"}.`);
   await new Promise<void>((resolve) => {
     const close = () => {
       for (const watcher of watchers) watcher.close();
-      served.server.close(() => resolve());
+      resolve();
     };
     process.once("SIGINT", close);
     process.once("SIGTERM", close);
   });
+  await closeStaticReader(served);
   return 0;
 }
 
@@ -1201,10 +1207,11 @@ and relationship graph JSON artifacts.`;
       return `Ledger serve
 
 Usage:
-  ledger serve [--host <host>] [--port <port>] [--watch]
+  ledger serve [--host <host>] [--port <port>] [--watch] [--expose]
 
 Renders and serves the static reader from .ledger/dist. --watch rebuilds when
-Ledger source records change.`;
+Ledger source records change. Non-loopback binding requires --expose and an
+access token of at least 24 characters from LEDGER_SERVE_TOKEN.`;
     case "coverage":
       return `Ledger coverage
 
@@ -1384,7 +1391,7 @@ Usage:
   ledger index
   ledger verify-integrity [--json]
   ledger render [--json]
-  ledger serve [--host <host>] [--port <port>] [--watch]
+  ledger serve [--host <host>] [--port <port>] [--watch] [--expose]
   ledger coverage [--staged] [--explain] [--json]
   ledger ci [--staged] [--current-only] [--no-baseline] [--json]
   ledger doctor [--no-baseline] [--json]
