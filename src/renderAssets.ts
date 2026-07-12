@@ -1,7 +1,7 @@
 export const staticReaderStyles = `    :root {
       color-scheme: light dark;
       --canvas: light-dark(#f3f3ef, #111311);
-      --canvas-glow: light-dark(rgba(59, 130, 246, 0.12), rgba(127, 179, 255, 0.14));
+      --canvas-glow: light-dark(rgba(255, 106, 46, 0.11), rgba(255, 138, 77, 0.13));
       --surface: light-dark(#ffffff, #1b1e1b);
       --surface-raised: light-dark(rgba(243, 243, 239, 0.88), rgba(17, 19, 17, 0.88));
       --surface-soft: light-dark(#ebece7, #252925);
@@ -12,18 +12,18 @@ export const staticReaderStyles = `    :root {
       --faint: light-dark(#a5a99f, #6f756c);
       --line: light-dark(rgba(23, 24, 21, 0.14), rgba(242, 243, 239, 0.16));
       --line-strong: light-dark(rgba(23, 24, 21, 0.24), rgba(242, 243, 239, 0.28));
-      --accent: light-dark(#2563eb, #7fb3ff);
-      --accent-strong: light-dark(#1c4ed8, #a3c8ff);
-      --accent-soft: light-dark(#e3edff, #1b2f55);
-      --on-accent: light-dark(#ffffff, #0c1a33);
+      --accent: light-dark(#bc4a0a, #ff8a4d);
+      --accent-strong: light-dark(#9a3c06, #ffaa78);
+      --accent-soft: light-dark(#ffe8da, #492310);
+      --on-accent: light-dark(#ffffff, #2b1204);
       --positive: light-dark(#23856d, #6fd3b5);
       --positive-soft: light-dark(#dcf4eb, #173d34);
       --warning: light-dark(#a86616, #efb65f);
       --warning-soft: light-dark(#fff0d4, #49351a);
       --danger: light-dark(#b74b58, #ff9aa5);
       --danger-soft: light-dark(#ffe5e8, #4c2329);
-      --decision: light-dark(#a8451c, #f0925e);
-      --decision-soft: light-dark(#f9e7dc, #47230f);
+      --decision: light-dark(#2c66a1, #8dc3ff);
+      --decision-soft: light-dark(#e5f1ff, #1f354c);
       --accent-alt: light-dark(#0f7788, #7fd6e2);
       --accent-alt-soft: light-dark(#e0f3f6, #123c44);
       --code: light-dark(#171a18, #0c0e0d);
