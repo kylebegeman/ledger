@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/kylebegeman/ledger">
-    <img src="./assets/ledger.svg" alt="Ledger notebook icon" width="128" height="128">
+    <img src="./assets/ledger.svg" alt="Ledger logo" width="128" height="128">
   </a>
 </p>
 
@@ -145,17 +145,19 @@ ledger render
 open .ledger/dist/index.html
 ```
 
-The static reader is a single offline HTML file. It gives humans and agents a
-searchable, faceted view of entries, decisions, backlog, releases, invariants,
-verification checks, relationships, and raw Markdown source.
+The static reader is a self-contained offline bundle. It gives humans and agents
+a searchable, faceted view of entries, decisions, backlog, releases, invariants,
+verification checks, relationships, source paths, and agent-ready retrieval
+commands without embedding every raw Markdown document into the initial page.
 
 `ledger render` also writes `.ledger/dist/search-index.json` and
 `.ledger/dist/graph.json`. The reader lazy-loads the compact search index for
 weighted fuzzy search, ranking exact ID, title, path, symbol, and file matches
 above incidental summary or context matches. Relationship data is kept available
 as a static artifact that can be hosted anywhere static files are supported. The
-reader sidebar summarizes graph nodes, edges, and relationship types, while
-active searches show ranked result counts and score badges.
+reader offers a keyboard search palette, shareable filter URLs, light and dark
+themes, responsive filters, and ranked search results. The visual shell uses
+filled surfaces and depth instead of ornamental edge strokes.
 
 Render output is checked against `render.budgets` in `.ledger/config.yaml`.
 `ledger render` prints artifact size and write-time status, while `ledger

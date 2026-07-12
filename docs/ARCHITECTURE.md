@@ -299,10 +299,17 @@ retrieval the same ranking behavior.
 
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
-Record cards surface relationship fields such as decisions and backlog links
-alongside files, symbols, docs, invariants, and verification.
-The sidebar also summarizes graph node and edge counts from the generated model,
-and active browser searches surface ranked match counts plus score badges.
+The reader uses a borderless, responsive visual shell with filled surfaces,
+clear editorial hierarchy, compact collapsed records, and a dedicated public
+release feed. Expanded records surface relationship fields alongside files,
+symbols, docs, invariants, and verification. Raw Markdown remains available to
+library consumers but is not embedded into the initial HTML payload.
+
+Browser behavior remains dependency-free and progressively enhanced. Search is
+available inline and through a native dialog opened with `/` or `Cmd/Ctrl+K`.
+Filters synchronize with the URL, mobile filters use a bottom sheet, themes
+respect system preferences, and supported browsers animate result changes with
+the View Transition API. Reduced-motion preferences disable nonessential motion.
 
 The graph sidecar also represents invariants and verification bullets as
 first-class nodes attached to their source record. That lets hosted readers and
