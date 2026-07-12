@@ -3,6 +3,7 @@ import path from "node:path";
 import { isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { extractBullets, getSectionBody } from "./query.js";
+import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
 import type {
   LedgerValidationResult,
   LedgerWorkspace,
@@ -156,13 +157,13 @@ async function symbolsMissingFromFiles(
   if (checkableSymbols.length === 0) return [];
   const exactFiles = files
     .map(normalizePath)
-    .filter((filePath) => !isCoveragePattern(filePath));
+    .filter((filePath) => !isCoveragePattern(filePath) && isSafeProjectRelativePath(filePath));
   if (exactFiles.length === 0) return [];
 
   const contents = await Promise.all(
     exactFiles.map(async (filePath) => {
       try {
-        return await readFile(path.join(workspace.projectRoot, filePath), "utf8");
+        return await readFile(resolveProjectPath(workspace.projectRoot, filePath, "files reference"), "utf8");
       } catch {
         return "";
       }

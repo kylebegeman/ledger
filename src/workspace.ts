@@ -1,6 +1,7 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { defaultConfig, readLedgerConfig } from "./config.js";
+import { assertNoEscapingSymlink, resolveProjectPath } from "./projectPaths.js";
 import type { LedgerDocsAdoption, LedgerWorkspace } from "./types.js";
 
 const configRelativePath = path.join(".ledger", "config.yaml");
@@ -9,12 +10,33 @@ export async function findWorkspace(startDir = process.cwd()): Promise<LedgerWor
   const projectRoot = await findProjectRoot(startDir);
   const configPath = path.join(projectRoot, configRelativePath);
   const config = await readLedgerConfig(configPath);
+  await validateWorkspacePaths(projectRoot, config);
   return {
     projectRoot,
     ledgerRoot: path.join(projectRoot, ".ledger"),
     configPath,
     config,
   };
+}
+
+async function validateWorkspacePaths(
+  projectRoot: string,
+  config: LedgerWorkspace["config"],
+): Promise<void> {
+  const paths = [
+    ...Object.entries(config.source).map(([name, value]) => [`source.${name}`, value] as const),
+    ["indexes.output", config.indexes.output] as const,
+    ["reports.output", config.reports.output] as const,
+    ["render.output", config.render.output] as const,
+    ["validation.baseline", config.validation.baseline] as const,
+    ["docs.root", config.docs.root] as const,
+    ["docs.routing.startHere", config.docs.routing.startHere] as const,
+    ["docs.routing.manifest", config.docs.routing.manifest] as const,
+  ];
+  for (const [label, value] of paths) {
+    const candidate = resolveProjectPath(projectRoot, value, label);
+    await assertNoEscapingSymlink(projectRoot, candidate, label);
+  }
 }
 
 export async function findProjectRoot(startDir: string): Promise<string> {
@@ -166,6 +188,11 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "    maxRenderModelMs: 1000",
     "    maxSearchMs: 1000",
     "    maxTotalMs: 4000",
+    "limits:",
+    "  maxDocuments: 10000",
+    "  maxDocumentBytes: 2000000",
+    "  maxTotalDocumentBytes: 64000000",
+    "  maxDirectoryDepth: 12",
     "docs:",
     "  root: docs",
     "  managed: false",

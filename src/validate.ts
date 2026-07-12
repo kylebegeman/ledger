@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isCoveragePattern, matchesGlob } from "./coverage.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
+import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
 import type {
   LedgerIssue,
   LedgerIssueLevel,
@@ -240,10 +241,22 @@ function warnMissingPathReferences(
 
   for (const filePath of filePaths) {
     const normalized = normalizePath(filePath);
+    const referencePath = normalized.replace(/^(?:glob|prefix):/, "");
+    if (!isSafeProjectRelativePath(referencePath)) {
+      issues.push({
+        level: "error",
+        code: "unsafe-reference",
+        path: pathLabel,
+        field: fieldName,
+        target: normalized,
+        message: `${fieldName} reference must stay inside the project: ${normalized}`,
+      });
+      continue;
+    }
     if (isIgnoredPath(workspace, normalized)) continue;
     if (isCoveragePattern(normalized)) continue;
     if (staleRefs.has(normalized) || staleRefs.has(`${fieldName}:${normalized}`)) continue;
-    if (existsSync(path.join(workspace.projectRoot, normalized))) continue;
+    if (existsSync(resolveProjectPath(workspace.projectRoot, normalized, `${fieldName} reference`))) continue;
     issues.push({
       level: validationWarningLevel(workspace),
       code: "missing-reference",

@@ -8,6 +8,8 @@ export interface ParsedMarkdownWithFrontmatter {
   readonly sections: readonly MarkdownSection[];
 }
 
+const maxYamlAliases = 50;
+
 export function parseMarkdownWithFrontmatter(
   raw: string,
   filePath = "document.md",
@@ -29,7 +31,7 @@ export function parseMarkdownWithFrontmatter(
   const body = raw.slice(closingMatch.index + closingMatch[0].length);
   let parsed: unknown;
   try {
-    parsed = parseYaml(frontmatterRaw);
+    parsed = parseYaml(frontmatterRaw, { maxAliasCount: maxYamlAliases });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${filePath}: invalid YAML frontmatter: ${message}`);

@@ -26,6 +26,7 @@ export type LedgerIssueCode =
   | "missing-frontmatter"
   | "missing-section"
   | "missing-reference"
+  | "unsafe-reference"
   | "unknown-frontmatter"
   | "invalid-extension"
   | "quality";
@@ -83,6 +84,12 @@ export interface LedgerConfig {
       readonly maxSearchMs: number;
       readonly maxTotalMs: number;
     };
+  };
+  readonly limits: {
+    readonly maxDocuments: number;
+    readonly maxDocumentBytes: number;
+    readonly maxTotalDocumentBytes: number;
+    readonly maxDirectoryDepth: number;
   };
   readonly docs: {
     readonly root: string;

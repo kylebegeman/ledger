@@ -37,6 +37,12 @@ The default source directories are:
 - `.ledger/decisions`
 - `.ledger/releases`
 
+Configured paths are confined to the discovered project root. Ledger rejects
+absolute paths, parent traversal, and existing symlink chains that escape the
+project before reading source or writing generated output. Source discovery is
+also bounded by configured document-count, byte-size, aggregate-size, and
+directory-depth limits.
+
 ### Config
 
 Config lives at `.ledger/config.yaml`.

@@ -110,6 +110,25 @@ describe("Ledger validation", () => {
     const currentOnly = validateDocuments(workspace, documents, { currentOnly: true });
     expect(currentOnly.issues.some((issue) => issue.path?.includes("0003-historical"))).toBe(false);
   });
+
+  it("rejects file and docs references that escape the project", async () => {
+    const workspace = await createFixtureWorkspace();
+    await writeFile(
+      path.join(tempDir!, ".ledger", "entries", "0002-unsafe.md"),
+      entry("0002", {
+        files: ["../../secret.txt"],
+        extraFrontmatter: 'docs:\n  - "/tmp/private.md"',
+      }),
+      "utf8",
+    );
+    const documents = await readLedgerDocuments(workspace);
+    const result = validateDocuments(workspace, documents);
+
+    expect(result.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "unsafe-reference", field: "files" }),
+      expect.objectContaining({ code: "unsafe-reference", field: "docs" }),
+    ]));
+  });
 });
 
 async function createFixtureWorkspace(

@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
+import { assertSafeProjectRelativePath, normalizeProjectRelativePath } from "./projectPaths.js";
 import type {
   LedgerConfig,
   LedgerDocsAdoption,
@@ -40,6 +41,8 @@ const requiredSections: Record<LedgerDocumentKind, readonly string[]> = {
 };
 
 export const currentConfigVersion = 1;
+const maxConfigBytes = 1_000_000;
+const maxYamlAliases = 50;
 
 export interface LedgerConfigMigration {
   readonly fromVersion: number;
@@ -106,6 +109,12 @@ export const defaultConfig: LedgerConfig = {
       maxTotalMs: 4_000,
     },
   },
+  limits: {
+    maxDocuments: 10_000,
+    maxDocumentBytes: 2_000_000,
+    maxTotalDocumentBytes: 64_000_000,
+    maxDirectoryDepth: 12,
+  },
   docs: {
     root: "docs",
     managed: false,
@@ -137,10 +146,14 @@ export const defaultConfig: LedgerConfig = {
 };
 
 export async function readLedgerConfig(configPath: string): Promise<LedgerConfig> {
+  const configStats = await stat(configPath);
+  if (configStats.size > maxConfigBytes) {
+    throw new Error(`${configPath}: config exceeds ${maxConfigBytes} bytes`);
+  }
   const raw = await readFile(configPath, "utf8");
   let parsed: unknown;
   try {
-    parsed = parseYaml(raw);
+    parsed = parseYaml(raw, { maxAliasCount: maxYamlAliases });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${configPath}: invalid YAML: ${message}`);
@@ -202,6 +215,7 @@ type PartialLedgerConfig = {
   readonly reports?: Partial<LedgerConfig["reports"]>;
   readonly render?: Partial<LedgerConfig["render"]>;
   readonly performance?: Partial<LedgerConfig["performance"]>;
+  readonly limits?: Partial<LedgerConfig["limits"]>;
   readonly docs?: Partial<LedgerConfig["docs"]> & {
     readonly routing?: Partial<LedgerConfig["docs"]["routing"]>;
   };
@@ -270,6 +284,7 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
         ...override.performance?.budgets,
       },
     },
+    limits: { ...base.limits, ...override.limits },
     docs: {
       ...base.docs,
       ...override.docs,
@@ -331,7 +346,7 @@ function mapStringValues<T extends Record<string, string>>(
 }
 
 function normalizeConfigPath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/^\.\//, "");
+  return normalizeProjectRelativePath(value);
 }
 
 function validatePartialConfig(config: Record<string, unknown>, configPath: string): void {
@@ -401,6 +416,12 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
       optionalNumber(budgets, "maxTotalMs", configPath, "performance.budgets");
     }, "performance");
   });
+  optionalObject(config, "limits", configPath, (limits) => {
+    optionalNumber(limits, "maxDocuments", configPath, "limits");
+    optionalNumber(limits, "maxDocumentBytes", configPath, "limits");
+    optionalNumber(limits, "maxTotalDocumentBytes", configPath, "limits");
+    optionalNumber(limits, "maxDirectoryDepth", configPath, "limits");
+  });
   optionalObject(config, "docs", configPath, (docs) => {
     optionalString(docs, "root", configPath, "docs");
     optionalBoolean(docs, "managed", configPath, "docs");
@@ -427,7 +448,6 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
     ["project", config.project],
     ["source.entries", config.source.entries],
     ["source.backlog", config.source.backlog],
-    ["source.decisions", config.source.decisions],
     ["source.releases", config.source.releases],
     ["indexes.output", config.indexes.output],
     ["reports.output", config.reports.output],
@@ -439,6 +459,11 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
   ] as const) {
     if (value.trim().length === 0) {
       fail(configPath, `${label} must be a non-empty string`);
+    }
+    try {
+      assertSafeProjectRelativePath(value, label);
+    } catch (error) {
+      fail(configPath, error instanceof Error ? error.message : String(error));
     }
   }
   for (const kind of documentKinds) {
@@ -454,6 +479,23 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
   for (const [label, value] of Object.entries(config.performance.budgets)) {
     if (!Number.isFinite(value) || value < 1) {
       fail(configPath, `performance.budgets.${label} must be a positive number`);
+    }
+  }
+  for (const [label, value] of Object.entries(config.limits)) {
+    if (!Number.isInteger(value) || value < 1) {
+      fail(configPath, `limits.${label} must be a positive integer`);
+    }
+  }
+  for (const [group, patterns] of [
+    ["git.requireEntryFor", config.git.requireEntryFor],
+    ["git.ignore", config.git.ignore],
+  ] as const) {
+    for (const pattern of patterns) {
+      try {
+        assertSafeProjectRelativePath(pattern, group);
+      } catch (error) {
+        fail(configPath, error instanceof Error ? error.message : String(error));
+      }
     }
   }
 }

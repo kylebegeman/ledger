@@ -53,6 +53,8 @@ describe("parseLedgerConfig", () => {
     expect(config.render.budgets.maxSearchIndexBytes).toBe(12345);
     expect(config.performance.budgets.maxReadMs).toBe(250);
     expect(config.performance.budgets.maxTotalMs).toBe(4_000);
+    expect(config.limits.maxDocuments).toBe(10_000);
+    expect(config.limits.maxDocumentBytes).toBe(2_000_000);
   });
 
   it("migrates legacy version 0 config before merging defaults", () => {
@@ -204,6 +206,55 @@ describe("parseLedgerConfig", () => {
         "fixture.yaml",
       ),
     ).toThrow("fixture.yaml: performance.budgets.maxTotalMs must be a positive number");
+  });
+
+  it("rejects paths that can escape the project", () => {
+    expect(() =>
+      parseLedgerConfig(
+        {
+          reports: { output: "../../outside" },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("reports.output must stay inside the project root");
+
+    expect(() =>
+      parseLedgerConfig(
+        {
+          docs: { root: "/tmp/docs" },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("docs.root must stay inside the project root");
+
+    expect(() =>
+      parseLedgerConfig(
+        {
+          git: { ignore: ["../secret/**"] },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("git.ignore must stay inside the project root");
+  });
+
+  it("rejects invalid document resource limits", () => {
+    expect(() =>
+      parseLedgerConfig(
+        {
+          limits: { maxDocuments: 0 },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("limits.maxDocuments must be a positive integer");
+
+    expect(() =>
+      parseLedgerConfig(
+        {
+          limits: { maxDirectoryDepth: 1.5 },
+        },
+        "fixture.yaml",
+      ),
+    ).toThrow("limits.maxDirectoryDepth must be a positive integer");
   });
 
   it("rejects invalid validation profiles", () => {

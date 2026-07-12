@@ -3,6 +3,7 @@ import path from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 import { findMarkdownFiles, normalizeKind, normalizePath, stringArrayValue } from "./documents.js";
 import { extractSections, parseMarkdownWithFrontmatter } from "./frontmatter.js";
+import { resolveProjectPath } from "./projectPaths.js";
 import type {
   LedgerDocumentKind,
   LedgerWorkspace,
@@ -49,9 +50,7 @@ export async function migrateChangelog(
   sourceDir: string,
   options: MigrateChangelogOptions = {},
 ): Promise<ChangelogMigrationResult> {
-  const absoluteSourceDir = path.isAbsolute(sourceDir)
-    ? sourceDir
-    : path.join(workspace.projectRoot, sourceDir);
+  const absoluteSourceDir = resolveProjectPath(workspace.projectRoot, sourceDir, "migration source");
   const sourceFiles = await findMarkdownFiles(absoluteSourceDir);
   const usedIds = new Set(
     documents.map((document) => String(document.frontmatter.id ?? "")).filter(Boolean),

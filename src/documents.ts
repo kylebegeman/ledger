@@ -1,6 +1,7 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { parseMarkdownWithFrontmatter } from "./frontmatter.js";
+import { resolveSafeProjectPath } from "./projectPaths.js";
 import type {
   LedgerDocumentKind,
   LedgerWorkspace,
@@ -44,12 +45,36 @@ export async function readLedgerDocuments(
   ];
 
   const documents: ParsedLedgerDocument[] = [];
+  let totalBytes = 0;
 
   for (const [fallbackKind, relativeDirectory] of sourceDirectories) {
-    const absoluteDirectory = path.join(workspace.projectRoot, relativeDirectory);
-    const files = await findMarkdownFiles(absoluteDirectory);
+    const absoluteDirectory = await resolveSafeProjectPath(
+      workspace.projectRoot,
+      relativeDirectory,
+      `source.${fallbackKind}`,
+    );
+    const files = await findMarkdownFiles(absoluteDirectory, {
+      maxDepth: workspace.config.limits.maxDirectoryDepth,
+      maxFiles: workspace.config.limits.maxDocuments - documents.length,
+    });
     for (const absolutePath of files) {
+      if (documents.length >= workspace.config.limits.maxDocuments) {
+        throw new Error(`Ledger document limit exceeded (${workspace.config.limits.maxDocuments})`);
+      }
+      const fileStats = await stat(absolutePath);
+      if (fileStats.size > workspace.config.limits.maxDocumentBytes) {
+        throw new Error(
+          `${normalizePath(path.relative(workspace.projectRoot, absolutePath))}: document exceeds ${workspace.config.limits.maxDocumentBytes} bytes`,
+        );
+      }
       const raw = await readFile(absolutePath, "utf8");
+      const bytes = Buffer.byteLength(raw, "utf8");
+      totalBytes += bytes;
+      if (totalBytes > workspace.config.limits.maxTotalDocumentBytes) {
+        throw new Error(
+          `Ledger document bytes exceed ${workspace.config.limits.maxTotalDocumentBytes}`,
+        );
+      }
       const relativePath = normalizePath(path.relative(workspace.projectRoot, absolutePath));
       const parsed = parseMarkdownWithFrontmatter(raw, relativePath);
       documents.push({
@@ -68,7 +93,19 @@ export async function readLedgerDocuments(
   return documents.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 }
 
-export async function findMarkdownFiles(directory: string): Promise<readonly string[]> {
+export interface FindMarkdownFilesOptions {
+  readonly maxDepth?: number;
+  readonly maxFiles?: number;
+}
+
+export async function findMarkdownFiles(
+  directory: string,
+  options: FindMarkdownFilesOptions = {},
+  depth = 0,
+): Promise<readonly string[]> {
+  if (options.maxDepth !== undefined && depth > options.maxDepth) {
+    throw new Error(`Ledger source nesting exceeds ${options.maxDepth} directories: ${directory}`);
+  }
   let entries;
   try {
     entries = await readdir(directory, { withFileTypes: true });
@@ -80,7 +117,10 @@ export async function findMarkdownFiles(directory: string): Promise<readonly str
   for (const entry of entries) {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      results.push(...(await findMarkdownFiles(absolutePath)));
+      results.push(...(await findMarkdownFiles(absolutePath, options, depth + 1)));
+      if (options.maxFiles !== undefined && results.length > options.maxFiles) {
+        throw new Error(`Ledger document limit exceeded (${options.maxFiles})`);
+      }
       continue;
     }
     if (entry.isFile() && entry.name.endsWith(".md")) {

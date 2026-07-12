@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { resolveProjectPath } from "./projectPaths.js";
 import type { LedgerWorkspace } from "./types.js";
 
 type TypeScriptModule = typeof import("typescript");
@@ -21,7 +22,7 @@ export async function extractFileSymbols(
 
   let raw: string;
   try {
-    raw = await readFile(path.join(workspace.projectRoot, filePath), "utf8");
+    raw = await readFile(resolveProjectPath(workspace.projectRoot, filePath, "symbol source"), "utf8");
   } catch {
     return [];
   }

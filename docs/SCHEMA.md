@@ -504,6 +504,28 @@ use the expected primitive shapes:
 - glob lists are arrays of strings
 - `validation.requiredSections.<kind>` values are non-empty arrays of strings
 
+All configured source, output, docs-routing, baseline, and Git pattern paths
+must be project-relative and cannot contain parent traversal. Workspace loading
+also rejects configured paths whose existing symlink chain resolves outside the
+project root.
+
+## Source Resource Limits
+
+`limits` bounds source discovery and parsing so an unexpectedly large or
+malicious catalog cannot consume unbounded memory or traversal time.
+
+```yaml
+limits:
+  maxDocuments: 10000
+  maxDocumentBytes: 2000000
+  maxTotalDocumentBytes: 64000000
+  maxDirectoryDepth: 12
+```
+
+Ledger also caps config files at 1 MB and limits YAML alias expansion. File and
+docs references inside records must remain project-relative; unsafe references
+are validation errors and are never opened by stale-symbol checks.
+
 Ledger merges valid partial config files with defaults, but malformed nested
 values fail during workspace discovery instead of being silently ignored.
 
