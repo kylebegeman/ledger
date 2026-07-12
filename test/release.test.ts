@@ -1,11 +1,13 @@
-import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { defaultConfig } from "../src/config.js";
+import { readLedgerDocuments } from "../src/documents.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import {
   assignReleaseInMarkdown,
+  applyRelease,
   assertReleaseDocumentWritable,
   buildReleaseDocument,
   formatReleaseMarkdown,
@@ -14,6 +16,7 @@ import {
   validateReleaseVersion,
 } from "../src/release.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
+import { findWorkspace, initWorkspace } from "../src/workspace.js";
 
 let tempDir: string | undefined;
 
@@ -132,6 +135,30 @@ describe("validateReleaseVersion", () => {
     expect(() => validateReleaseVersion("../bad")).toThrow(
       "Invalid release version: ../bad",
     );
+  });
+});
+
+describe("applyRelease", () => {
+  it("does not create a release or overwrite entries when a planned source changed", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-release-transaction-test-"));
+    await initWorkspace(tempDir);
+    const entryPath = path.join(tempDir, ".ledger", "entries", "0001-change.md");
+    await writeFile(entryPath, document("0001", "landed").raw, "utf8");
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const release = buildReleaseDocument(documents, "v1.2.3", {
+      includeUnreleased: true,
+      status: "released",
+    });
+    await writeFile(entryPath, `${documents[0]!.raw}\nExternally edited.\n`, "utf8");
+
+    await expect(
+      applyRelease(workspace, documents, release, { assign: true, write: true }),
+    ).rejects.toThrow("File changed after the operation was planned");
+
+    expect(await readFile(entryPath, "utf8")).toContain("Externally edited.");
+    await expect(access(path.join(tempDir, ".ledger", "releases", "v1.2.3.md")))
+      .rejects.toMatchObject({ code: "ENOENT" });
   });
 });
 

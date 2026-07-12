@@ -194,10 +194,27 @@ Release generation can either render records already assigned to a version or
 select currently unreleased landed work. With `--assign`, Ledger writes the
 selected release version back to the selected change entries before writing the
 release record. This keeps the release document and source entries in sync while
-still making metadata mutation explicit. When `--assign` and `--write` are used
-together, Ledger must preflight release output readiness before mutating entries:
-it prepares the releases directory, checks writability, rejects existing release
-files, then still relies on exclusive file creation for the final write.
+still making metadata mutation explicit. Assignment and release-document
+creation share one journaled transaction. Ledger preflights the destination,
+verifies every planned entry's source hash, stages all output, and retains
+rollback copies until the complete release mutation commits.
+
+### File Transactions
+
+Source-mutating workflows use the shared transaction layer for recoverable,
+optimistic writes:
+
+- new change and product-note creation
+- release assignment and release-document creation
+- changelog migration plus docs reference rewrites
+- docs routing reconciliation
+- validation baseline updates
+
+Transactions write a bounded journal under `.ledger/transactions/` and hold
+`.ledger/write.lock`. Interrupted applying transactions are rolled back before
+the next mutation. `ledger doctor` reports active locks and fails when pending
+transaction journals require recovery. Journals contain paths, hashes, and file
+modes, but never source contents or secret values.
 
 ### MCP Server
 
@@ -378,9 +395,9 @@ Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.
 
 ### `ledger doctor`
 
-Checks workspace health, Git availability, validation, docs references, index
-freshness, render output, and stale-knowledge signals. It is lighter than CI and
-is meant for local preflight and agent diagnostics.
+Checks workspace health, Git availability, write transaction state, validation,
+docs references, index freshness, render output, and stale-knowledge signals. It
+is lighter than CI and is meant for local preflight and agent diagnostics.
 
 ### `ledger stale`
 
@@ -402,10 +419,10 @@ the unreleased set when `--include-unreleased` is supplied. Release versions mus
 be semver-like, optional `--status planned|released` and `--date yyyy-mm-dd`
 flags control frontmatter, and `--write` creates a new file under
 `.ledger/releases` without overwriting existing release records. When `--assign`
-and `--write` are combined, Ledger checks release output readiness before
-mutating entry frontmatter so a failed release-file write does not leave entries
-partially assigned. Rendered release Markdown separates public notes from
-internal Ledger entry details.
+and `--write` are combined, entry frontmatter and the release record commit in
+one recoverable transaction. Concurrent editor changes invalidate the plan
+instead of being overwritten. Rendered release Markdown separates public notes
+from internal Ledger entry details.
 
 ### `ledger conflict <path...>`
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import { auditDocs } from "./docs.js";
 import { normalizePath } from "./documents.js";
 import { inspectGit } from "./git.js";
+import { inspectWorkspaceWriteState } from "./fileTransaction.js";
 import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
 import { checkRenderBudgets } from "./render.js";
 import { detectStaleKnowledge } from "./stale.js";
@@ -43,6 +44,7 @@ export async function runDoctor(
       message: `loaded ${normalizePath(workspace.configPath)}`,
     },
     await gitCheck(workspace),
+    await writeStateCheck(workspace),
     {
       name: "validation",
       level: validation.errors.length > 0 ? "fail" : validation.warnings.length > 0 ? "warn" : "pass",
@@ -73,6 +75,29 @@ export async function runDoctor(
     checks,
     docsAudit,
     performance,
+  };
+}
+
+async function writeStateCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorCheck> {
+  const state = await inspectWorkspaceWriteState(workspace);
+  if (state.pendingTransactions.length > 0) {
+    return {
+      name: "write-state",
+      level: "fail",
+      message: `${state.pendingTransactions.length} interrupted transaction(s) require recovery`,
+    };
+  }
+  if (state.lock) {
+    return {
+      name: "write-state",
+      level: "warn",
+      message: `${state.lock.stale ? "stale" : "active"} lock for ${state.lock.operation ?? "unknown operation"}`,
+    };
+  }
+  return {
+    name: "write-state",
+    level: "pass",
+    message: "no lock or interrupted transaction",
   };
 }
 

@@ -1,8 +1,13 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { stringify as stringifyYaml } from "yaml";
 import { findMarkdownFiles, normalizeKind, normalizePath, stringArrayValue } from "./documents.js";
 import { extractSections, parseMarkdownWithFrontmatter } from "./frontmatter.js";
+import {
+  applyFileTransaction,
+  hashFileContent,
+  type LedgerFileChange,
+} from "./fileTransaction.js";
 import { resolveProjectPath } from "./projectPaths.js";
 import type {
   LedgerDocumentKind,
@@ -57,6 +62,7 @@ export async function migrateChangelog(
   );
   const migrated: ChangelogMigrationEntry[] = [];
   const duplicates: ChangelogDuplicate[] = [];
+  const fileChanges: LedgerFileChange[] = [];
 
   for (const sourcePath of sourceFiles) {
     const relativeSourcePath = normalizePath(path.relative(workspace.projectRoot, sourcePath));
@@ -97,31 +103,32 @@ export async function migrateChangelog(
     });
 
     if (!options.dryRun) {
-      const absoluteTargetPath = path.join(workspace.projectRoot, targetPath);
-      await mkdir(path.dirname(absoluteTargetPath), { recursive: true });
-      await writeFile(absoluteTargetPath, rendered, { encoding: "utf8", flag: "wx" });
+      fileChanges.push({ path: targetPath, content: rendered, expectedHash: null });
     }
   }
 
-  const rewrittenDocs =
+  const docsRewrite =
     options.rewriteDocs && !options.dryRun
-      ? await rewriteDocsReferences(workspace, migrated)
-      : [];
-  const receiptPath = await writeMigrationReceipt(workspace, {
-    sourceDir: normalizePath(path.relative(workspace.projectRoot, absoluteSourceDir)) || ".",
+      ? await planDocsReferenceRewrites(workspace, migrated)
+      : { paths: [], changes: [] };
+  fileChanges.push(...docsRewrite.changes);
+  const sourceDirLabel = normalizePath(path.relative(workspace.projectRoot, absoluteSourceDir)) || ".";
+  const receiptPath = migrationReceiptPath(workspace);
+  const result: ChangelogMigrationResult = {
+    sourceDir: sourceDirLabel,
     migrated,
     duplicates,
-    rewrittenDocs,
-    receiptPath: "",
-  }, options);
-
-  return {
-    sourceDir: normalizePath(path.relative(workspace.projectRoot, absoluteSourceDir)) || ".",
-    migrated,
-    duplicates,
-    rewrittenDocs,
+    rewrittenDocs: docsRewrite.paths,
     receiptPath,
   };
+  fileChanges.push({
+    path: receiptPath,
+    content: formatMigrationReceipt(result, options),
+    expectedHash: null,
+  });
+  await applyFileTransaction(workspace, "migrate changelog", fileChanges);
+
+  return result;
 }
 
 function parseLegacyMarkdown(raw: string, filePath: string): LegacyMarkdown {
@@ -217,23 +224,25 @@ function changedFilesFromFrontmatter(files: readonly string[]): string {
   return files.map((filePath) => `### ${filePath}\n\n- What changed: Migrated from legacy record.`).join("\n\n");
 }
 
-async function rewriteDocsReferences(
+async function planDocsReferenceRewrites(
   workspace: LedgerWorkspace,
   entries: readonly ChangelogMigrationEntry[],
-): Promise<readonly string[]> {
+): Promise<{ readonly paths: readonly string[]; readonly changes: readonly LedgerFileChange[] }> {
   const docsRoot = path.join(workspace.projectRoot, workspace.config.docs.root);
   const docsFiles = await findMarkdownFiles(docsRoot);
   const rewritten: string[] = [];
+  const changes: LedgerFileChange[] = [];
 
   for (const docsFile of docsFiles) {
-    let raw = await readFile(docsFile, "utf8");
+    const raw = await readFile(docsFile, "utf8");
     const next = replaceAllMappings(raw, entries);
     if (next === raw) continue;
-    await writeFile(docsFile, next, "utf8");
-    rewritten.push(normalizePath(path.relative(workspace.projectRoot, docsFile)));
+    const relativePath = normalizePath(path.relative(workspace.projectRoot, docsFile));
+    rewritten.push(relativePath);
+    changes.push({ path: relativePath, content: next, expectedHash: hashFileContent(raw) });
   }
 
-  return rewritten.sort();
+  return { paths: rewritten.sort(), changes };
 }
 
 function replaceAllMappings(
@@ -247,17 +256,11 @@ function replaceAllMappings(
   return next;
 }
 
-async function writeMigrationReceipt(
-  workspace: LedgerWorkspace,
-  result: ChangelogMigrationResult,
-  options: MigrateChangelogOptions,
-): Promise<string> {
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  await mkdir(reportDirectory, { recursive: true });
+function migrationReceiptPath(workspace: LedgerWorkspace): string {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const receiptPath = path.join(reportDirectory, `changelog-migration-${stamp}.md`);
-  await writeFile(receiptPath, formatMigrationReceipt(result, options), "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, receiptPath));
+  return normalizePath(
+    path.join(workspace.config.reports.output, `changelog-migration-${stamp}.md`),
+  );
 }
 
 export function formatMigrationReceipt(

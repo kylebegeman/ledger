@@ -263,7 +263,7 @@ brew install ledger
 | `ledger render` | Builds the static HTML reader plus lazy search and relationship graph JSON. |
 | `ledger serve --watch` | Serves the static reader locally and rebuilds it when Ledger records change. |
 | `ledger coverage --explain` | Checks that changed source paths have Ledger coverage and explains required, ignored, covered, and missing paths. |
-| `ledger doctor` | Checks workspace health, Git availability, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
+| `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
 | `ledger metrics` | Measures read, validate, index, render-model, and search latency against configured budgets. |
 | `ledger stale --check` | Finds stale knowledge signals such as missing relationships, stale symbols, and release verification gaps. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
@@ -470,6 +470,10 @@ step:
 ```bash
 ledger release v0.1.1 --include-unreleased --assign --status released --write
 ```
+
+Assignment and release-file creation commit through one journaled transaction.
+If an entry changes after planning, Ledger stops without overwriting the newer
+content or creating a partial release.
 
 The generated release document includes public notes, internal entry details,
 verification guidance, and known issues.

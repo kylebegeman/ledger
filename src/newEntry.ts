@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { isIgnoredByGitConfig } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import { extractFileSymbols } from "./symbols.js";
 import { renderLedgerTemplate } from "./template.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
@@ -26,7 +27,6 @@ export async function createChangeEntry(
   const id = nextEntryId(workspace, documents);
   const slug = slugify(options.title);
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
-  const absolutePath = path.join(workspace.projectRoot, relativePath);
   const changedFiles = options.fromDiff
     ? (await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })).filter(
         (file) => !isIgnoredByGitConfig(workspace, file.path),
@@ -58,8 +58,9 @@ export async function createChangeEntry(
     },
   });
 
-  await mkdir(path.dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, rendered, { encoding: "utf8", flag: "wx" });
+  await applyFileTransaction(workspace, "create change entry", [
+    { path: normalizePath(relativePath), content: rendered, expectedHash: null },
+  ]);
   return relativePath.replace(/\\/g, "/");
 }
 
@@ -76,7 +77,6 @@ export async function createProductNoteEntry(
   const id = nextEntryId(workspace, documents);
   const slug = slugify(options.title);
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
-  const absolutePath = path.join(workspace.projectRoot, relativePath);
   const date = new Date().toISOString().slice(0, 10);
   const template = await readProductNoteTemplate(workspace);
   const rendered = renderLedgerTemplate(template, {
@@ -92,8 +92,9 @@ export async function createProductNoteEntry(
     },
   });
 
-  await mkdir(path.dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, rendered, { encoding: "utf8", flag: "wx" });
+  await applyFileTransaction(workspace, "create product note", [
+    { path: normalizePath(relativePath), content: rendered, expectedHash: null },
+  ]);
   return relativePath.replace(/\\/g, "/");
 }
 

@@ -1,6 +1,7 @@
 import { access, mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import type {
   LedgerDocsAudit,
   LedgerDocsClassification,
@@ -86,20 +87,36 @@ export async function writeDocsRoutingManifest(
   workspace: LedgerWorkspace,
   manifest: LedgerDocsRoutingManifest,
 ): Promise<string> {
-  const manifestPath = path.join(workspace.projectRoot, workspace.config.docs.routing.manifest);
-  await mkdir(path.dirname(manifestPath), { recursive: true });
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, manifestPath));
+  const manifestPath = normalizePath(workspace.config.docs.routing.manifest);
+  await applyFileTransaction(workspace, "write docs routing manifest", [
+    { path: manifestPath, content: `${JSON.stringify(manifest, null, 2)}\n` },
+  ]);
+  return manifestPath;
 }
 
 export async function writeDocsStartHere(
   workspace: LedgerWorkspace,
   audit: LedgerDocsAudit,
 ): Promise<string> {
-  const startHerePath = path.join(workspace.projectRoot, workspace.config.docs.routing.startHere);
-  await mkdir(path.dirname(startHerePath), { recursive: true });
-  await writeFile(startHerePath, formatDocsStartHere(audit), "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, startHerePath));
+  const startHerePath = normalizePath(workspace.config.docs.routing.startHere);
+  await applyFileTransaction(workspace, "write docs start here", [
+    { path: startHerePath, content: formatDocsStartHere(audit) },
+  ]);
+  return startHerePath;
+}
+
+export async function writeDocsRoutingFiles(
+  workspace: LedgerWorkspace,
+  audit: LedgerDocsAudit,
+  manifest: LedgerDocsRoutingManifest,
+): Promise<{ readonly manifestPath: string; readonly startHerePath: string }> {
+  const manifestPath = normalizePath(workspace.config.docs.routing.manifest);
+  const startHerePath = normalizePath(workspace.config.docs.routing.startHere);
+  await applyFileTransaction(workspace, "reconcile docs routing", [
+    { path: manifestPath, content: `${JSON.stringify(manifest, null, 2)}\n` },
+    { path: startHerePath, content: formatDocsStartHere(audit) },
+  ]);
+  return { manifestPath, startHerePath };
 }
 
 export async function writeDocsMigrationReport(

@@ -29,6 +29,7 @@ describe("doctor", () => {
     expect(result.checks.map((check) => check.name)).toEqual([
       "workspace",
       "git",
+      "write-state",
       "validation",
       "docs",
       "indexes",

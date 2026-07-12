@@ -1,7 +1,8 @@
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { normalizeDocument, normalizePath } from "./documents.js";
+import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
 import type {
   LedgerWorkspace,
   NormalizedLedgerDocument,
@@ -24,6 +25,11 @@ export interface LedgerReleaseDocument {
 export interface AssignReleaseResult {
   readonly version: string;
   readonly updatedEntries: readonly string[];
+}
+
+export interface ApplyReleaseResult {
+  readonly assignment?: AssignReleaseResult;
+  readonly writtenPath?: string;
 }
 
 export function getUnreleasedChanges(
@@ -73,10 +79,13 @@ export async function writeReleaseDocument(
   workspace: LedgerWorkspace,
   document: LedgerReleaseDocument,
 ): Promise<string> {
+  await assertReleaseDocumentWritable(workspace, document.version);
   const releasePath = releaseDocumentPath(workspace, document.version);
-  await mkdir(path.dirname(releasePath), { recursive: true });
-  await writeFile(releasePath, document.markdown, { encoding: "utf8", flag: "wx" });
-  return normalizePath(path.relative(workspace.projectRoot, releasePath));
+  const relativePath = normalizePath(path.relative(workspace.projectRoot, releasePath));
+  await applyFileTransaction(workspace, `write release ${document.version}`, [
+    { path: relativePath, content: document.markdown, expectedHash: null },
+  ]);
+  return relativePath;
 }
 
 export async function assertReleaseDocumentWritable(
@@ -101,14 +110,65 @@ export async function assignEntriesToRelease(
   version: string,
 ): Promise<AssignReleaseResult> {
   validateReleaseVersion(version);
-  const updatedEntries: string[] = [];
+  const changes = [];
   for (const entry of entries) {
     const absolutePath = path.join(workspace.projectRoot, entry.path);
-    const updated = assignReleaseInMarkdown(await readFile(absolutePath, "utf8"), version);
-    await writeFile(absolutePath, updated, "utf8");
-    updatedEntries.push(entry.path);
+    const raw = await readFile(absolutePath, "utf8");
+    changes.push({
+      path: entry.path,
+      content: assignReleaseInMarkdown(raw, version),
+      expectedHash: hashFileContent(raw),
+    });
   }
-  return { version, updatedEntries };
+  const result = await applyFileTransaction(workspace, `assign release ${version}`, changes);
+  return { version, updatedEntries: result.changedPaths };
+}
+
+export async function applyRelease(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  release: LedgerReleaseDocument,
+  options: { readonly assign: boolean; readonly write: boolean },
+): Promise<ApplyReleaseResult> {
+  validateReleaseVersion(release.version);
+  const changes = [];
+  if (options.assign) {
+    const parsedByPath = new Map(documents.map((document) => [normalizePath(document.relativePath), document]));
+    for (const entry of release.entries) {
+      const parsed = parsedByPath.get(normalizePath(entry.path));
+      if (!parsed) throw new Error(`Cannot assign missing Ledger entry: ${entry.path}`);
+      changes.push({
+        path: entry.path,
+        content: assignReleaseInMarkdown(parsed.raw, release.version),
+        expectedHash: hashFileContent(parsed.raw),
+      });
+    }
+  }
+  let writtenPath: string | undefined;
+  if (options.write) {
+    await assertReleaseDocumentWritable(workspace, release.version);
+    const absolutePath = releaseDocumentPath(workspace, release.version);
+    writtenPath = normalizePath(path.relative(workspace.projectRoot, absolutePath));
+    changes.push({ path: writtenPath, content: release.markdown, expectedHash: null });
+  }
+  if (changes.length === 0) {
+    return {
+      assignment: options.assign
+        ? { version: release.version, updatedEntries: [] }
+        : undefined,
+    };
+  }
+  const result = await applyFileTransaction(workspace, `apply release ${release.version}`, changes);
+  const assignedPaths = new Set(release.entries.map((entry) => normalizePath(entry.path)));
+  return {
+    assignment: options.assign
+      ? {
+          version: release.version,
+          updatedEntries: result.changedPaths.filter((filePath) => assignedPaths.has(filePath)),
+        }
+      : undefined,
+    writtenPath,
+  };
 }
 
 export function assignReleaseInMarkdown(markdown: string, version: string): string {

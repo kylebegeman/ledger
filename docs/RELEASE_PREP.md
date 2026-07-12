@@ -35,6 +35,12 @@ node dist/cli.js stale --check
 node dist/cli.js verify-integrity
 ```
 
+`ledger doctor` must report a passing `write-state` check. A pending transaction
+journal means an interrupted source mutation needs recovery before release work
+continues. Release assignment and release-file creation use source-hash
+preconditions, so an external edit requires rebuilding the release plan instead
+of being overwritten.
+
 If durable docs were added, reconcile routing docs:
 
 ```bash

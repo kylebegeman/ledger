@@ -22,8 +22,7 @@ import {
   classifyDocsPaths,
   writeDocsAuditReport,
   writeDocsMigrationReport,
-  writeDocsRoutingManifest,
-  writeDocsStartHere,
+  writeDocsRoutingFiles,
 } from "./docs.js";
 import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
@@ -38,11 +37,9 @@ import {
   normalizeKindFilter,
 } from "./query.js";
 import {
-  assignEntriesToRelease,
-  assertReleaseDocumentWritable,
+  applyRelease,
   buildReleaseDocument,
   getUnreleasedChanges,
-  writeReleaseDocument,
 } from "./release.js";
 import { buildStaticReaderModel, writeStaticReader } from "./render.js";
 import { serveStaticReader } from "./serve.js";
@@ -537,15 +534,11 @@ async function releaseCommand(parsed: ParsedArgs, context: RunContext): Promise<
     date: flagValues(parsed, "date")[0],
     status,
   });
-  if (hasFlag(parsed, "assign") && hasFlag(parsed, "write")) {
-    await assertReleaseDocumentWritable(workspace, version);
-  }
-  const assignment = hasFlag(parsed, "assign")
-    ? await assignEntriesToRelease(workspace, release.entries, version)
-    : undefined;
-  const writtenPath = hasFlag(parsed, "write")
-    ? await writeReleaseDocument(workspace, release)
-    : undefined;
+  const applied = await applyRelease(workspace, documents, release, {
+    assign: hasFlag(parsed, "assign"),
+    write: hasFlag(parsed, "write"),
+  });
+  const { assignment, writtenPath } = applied;
 
   if (hasFlag(parsed, "json")) {
     console.log(JSON.stringify({ ...release, assignment, writtenPath }, null, 2));
@@ -879,8 +872,7 @@ async function docsReconcileCommand(context: RunContext): Promise<number> {
   const audit = await auditDocs(workspace, documents);
   await writeDocsAuditReport(workspace, audit);
   const manifest = buildDocsRoutingManifest(audit);
-  const manifestPath = await writeDocsRoutingManifest(workspace, manifest);
-  const startHerePath = await writeDocsStartHere(workspace, audit);
+  const { manifestPath, startHerePath } = await writeDocsRoutingFiles(workspace, audit, manifest);
 
   console.log(
     `Ledger docs reconcile: wrote ${manifest.routes.length} route(s) to ${manifestPath} and ${startHerePath}.`,

@@ -4,6 +4,7 @@ import path from "node:path";
 import { isCoveragePattern, matchesGlob } from "./coverage.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
+import { applyFileTransaction } from "./fileTransaction.js";
 import type {
   LedgerIssue,
   LedgerIssueLevel,
@@ -393,13 +394,14 @@ export async function writeValidationBaseline(
   workspace: LedgerWorkspace,
   result: LedgerValidationResult,
 ): Promise<string> {
-  const baselinePath = path.join(workspace.projectRoot, workspace.config.validation.baseline);
-  await mkdir(path.dirname(baselinePath), { recursive: true });
+  const baselinePath = workspace.config.validation.baseline;
   const payload = {
     version: 1,
     generatedAt: new Date().toISOString(),
     issues: result.warnings.map(issueKey).sort(),
   };
-  await writeFile(baselinePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  return normalizePath(path.relative(workspace.projectRoot, baselinePath));
+  await applyFileTransaction(workspace, "update validation baseline", [
+    { path: baselinePath, content: `${JSON.stringify(payload, null, 2)}\n` },
+  ]);
+  return normalizePath(baselinePath);
 }
