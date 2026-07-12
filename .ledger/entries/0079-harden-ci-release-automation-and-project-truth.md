@@ -48,6 +48,7 @@ docsImpact:
     - "docs/RELEASE_PREP.md"
     - "docs/ROADMAP.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0079: Harden CI Release Automation And Project Truth

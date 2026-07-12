@@ -38,6 +38,7 @@ docsImpact:
     - "docs/API.md"
     - "docs/ARCHITECTURE.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0076: Harden Static Reader Serving And Network Exposure

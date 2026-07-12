@@ -40,6 +40,7 @@ docsImpact:
     - "docs/ARCHITECTURE.md"
     - "docs/SCHEMA.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0074: Confine Project Paths And Bound Source Resources

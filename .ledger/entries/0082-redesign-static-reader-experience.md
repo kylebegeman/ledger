@@ -29,6 +29,7 @@ docsImpact:
     - "README.md"
     - "docs/ARCHITECTURE.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0082: Redesign Static Reader Experience

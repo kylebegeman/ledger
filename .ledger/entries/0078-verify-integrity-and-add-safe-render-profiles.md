@@ -50,6 +50,7 @@ docsImpact:
     - "docs/RELEASE_PREP.md"
     - "docs/SCHEMA.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0078: Verify Integrity And Add Safe Render Profiles

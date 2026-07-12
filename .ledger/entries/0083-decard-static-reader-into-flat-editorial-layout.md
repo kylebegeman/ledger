@@ -30,6 +30,7 @@ docsImpact:
 commits: []
 supersedes:
   - "0082"
+release: "v0.2.0"
 ---
 
 # 0083: De-card Static Reader Into Flat Editorial Layout

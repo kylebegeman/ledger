@@ -42,6 +42,7 @@ docsImpact:
     - "docs/ARCHITECTURE.md"
     - "docs/RELEASE_PREP.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0075: Make Source Mutations Recoverable And Concurrency Safe

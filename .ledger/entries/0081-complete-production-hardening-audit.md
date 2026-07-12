@@ -44,6 +44,7 @@ docsImpact:
     - "docs/ARCHITECTURE.md"
     - "docs/SCHEMA.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0081: Complete production hardening audit

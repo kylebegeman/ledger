@@ -23,6 +23,7 @@ docsImpact:
   docs:
     - "docs/SCHEMA.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0080: Close Final Stale Diagnostics And Refresh Toolchain Patches

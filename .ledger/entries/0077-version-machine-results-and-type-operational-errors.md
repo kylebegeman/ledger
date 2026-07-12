@@ -48,6 +48,7 @@ docsImpact:
     - "docs/API.md"
     - "docs/ARCHITECTURE.md"
 commits: []
+release: "v0.2.0"
 ---
 
 # 0077: Version Machine Results And Type Operational Errors
