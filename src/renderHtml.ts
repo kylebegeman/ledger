@@ -41,7 +41,7 @@ ${staticReaderStyles}
       ${options.iconSvg ? `<div class="logo" aria-hidden="true">${options.iconSvg}</div>` : ""}
       <div>
         <h1>${escapeHtml(model.project)} Ledger</h1>
-        <p class="subhead">Generated ${escapeHtml(model.generatedAt)} from Ledger source Markdown.</p>
+        <p class="subhead">${model.profile === "public" ? "Public release notes" : "Internal project reader"}, generated ${escapeHtml(model.generatedAt)}.</p>
       </div>
     </div>
     <div class="stats">
@@ -121,7 +121,7 @@ ${staticReaderStyles}
         ${facetButtons("Areas", "area", model.facets.areas)}
         ${facetButtons("Tags", "tag", model.facets.tags)}
       </div>
-      ${graphSummary(model)}
+      ${model.profile === "internal" ? graphSummary(model) : ""}
     </aside>
     <section>
       <h2 id="result-count">${model.documents.length} document(s)</h2>
@@ -152,19 +152,20 @@ function renderEntry(document: LedgerRenderedDocument): string {
             ${document.areas.map((area) => `<span class="pill">${escapeHtml(area)}</span>`).join("")}
             ${document.tags.map((tag) => `<span class="pill">#${escapeHtml(tag)}</span>`).join("")}
           </div>
-          <p><strong>Source:</strong> <a href="${escapeHtml(document.sourceHref)}">${escapeHtml(document.path)}</a></p>
+          ${document.sourceHref ? `<p><strong>Source:</strong> <a href="${escapeHtml(document.sourceHref)}">${escapeHtml(document.path)}</a></p>` : ""}
           ${document.summary ? `<p class="summary">${escapeHtml(document.summary)}</p>` : ""}
+          ${detailList("Public Notes", document.publicNotes)}
           ${contextGrid(document)}
           ${issueList(document.issues)}
           ${detailList("Files", document.files)}
           ${detailList("Symbols", document.symbols)}
           ${detailList("Docs", document.docs)}
           ${relationships(document)}
-          ${agentPacketDigest(document)}
-          <details class="source">
+          ${document.source ? agentPacketDigest(document) : ""}
+          ${document.source ? `<details class="source">
             <summary>Markdown Source</summary>
             <pre>${escapeHtml(document.source)}</pre>
-          </details>
+          </details>` : ""}
         </article>`;
 }
 
@@ -309,6 +310,7 @@ function searchTerms(document: LedgerRenderedDocument): string {
     ...document.related,
     document.summary ?? "",
     document.why ?? "",
+    ...document.publicNotes,
     ...document.invariants,
     ...document.verification,
     ...document.issues.map((issue) => issue.message),

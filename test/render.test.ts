@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -24,6 +24,7 @@ describe("buildStaticReaderModel", () => {
     ]);
 
     expect(model.project).toBe("ledger-project");
+    expect(model.profile).toBe("internal");
     expect(model.stats.documents).toBe(2);
     expect(model.stats.changes).toBe(1);
     expect(model.stats.decisions).toBe(1);
@@ -54,6 +55,38 @@ describe("buildStaticReaderModel", () => {
       type: "file",
     });
   });
+
+  it("creates a fail-closed public release model", () => {
+    const model = buildStaticReaderModel(
+      workspace(),
+      [
+        document("0001", "change", "Internal implementation"),
+        publicReleaseDocument("v1.0.0", "released"),
+        publicReleaseDocument("v2.0.0", "planned"),
+      ],
+      { profile: "public" },
+    );
+
+    expect(model.profile).toBe("public");
+    expect(model.documents).toHaveLength(1);
+    expect(model.documents[0]).toMatchObject({
+      id: "v1.0.0",
+      title: "Ledger v1.0.0",
+      source: "",
+      sourceHref: "",
+      path: "",
+      publicNotes: ["Safe public feature."],
+      files: [],
+      symbols: [],
+      issues: [],
+    });
+    expect(JSON.stringify(model)).not.toContain("src/private.ts");
+    expect(JSON.stringify(model)).not.toContain("Internal release detail");
+    expect(JSON.stringify(model)).not.toContain("Keep private behavior stable");
+    expect(model.searchIndex[0]?.publicNotes).toEqual(["Safe public feature."]);
+    expect(model.searchIndex[0]?.terms).toContain("Safe public feature.");
+    expect(model.graph.edges).toEqual([]);
+  });
 });
 
 describe("writeStaticReader", () => {
@@ -73,6 +106,25 @@ describe("writeStaticReader", () => {
     expect(result.totalBytes).toBeGreaterThan(0);
     expect(result.writeMs).toBeGreaterThanOrEqual(0);
     expect(result.budget.ok).toBe(true);
+  });
+
+  it("writes public artifacts to an isolated directory", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-render-public-test-"));
+    const testWorkspace = workspace(tempDir);
+    const result = await writeStaticReader(
+      testWorkspace,
+      buildStaticReaderModel(testWorkspace, [publicReleaseDocument("v1.0.0", "released")], {
+        profile: "public",
+      }),
+    );
+
+    expect(result.profile).toBe("public");
+    expect(result.outputPath).toBe(".ledger/dist/public/index.html");
+    const html = await readFile(path.join(tempDir, result.outputPath), "utf8");
+    expect(html).toContain("Safe public feature.");
+    expect(html).not.toContain("Markdown Source");
+    expect(html).not.toContain("src/private.ts");
+    expect(html).not.toContain("Agent Packet");
   });
 });
 
@@ -120,6 +172,52 @@ function workspace(projectRoot = "/tmp/ledger"): LedgerWorkspace {
     ledgerRoot: `${projectRoot}/.ledger`,
     configPath: `${projectRoot}/.ledger/config.yaml`,
     config: defaultConfig,
+  };
+}
+
+function publicReleaseDocument(
+  id: string,
+  status: "planned" | "released",
+): ParsedLedgerDocument {
+  const raw = `---
+id: "${id}"
+kind: "release"
+title: "Ledger ${id}"
+date: "2026-06-29"
+status: "${status}"
+areas: ["private-area"]
+files:
+  - "src/private.ts"
+symbols:
+  - "privateSymbol"
+entries:
+  - "0001"
+---
+
+# Ledger ${id}
+
+## Summary
+
+Internal release detail.
+
+## Public Notes
+
+- Safe public feature.
+
+## Invariants
+
+- Keep private behavior stable.
+`;
+  const parsed = parseMarkdownWithFrontmatter(raw);
+  return {
+    absolutePath: `/tmp/ledger/.ledger/releases/${id}.md`,
+    relativePath: `.ledger/releases/${id}.md`,
+    raw,
+    frontmatterRaw: parsed.frontmatterRaw,
+    frontmatter: parsed.frontmatter,
+    body: parsed.body,
+    sections: parsed.sections,
+    kind: "release",
   };
 }
 

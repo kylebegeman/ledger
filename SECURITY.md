@@ -19,3 +19,9 @@ and requires `LEDGER_SERVE_TOKEN` in network mode. Network exposure should sit
 behind TLS. Generated static files carry a restrictive CSP meta policy, but a
 third-party static host remains responsible for transport security and response
 headers.
+
+Use `ledger render --profile public` when preparing an externally hosted reader.
+This profile only selects released release records and strips internal source,
+paths, relationships, validation findings, invariants, and verification details.
+It is a data-minimization control, not an access-control layer. Review the
+explicit `Public Notes` content before publication.

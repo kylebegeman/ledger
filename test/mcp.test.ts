@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -168,6 +168,20 @@ describe("Ledger MCP", () => {
     expect(payload.documents[0].hash).toMatch(/^[a-f0-9]{64}$/);
     expect(payload.summary.documents).toBe(1);
     expect(payload.summary.catalogHash).toBe(payload.catalogHash);
+  });
+
+  it("checks current records against an integrity baseline", async () => {
+    const projectRoot = await createWorkspace();
+    await callTool("ledger_verify_integrity", { projectRoot, writeArtifacts: true });
+    const entryPath = path.join(projectRoot, ".ledger", "entries", "0001-mcp-fixture.md");
+    await writeFile(entryPath, `${await readFile(entryPath, "utf8")}\nChanged.\n`);
+
+    const payload = await callTool("ledger_verify_integrity", { projectRoot, check: true });
+    expect(payload.summary.verified).toBe(false);
+    expect(payload.verification).toMatchObject({
+      ok: false,
+      changed: [".ledger/entries/0001-mcp-fixture.md"],
+    });
   });
 });
 

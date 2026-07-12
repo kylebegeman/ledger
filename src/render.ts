@@ -15,11 +15,14 @@ import type {
 export { renderStaticReaderHtml } from "./renderHtml.js";
 export type { RenderStaticReaderHtmlOptions } from "./renderHtml.js";
 
+export type LedgerRenderProfile = "internal" | "public";
+
 export interface LedgerRenderedDocument extends NormalizedLedgerDocument {
   readonly source: string;
   readonly sourceHref: string;
   readonly summary?: string;
   readonly why?: string;
+  readonly publicNotes: readonly string[];
   readonly invariants: readonly string[];
   readonly verification: readonly string[];
   readonly issues: readonly LedgerIssue[];
@@ -32,6 +35,7 @@ export interface LedgerRenderedDocument extends NormalizedLedgerDocument {
 
 export interface LedgerStaticReaderModel {
   readonly schemaVersion: 1;
+  readonly profile: LedgerRenderProfile;
   readonly generatedAt: string;
   readonly project: string;
   readonly documents: readonly LedgerRenderedDocument[];
@@ -72,6 +76,7 @@ export interface LedgerSearchDocument {
   readonly files: readonly string[];
   readonly symbols: readonly string[];
   readonly docs: readonly string[];
+  readonly publicNotes: readonly string[];
   readonly summary?: string;
   readonly why?: string;
   readonly fields: LedgerSearchFields;
@@ -126,6 +131,7 @@ export interface LedgerGraphEdge {
 }
 
 export interface RenderStaticReaderResult {
+  readonly profile: LedgerRenderProfile;
   readonly outputPath: string;
   readonly searchIndexPath: string;
   readonly graphPath: string;
@@ -158,19 +164,28 @@ export interface LedgerRenderBudgetResult {
 export function buildStaticReaderModel(
   workspace: LedgerWorkspace,
   documents: readonly ParsedLedgerDocument[],
-  options: { readonly validation?: LedgerValidationResult } = {},
+  options: {
+    readonly validation?: LedgerValidationResult;
+    readonly profile?: LedgerRenderProfile;
+  } = {},
 ): LedgerStaticReaderModel {
+  const profile = options.profile ?? "internal";
   const issuesByPath = groupIssuesByPath(options.validation?.issues ?? []);
   const renderedDocuments = documents
+    .filter((document) =>
+      profile === "internal" ||
+      (document.kind === "release" && document.frontmatter.status === "released"),
+    )
     .map((document) => {
       const normalized = normalizeDocument(document);
       const issues = issuesByPath.get(document.relativePath) ?? [];
-      return {
+      const rendered: LedgerRenderedDocument = {
         ...normalized,
         source: document.raw,
         sourceHref: sourceHref(workspace, document.relativePath),
         summary: compactSection(getSectionBody(document, "Summary")),
         why: compactSection(getSectionBody(document, "Why")),
+        publicNotes: extractBullets(getSectionBody(document, "Public Notes")),
         invariants: extractBullets(getSectionBody(document, "Invariants")),
         verification: extractBullets(getSectionBody(document, "Verification")),
         issues,
@@ -180,11 +195,13 @@ export function buildStaticReaderModel(
         hasMissingRefs: issues.some((issue) => issue.code === "missing-reference"),
         coverageStatus: coverageStatus(normalized.files),
       };
+      return profile === "public" ? publicDocument(rendered) : rendered;
     })
     .sort((left, right) => left.id.localeCompare(right.id));
 
   return {
     schemaVersion: 1,
+    profile,
     generatedAt: new Date().toISOString(),
     project: workspace.config.project,
     documents: renderedDocuments,
@@ -216,7 +233,7 @@ export async function writeStaticReader(
   model: LedgerStaticReaderModel,
 ): Promise<RenderStaticReaderResult> {
   const startedAt = Date.now();
-  const outputDirectory = path.join(workspace.projectRoot, workspace.config.render.output);
+  const outputDirectory = renderOutputDirectory(workspace, model.profile);
   await mkdir(outputDirectory, { recursive: true });
   const outputPath = path.join(outputDirectory, "index.html");
   const searchIndexPath = path.join(outputDirectory, "search-index.json");
@@ -228,8 +245,9 @@ export async function writeStaticReader(
   await writeFile(searchIndexPath, searchIndex, "utf8");
   await writeFile(graphPath, graph, "utf8");
   const writeMs = Date.now() - startedAt;
-  const budget = await checkRenderBudgets(workspace, writeMs);
+  const budget = await checkRenderBudgets(workspace, writeMs, model.profile);
   return {
+    profile: model.profile,
     outputPath: normalizeOutputPath(workspace, outputPath),
     searchIndexPath: normalizeOutputPath(workspace, searchIndexPath),
     graphPath: normalizeOutputPath(workspace, graphPath),
@@ -244,8 +262,9 @@ export async function writeStaticReader(
 export async function checkRenderBudgets(
   workspace: LedgerWorkspace,
   writeMs = 0,
+  profile: LedgerRenderProfile = "internal",
 ): Promise<LedgerRenderBudgetResult> {
-  const outputDirectory = path.join(workspace.projectRoot, workspace.config.render.output);
+  const outputDirectory = renderOutputDirectory(workspace, profile);
   const budgets = workspace.config.render.budgets;
   const artifacts = await Promise.all([
     renderArtifact(workspace, "html", path.join(outputDirectory, "index.html"), budgets.maxHtmlBytes),
@@ -289,6 +308,7 @@ export function buildSearchIndex(
       files: document.files,
       symbols: document.symbols,
       docs: document.docs,
+      publicNotes: document.publicNotes,
       summary: document.summary,
       why: document.why,
       fields,
@@ -318,6 +338,7 @@ function searchFields(document: LedgerRenderedDocument): LedgerSearchFields {
     docs: document.docs.join(" "),
     summary: [document.summary ?? "", document.why ?? ""].join(" "),
     context: [
+      ...document.publicNotes,
       ...document.invariants,
       ...document.verification,
       ...document.issues.map((issue) => issue.message),
@@ -344,6 +365,7 @@ function searchTerms(document: LedgerRenderedDocument): string {
     ...document.related,
     document.summary ?? "",
     document.why ?? "",
+    ...document.publicNotes,
     ...document.invariants,
     ...document.verification,
     ...document.issues.map((issue) => issue.message),
@@ -471,6 +493,47 @@ function compactSection(value: string | undefined): string | undefined {
   if (!compacted) return undefined;
   if (compacted.length <= 320) return compacted;
   return `${compacted.slice(0, 317).trimEnd()}...`;
+}
+
+function publicDocument(document: LedgerRenderedDocument): LedgerRenderedDocument {
+  return {
+    ...document,
+    source: "",
+    sourceHref: "",
+    summary: undefined,
+    why: undefined,
+    areas: [],
+    files: [],
+    symbols: [],
+    commits: [],
+    prs: [],
+    release: undefined,
+    tags: [],
+    decisions: [],
+    backlog: [],
+    supersedes: [],
+    related: [],
+    docs: [],
+    extensions: {},
+    path: "",
+    sections: [],
+    invariants: [],
+    verification: [],
+    issues: [],
+    warningCount: 0,
+    errorCount: 0,
+    hasDuplicateId: false,
+    hasMissingRefs: false,
+    coverageStatus: "none",
+  };
+}
+
+function renderOutputDirectory(
+  workspace: LedgerWorkspace,
+  profile: LedgerRenderProfile,
+): string {
+  const output = path.join(workspace.projectRoot, workspace.config.render.output);
+  return profile === "public" ? path.join(output, "public") : output;
 }
 
 function normalizeOutputPath(workspace: LedgerWorkspace, outputPath: string): string {

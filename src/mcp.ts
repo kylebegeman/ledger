@@ -6,7 +6,12 @@ import { buildConflictTargets, writeConflictReport } from "./conflict.js";
 import { buildDocsImpact } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { explainFile } from "./indexer.js";
-import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
+import {
+  buildIntegrityReport,
+  readIntegrityReport,
+  verifyIntegrityReport,
+  writeIntegrityArtifacts,
+} from "./integrity.js";
 import { LedgerError, machineFailure, machineSuccess } from "./machine.js";
 import { buildAgentPacket, buildSearchAgentPacket, writeAgentPacketReport } from "./packet.js";
 import { normalizeKindFilter, queryDocuments } from "./query.js";
@@ -35,6 +40,7 @@ interface LedgerMcpParsedArgs {
   readonly projectRoot?: string;
   readonly writeReport?: boolean;
   readonly writeArtifacts?: boolean;
+  readonly check?: boolean;
   readonly kind?: LedgerDocumentKind;
   readonly status?: string;
   readonly area?: string;
@@ -117,6 +123,7 @@ const docsImpactSchema = {
 const integritySchema = {
   ...projectRootSchema,
   writeArtifacts: z.boolean().optional().describe("Write .ledger/indexes/integrity.json and .ledger/reports/integrity.md."),
+  check: z.boolean().optional().describe("Compare current records with the existing integrity baseline without replacing it."),
 };
 
 export function createLedgerMcpServer(options: LedgerMcpOptions = {}): McpServer {
@@ -375,17 +382,27 @@ async function executeLedgerMcpTool(
     }
 
     case "ledger_verify_integrity": {
+      if (parsed.check && parsed.writeArtifacts) {
+        throw new LedgerError(
+          "invalid-argument",
+          "Integrity check cannot replace the baseline in the same operation.",
+        );
+      }
+      const expected = parsed.check ? await readIntegrityReport(workspace) : undefined;
       const report = buildIntegrityReport(workspace, documents);
       const written = parsed.writeArtifacts
         ? await writeIntegrityArtifacts(workspace, report)
         : undefined;
+      const verification = expected ? verifyIntegrityReport(expected, report) : undefined;
       return jsonToolResult(name, {
         summary: {
           documents: report.documents.length,
           catalogHash: report.catalogHash,
           written,
+          verified: verification?.ok,
         },
         ...report,
+        verification,
         written,
       });
     }

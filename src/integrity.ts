@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { normalizePath } from "./documents.js";
+import { applyFileTransaction } from "./fileTransaction.js";
+import { LedgerError } from "./machine.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export interface LedgerDocumentIntegrity {
@@ -26,6 +28,17 @@ export interface LedgerIntegrityReport {
 export interface WrittenIntegrityArtifacts {
   readonly indexPath: string;
   readonly reportPath: string;
+}
+
+export interface LedgerIntegrityVerification {
+  readonly ok: boolean;
+  readonly expectedProject: string;
+  readonly currentProject: string;
+  readonly expectedCatalogHash: string;
+  readonly currentCatalogHash: string;
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+  readonly changed: readonly string[];
 }
 
 export function buildIntegrityReport(
@@ -60,18 +73,132 @@ export async function writeIntegrityArtifacts(
   workspace: LedgerWorkspace,
   report: LedgerIntegrityReport,
 ): Promise<WrittenIntegrityArtifacts> {
-  const indexDirectory = path.join(workspace.projectRoot, workspace.config.indexes.output);
-  const reportDirectory = path.join(workspace.projectRoot, workspace.config.reports.output);
-  const indexPath = path.join(indexDirectory, "integrity.json");
-  const reportPath = path.join(reportDirectory, "integrity.md");
-  await mkdir(indexDirectory, { recursive: true });
-  await mkdir(reportDirectory, { recursive: true });
-  await writeFile(indexPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  await writeFile(reportPath, formatIntegrityReport(report), "utf8");
+  const indexPath = normalizePath(path.join(workspace.config.indexes.output, "integrity.json"));
+  const reportPath = normalizePath(path.join(workspace.config.reports.output, "integrity.md"));
+  await applyFileTransaction(workspace, "write integrity artifacts", [
+    { path: indexPath, content: `${JSON.stringify(report, null, 2)}\n` },
+    { path: reportPath, content: formatIntegrityReport(report) },
+  ]);
   return {
-    indexPath: normalizePath(path.relative(workspace.projectRoot, indexPath)),
-    reportPath: normalizePath(path.relative(workspace.projectRoot, reportPath)),
+    indexPath,
+    reportPath,
   };
+}
+
+export async function readIntegrityReport(
+  workspace: LedgerWorkspace,
+): Promise<LedgerIntegrityReport> {
+  const indexPath = path.join(
+    workspace.projectRoot,
+    workspace.config.indexes.output,
+    "integrity.json",
+  );
+  try {
+    const stats = await stat(indexPath);
+    if (stats.size > workspace.config.limits.maxTotalDocumentBytes) {
+      throw new LedgerError(
+        "resource-limit-exceeded",
+        `Integrity baseline exceeds ${workspace.config.limits.maxTotalDocumentBytes} bytes`,
+        { kind: "integrity-baseline-bytes", limit: workspace.config.limits.maxTotalDocumentBytes },
+      );
+    }
+    const parsed: unknown = JSON.parse(await readFile(indexPath, "utf8"));
+    if (!isIntegrityReport(parsed)) {
+      throw invalidIntegrityBaseline(indexPath);
+    }
+    if (parsed.documents.length > workspace.config.limits.maxDocuments) {
+      throw new LedgerError(
+        "resource-limit-exceeded",
+        `Integrity baseline exceeds ${workspace.config.limits.maxDocuments} documents`,
+        { kind: "integrity-baseline-documents", limit: workspace.config.limits.maxDocuments },
+      );
+    }
+    return parsed;
+  } catch (error) {
+    if (isCode(error, "ENOENT")) {
+      throw new LedgerError(
+        "integrity-baseline-missing",
+        `Integrity baseline does not exist: ${normalizePath(path.relative(workspace.projectRoot, indexPath))}`,
+      );
+    }
+    if (error instanceof SyntaxError) throw invalidIntegrityBaseline(indexPath);
+    throw error;
+  }
+}
+
+function isIntegrityReport(value: unknown): value is LedgerIntegrityReport {
+  if (value === null || typeof value !== "object") return false;
+  const report = value as Partial<LedgerIntegrityReport>;
+  if (
+    report.version !== 1 ||
+    typeof report.generatedAt !== "string" ||
+    typeof report.project !== "string" ||
+    report.algorithm !== "sha256" ||
+    !isSha256(report.catalogHash) ||
+    !Array.isArray(report.documents)
+  ) {
+    return false;
+  }
+  const paths = new Set<string>();
+  for (const document of report.documents) {
+    if (
+      document === null ||
+      typeof document !== "object" ||
+      typeof document.id !== "string" ||
+      typeof document.kind !== "string" ||
+      typeof document.title !== "string" ||
+      typeof document.path !== "string" ||
+      document.algorithm !== "sha256" ||
+      !isSha256(document.hash) ||
+      !Number.isSafeInteger(document.bytes) ||
+      document.bytes < 0 ||
+      paths.has(document.path)
+    ) {
+      return false;
+    }
+    paths.add(document.path);
+  }
+  return true;
+}
+
+function isSha256(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+export function verifyIntegrityReport(
+  expected: LedgerIntegrityReport,
+  current: LedgerIntegrityReport,
+): LedgerIntegrityVerification {
+  const expectedByPath = new Map(expected.documents.map((document) => [document.path, document.hash]));
+  const currentByPath = new Map(current.documents.map((document) => [document.path, document.hash]));
+  const added = [...currentByPath.keys()].filter((filePath) => !expectedByPath.has(filePath)).sort();
+  const removed = [...expectedByPath.keys()].filter((filePath) => !currentByPath.has(filePath)).sort();
+  const changed = [...currentByPath.entries()]
+    .filter(([filePath, hash]) => expectedByPath.has(filePath) && expectedByPath.get(filePath) !== hash)
+    .map(([filePath]) => filePath)
+    .sort();
+  return {
+    ok:
+      expected.project === current.project &&
+      expected.catalogHash === current.catalogHash &&
+      added.length === 0 &&
+      removed.length === 0 &&
+      changed.length === 0,
+    expectedProject: expected.project,
+    currentProject: current.project,
+    expectedCatalogHash: expected.catalogHash,
+    currentCatalogHash: current.catalogHash,
+    added,
+    removed,
+    changed,
+  };
+}
+
+function invalidIntegrityBaseline(indexPath: string): LedgerError {
+  return new LedgerError(
+    "integrity-baseline-invalid",
+    `Invalid integrity baseline: ${indexPath}`,
+  );
 }
 
 export function formatIntegrityReport(report: LedgerIntegrityReport): string {
@@ -99,4 +226,13 @@ function sha256(value: string): string {
 
 function stringValue(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function isCode(error: unknown, code: string): boolean {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as { readonly code?: unknown }).code === code
+  );
 }

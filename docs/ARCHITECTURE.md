@@ -188,6 +188,23 @@ for tooling and a Markdown report for review. This is not signing or tamper
 proofing by itself; it gives releases, agents, and CI a stable provenance
 artifact to compare over time.
 
+`ledger verify-integrity --check` reads the existing JSON artifact as the
+expected baseline, builds the current catalog in memory, and exits nonzero when
+records were added, removed, or changed. Check mode does not overwrite the
+baseline. Integrity JSON is size bounded and schema validated before use.
+
+### Render Profiles
+
+The static reader has separate internal and public profiles. Internal output
+remains under `.ledger/dist/`. Public output is isolated under
+`.ledger/dist/public/` and includes only released release records plus their
+explicit `Public Notes` bullets. Public model construction clears raw Markdown,
+repository paths, files, symbols, relationships, validation issues, invariants,
+verification details, and extension fields before HTML or JSON generation.
+
+The public profile is an export-safety boundary, not an authentication system.
+Publishing still requires review of the public notes themselves.
+
 ### Release Workflow
 
 Release generation can either render records already assigned to a version or

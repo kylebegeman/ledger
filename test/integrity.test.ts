@@ -7,6 +7,8 @@ import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import {
   buildIntegrityReport,
   formatIntegrityReport,
+  readIntegrityReport,
+  verifyIntegrityReport,
   writeIntegrityArtifacts,
 } from "../src/integrity.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
@@ -58,6 +60,29 @@ describe("integrity reports", () => {
     expect(written.reportPath).toBe(".ledger/reports/integrity.md");
     expect(index.catalogHash).toBe(report.catalogHash);
     expect(markdown).toContain(report.catalogHash);
+    expect((await readIntegrityReport(workspace(tempDir))).catalogHash).toBe(
+      report.catalogHash,
+    );
+  });
+
+  it("reports added, removed, and changed records", () => {
+    const expected = buildIntegrityReport(workspace("/tmp/ledger"), [
+      document("0001"),
+      document("0002"),
+      document("0004"),
+    ]);
+    const current = buildIntegrityReport(workspace("/tmp/ledger"), [
+      document("0002", "modified"),
+      document("0003"),
+      document("0004"),
+    ]);
+
+    expect(verifyIntegrityReport(expected, current)).toMatchObject({
+      ok: false,
+      added: [".ledger/entries/0003.md"],
+      removed: [".ledger/entries/0001.md"],
+      changed: [".ledger/entries/0002.md"],
+    });
   });
 });
 
@@ -70,7 +95,7 @@ function workspace(projectRoot: string): LedgerWorkspace {
   };
 }
 
-function document(id: string): ParsedLedgerDocument {
+function document(id: string, suffix = ""): ParsedLedgerDocument {
   const raw = `---
 id: "${id}"
 kind: "change"
@@ -89,7 +114,7 @@ commits: []
 
 ## Summary
 
-Test record.
+Test record.${suffix}
 `;
   const parsed = parseMarkdownWithFrontmatter(raw);
   return {

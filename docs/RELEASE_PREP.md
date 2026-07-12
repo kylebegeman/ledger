@@ -33,7 +33,14 @@ node dist/cli.js render --json
 node dist/cli.js doctor
 node dist/cli.js stale --check
 node dist/cli.js verify-integrity
+node dist/cli.js render --profile public --json
 ```
+
+When CI or the release process preserves a prior integrity index as the expected
+baseline, use `node dist/cli.js verify-integrity --check` instead. Check mode
+never replaces the expected artifact. Review `.ledger/dist/public/` before any
+external publication; only released release records and explicit public notes
+should be present.
 
 `ledger doctor` must report a passing `write-state` check. A pending transaction
 journal means an interrupted source mutation needs recovery before release work

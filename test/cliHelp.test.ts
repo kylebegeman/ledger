@@ -10,7 +10,8 @@ describe("CLI help", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("ledger help [command]");
     expect(result.stdout).toContain("ledger ci [--staged] [--current-only] [--no-baseline] [--json]");
-    expect(result.stdout).toContain("ledger verify-integrity [--json]");
+    expect(result.stdout).toContain("ledger verify-integrity [--check] [--json]");
+    expect(result.stdout).toContain("ledger render [--profile <internal|public>] [--json]");
     expect(result.stdout).toContain("ledger doctor [--no-baseline] [--json]");
     expect(result.stdout).toContain("ledger serve [--host <host>] [--port <port>] [--watch]");
     expect(result.stdout).toContain("ledger search-packet <query>");

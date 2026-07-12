@@ -53,6 +53,16 @@ The package root should stay focused on:
 should terminate TLS outside the embedded development server. Use
 `closeStaticReader` for bounded graceful shutdown.
 
+`buildStaticReaderModel` accepts `profile: "internal" | "public"`. The public
+profile only includes released release records and strips internal source,
+path, relationship, validation, invariant, and verification data. Pair it with
+`writeStaticReader` to write the isolated `.ledger/dist/public/` artifact set.
+
+Integrity integrations can use `readIntegrityReport` and
+`verifyIntegrityReport` to compare a preserved baseline with a newly built
+report. Verification is read-only and returns explicit added, removed, and
+changed path lists.
+
 Avoid exporting low-level parser, git, template, runtime asset, and migration
 helpers from the root unless they become a deliberate integration point.
 

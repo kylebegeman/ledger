@@ -161,6 +161,43 @@ describe("CLI end-to-end", () => {
       command: "search",
       error: { code: "invalid-argument" },
     });
+
+    expect((await captureRun(["init"], tempDir)).exitCode).toBe(0);
+    const invalidProfile = await captureRun(
+      ["render", "--profile", "external", "--json"],
+      tempDir,
+    );
+    expect(invalidProfile.exitCode).toBe(2);
+    expect(JSON.parse(invalidProfile.stdout)).toMatchObject({
+      schemaVersion: 1,
+      ok: false,
+      command: "render",
+      error: { code: "invalid-argument" },
+    });
+  });
+
+  it("checks integrity without replacing a mismatched baseline", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-cli-integrity-"));
+    expect((await captureRun(["init"], tempDir)).exitCode).toBe(0);
+    expect((await captureRun(["new", "Integrity fixture"], tempDir)).exitCode).toBe(0);
+    expect((await captureRun(["verify-integrity"], tempDir)).exitCode).toBe(0);
+    const entryPath = path.join(tempDir, ".ledger", "entries", "0001-integrity-fixture.md");
+    await writeFile(entryPath, `${await readFile(entryPath, "utf8")}\nChanged after baseline.\n`);
+
+    const result = await captureRun(["verify-integrity", "--check", "--json"], tempDir);
+    const payload = JSON.parse(result.stdout);
+    expect(result.exitCode).toBe(1);
+    expect(payload).toMatchObject({
+      schemaVersion: 1,
+      ok: true,
+      command: "verify-integrity",
+      data: {
+        verification: {
+          ok: false,
+          changed: [".ledger/entries/0001-integrity-fixture.md"],
+        },
+      },
+    });
   });
 
   it("emits machine-readable JSON errors for unknown commands", async () => {

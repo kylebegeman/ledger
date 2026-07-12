@@ -8,6 +8,8 @@ export type LedgerErrorCode =
   | "invalid-markdown"
   | "invalid-release"
   | "invalid-yaml"
+  | "integrity-baseline-missing"
+  | "integrity-baseline-invalid"
   | "operational-error"
   | "release-exists"
   | "render-validation-failed"

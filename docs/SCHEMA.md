@@ -318,6 +318,11 @@ Required sections:
 
 ## Status Vocabulary
 
+The public static-reader profile selects only release records with
+`status: "released"`. It exports the release identity, date, title, and bullet
+items from `Public Notes`. Other sections and internal frontmatter are removed
+from public HTML and JSON artifacts.
+
 Common statuses include `draft`, `landed`, `shipped`, `planned`, `released`,
 `accepted`, `proposed`, `captured`, and `historical`. `historical` records are
 kept queryable but are excluded from missing path reference warnings by default.

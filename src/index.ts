@@ -31,7 +31,12 @@ export {
 } from "./docs.js";
 export { buildDocsImpact } from "./docsImpact.js";
 export { explainFile, buildIndexes, writeIndexes } from "./indexer.js";
-export { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
+export {
+  buildIntegrityReport,
+  readIntegrityReport,
+  verifyIntegrityReport,
+  writeIntegrityArtifacts,
+} from "./integrity.js";
 export {
   LedgerError,
   ledgerMachineSchemaVersion,

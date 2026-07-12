@@ -258,7 +258,7 @@ brew install ledger
 | `.ledger/policies/` | Policy files such as git coverage requirements. |
 | `.ledger/indexes/` | Generated JSON indexes. |
 | `.ledger/reports/` | Validation, docs, coverage, and impact reports. |
-| `.ledger/dist/` | Generated static reader output. |
+| `.ledger/dist/` | Generated internal reader output, with sanitized public output under `.ledger/dist/public/`. |
 | `docs/` | Optional durable project docs scaffold managed alongside Ledger records. |
 
 ## Command Map
@@ -272,8 +272,8 @@ brew install ledger
 | `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
 | `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
 | `ledger index` | Writes JSON indexes under `.ledger/indexes/`. |
-| `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. |
-| `ledger render` | Builds the static HTML reader plus lazy search and relationship graph JSON. |
+| `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. Use `--check` to compare without replacing the baseline. |
+| `ledger render` | Builds the internal static reader. Use `--profile public` for released public notes only. |
 | `ledger serve --watch` | Serves the static reader on loopback and rebuilds it when Ledger records change. |
 | `ledger coverage --explain` | Checks that changed source paths have Ledger coverage and explains required, ignored, covered, and missing paths. |
 | `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
@@ -523,6 +523,21 @@ Use `ledger verify-integrity` to generate a deterministic SHA-256 hash for every
 Ledger source record plus a catalog hash for the current record set. Ledger
 writes `.ledger/indexes/integrity.json` for tools and
 `.ledger/reports/integrity.md` for review.
+
+Use `ledger verify-integrity --check` in CI or release verification when a
+previously generated integrity index has been preserved as the expected
+baseline. Check mode never replaces that baseline and reports added, removed,
+and changed records.
+
+## Public Reader Export
+
+`ledger render --profile public` writes a separate reader to
+`.ledger/dist/public/`. The public profile is fail-closed: it includes only
+release records whose status is `released`, and only their explicit
+`Public Notes` content. It removes raw Markdown, repository paths, files,
+symbols, internal relationships, validation issues, invariants, and verification
+details from the HTML and JSON artifacts. Review public notes before publishing
+the generated directory.
 
 ## Library Usage
 

@@ -27,7 +27,12 @@ import {
 import { buildDocsImpact, writeDocsImpactReport } from "./docsImpact.js";
 import { getChangedFiles } from "./git.js";
 import { buildIndexes, explainFile, writeIndexes } from "./indexer.js";
-import { buildIntegrityReport, writeIntegrityArtifacts } from "./integrity.js";
+import {
+  buildIntegrityReport,
+  readIntegrityReport,
+  verifyIntegrityReport,
+  writeIntegrityArtifacts,
+} from "./integrity.js";
 import { startLedgerMcpServer } from "./mcp.js";
 import { LedgerError, machineFailure, machineSuccess } from "./machine.js";
 import { migrateChangelog } from "./migrate.js";
@@ -42,7 +47,11 @@ import {
   buildReleaseDocument,
   getUnreleasedChanges,
 } from "./release.js";
-import { buildStaticReaderModel, writeStaticReader } from "./render.js";
+import {
+  buildStaticReaderModel,
+  writeStaticReader,
+  type LedgerRenderProfile,
+} from "./render.js";
 import { closeStaticReader, serveStaticReader } from "./serve.js";
 import { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
 import type { ParsedLedgerDocument } from "./types.js";
@@ -266,24 +275,44 @@ async function indexCommand(context: RunContext): Promise<number> {
 
 async function verifyIntegrityCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const workspace = await findWorkspace(context.cwd);
+  const expected = hasFlag(parsed, "check") ? await readIntegrityReport(workspace) : undefined;
   const documents = await readLedgerDocuments(workspace);
   const report = buildIntegrityReport(workspace, documents);
-  const written = await writeIntegrityArtifacts(workspace, report);
+  const verification = expected ? verifyIntegrityReport(expected, report) : undefined;
+  const written = expected ? undefined : await writeIntegrityArtifacts(workspace, report);
 
   if (hasFlag(parsed, "json")) {
-    printJsonSuccess("verify-integrity", { ...report, written });
-    return 0;
+    printJsonSuccess("verify-integrity", { ...report, verification, written });
+    return verification?.ok === false ? 1 : 0;
+  }
+
+  if (verification) {
+    if (verification.expectedProject !== verification.currentProject) {
+      console.log(
+        `Ledger integrity project mismatch: expected ${verification.expectedProject}, current ${verification.currentProject}.`,
+      );
+    }
+    console.log(
+      verification.ok
+        ? `Ledger integrity verified: ${report.documents.length} document(s), catalog ${report.catalogHash}.`
+        : `Ledger integrity mismatch: expected ${verification.expectedCatalogHash}, current ${verification.currentCatalogHash}.`,
+    );
+    for (const filePath of verification.added) console.log(`- added: ${filePath}`);
+    for (const filePath of verification.removed) console.log(`- removed: ${filePath}`);
+    for (const filePath of verification.changed) console.log(`- changed: ${filePath}`);
+    return verification.ok ? 0 : 1;
   }
 
   console.log(
     `Ledger integrity: ${report.documents.length} document(s), catalog ${report.catalogHash}.`,
   );
-  console.log(`Wrote ${written.indexPath} and ${written.reportPath}.`);
+  if (written) console.log(`Wrote ${written.indexPath} and ${written.reportPath}.`);
   return 0;
 }
 
 async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
   const workspace = await findWorkspace(context.cwd);
+  const profile = renderProfile(parsed);
   const documents = await readLedgerDocuments(workspace);
   const result = validateDocuments(workspace, documents);
   if (result.errors.length > 0) {
@@ -303,7 +332,7 @@ async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<n
     return 1;
   }
 
-  const model = buildStaticReaderModel(workspace, documents, { validation: result });
+  const model = buildStaticReaderModel(workspace, documents, { validation: result, profile });
   const rendered = await writeStaticReader(workspace, model);
 
   if (hasFlag(parsed, "json")) {
@@ -318,6 +347,16 @@ async function renderCommand(parsed: ParsedArgs, context: RunContext): Promise<n
     );
   }
   return 0;
+}
+
+function renderProfile(parsed: ParsedArgs): LedgerRenderProfile {
+  const value = flagValues(parsed, "profile")[0] ?? "internal";
+  if (value === "internal" || value === "public") return value;
+  throw new LedgerError(
+    "invalid-argument",
+    `Invalid render profile: ${value}. Expected internal or public.`,
+    { profile: value },
+  );
 }
 
 async function serveCommand(parsed: ParsedArgs, context: RunContext): Promise<number> {
@@ -1213,18 +1252,20 @@ Validates records and writes JSON indexes under .ledger/indexes.`;
       return `Ledger verify-integrity
 
 Usage:
-  ledger verify-integrity [--json]
+  ledger verify-integrity [--check] [--json]
 
 Writes source record hashes to .ledger/indexes/integrity.json and a readable
-report to .ledger/reports/integrity.md.`;
+report to .ledger/reports/integrity.md. --check compares current records with
+the existing baseline without replacing it.`;
 case "render":
       return `Ledger render
 
 Usage:
-  ledger render [--json]
+  ledger render [--profile <internal|public>] [--json]
 
 Builds the offline static reader at .ledger/dist/index.html plus lazy search
-and relationship graph JSON artifacts.`;
+and relationship graph JSON artifacts. The public profile writes to
+.ledger/dist/public and includes only explicit public notes from released releases.`;
     case "serve":
       return `Ledger serve
 
@@ -1411,8 +1452,8 @@ Usage:
   ledger feedback <title> [--area <area>] [--tag <tag>]
   ledger validate [--current-only] [--update-baseline] [--no-baseline] [--json]
   ledger index
-  ledger verify-integrity [--json]
-  ledger render [--json]
+  ledger verify-integrity [--check] [--json]
+  ledger render [--profile <internal|public>] [--json]
   ledger serve [--host <host>] [--port <port>] [--watch] [--expose]
   ledger coverage [--staged] [--explain] [--json]
   ledger ci [--staged] [--current-only] [--no-baseline] [--json]
