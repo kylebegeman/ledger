@@ -1,7 +1,7 @@
 export const staticReaderStyles = `    :root {
       color-scheme: light dark;
       --canvas: light-dark(#f3f3ef, #111311);
-      --canvas-glow: light-dark(rgba(191, 94, 40, 0.12), rgba(240, 146, 94, 0.13));
+      --canvas-glow: light-dark(rgba(59, 130, 246, 0.12), rgba(127, 179, 255, 0.14));
       --surface: light-dark(#ffffff, #1b1e1b);
       --surface-raised: light-dark(rgba(243, 243, 239, 0.88), rgba(17, 19, 17, 0.88));
       --surface-soft: light-dark(#ebece7, #252925);
@@ -12,18 +12,18 @@ export const staticReaderStyles = `    :root {
       --faint: light-dark(#a5a99f, #6f756c);
       --line: light-dark(rgba(23, 24, 21, 0.14), rgba(242, 243, 239, 0.16));
       --line-strong: light-dark(rgba(23, 24, 21, 0.24), rgba(242, 243, 239, 0.28));
-      --accent: light-dark(#b34a1f, #f0925e);
-      --accent-strong: light-dark(#8f3a17, #f7ac83);
-      --accent-soft: light-dark(#f9e7dc, #47230f);
-      --on-accent: light-dark(#ffffff, #2b1508);
+      --accent: light-dark(#2563eb, #7fb3ff);
+      --accent-strong: light-dark(#1c4ed8, #a3c8ff);
+      --accent-soft: light-dark(#e3edff, #1b2f55);
+      --on-accent: light-dark(#ffffff, #0c1a33);
       --positive: light-dark(#23856d, #6fd3b5);
       --positive-soft: light-dark(#dcf4eb, #173d34);
       --warning: light-dark(#a86616, #efb65f);
       --warning-soft: light-dark(#fff0d4, #49351a);
       --danger: light-dark(#b74b58, #ff9aa5);
       --danger-soft: light-dark(#ffe5e8, #4c2329);
-      --info: light-dark(#2c66a1, #8dc3ff);
-      --info-soft: light-dark(#e5f1ff, #1f354c);
+      --decision: light-dark(#a8451c, #f0925e);
+      --decision-soft: light-dark(#f9e7dc, #47230f);
       --accent-alt: light-dark(#0f7788, #7fd6e2);
       --accent-alt-soft: light-dark(#e0f3f6, #123c44);
       --code: light-dark(#171a18, #0c0e0d);
@@ -134,6 +134,7 @@ export const staticReaderStyles = `    :root {
       color: var(--accent);
       font-weight: 800;
     }
+    .logo { background: transparent; }
     .logo svg { display: block; width: 100%; height: 100%; }
     .identity-copy { display: grid; min-width: 0; line-height: 1.15; }
     .identity-copy small {
@@ -522,7 +523,7 @@ export const staticReaderStyles = `    :root {
     }
     .record-type { background: var(--surface-soft); color: var(--ink-soft); }
     .record-type .ui-icon { width: 14px; height: 14px; }
-    .record-type[data-kind-tone="decision"] { background: var(--info-soft); color: var(--info); }
+    .record-type[data-kind-tone="decision"] { background: var(--decision-soft); color: var(--decision); }
     .record-type[data-kind-tone="backlog"] { background: var(--warning-soft); color: var(--warning); }
     .record-type[data-kind-tone="release"] { background: var(--positive-soft); color: var(--positive); }
     .record-type[data-kind-tone="product-note"], .record-type[data-kind-tone="feedback"] { background: var(--accent-alt-soft); color: var(--accent-alt); }
