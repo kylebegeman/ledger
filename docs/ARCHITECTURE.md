@@ -331,9 +331,10 @@ A density toggle switches between comfortable rows with a clamped summary
 and tag chips and compact single-line rows, remembered like the theme. The
 record panel closes with its button, Escape, or browser back, restores focus
 to the originating row, and renders full-screen on small viewports. Hero
-metrics act as one-click kind filters, filter pills wrap on small screens
-where the rail stacks below the results, and the theme toggle cycles system,
-light, and dark, storing only explicit overrides. Supported browsers animate result changes with the View
+metrics act as one-click kind filters, and filter pills wrap on small
+screens where the rail stacks below the results. The theme follows the
+system preference until a reader picks a theme; the toggle then flips
+between light and dark and stores that explicit choice. Supported browsers animate result changes with the View
 Transition API, including per-record morphs for rows near the viewport,
 guarded by a duplicate-name check and a skip watchdog. Reduced-motion
 preferences disable nonessential motion. If a browser blocks the search

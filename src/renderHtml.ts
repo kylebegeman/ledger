@@ -58,7 +58,7 @@ ${staticReaderStyles}
       <div class="topbar-actions">
         <span class="profile-badge">${isPublic ? "Public notes" : "Internal"}</span>
         <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
-          ${icon("theme-system", 'data-theme-icon="system"')}${icon("theme-light", 'data-theme-icon="light"')}${icon("theme-dark", 'data-theme-icon="dark"')}
+          ${icon("theme-light", 'data-theme-icon="light"')}${icon("theme-dark", 'data-theme-icon="dark"')}
         </button>
       </div>
     </header>
@@ -489,7 +489,6 @@ function kindIcon(kind: string): string {
 
 const iconPaths: Record<string, string> = {
   search: '<path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>',
-  "theme-system": '<rect x="3" y="5" width="18" height="13" rx="2.5"/><path d="M12 18v3m-3.5 0h7"/>',
   "theme-light":
     '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5m0 14v2.5M4.57 4.57 6.34 6.34m11.32 11.32 1.77 1.77M2.5 12H5m14 0h2.5M4.57 19.43l1.77-1.77M17.66 6.34l1.77-1.77"/>',
   "theme-dark": '<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>',

@@ -211,9 +211,13 @@ export const staticReaderStyles = `    :root {
     }
     .icon-button:hover { background-color: var(--surface-hover); color: var(--ink); transform: rotate(-5deg); }
     #theme-toggle [data-theme-icon] { display: none; }
-    html[data-theme="system"] #theme-toggle [data-theme-icon="system"],
     html[data-theme="light"] #theme-toggle [data-theme-icon="light"],
-    html[data-theme="dark"] #theme-toggle [data-theme-icon="dark"] { display: block; }
+    html[data-theme="dark"] #theme-toggle [data-theme-icon="dark"],
+    html[data-theme="system"] #theme-toggle [data-theme-icon="light"] { display: block; }
+    @media (prefers-color-scheme: dark) {
+      html[data-theme="system"] #theme-toggle [data-theme-icon="light"] { display: none; }
+      html[data-theme="system"] #theme-toggle [data-theme-icon="dark"] { display: block; }
+    }
     main {
       width: min(calc(100% - 40px), var(--max-width));
       margin: 0 auto;
@@ -1485,30 +1489,21 @@ export const staticReaderRuntime = `    let searchIndexPromise;
     });
 
     const themeToggle = document.getElementById("theme-toggle");
-    const themeOrder = ["system", "light", "dark"];
-    function themeSetting() {
-      const value = document.documentElement.dataset.theme;
-      return value === "light" || value === "dark" ? value : "system";
-    }
     function resolvedTheme() {
-      const setting = themeSetting();
-      if (setting !== "system") return setting;
+      const value = document.documentElement.dataset.theme;
+      if (value === "light" || value === "dark") return value;
       return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     }
     function updateThemeLabel() {
-      const setting = themeSetting();
-      const next = themeOrder[(themeOrder.indexOf(setting) + 1) % themeOrder.length];
-      const label = "Theme: " + setting + (setting === "system" ? " (" + resolvedTheme() + ")" : "") + ". Switch to " + next + ".";
+      const next = resolvedTheme() === "dark" ? "light" : "dark";
+      const label = "Switch to " + next + " theme";
       themeToggle.setAttribute("aria-label", label);
       themeToggle.title = label;
     }
     themeToggle.addEventListener("click", () => {
-      const next = themeOrder[(themeOrder.indexOf(themeSetting()) + 1) % themeOrder.length];
+      const next = resolvedTheme() === "dark" ? "light" : "dark";
       document.documentElement.dataset.theme = next;
-      try {
-        if (next === "system") localStorage.removeItem("ledger-theme");
-        else localStorage.setItem("ledger-theme", next);
-      } catch {}
+      try { localStorage.setItem("ledger-theme", next); } catch {}
       updateThemeLabel();
     });
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", updateThemeLabel);
