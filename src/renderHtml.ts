@@ -129,6 +129,7 @@ ${staticReaderStyles}
     </footer>
   </div>
 
+  ${isPublic ? "" : recordPanel()}
   ${searchDialog(isPublic)}
   <script>
 ${staticReaderRuntime}
@@ -158,14 +159,14 @@ function renderEntry(
   const recordId = domId(document.id);
   const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
   return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document))}">
-              <div class="entry-heading">
+              <div class="entry-row">
                 <div class="record-type" data-kind-tone="${escapeHtml(document.kind)}">${kindIcon(document.kind)}<span>${escapeHtml(labelForKind(document.kind))}</span></div>
                 <span class="record-id">${escapeHtml(document.id)}</span>
+                <h3 class="entry-title"><a class="entry-link" href="?record=${escapeHtml(encodeURIComponent(document.id))}">${escapeHtml(document.title)}</a></h3>
+                <span class="score-label" data-score-label hidden></span>
                 <span class="status-dot" data-status-tone="${escapeHtml(document.status)}">${escapeHtml(document.status)}</span>
                 ${document.date ? `<time class="record-date" datetime="${escapeHtml(updatedDate || document.date)}"${updatedDate ? ` title="Created ${escapeHtml(formatDate(document.date))}"` : ""}>${escapeHtml(formatDate(updatedDate || document.date))}</time>` : ""}
-                <span class="score-label" data-score-label hidden></span>
               </div>
-              <h3>${escapeHtml(document.title)}</h3>
               ${document.summary ? `<p class="entry-summary">${escapeHtml(document.summary)}</p>` : ""}
               <div class="entry-tags">
                 ${document.release ? tag(document.release) : ""}
@@ -174,22 +175,36 @@ function renderEntry(
                 ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
                 ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
               </div>
-              <details class="entry-details">
-                <summary><span>Open record</span>${icon("chevron")}</summary>
-                <div class="entry-body">
-                  ${document.sourceHref ? `<div class="source-reference">${icon("file")}<span><small>Source record${document.date ? ` · Created ${escapeHtml(formatDate(document.date))}` : ""}${updatedDate ? ` · Updated ${escapeHtml(formatDate(updatedDate))}` : ""}</small><code>${escapeHtml(document.path)}</code></span></div>` : ""}
-                  ${contextGrid(document)}
-                  ${issueList(document.issues)}
-                  <div class="record-columns">
-                    ${detailList("Files", document.files)}
-                    ${detailList("Symbols", document.symbols)}
-                    ${detailList("Documentation", document.docs)}
-                    ${relationships(document)}
-                  </div>
-                  ${document.source ? agentPacketDigest(document) : ""}
-                </div>
-              </details>
+              <template class="entry-detail">${recordDetail(document, updatedDate)}</template>
             </article>`;
+}
+
+function recordDetail(document: LedgerRenderedDocument, updatedDate: string): string {
+  return `<div class="record-panel-meta">
+                <div class="record-type" data-kind-tone="${escapeHtml(document.kind)}">${kindIcon(document.kind)}<span>${escapeHtml(labelForKind(document.kind))}</span></div>
+                <span class="record-id">${escapeHtml(document.id)}</span>
+                <span class="status-dot" data-status-tone="${escapeHtml(document.status)}">${escapeHtml(document.status)}</span>
+                ${document.date ? `<time class="record-date" datetime="${escapeHtml(updatedDate || document.date)}">${escapeHtml(formatDate(updatedDate || document.date))}</time>` : ""}
+              </div>
+              <h2 class="record-panel-title">${escapeHtml(document.title)}</h2>
+              ${document.summary ? `<p class="entry-summary">${escapeHtml(document.summary)}</p>` : ""}
+              <div class="entry-tags">
+                ${document.release ? tag(document.release) : ""}
+                ${document.areas.map((value) => tag(value)).join("")}
+                ${document.tags.map((value) => tag(`#${value}`)).join("")}
+                ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
+                ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
+              </div>
+              ${document.sourceHref ? `<div class="source-reference">${icon("file")}<span><small>Source record${document.date ? ` · Created ${escapeHtml(formatDate(document.date))}` : ""}${updatedDate ? ` · Updated ${escapeHtml(formatDate(updatedDate))}` : ""}</small><code>${escapeHtml(document.path)}</code></span></div>` : ""}
+              ${contextGrid(document)}
+              ${issueList(document.issues)}
+              <div class="record-columns">
+                ${detailList("Files", document.files)}
+                ${detailList("Symbols", document.symbols)}
+                ${detailList("Documentation", document.docs)}
+                ${relationships(document)}
+              </div>
+              ${document.source ? agentPacketDigest(document) : ""}`;
 }
 
 function renderPublicEntry(document: LedgerRenderedDocument): string {
@@ -249,8 +264,18 @@ function filterBar(
 function densityToggle(): string {
   return `<div class="density-toggle" role="group" aria-label="Result density">
                 <button type="button" data-density="compact" aria-pressed="false">Compact</button>
-                <button type="button" data-density="expanded" aria-pressed="true">Expanded</button>
+                <button type="button" data-density="expanded" aria-pressed="true">Comfortable</button>
               </div>`;
+}
+
+function recordPanel(): string {
+  return `<aside class="record-panel" id="record-panel" aria-label="Record details" tabindex="-1">
+    <div class="record-panel-header">
+      <span class="record-panel-eyebrow">Record</span>
+      <button class="icon-button" id="record-panel-close" type="button" aria-label="Close record details">${icon("close")}</button>
+    </div>
+    <div class="record-panel-body" id="record-panel-body"></div>
+  </aside>`;
 }
 
 function perPageControl(): string {
@@ -468,6 +493,7 @@ const iconPaths: Record<string, string> = {
   "theme-light":
     '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5m0 14v2.5M4.57 4.57 6.34 6.34m11.32 11.32 1.77 1.77M2.5 12H5m14 0h2.5M4.57 19.43l1.77-1.77M17.66 6.34l1.77-1.77"/>',
   "theme-dark": '<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>',
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
   chevron: '<path d="m8 10 4 4 4-4"/>',
   arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
   file: '<path d="M7 3h7l4 4v14H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5"/>',

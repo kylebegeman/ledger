@@ -131,6 +131,8 @@ describe("writeStaticReader", () => {
     expect(html).toContain('aria-label="Pagination"');
     expect(html).not.toContain('data-density="compact"');
     expect(html).not.toContain('class="filter-bar"');
+    expect(html).not.toContain('id="record-panel"');
+    expect(html).not.toContain('class="entry-link"');
     expect(html).not.toContain('type="hidden"');
     expect(html).not.toContain('data-filter-field="kind"');
     expect(html).not.toContain("Markdown source");
@@ -200,6 +202,13 @@ describe("renderStaticReaderHtml", () => {
     expect(html).toContain(".ledger/entries/0001.md");
     expect(html).toContain('<time class="record-date"');
     expect(html).toContain('datetime="2026-06-29"');
+    expect(html).toContain('class="entry-link"');
+    expect(html).toContain('href="?record=0001"');
+    expect(html).toContain('<template class="entry-detail">');
+    expect(html).toContain('id="record-panel"');
+    expect(html).toContain("record-panel-title");
+    expect(html).toContain("openPanel");
+    expect(html).not.toContain("entry-details");
     expect(html).not.toContain("# 0001: Change");
     expect(html).toContain("<h4>Invariants</h4>");
     expect(html).toContain("<h4>Verification</h4>");

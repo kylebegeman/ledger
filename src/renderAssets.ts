@@ -495,12 +495,12 @@ export const staticReaderStyles = `    :root {
     }
     .entry {
       position: relative;
-      padding: clamp(24px, 3vw, 34px) var(--space-2);
+      padding: 13px var(--space-2);
       overflow: clip;
       border-top: 1px solid var(--line);
       background: transparent;
       content-visibility: auto;
-      contain-intrinsic-size: 260px;
+      contain-intrinsic-size: 96px;
       animation: entry-in 480ms both;
       transition: background-color 180ms ease;
       view-transition-class: rec;
@@ -508,18 +508,36 @@ export const staticReaderStyles = `    :root {
     .entry:nth-child(2n) { animation-delay: 35ms; }
     .entry:nth-child(3n) { animation-delay: 70ms; }
     .entry:hover { background-color: var(--surface-hover); }
-    .entry-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
+    .entry.is-open { background-color: var(--surface-hover); }
+    .entry:has(.entry-link:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .entry-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .entry-title {
+      flex: 1;
+      min-width: 0;
+      margin: 0;
+      overflow: hidden;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .entry-link { color: var(--ink); text-decoration: none; }
+    .entry-link:focus-visible { outline: 0; }
+    .entry-link::after { content: ""; position: absolute; inset: 0; }
     .record-type, .record-id, .status-dot, .score-label, .tag {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      min-height: 27px;
-      padding: 4px 9px;
+      gap: 5px;
+      min-height: 22px;
+      padding: 2px 8px;
       border-radius: var(--radius-pill);
       background: var(--surface-soft);
       color: var(--muted);
-      font-size: 0.7rem;
+      font-size: 0.66rem;
       font-weight: 700;
+      white-space: nowrap;
     }
     .record-type { background: var(--surface-soft); color: var(--ink-soft); }
     .record-type .ui-icon { width: 14px; height: 14px; }
@@ -533,21 +551,24 @@ export const staticReaderStyles = `    :root {
     .status-dot[data-status-tone="landed"]::before, .status-dot[data-status-tone="released"]::before, .status-dot[data-status-tone="accepted"]::before, .status-dot[data-status-tone="shipped"]::before { background: var(--positive); }
     .status-dot[data-status-tone="draft"]::before, .status-dot[data-status-tone="planned"]::before, .status-dot[data-status-tone="proposed"]::before, .status-dot[data-status-tone="in-progress"]::before { background: var(--warning); }
     .status-dot[data-status-tone="blocked"]::before, .status-dot[data-status-tone="rejected"]::before, .status-dot[data-status-tone="superseded"]::before, .status-dot[data-status-tone="deprecated"]::before { background: var(--danger); }
-    .record-date { margin-left: auto; color: var(--muted); font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+    .record-date { color: var(--muted); font-size: 0.7rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .score-label { background: var(--accent-soft); color: var(--accent-strong); }
-    .entry h3 {
-      max-width: 900px;
-      margin: 0;
-      font-size: clamp(1.2rem, 2vw, 1.6rem);
-      line-height: 1.25;
+    .entry-summary {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 1;
+      overflow: hidden;
+      max-width: 860px;
+      margin: 6px 0 0;
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      line-height: 1.55;
     }
-    .entry-summary { max-width: 820px; margin: 11px 0 0; color: var(--ink-soft); line-height: 1.7; }
-    .entry-tags { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
-    .tag { min-height: 25px; background: var(--surface-soft); font-weight: 600; }
+    .entry-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag { background: var(--surface-soft); font-weight: 600; }
     .tag[data-tone="warning"] { background: var(--warning-soft); color: var(--warning); }
     .tag[data-tone="danger"] { background: var(--danger-soft); color: var(--danger); }
-    .entry-details { margin-top: 22px; }
-    .entry-details > summary, .agent-packet > summary, .record-list > summary {
+    .agent-packet > summary, .record-list > summary {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -557,10 +578,52 @@ export const staticReaderStyles = `    :root {
       font-size: 0.78rem;
       font-weight: 700;
     }
-    .entry-details > summary { width: fit-content; justify-content: flex-start; gap: var(--space-2); padding: 6px 2px; border-radius: var(--radius-xs); transition: color 140ms ease; }
-    .entry-details > summary:hover { color: var(--accent); }
-    .entry-details > summary .ui-icon, .agent-packet > summary .ui-icon, .record-list > summary .ui-icon { transition: transform 160ms ease; }
-    .entry-body { display: grid; gap: var(--space-5); padding-top: 22px; animation: reveal 220ms both; }
+    .agent-packet > summary .ui-icon, .record-list > summary .ui-icon { transition: transform 160ms ease; }
+    .record-panel {
+      position: fixed;
+      z-index: 70;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      width: min(600px, calc(100vw - 24px));
+      background: var(--surface);
+      box-shadow: var(--shadow-float);
+      outline: 0;
+      transform: translateX(calc(100% + 60px));
+      visibility: hidden;
+      transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), visibility 260ms;
+    }
+    .record-panel.open { transform: none; visibility: visible; }
+    .record-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px 12px 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    .record-panel-eyebrow {
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .record-panel-body {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+      overflow-y: auto;
+      padding: 20px 22px 48px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--faint) transparent;
+    }
+    .record-panel-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+    .record-panel-title { margin: 0; font-size: 1.35rem; line-height: 1.25; }
+    .record-panel .entry-summary { display: block; -webkit-line-clamp: unset; overflow: visible; margin: 0; font-size: 0.9rem; line-height: 1.65; }
+    .record-panel .entry-tags { margin-top: 0; }
     .source-reference {
       display: flex;
       align-items: center;
@@ -690,19 +753,8 @@ export const staticReaderStyles = `    :root {
     .page-gap { padding: 0 2px; color: var(--faint); }
     .page-prev .ui-icon { transform: rotate(90deg); }
     .page-next .ui-icon { transform: rotate(-90deg); }
-    .entries.compact .entry { padding: 14px var(--space-2); contain-intrinsic-size: 96px; }
-    .entries.compact .entry-heading { margin-bottom: 6px; }
-    .entries.compact .entry h3 { font-size: 1.05rem; }
-    .entries.compact .entry-summary {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 1;
-      overflow: hidden;
-      margin-top: 4px;
-      font-size: 0.84rem;
-      line-height: 1.5;
-    }
-    .entries.compact .entry-tags, .entries.compact .entry-details { display: none; }
+    .entries.compact .entry { padding: 8px var(--space-2); contain-intrinsic-size: 48px; }
+    .entries.compact .entry-summary, .entries.compact .entry-tags { display: none; }
     footer {
       display: flex;
       justify-content: space-between;
@@ -812,11 +864,10 @@ export const staticReaderStyles = `    :root {
       .metric strong { font-size: 1.3rem; }
       .search-dock { min-height: 58px; padding-left: 16px; }
       .search-dock kbd { display: none; }
-      .entry { padding: 20px 6px; }
-      .entry-heading { margin-bottom: 13px; }
-      .status-dot { width: 100%; padding-left: 0; }
-      .record-date { margin-left: 0; }
-      .score-label { width: auto; margin-left: 0; }
+      .entry { padding: 12px 6px; }
+      .entry-row { flex-wrap: wrap; gap: 6px 8px; }
+      .entry-title { flex-basis: 100%; order: -1; white-space: normal; }
+      .record-panel { width: 100vw; }
       footer { display: grid; width: calc(100% - 28px); }
       .command-palette { margin-top: 12px; }
       .command-footer span:last-child { display: none; }
@@ -922,9 +973,13 @@ export const staticReaderRuntime = `    let searchIndexPromise;
     const perPage = document.getElementById("per-page");
     const pagination = document.getElementById("pagination");
     const library = document.getElementById("library");
+    const recordPanel = document.getElementById("record-panel");
+    const recordPanelBody = document.getElementById("record-panel-body");
+    const recordPanelClose = document.getElementById("record-panel-close");
     const defaultPerPage = "25";
     let currentPage = 1;
     let pendingResultsScroll = false;
+    let openRecordId = "";
 
     function perPageSize() {
       if (!perPage || perPage.value === "all") return 0;
@@ -1161,7 +1216,7 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       }
     }
 
-    function writeUrlState() {
+    function writeUrlState(push = false) {
       const url = new URL(window.location.href);
       const values = { q: controls.search.value };
       for (const key of Object.keys(filterLabels)) values[key] = controlValue(key);
@@ -1174,7 +1229,44 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       else url.searchParams.delete("page");
       if (perPage && perPage.value !== defaultPerPage) url.searchParams.set("per", perPage.value);
       else url.searchParams.delete("per");
-      history.replaceState(null, "", url);
+      if (openRecordId) url.searchParams.set("record", openRecordId);
+      else url.searchParams.delete("record");
+      if (push) history.pushState(null, "", url);
+      else history.replaceState(null, "", url);
+    }
+
+    function recordEntry(id) {
+      return entries.find((candidate) => candidate.dataset.id === id);
+    }
+
+    function openPanel(id, syncUrl = true) {
+      if (!recordPanel || !recordPanelBody) return false;
+      const entry = recordEntry(id);
+      const template = entry ? entry.querySelector("template.entry-detail") : null;
+      if (!template) return false;
+      recordPanelBody.replaceChildren(template.content.cloneNode(true));
+      recordPanelBody.scrollTop = 0;
+      const wasOpen = openRecordId !== "";
+      openRecordId = id;
+      document.body.classList.add("panel-open");
+      recordPanel.classList.add("open");
+      for (const candidate of entries) candidate.classList.toggle("is-open", candidate.dataset.id === id);
+      if (syncUrl) writeUrlState(!wasOpen);
+      recordPanel.focus({ preventScroll: true });
+      return true;
+    }
+
+    function closePanel(syncUrl = true) {
+      if (!openRecordId || !recordPanel) return;
+      const previous = recordEntry(openRecordId);
+      openRecordId = "";
+      document.body.classList.remove("panel-open");
+      recordPanel.classList.remove("open");
+      for (const candidate of entries) candidate.classList.remove("is-open");
+      if (syncUrl) writeUrlState();
+      const link = previous && !previous.hidden ? previous.querySelector(".entry-link") : null;
+      if (link) link.focus();
+      else controls.search.focus();
     }
 
     function readUrlState() {
@@ -1193,6 +1285,11 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       }
       const page = parseInt(params.get("page") || "1", 10);
       currentPage = Number.isFinite(page) && page > 0 ? page : 1;
+      const record = params.get("record") || "";
+      if (record !== openRecordId) {
+        if (record) openPanel(record, false);
+        else closePanel(false);
+      }
     }
 
     function resetFilters() {
@@ -1349,20 +1446,14 @@ export const staticReaderRuntime = `    let searchIndexPromise;
 
     async function openRecord(id) {
       closePalette();
+      if (openPanel(id)) return;
+      const entry = recordEntry(id);
+      if (!entry) return;
       controls.search.value = "";
-      for (const key of Object.keys(filterLabels)) {
-        const control = controls[key];
-        if (control) control.value = "all";
-      }
-      const entry = entries.find((candidate) => candidate.dataset.id === id);
       const per = perPageSize();
-      const index = entry ? entries.indexOf(entry) : -1;
+      const index = entries.indexOf(entry);
       currentPage = per > 0 && index >= 0 ? Math.floor(index / per) + 1 : 1;
       await applyFilters();
-      if (!entry) return;
-      if (entriesContainer.classList.contains("compact")) setDensity("expanded");
-      const details = entry.querySelector(".entry-details");
-      if (details) details.open = true;
       entry.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
       entry.focus({ preventScroll: true });
     }
@@ -1421,6 +1512,18 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       updateThemeLabel();
     });
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", updateThemeLabel);
+
+    entriesContainer.addEventListener("click", (event) => {
+      const link = event.target instanceof Element ? event.target.closest(".entry-link") : null;
+      if (!link) return;
+      event.preventDefault();
+      const entry = link.closest(".entry");
+      if (entry && entry.dataset.id) openPanel(entry.dataset.id);
+    });
+    recordPanelClose?.addEventListener("click", () => closePanel());
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !palette.open && openRecordId) closePanel();
+    });
 
     window.addEventListener("popstate", () => {
       readUrlState();
