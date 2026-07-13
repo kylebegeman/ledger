@@ -28,6 +28,7 @@ docsImpact:
 commits: []
 related:
   - "0084"
+release: "v0.3.0"
 ---
 
 # 0088: Replace Row Expansion With Record Detail Panel

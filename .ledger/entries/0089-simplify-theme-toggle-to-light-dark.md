@@ -25,6 +25,7 @@ docsImpact:
 commits: []
 related:
   - "0083"
+release: "v0.3.0"
 ---
 
 # 0089: Simplify Theme Toggle To Light And Dark
