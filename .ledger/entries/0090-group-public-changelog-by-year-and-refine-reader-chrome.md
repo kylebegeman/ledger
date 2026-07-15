@@ -27,6 +27,7 @@ commits: []
 related:
   - "0083"
   - "0088"
+release: "v0.3.1"
 ---
 
 # 0090: Group Public Changelog By Year And Refine Reader Chrome
