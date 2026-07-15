@@ -23,6 +23,13 @@ export function renderStaticReaderHtml(
     .filter((value) => value !== "__none");
   const tags = model.facets.tags.map((facet) => facet.value);
   const isPublic = model.profile === "public";
+  const documents = isPublic
+    ? [...model.documents].sort(
+        (left, right) =>
+          right.date.localeCompare(left.date) ||
+          right.id.localeCompare(left.id, undefined, { numeric: true }),
+      )
+    : model.documents;
 
   return `<!doctype html>
 <html lang="en" data-theme="system">
@@ -109,13 +116,27 @@ ${staticReaderStyles}
             </div>
           </div>
           <div class="entries${isPublic ? " release-feed" : ""}" id="entries" role="feed" aria-busy="false">
-            ${model.documents.map((document) => renderEntry(document, model.profile)).join("\n            ")}
+            ${documents
+              .map((document, index) =>
+                renderEntry(
+                  document,
+                  model.profile,
+                  index === 0 || documents[index - 1].date.slice(0, 4) !== document.date.slice(0, 4),
+                ),
+              )
+              .join("\n            ")}
           </div>
           <nav class="pagination" id="pagination" aria-label="Pagination" hidden></nav>
           <div class="empty" id="empty" hidden>
             <span class="empty-icon" aria-hidden="true">${icon("search")}</span>
-            <h3>No matching records</h3>
-            <p>Try a broader phrase or reset the active filters.</p>
+            <div data-empty-variant="filtered">
+              <h3>No matching ${isPublic ? "releases" : "records"}</h3>
+              <p>Try a broader phrase or reset the active filters.</p>
+            </div>
+            <div data-empty-variant="bare">
+              <h3>${isPublic ? "No releases yet" : "No records yet"}</h3>
+              <p>${isPublic ? "Published release notes will appear here." : "Recorded changes, decisions, and backlog items will appear here."}</p>
+            </div>
             <button type="button" data-reset-filters>Reset filters</button>
           </div>
         </section>
@@ -154,8 +175,9 @@ function internalRail(model: LedgerStaticReaderModel): string {
 function renderEntry(
   document: LedgerRenderedDocument,
   profile: LedgerStaticReaderModel["profile"],
+  yearStart: boolean,
 ): string {
-  if (profile === "public") return renderPublicEntry(document);
+  if (profile === "public") return renderPublicEntry(document, yearStart);
   const recordId = domId(document.id);
   const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
   return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document))}">
@@ -207,8 +229,8 @@ function recordDetail(document: LedgerRenderedDocument, updatedDate: string): st
               ${document.source ? agentPacketDigest(document) : ""}`;
 }
 
-function renderPublicEntry(document: LedgerRenderedDocument): string {
-  return `<article class="entry release-entry" id="record-${domId(document.id)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-year="${escapeHtml(document.date.slice(0, 4))}" data-search="${escapeHtml(searchTerms(document))}">
+function renderPublicEntry(document: LedgerRenderedDocument, yearStart: boolean): string {
+  return `<article class="entry release-entry${yearStart ? " year-start" : ""}" id="record-${domId(document.id)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-year="${escapeHtml(document.date.slice(0, 4))}" data-search="${escapeHtml(searchTerms(document))}">
               <div class="release-date">
                 <span class="version-badge">${escapeHtml(document.id)}</span>
                 <time datetime="${escapeHtml(document.date)}">${escapeHtml(formatDate(document.date))}</time>
@@ -279,13 +301,13 @@ function recordPanel(): string {
 }
 
 function perPageControl(): string {
-  return `<select id="per-page" aria-label="Results per page">
+  return `<span class="select-wrap"><select id="per-page" aria-label="Results per page">
                 <option value="10">10 per page</option>
                 <option value="25" selected>25 per page</option>
                 <option value="50">50 per page</option>
                 <option value="100">100 per page</option>
                 <option value="all">All results</option>
-              </select>`;
+              </select></span>`;
 }
 
 function selectControl(
@@ -293,7 +315,7 @@ function selectControl(
   label: string,
   values: readonly (readonly [string, string])[],
 ): string {
-  return `<select id="${id}" aria-label="${escapeHtml(label)}">${values.map(([value, text]) => option(value, text)).join("")}</select>`;
+  return `<span class="select-wrap"><select id="${id}" aria-label="${escapeHtml(label)}">${values.map(([value, text]) => option(value, text)).join("")}</select></span>`;
 }
 
 function issueList(issues: readonly LedgerIssue[]): string {

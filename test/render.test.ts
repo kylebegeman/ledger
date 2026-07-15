@@ -113,9 +113,14 @@ describe("writeStaticReader", () => {
     const testWorkspace = workspace(tempDir);
     const result = await writeStaticReader(
       testWorkspace,
-      buildStaticReaderModel(testWorkspace, [publicReleaseDocument("v1.0.0", "released")], {
-        profile: "public",
-      }),
+      buildStaticReaderModel(
+        testWorkspace,
+        [
+          publicReleaseDocument("v1.0.0", "released"),
+          publicReleaseDocument("v0.9.0", "released", "2025-11-20"),
+        ],
+        { profile: "public" },
+      ),
     );
 
     expect(result.profile).toBe("public");
@@ -125,6 +130,13 @@ describe("writeStaticReader", () => {
     expect(html).toContain("What shipped, clearly.");
     expect(html).toContain("Search versions and release notes");
     expect(html).toContain('data-year="2026"');
+    expect(html).toContain('data-year="2025"');
+    expect(html.indexOf('id="record-v1-0-0"')).toBeGreaterThan(-1);
+    expect(html.indexOf('id="record-v1-0-0"')).toBeLessThan(html.indexOf('id="record-v0-9-0"'));
+    expect(html.match(/class="entry release-entry year-start"/g)).toHaveLength(2);
+    expect(html).toContain("No matching releases");
+    expect(html).toContain("No releases yet");
+    expect(html).not.toContain("No matching records");
     expect(html).toContain('class="version-badge"');
     expect(html).toContain('<use href="#i-check"');
     expect(html).toContain('id="per-page"');
@@ -143,8 +155,7 @@ describe("writeStaticReader", () => {
     const searchIndex = JSON.parse(
       await readFile(path.join(tempDir, ".ledger/dist/public/search-index.json"), "utf8"),
     ) as readonly Record<string, unknown>[];
-    expect(searchIndex[0]).toMatchObject({
-      id: "v1.0.0",
+    expect(searchIndex.find((entry) => entry.id === "v1.0.0")).toMatchObject({
       publicNotes: ["Safe public feature."],
     });
     for (const forbidden of [
@@ -158,8 +169,10 @@ describe("writeStaticReader", () => {
       "why",
       "release",
     ]) {
-      expect(searchIndex[0]).not.toHaveProperty(forbidden);
-      expect(searchIndex[0]?.fields).not.toHaveProperty(forbidden);
+      for (const entry of searchIndex) {
+        expect(entry).not.toHaveProperty(forbidden);
+        expect(entry.fields).not.toHaveProperty(forbidden);
+      }
     }
   });
 });
@@ -241,6 +254,18 @@ describe("renderStaticReaderHtml", () => {
     expect(html).not.toContain('<i aria-hidden="true"></i>');
     expect(html).not.toContain('focusable="false"');
     expect(html).not.toContain("--shadow-md");
+    expect(html).toContain("markYearBreaks");
+    expect(html).toContain(".release-feed .year-start::before");
+    expect(html).toContain("content: attr(data-year)");
+    expect(html).toContain('data-empty-variant="filtered"');
+    expect(html).toContain("No records yet");
+    expect(html).toContain("emptyState");
+    expect(html).toContain('class="select-wrap"');
+    expect(html).toContain("mask: url(");
+    expect(html).toContain("#theme-toggle:hover");
+    expect(html).not.toContain("%23838880");
+    expect(html).not.toContain("@keyframes reveal");
+    expect(html).not.toContain("panel-open");
   });
 });
 
@@ -256,12 +281,13 @@ function workspace(projectRoot = "/tmp/ledger"): LedgerWorkspace {
 function publicReleaseDocument(
   id: string,
   status: "planned" | "released",
+  date = "2026-06-29",
 ): ParsedLedgerDocument {
   const raw = `---
 id: "${id}"
 kind: "release"
 title: "Ledger ${id}"
-date: "2026-06-29"
+date: "${date}"
 status: "${status}"
 areas: ["private-area"]
 files:

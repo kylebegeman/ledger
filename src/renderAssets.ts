@@ -209,7 +209,8 @@ export const staticReaderStyles = `    :root {
       cursor: pointer;
       transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
-    .icon-button:hover { background-color: var(--surface-hover); color: var(--ink); transform: rotate(-5deg); }
+    .icon-button:hover { background-color: var(--surface-hover); color: var(--ink); }
+    #theme-toggle:hover { transform: rotate(-5deg); }
     #theme-toggle [data-theme-icon] { display: none; }
     html[data-theme="light"] #theme-toggle [data-theme-icon="light"],
     html[data-theme="dark"] #theme-toggle [data-theme-icon="dark"],
@@ -318,10 +319,6 @@ export const staticReaderStyles = `    :root {
       border: 1px solid var(--line-strong);
       border-radius: var(--radius-pill);
       background-color: transparent;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23838880' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      background-size: 14px 14px;
       color: var(--ink-soft);
       cursor: pointer;
       font-size: 0.78rem;
@@ -331,6 +328,20 @@ export const staticReaderStyles = `    :root {
     }
     select:hover { border-color: var(--muted); background-color: var(--surface-hover); }
     select.is-active { border-color: var(--accent); background-color: var(--accent-soft); color: var(--accent-strong); }
+    .select-wrap { position: relative; display: inline-flex; }
+    .select-wrap::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 12px;
+      width: 14px;
+      height: 14px;
+      transform: translateY(-50%);
+      pointer-events: none;
+      background-color: var(--muted);
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px 14px no-repeat;
+    }
+    .select-wrap:has(select.is-active)::after { background-color: var(--accent-strong); }
     .filter-bar {
       display: flex;
       flex-wrap: wrap;
@@ -605,7 +616,7 @@ export const staticReaderStyles = `    :root {
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 12px 14px 12px 22px;
+      padding: 14px 16px 14px 28px;
       border-bottom: 1px solid var(--line);
     }
     .record-panel-eyebrow {
@@ -617,15 +628,15 @@ export const staticReaderStyles = `    :root {
     }
     .record-panel-body {
       display: grid;
-      gap: 18px;
+      gap: 20px;
       align-content: start;
       overflow-y: auto;
-      padding: 20px 22px 48px;
+      padding: 24px 28px 56px;
       scrollbar-width: thin;
       scrollbar-color: var(--faint) transparent;
     }
     .record-panel-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-    .record-panel-title { margin: 0; font-size: 1.35rem; line-height: 1.25; }
+    .record-panel-title { margin: 0; font-size: 1.45rem; line-height: 1.2; text-wrap: balance; }
     .record-panel .entry-summary { display: block; -webkit-line-clamp: unset; overflow: visible; margin: 0; font-size: 0.9rem; line-height: 1.65; }
     .record-panel .entry-tags { margin-top: 0; }
     .source-reference {
@@ -690,14 +701,26 @@ export const staticReaderStyles = `    :root {
       gap: clamp(24px, 5vw, 64px);
       padding: clamp(26px, 4vw, 44px) var(--space-2);
     }
-    .release-date { display: grid; align-content: start; gap: 5px; }
-    .release-date .version-badge { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; font-weight: 800; }
+    .release-date { position: sticky; top: 84px; display: grid; align-self: start; align-content: start; gap: 5px; }
+    .release-date .version-badge { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
     .release-date time { color: var(--muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
-    .release-content h3 { font-size: clamp(1.45rem, 3vw, 2.2rem); }
-    .release-notes { margin-top: var(--space-6); gap: 14px; }
-    .release-notes li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 11px; align-items: start; color: var(--ink-soft); }
+    .release-content h3 { margin-bottom: 6px; font-size: clamp(1.4rem, 2.6vw, 1.9rem); line-height: 1.15; text-wrap: balance; }
+    .release-notes { margin-top: var(--space-5); gap: 12px; }
+    .release-notes li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 11px; align-items: start; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.6; }
     .release-notes li > span:first-child { display: grid; place-items: center; width: 24px; height: 24px; color: var(--positive); }
     .release-notes .ui-icon { width: 15px; height: 15px; }
+    .release-feed .entry { contain-intrinsic-size: 240px; }
+    .release-feed .year-start::before {
+      content: attr(data-year);
+      grid-column: 1 / -1;
+      margin: 4px 0 clamp(16px, 3vw, 28px);
+      color: var(--muted);
+      font-size: clamp(2.1rem, 4.5vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -0.045em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
     .empty {
       display: grid;
       justify-items: center;
@@ -720,6 +743,9 @@ export const staticReaderStyles = `    :root {
       cursor: pointer;
       font-weight: 700;
     }
+    .empty[data-empty-state="bare"] [data-empty-variant="filtered"],
+    .empty:not([data-empty-state="bare"]) [data-empty-variant="bare"],
+    .empty[data-empty-state="bare"] [data-reset-filters] { display: none; }
     .pagination {
       display: flex;
       flex-wrap: wrap;
@@ -765,9 +791,12 @@ export const staticReaderStyles = `    :root {
       gap: var(--space-5);
       width: min(calc(100% - 40px), var(--max-width));
       margin: 0 auto;
-      padding: 26px 4px 40px;
+      padding: 26px 4px 44px;
       color: var(--muted);
-      font-size: 0.72rem;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
     .command-palette {
       width: min(720px, calc(100% - 28px));
@@ -830,7 +859,6 @@ export const staticReaderStyles = `    :root {
     .command-footer span { display: inline-flex; align-items: center; gap: 5px; }
     .command-footer kbd { min-width: 20px; height: 20px; padding: 0 4px; font-size: 0.62rem; }
     @keyframes entry-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-    @keyframes reveal { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
     @keyframes palette-in { from { opacity: 0; transform: translateY(-10px) scale(0.98); } to { opacity: 1; transform: none; } }
     @keyframes backdrop-in { from { opacity: 0; } }
     ::view-transition-old(ledger-results) { animation: 130ms ease both fade-out; }
@@ -860,7 +888,7 @@ export const staticReaderStyles = `    :root {
       .rail { position: static; max-height: none; overflow: visible; padding: 34px 4px 0; }
       .context-grid, .record-columns { grid-template-columns: 1fr; }
       .release-entry { grid-template-columns: 1fr; gap: 22px; }
-      .release-date { display: flex; justify-content: space-between; }
+      .release-date { position: static; display: flex; justify-content: space-between; }
     }
     @media (max-width: 540px) {
       .hero { padding-top: 60px; }
@@ -872,7 +900,7 @@ export const staticReaderStyles = `    :root {
       .entry-row { flex-wrap: wrap; gap: 6px 8px; }
       .entry-title { flex-basis: 100%; order: -1; white-space: normal; }
       .record-panel { width: 100vw; }
-      footer { display: grid; width: calc(100% - 28px); }
+      footer { display: grid; gap: 4px; width: calc(100% - 28px); }
       .command-palette { margin-top: 12px; }
       .command-footer span:last-child { display: none; }
     }
@@ -968,6 +996,7 @@ export const staticReaderRuntime = `    let searchIndexPromise;
 
     const entries = Array.from(document.querySelectorAll(".entry"));
     const entriesContainer = document.getElementById("entries");
+    const releaseFeed = entriesContainer.classList.contains("release-feed");
     const resultCount = document.getElementById("result-count");
     const resultNoun = resultCount.dataset.resultNoun || "record";
     const filterStatus = document.getElementById("filter-status");
@@ -1068,6 +1097,16 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       return value + " " + noun + (noun.endsWith("ch") ? "es" : "s");
     }
 
+    function markYearBreaks(pageList, ranked) {
+      if (!releaseFeed) return;
+      let previousYear = "";
+      for (const entry of pageList) {
+        const year = entry.dataset.year || "";
+        entry.classList.toggle("year-start", !ranked && year !== "" && year !== previousYear);
+        if (year) previousYear = year;
+      }
+    }
+
     async function applyFilters(syncUrl = true) {
       const request = ++filterRequest;
       const search = controls.search.value.trim().toLowerCase();
@@ -1092,7 +1131,8 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       if (currentPage > pageCount) currentPage = pageCount;
       if (currentPage < 1) currentPage = 1;
       const start = per > 0 ? (currentPage - 1) * per : 0;
-      const pageSet = new Set(per > 0 ? matchedList.slice(start, start + per) : matchedList);
+      const pageList = per > 0 ? matchedList.slice(start, start + per) : matchedList;
+      const pageSet = new Set(pageList);
       const candidates = entries.filter((entry) => !entry.hidden || pageSet.has(entry));
       const orderChanged = sortedEntries.some((entry, index) => entriesContainer.children[index] !== entry);
       const visibilityChanged = entries.some((entry) => entry.hidden === pageSet.has(entry));
@@ -1108,11 +1148,13 @@ export const staticReaderRuntime = `    let searchIndexPromise;
             scoreLabel.textContent = rank ? (rank === 1 ? "Top match" : "#" + rank) : "";
           }
         }
+        markYearBreaks(pageList, Boolean(matchedScores));
         resultCount.textContent = search && matchedScores
           ? pluralize(total, "ranked match")
           : pluralize(total, resultNoun);
         renderPagination(total, pageCount, per);
         empty.hidden = total !== 0;
+        empty.dataset.emptyState = search || activeFilterCount() > 0 ? "filtered" : "bare";
         entriesContainer.setAttribute("aria-busy", "false");
       };
       if (orderChanged || visibilityChanged) runTransition(applyUpdate, candidates);
@@ -1203,12 +1245,16 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       coverage: "Coverage"
     };
 
+    function activeFilterCount() {
+      return Object.keys(filterLabels).filter((key) => controlValue(key) !== "all").length;
+    }
+
     function announceFilterStatus(total, pageCount, search, matchedScores) {
       if (!filterStatus) return;
       const noun = search && matchedScores ? "ranked match" : resultNoun;
       let message = pluralize(total, noun);
       if (pageCount > 1) message += ", page " + currentPage + " of " + pageCount;
-      const active = Object.keys(filterLabels).filter((key) => controlValue(key) !== "all").length;
+      const active = activeFilterCount();
       if (active > 0) message += ", " + pluralize(active, "active filter");
       filterStatus.textContent = message;
     }
@@ -1252,7 +1298,6 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       recordPanelBody.scrollTop = 0;
       const wasOpen = openRecordId !== "";
       openRecordId = id;
-      document.body.classList.add("panel-open");
       recordPanel.classList.add("open");
       for (const candidate of entries) candidate.classList.toggle("is-open", candidate.dataset.id === id);
       if (syncUrl) writeUrlState(!wasOpen);
@@ -1264,7 +1309,6 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       if (!openRecordId || !recordPanel) return;
       const previous = recordEntry(openRecordId);
       openRecordId = "";
-      document.body.classList.remove("panel-open");
       recordPanel.classList.remove("open");
       for (const candidate of entries) candidate.classList.remove("is-open");
       if (syncUrl) writeUrlState();

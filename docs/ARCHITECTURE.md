@@ -312,12 +312,19 @@ behind the panel so readers can move between records without losing context.
 The few remaining container surfaces (search field, filter pills, graph
 summary, empty state) use a thin stroke outline with no background fill.
 Opaque surfaces and shadow are reserved for overlays: the search palette and
-the record panel. Decorative leading strokes remain excluded. The stylesheet
-defines its color system once with CSS `light-dark()` tokens, so light and
-dark themes share one declaration and native controls follow the active
-`color-scheme`. Icons ship as a single SVG symbol sprite referenced per use.
-Raw Markdown remains available to library consumers but is not embedded into
-the initial HTML payload.
+the record panel. Decorative leading strokes remain excluded. The public
+changelog orders releases newest-first and renders large year group headings
+as pseudo-element labels on the first entry of each year, so the filter
+runtime can reorder rows without displacing separate marker elements. The
+stylesheet defines its color system once with CSS `light-dark()` tokens, so
+light and dark themes share one declaration, native controls follow the
+active `color-scheme`, and the select chevron is painted through a CSS mask
+so it tracks the same tokens. The search palette backdrop stays a fixed
+half-black overlay by design: overlay scrims read correctly over both
+canvases, and `::backdrop` custom-property inheritance is newer than the
+documented Firefox floor. Icons ship as a single SVG symbol sprite
+referenced per use. Raw Markdown remains available to library consumers but
+is not embedded into the initial HTML payload.
 
 Browser behavior remains dependency-free and progressively enhanced. Search is
 available inline and through a native dialog opened with `/` or `Cmd/Ctrl+K`.
@@ -327,6 +334,11 @@ active filter counts to assistive technology. Filters are native selects
 styled as pills that highlight when active, synchronize with the URL, and
 reset pagination on change. Results paginate with a configurable page size
 (10 to 100 or all) and windowed page controls, both preserved in the URL.
+Year group headings in the public changelog are recomputed after every
+filter pass, label the first visible entry of each year on the current page,
+and are suppressed while ranked search reorders the feed. The empty state
+distinguishes a filtered miss from a genuinely empty library and hides its
+reset control when no search or filter is active.
 A density toggle switches between comfortable rows with a clamped summary
 and tag chips and compact single-line rows, remembered like the theme. The
 record panel closes with its button, Escape, or browser back, restores focus
