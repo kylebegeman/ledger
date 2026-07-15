@@ -21,7 +21,9 @@ describe("project path safety", () => {
     expect(assertSafeProjectRelativePath("docs//guides/./start.md")).toBe(
       "docs/guides/start.md",
     );
-    expect(resolveProjectPath("/repo", "docs/README.md")).toBe("/repo/docs/README.md");
+    expect(resolveProjectPath("/repo", "docs/README.md")).toBe(
+      path.resolve("/repo", "docs", "README.md"),
+    );
   });
 
   it("rejects traversal, absolute paths, and null bytes", () => {

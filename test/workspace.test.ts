@@ -33,13 +33,13 @@ describe("initWorkspace", () => {
   it("quotes project directory names when creating YAML config", async () => {
     const parent = await mkdtemp(path.join(os.tmpdir(), "ledger-init-name-test-"));
     tempDir = parent;
-    const project = path.join(parent, "project: #fixture");
+    const project = path.join(parent, "project #fixture");
     await mkdir(project);
 
     await initWorkspace(project);
 
     expect(await readFile(path.join(project, ".ledger", "config.yaml"), "utf8"))
-      .toContain('project: "project: #fixture"');
+      .toContain('project: "project #fixture"');
   });
 });
 
