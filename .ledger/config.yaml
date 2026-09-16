@@ -68,6 +68,7 @@ git:
     - .ledger/indexes/**
     - .ledger/reports/**
     - .ledger/dist/**
+    - .ledger/cache/**
     - docs/llm/manifest.json
     - docs/llm/START_HERE.md
     - node_modules/**

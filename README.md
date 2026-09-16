@@ -172,8 +172,12 @@ The same weighted search model is available from the terminal:
 ledger search renderer --limit 5
 ```
 
-Core read, validation, index, render-model, and search latency can be checked
-with:
+Ledger keeps a derived catalog cache under `.ledger/cache/` so repeated
+commands and agent calls parse only the records that changed. The JSON backend
+works everywhere; on Node 24.15 or newer the built-in sqlite backend is chosen
+automatically. Set `cache.backend` in `.ledger/config.yaml` to `json`,
+`sqlite`, or `none` to override. Core read, validation, index, render-model,
+and search latency can be checked with:
 
 ```bash
 ledger metrics
@@ -278,7 +282,8 @@ full local verification and publishing checklist.
 | `ledger serve --watch` | Serves the static reader on loopback and rebuilds it when Ledger records change. Use `--profile public` to preview only the isolated public output. |
 | `ledger coverage --explain` | Checks working-tree paths, or an explicit `--base`/`--head` range, and explains required, ignored, covered, and missing coverage. |
 | `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
-| `ledger metrics` | Measures read, validate, index, render-model, and search latency against configured budgets. |
+| `ledger metrics` | Measures cold read, warm cached read, validate, index, render-model, and search latency against configured budgets. |
+| `ledger cache status` | Reports the catalog cache backend, size, and freshness. Use `cache warm` to prefill it and `cache clear` to delete it. |
 | `ledger stale --check` | Finds stale knowledge signals such as missing relationships, stale symbols, and release verification gaps. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |

@@ -1,5 +1,6 @@
 import { access, stat } from "node:fs/promises";
 import path from "node:path";
+import { inspectLedgerCatalogCache } from "./catalogCache.js";
 import { auditDocs } from "./docs.js";
 import { normalizePath } from "./documents.js";
 import { inspectGit } from "./git.js";
@@ -60,6 +61,7 @@ export async function runDoctor(
       message: `${docsAudit.missingReferences.length} missing reference(s), ${docsAudit.unreferencedDocs.length} unreferenced durable doc(s), ${docsAudit.unknownDocs.length} unknown doc(s)`,
     },
     await indexFreshnessCheck(workspace, documents),
+    await cacheCheck(workspace),
     await renderOutputCheck(workspace),
     await renderBudgetCheck(workspace),
     performanceCheck(performance),
@@ -75,6 +77,28 @@ export async function runDoctor(
     checks,
     docsAudit,
     performance,
+  };
+}
+
+async function cacheCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorCheck> {
+  const cache = await inspectLedgerCatalogCache(workspace);
+  if (cache.backend === "none") {
+    return { name: "cache", level: "warn", message: `catalog cache ${cache.note ?? "unavailable"}` };
+  }
+  if (!cache.exists) {
+    return { name: "cache", level: "pass", message: `${cache.backend} backend, not written yet` };
+  }
+  if (!cache.current) {
+    return {
+      name: "cache",
+      level: "warn",
+      message: `${cache.backend} backend at ${cache.cachePath} is stale and will be rebuilt`,
+    };
+  }
+  return {
+    name: "cache",
+    level: "pass",
+    message: `${cache.backend} backend, ${cache.entries} record(s), ${cache.bytes} bytes at ${cache.cachePath}`,
   };
 }
 

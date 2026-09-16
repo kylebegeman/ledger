@@ -43,6 +43,33 @@ project before reading source or writing generated output. Source discovery is
 also bounded by configured document-count, byte-size, aggregate-size, and
 directory-depth limits.
 
+### Catalog Cache
+
+Every read of the source records goes through `readLedgerCatalog` in
+`src/catalogCache.ts`. It stats each Markdown file and serves unchanged files
+from a derived cache under `.ledger/cache/` instead of parsing them again. A
+file is unchanged when its size and mtime match the cached record; a file whose
+stat changed but whose SHA-256 content hash still matches is refreshed without
+parsing. Files modified within two seconds of the last cache write are always
+re-hashed to defeat mtime granularity races. Removed files drop out of the
+cache on the next read.
+
+Two backends implement one interface. The JSON backend writes
+`catalog.json` atomically (temp file plus rename) and needs nothing beyond
+Node 22. The sqlite backend stores one row per record in `catalog.sqlite`
+through `node:sqlite` and is selected automatically on Node 24.15 or newer,
+where the module is a release candidate and no longer warns on import.
+`cache.backend` in `.ledger/config.yaml` accepts `auto`, `json`, `sqlite`,
+or `none`. The cache header carries a format version and a fingerprint of the
+source directories and limits, so a config change or a format bump makes the
+cache rebuild instead of serving stale records. The cache is disposable: it is
+never read as source, it is written outside the transaction journal because
+it is not a source mutation, and `ledger cache clear` removes it.
+
+`ledger cache status`, `ledger cache warm`, and `ledger doctor` report the
+backend, entry count, size, and freshness. `ledger metrics` times a cold read
+that bypasses the cache and a warm read that uses it.
+
 ### Config
 
 Config lives at `.ledger/config.yaml`.
@@ -55,6 +82,7 @@ The config chooses:
 - required metadata
 - git coverage rules
 - generated output paths
+- catalog cache backend and location
 - enabled experimental features
 - optional links to existing project docs and routing manifests
 
