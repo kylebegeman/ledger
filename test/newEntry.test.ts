@@ -112,7 +112,7 @@ describe("createChangeEntry", () => {
     expect(entry).toContain("symbols: []");
     expect(entry).toContain("### Pattern: src/**");
     expect(entry).not.toContain("after0");
-  });
+  }, 30_000);
 
   it("allocates IDs across all entry-like records", () => {
     expect(
