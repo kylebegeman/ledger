@@ -8,6 +8,7 @@ import {
 } from "../packet.js";
 import type { LedgerWorkspace } from "../types.js";
 import { LedgerError } from "../machine.js";
+import { readEvidence } from "../verify.js";
 
 export interface LedgerPacketCommandOptions extends LedgerAgentPacketOptions {
   readonly writeReport?: boolean;
@@ -31,6 +32,8 @@ export async function runLedgerPacketCommand(
   const packet = buildAgentPacket(documents, normalizedTarget, {
     budgetTokens: options.budgetTokens,
     maxEntries: options.maxEntries,
+    evidence: options.evidence ?? (await readEvidence(workspace)),
+    maxEvidenceAgeDays: workspace.config.verification.maxAgeDays,
   });
   const reportPath = options.writeReport
     ? await writeAgentPacketReport(workspace, packet)

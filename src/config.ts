@@ -94,6 +94,30 @@ export const defaultConfig: LedgerConfig = {
     allowedFrontmatterFields: [],
     extensions: {},
   },
+  verification: {
+    allow: [
+      "npm run **",
+      "npm test **",
+      "npm ci",
+      "npx vitest **",
+      "npx tsc **",
+      "node dist/cli.js ci **",
+      "node dist/cli.js doctor **",
+      "node dist/cli.js validate **",
+      "node dist/cli.js ready **",
+      "node dist/cli.js stale **",
+      "node dist/cli.js coverage **",
+      "ledger ci **",
+      "ledger doctor **",
+      "ledger validate **",
+      "ledger ready **",
+      "ledger stale **",
+      "ledger coverage **",
+    ],
+    evidence: ".ledger/reports/evidence.json",
+    maxAgeDays: 30,
+    timeoutMs: 600_000,
+  },
   indexes: {
     output: ".ledger/indexes",
   },
@@ -229,6 +253,7 @@ type PartialLedgerConfig = {
     readonly requiredSections?: Partial<Record<LedgerDocumentKind, readonly string[]>>;
   };
   readonly schema?: Partial<LedgerConfig["schema"]>;
+  readonly verification?: Partial<LedgerConfig["verification"]>;
   readonly indexes?: Partial<LedgerConfig["indexes"]>;
   readonly reports?: Partial<LedgerConfig["reports"]>;
   readonly render?: Partial<LedgerConfig["render"]>;
@@ -286,6 +311,7 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
         ...override.schema?.extensions,
       },
     },
+    verification: { ...base.verification, ...override.verification },
     indexes: { ...base.indexes, ...override.indexes },
     reports: { ...base.reports, ...override.reports },
     render: {
@@ -346,6 +372,10 @@ function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
     validation: {
       ...config.validation,
       baseline: normalizeConfigPath(config.validation.baseline),
+    },
+    verification: {
+      ...config.verification,
+      evidence: normalizeConfigPath(config.verification.evidence),
     },
     git: {
       ...config.git,
@@ -421,6 +451,12 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
       }
     }, "schema");
   });
+  optionalObject(config, "verification", configPath, (verification) => {
+    optionalStringArray(verification, "allow", configPath, "verification");
+    optionalString(verification, "evidence", configPath, "verification");
+    optionalNumber(verification, "maxAgeDays", configPath, "verification");
+    optionalNumber(verification, "timeoutMs", configPath, "verification");
+  });
   optionalObject(config, "indexes", configPath, (indexes) => {
     optionalString(indexes, "output", configPath, "indexes");
   });
@@ -485,6 +521,8 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
     ["ids.decisionWidth", config.ids.decisionWidth],
     ["ids.sessionWidth", config.ids.sessionWidth],
     ["sessions.expiresInDays", config.sessions.expiresInDays],
+    ["verification.maxAgeDays", config.verification.maxAgeDays],
+    ["verification.timeoutMs", config.verification.timeoutMs],
   ] as const) {
     if (!Number.isInteger(value) || value < 1) {
       fail(configPath, `${label} must be a positive integer`);
@@ -503,6 +541,7 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
     ["reports.output", config.reports.output],
     ["render.output", config.render.output],
     ["validation.baseline", config.validation.baseline],
+    ["verification.evidence", config.verification.evidence],
     ["docs.root", config.docs.root],
     ["docs.routing.startHere", config.docs.routing.startHere],
     ["docs.routing.manifest", config.docs.routing.manifest],

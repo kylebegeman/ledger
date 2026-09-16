@@ -8,6 +8,7 @@ import { validateDocuments, writeValidationReport } from "../../validate.js";
 import { readLedgerDocuments } from "../../documents.js";
 import { looseRecord, requireWorkspace } from "../shared.js";
 import { defineOperation } from "../types.js";
+import { readEvidence } from "../../verify.js";
 import { renderProfileSchema } from "./records.js";
 
 interface ServeInput extends Record<string, unknown> {
@@ -128,7 +129,7 @@ LEDGER_SERVE_TOKEN.`,
       }
       await writeStaticReader(
         workspace,
-        buildStaticReaderModel(workspace, documents, { validation: result, profile: input.profile }),
+        buildStaticReaderModel(workspace, documents, { validation: result, profile: input.profile, evidence: await readEvidence(workspace) }),
       );
     };
     await render();

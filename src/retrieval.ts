@@ -1,6 +1,7 @@
 import { coveragePatternMatches, isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { extractBullets, getSectionBody } from "./query.js";
+import { evidenceFreshness, type LedgerEvidenceIndex, type LedgerVerificationFreshness } from "./verify.js";
 import type {
   LedgerDocumentKind,
   NormalizedLedgerDocument,
@@ -49,6 +50,15 @@ export interface LedgerRetrievalRecord {
   readonly conflictRules: readonly string[];
   readonly invariants: readonly string[];
   readonly verification: readonly string[];
+  /** Freshness of recorded verification evidence, when the caller supplied the evidence index. */
+  readonly verificationStatus?: LedgerVerificationFreshness;
+  readonly verifiedAt?: string;
+  readonly verifiedCommit?: string;
+}
+
+export interface RetrieveOptions {
+  readonly evidence?: LedgerEvidenceIndex;
+  readonly maxEvidenceAgeDays?: number;
 }
 
 /** A record reached by one relationship hop from a matched record. */
@@ -107,6 +117,7 @@ export function matchFilePath(target: string, candidate: string): LedgerFileMatc
 export function retrieveByPath(
   documents: readonly ParsedLedgerDocument[],
   target: string,
+  options: RetrieveOptions = {},
 ): LedgerRetrievalResult {
   const normalizedTarget = normalizePath(target);
   const normalized = documents.map((document) => ({ parsed: document, doc: normalizeDocument(document) }));
@@ -148,6 +159,7 @@ export function retrieveByPath(
       ),
       invariants: extractBullets(getSectionBody(parsed, "Invariants")),
       verification: extractBullets(getSectionBody(parsed, "Verification")),
+      ...evidenceFields(doc.id, doc.kind, options),
     });
   }
 
@@ -157,6 +169,20 @@ export function retrieveByPath(
     supersededBy,
   );
   return { target: normalizedTarget, records, related, missing };
+}
+
+function evidenceFields(
+  id: string,
+  kind: LedgerDocumentKind,
+  options: RetrieveOptions,
+): Pick<LedgerRetrievalRecord, "verificationStatus" | "verifiedAt" | "verifiedCommit"> {
+  if (!options.evidence || kind !== "change") return {};
+  const entry = options.evidence.entries[id];
+  const verificationStatus = evidenceFreshness(entry, options.maxEvidenceAgeDays ?? 30);
+  return {
+    verificationStatus,
+    ...(entry ? { verifiedAt: entry.ranAt, verifiedCommit: entry.commit } : {}),
+  };
 }
 
 /**

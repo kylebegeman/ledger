@@ -24,6 +24,7 @@ import { doctorOperation, metricsOperation, staleOperation } from "./definitions
 import { hookOperation, hooksInstallOperation } from "./definitions/hooks.js";
 import { readyOperation } from "./definitions/readiness.js";
 import { skillsInstallOperation } from "./definitions/skills.js";
+import { verifyOperation } from "./definitions/verify.js";
 import {
   adoptOperation,
   indexOperation,
@@ -72,6 +73,7 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   sessionPruneOperation,
   validateOperation,
   readyOperation,
+  verifyOperation,
   indexOperation,
   verifyIntegrityOperation,
   renderOperation,

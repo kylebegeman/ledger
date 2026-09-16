@@ -24,6 +24,7 @@ import {
 } from "../../retrieval.js";
 import type { LedgerSearchResult } from "../../search.js";
 import type { LedgerDocumentKind, NormalizedLedgerDocument } from "../../types.js";
+import { readEvidence } from "../../verify.js";
 import { loadDocuments, looseRecord, pathString, positiveInt, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
@@ -54,6 +55,9 @@ const retrievalRecordSchema = looseRecord({
   invariants: z.array(z.string()),
   verification: z.array(z.string()),
   supersededBy: z.array(z.string()),
+  verificationStatus: z.enum(["fresh", "stale", "failed", "none"]).optional(),
+  verifiedAt: z.string().optional(),
+  verifiedCommit: z.string().optional(),
 });
 
 const relatedRecordSchema = looseRecord({
@@ -106,8 +110,11 @@ superseding records one relationship hop away. --agent prints compact context.`,
     }),
   },
   async run(context, input) {
-    const { documents } = await loadDocuments(context);
-    const retrieval = retrieveByPath(documents, input.path);
+    const { workspace, documents } = await loadDocuments(context);
+    const retrieval = retrieveByPath(documents, input.path, {
+      evidence: await readEvidence(workspace),
+      maxEvidenceAgeDays: workspace.config.verification.maxAgeDays,
+    });
     const matches = explainFile(documents, input.path);
     return {
       data: {

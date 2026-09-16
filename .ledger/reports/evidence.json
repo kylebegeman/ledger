@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-16T14:43:26.892Z",
+  "entries": {
+    "0115": {
+      "id": "0115",
+      "path": ".ledger/entries/0115-run-verification-commands-and-record-evidence.md",
+      "commit": "b1887024570e7fdf9db42c6c351cc8ddc9bd1261",
+      "dirty": true,
+      "ranAt": "2026-09-16T14:43:26.892Z",
+      "ok": true,
+      "results": [
+        {
+          "command": "npm run typecheck",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 1269
+        },
+        {
+          "command": "npx vitest run",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 6866
+        },
+        {
+          "command": "LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 1468
+        },
+        {
+          "command": "node dist/cli.js verify 0115",
+          "ok": true,
+          "skipped": "not on verification.allow"
+        },
+        {
+          "command": "npm run ci",
+          "ok": true,
+          "exitCode": 0,
+          "durationMs": 12255
+        }
+      ]
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { relatedRecords, retrieveByPath, type LedgerRelationshipKind } from "./r
 import { searchLedgerIndex } from "./search.js";
 import { LedgerError } from "./machine.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
+import type { LedgerEvidenceIndex, LedgerVerificationFreshness } from "./verify.js";
 
 export interface LedgerPacketEntry {
   readonly id: string;
@@ -18,6 +19,8 @@ export interface LedgerPacketEntry {
   readonly conflictRules: readonly string[];
   readonly invariants: readonly string[];
   readonly verification: readonly string[];
+  readonly verificationStatus?: LedgerVerificationFreshness;
+  readonly verifiedAt?: string;
   readonly searchScore?: number;
   readonly matchedFields?: readonly string[];
 }
@@ -46,6 +49,9 @@ export interface LedgerAgentPacket {
 export interface LedgerAgentPacketOptions {
   readonly budgetTokens?: number;
   readonly maxEntries?: number;
+  /** Verification evidence to annotate entries with. */
+  readonly evidence?: LedgerEvidenceIndex;
+  readonly maxEvidenceAgeDays?: number;
 }
 
 export interface LedgerSearchAgentPacketOptions extends LedgerAgentPacketOptions {
@@ -57,7 +63,10 @@ export function buildAgentPacket(
   target: string,
   options: LedgerAgentPacketOptions = {},
 ): LedgerAgentPacket {
-  const retrieval = retrieveByPath(documents, target);
+  const retrieval = retrieveByPath(documents, target, {
+    evidence: options.evidence,
+    maxEvidenceAgeDays: options.maxEvidenceAgeDays,
+  });
   const allEntries: readonly LedgerPacketEntry[] = retrieval.records.map((record) => ({
     id: record.id,
     title: record.title,
@@ -69,6 +78,7 @@ export function buildAgentPacket(
     conflictRules: record.conflictRules,
     invariants: record.invariants,
     verification: record.verification,
+    ...(record.verificationStatus ? { verificationStatus: record.verificationStatus, verifiedAt: record.verifiedAt } : {}),
   }));
   const allRelated: readonly LedgerPacketRelated[] = retrieval.related.map((record) => ({ ...record }));
   const { entries, related } = selectPacketEntries(allEntries, allRelated, retrieval.target, options);
@@ -165,6 +175,9 @@ export function formatAgentPacket(packet: LedgerAgentPacket): string {
     lines.push(`## ${entry.id}: ${entry.title}`, "");
     lines.push(`- Entry: \`${entry.path}\``);
     if (typeof entry.searchScore === "number") lines.push(`- Search score: ${entry.searchScore}`);
+    if (entry.verificationStatus) {
+      lines.push(`- Verified: ${entry.verificationStatus}${entry.verifiedAt ? ` (${entry.verifiedAt.slice(0, 10)})` : ""}`);
+    }
     pushInlineList(lines, "Matched fields", entry.matchedFields ?? []);
     pushInlineList(lines, "Matched files", entry.matchedFiles);
     pushInlineList(lines, "Areas", entry.areas);
@@ -218,6 +231,8 @@ export function estimatePacketTokens(
       ...entry.conflictRules,
       ...entry.invariants,
       ...entry.verification,
+      entry.verificationStatus ?? "",
+      entry.verifiedAt ?? "",
       entry.searchScore?.toString() ?? "",
       ...(entry.matchedFields ?? []),
     ]),

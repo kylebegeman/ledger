@@ -70,6 +70,16 @@ export interface LedgerConfig {
     readonly allowedFrontmatterFields: readonly string[];
     readonly extensions: Readonly<Record<string, LedgerSchemaFieldType>>;
   };
+  readonly verification: {
+    /** Command patterns `ledger verify --run` may execute; `*` is one token, trailing `**` the rest. */
+    readonly allow: readonly string[];
+    /** Project-relative evidence sidecar path. */
+    readonly evidence: string;
+    /** Days after which passing evidence counts as stale. */
+    readonly maxAgeDays: number;
+    /** Per-command timeout in milliseconds. */
+    readonly timeoutMs: number;
+  };
   readonly indexes: {
     readonly output: string;
   };

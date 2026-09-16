@@ -3,13 +3,14 @@ import path from "node:path";
 import { inspectLedgerCatalogCache } from "./catalogCache.js";
 import { probeEngine, readDaemonRecord } from "./daemon.js";
 import { auditDocs } from "./docs.js";
-import { normalizePath } from "./documents.js";
+import { normalizeDocument, normalizePath } from "./documents.js";
 import { inspectGit } from "./git.js";
 import { inspectWorkspaceWriteState } from "./fileTransaction.js";
 import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
 import { checkRenderBudgets } from "./render.js";
 import { detectStaleKnowledge } from "./stale.js";
 import { symbolExtractorStatus } from "./symbols.js";
+import { evidenceFreshness, readEvidence } from "./verify.js";
 import type {
   LedgerDocsAudit,
   LedgerValidationResult,
@@ -69,6 +70,7 @@ export async function runDoctor(
     await renderBudgetCheck(workspace),
     performanceCheck(performance),
     await symbolsCheck(),
+    await verificationCheck(workspace, documents),
     {
       name: "stale-knowledge",
       level: stale.issues.length > 0 ? "warn" : "pass",
@@ -82,6 +84,24 @@ export async function runDoctor(
     docsAudit,
     performance,
   };
+}
+
+async function verificationCheck(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+): Promise<LedgerDoctorCheck> {
+  const evidence = await readEvidence(workspace);
+  const counts = { fresh: 0, stale: 0, failed: 0, none: 0 };
+  for (const document of documents) {
+    if (document.kind !== "change") continue;
+    const id = normalizeDocument(document).id;
+    counts[evidenceFreshness(evidence.entries[id], workspace.config.verification.maxAgeDays)] += 1;
+  }
+  const message = `${counts.fresh} fresh, ${counts.stale} stale, ${counts.failed} failed, ${counts.none} without evidence`;
+  if (counts.failed > 0 || counts.stale > 0) {
+    return { name: "verification", level: "warn", message: `${message}; rerun ledger verify --run` };
+  }
+  return { name: "verification", level: "pass", message };
 }
 
 async function symbolsCheck(): Promise<LedgerDoctorCheck> {
