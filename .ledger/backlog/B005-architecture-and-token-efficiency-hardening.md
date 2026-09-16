@@ -3,8 +3,8 @@ id: "B005"
 kind: "backlog"
 title: "Architecture And Token Efficiency Hardening"
 date: "2026-07-03"
-updated: "2026-09-15"
-status: "in-progress"
+updated: "2026-09-16"
+status: "shipped"
 areas:
   - "architecture"
   - "agents"
@@ -81,9 +81,9 @@ Token-efficiency techniques to prioritize:
 
 ## Promotion Notes
 
-Most accepted slices have shipped: packet budgets, health diagnostics, shared
+All accepted slices have shipped: packet budgets, health diagnostics, shared
 command models, parser-backed extraction, graph data, artifact budgets, config
-migrations, validation profiles, versioned machine results, and a stable versus
-unstable package boundary. Further command extraction from `src/cli.ts` is
-absorbed by the operation registry planned under decision D005; this item stays
-open until that registry replaces the CLI switch.
+migrations, validation profiles, versioned machine results, a stable versus
+unstable package boundary, and finally the operation registry under decision
+D005, which replaced the `src/cli.ts` switch and now generates the CLI, help,
+and MCP surfaces from one typed table.

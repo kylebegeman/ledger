@@ -272,7 +272,7 @@ full local verification and publishing checklist.
 | `ledger new "Title" --from-diff` | Drafts a change entry from git status. |
 | `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
 | `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
-| `ledger index` | Writes JSON indexes under `.ledger/indexes/`. |
+| `ledger index` | Validates records and writes JSON indexes under `.ledger/indexes/`. |
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. Use `--check` to compare without replacing the baseline. |
 | `ledger render` | Builds the internal static reader. Use `--profile public` for released public notes only. |
 | `ledger serve --watch` | Serves the static reader on loopback and rebuilds it when Ledger records change. Use `--profile public` to preview only the isolated public output. |
@@ -290,7 +290,7 @@ full local verification and publishing checklist.
 | `ledger search <query> --limit 5` | Runs weighted fuzzy search over the same fields used by the static reader. |
 | `ledger search-packet <query> --budget 1600 --limit 5` | Builds a token-budgeted agent packet from weighted search results when the exact file path is unknown. |
 | `ledger packet <path> --budget 1200 --write-report` | Builds a compact token-budgeted agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
-| `ledger mcp` | Starts a stdio MCP server for agent tools. |
+| `ledger mcp` | Starts a stdio MCP server exposing every registry operation with MCP metadata. |
 | `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
 | `ledger query --kind change --area cli --symbol run --text retry` | Filters records by kind, area, status, release, relationship, symbol, file, doc, id, or metadata text. |
 | `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
@@ -308,8 +308,8 @@ ledger docs impact --help
 ledger release --help
 ```
 
-Commands that support `--json` return a versioned envelope for both success and
-failure. MCP tools use the same envelope:
+Every command except `serve` and `mcp` supports `--json` and returns a versioned
+envelope for both success and failure. MCP tools use the same envelope:
 
 ```json
 {
@@ -473,11 +473,13 @@ For MCP-capable agents, run Ledger as a stdio server:
 ledger mcp
 ```
 
-The server exposes tools for validation, query, file explanation, conflict
-guidance, file-based agent packets, search-based agent packets, docs impact
-checks, and integrity verification.
-Each MCP response includes a compact `summary` object before detailed payload
-fields so agents can decide whether to read the full result.
+The server exposes every registry operation with MCP metadata: validate, query,
+search, explain, conflict, packet, search-packet, coverage, ci, doctor, metrics,
+stale, unreleased, docs audit, docs classify, docs impact, and integrity
+verification. Tools declare input and output schemas and return the machine
+envelope as structured content. Each response includes a compact `summary`
+object before detailed payload fields so agents can decide whether to read the
+full result.
 
 Use `ledger agents --role contributor`, `ledger agents --role reviewer`,
 `ledger agents --role release`, `ledger agents --role migration`, or
