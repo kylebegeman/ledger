@@ -204,7 +204,8 @@ Every operation that runs inside a workspace is available as
 `POST /api/v1/operations/<name>` with its input as the JSON body and the same
 machine envelope as `--json`. MCP clients connect to `/mcp`.
 
-While the engine runs, CLI commands in the same project delegate to it and
+While the engine runs, the reader open in your browser reloads itself after
+every rebuild, and CLI commands in the same project delegate to the engine and
 answer from its warm cache; nothing changes in how you call them. Pass
 `--local` on any command, or set `LEDGER_NO_DAEMON=1`, to run in-process. If
 the engine is gone, commands fall back to running locally on their own.

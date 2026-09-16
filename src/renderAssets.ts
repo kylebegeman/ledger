@@ -1570,4 +1570,24 @@ export const staticReaderRuntime = `    let searchIndexPromise;
     });
     readUrlState();
     updateThemeLabel();
-    void applyFilters(false);`;
+    void applyFilters(false);
+
+    // Live reload when served by \`ledger serve --api\`: the engine streams a
+    // rebuilt event after watched records change. A static file server answers
+    // /events with 404, which closes the EventSource without retrying.
+    if (window.location.protocol === "http:" || window.location.protocol === "https:") {
+      try {
+        const liveEvents = new EventSource("events");
+        let reloadTimer;
+        liveEvents.addEventListener("rebuilt", () => {
+          if (filterStatus) filterStatus.textContent = "Ledger records changed; reloading.";
+          clearTimeout(reloadTimer);
+          reloadTimer = setTimeout(() => window.location.reload(), 150);
+        });
+        liveEvents.addEventListener("rebuild-failed", () => {
+          if (filterStatus) filterStatus.textContent = "Ledger records changed but failed validation; showing the last good render.";
+        });
+      } catch {
+        // EventSource unavailable; the reader stays static.
+      }
+    }`;
