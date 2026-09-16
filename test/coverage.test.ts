@@ -25,6 +25,11 @@ describe("matchesGlob", () => {
     expect(matchesGlob("src/nested/cli.ts", "src/*.ts")).toBe(false);
     expect(matchesGlob("packages/app/generated/client.ts", "**/generated/**")).toBe(true);
   });
+
+  it("ignores the Ledger-owned docs routing paths through the default git.ignore patterns", () => {
+    expect(matchesGlob(".ledger/reports/docs-start-here.md", ".ledger/reports/**")).toBe(true);
+    expect(matchesGlob(".ledger/indexes/docs-routing.json", ".ledger/indexes/**")).toBe(true);
+  });
 });
 
 describe("checkCoverage", () => {

@@ -1,6 +1,8 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
 import { defaultConfig, readLedgerConfig } from "./config.js";
+import { docsStartHereMarker, isLedgerGeneratedManifest, isLedgerGeneratedStartHere } from "./docs.js";
 import { assertNoEscapingSymlink, resolveProjectPath } from "./projectPaths.js";
 import { LedgerError } from "./machine.js";
 import type { LedgerDocsAdoption, LedgerWorkspace } from "./types.js";
@@ -65,10 +67,36 @@ export interface InitWorkspaceOptions {
   readonly adoption?: LedgerDocsAdoption;
 }
 
+export interface LedgerDocsRoutingPaths {
+  readonly startHere: string;
+  readonly manifest: string;
+}
+
+/** Routing paths written by init when docs/llm holds no curated routing files. */
+export const defaultDocsRouting: LedgerDocsRoutingPaths = {
+  startHere: "docs/llm/START_HERE.md",
+  manifest: "docs/llm/manifest.json",
+};
+
+/** Derived, git-ignored routing paths chosen when docs/llm already holds curated routing files. */
+export const ledgerOwnedDocsRouting: LedgerDocsRoutingPaths = {
+  startHere: ".ledger/reports/docs-start-here.md",
+  manifest: ".ledger/indexes/docs-routing.json",
+};
+
+export interface InitWorkspaceResult {
+  /** The docs.routing pair in effect: chosen for a new config, or read from the existing one. */
+  readonly routing: LedgerDocsRoutingPaths;
+  /** True when a docs/llm routing file existed that Ledger did not generate. */
+  readonly routingFilesDetected: boolean;
+  /** False when .ledger/config.yaml already existed and was left untouched. */
+  readonly configWritten: boolean;
+}
+
 export async function initWorkspace(
   projectRoot = process.cwd(),
   options: InitWorkspaceOptions = {},
-): Promise<void> {
+): Promise<InitWorkspaceResult> {
   const ledgerRoot = path.join(projectRoot, ".ledger");
   const directories = [
     ledgerRoot,
@@ -101,10 +129,17 @@ export async function initWorkspace(
     await mkdir(directory, { recursive: true });
   }
 
-  await writeFileIfMissing(
-    path.join(ledgerRoot, "config.yaml"),
-    serializeDefaultConfig(path.basename(projectRoot), options),
+  const routingFilesDetected = options.withDocs
+    ? await detectCuratedDocsRouting(projectRoot)
+    : false;
+  const chosenRouting = routingFilesDetected ? ledgerOwnedDocsRouting : defaultDocsRouting;
+
+  const configPath = path.join(ledgerRoot, "config.yaml");
+  const configWritten = await writeFileIfMissing(
+    configPath,
+    serializeDefaultConfig(path.basename(projectRoot), options, chosenRouting, routingFilesDetected),
   );
+  const routing = configWritten ? chosenRouting : (await readLedgerConfig(configPath)).docs.routing;
   await writeFileIfMissing(path.join(ledgerRoot, "README.md"), initialLedgerReadme());
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "change.md"), changeTemplate());
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "backlog.md"), backlogTemplate());
@@ -119,6 +154,8 @@ export async function initWorkspace(
 
   if (options.withDocs) {
     await writeFileIfMissing(path.join(projectRoot, "docs", "README.md"), docsReadme());
+  }
+  if (options.withDocs && !routingFilesDetected) {
     await writeFileIfMissing(
       path.join(projectRoot, "docs", "llm", "START_HERE.md"),
       docsStartHere(),
@@ -128,13 +165,53 @@ export async function initWorkspace(
       `${JSON.stringify({ version: 1, generatedBy: "ledger", routes: [] }, null, 2)}\n`,
     );
   }
+
+  return { routing, routingFilesDetected, configWritten };
 }
 
-async function writeFileIfMissing(filePath: string, content: string): Promise<void> {
+/**
+ * True when docs/llm/START_HERE.md or docs/llm/manifest.json exists and Ledger did not generate
+ * it. A file that cannot be read (a symlink, a directory, an oversized or non-UTF-8 file) counts
+ * as curated so the scaffold never replaces it.
+ */
+async function detectCuratedDocsRouting(projectRoot: string): Promise<boolean> {
+  const candidates = [
+    [defaultDocsRouting.startHere, isLedgerGeneratedStartHere],
+    [defaultDocsRouting.manifest, isLedgerGeneratedManifest],
+  ] as const;
+  for (const [relativePath, isLedgerGenerated] of candidates) {
+    const content = await readOptionalFile(path.join(projectRoot, relativePath));
+    if (content === undefined) continue;
+    if (content === null || !isLedgerGenerated(content)) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns the file content, undefined when it does not exist, or null when it cannot be read.
+ * Reads without following symlinks and with the same byte limit reconcile applies.
+ */
+async function readOptionalFile(filePath: string): Promise<string | undefined | null> {
+  try {
+    return await readUtf8FileLimited(
+      filePath,
+      defaultConfig.limits.maxTotalDocumentBytes,
+      "docs routing file",
+    );
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return undefined;
+    return null;
+  }
+}
+
+/** Writes the file unless it exists; returns true when this call created it. */
+async function writeFileIfMissing(filePath: string, content: string): Promise<boolean> {
   try {
     await writeFile(filePath, content, { encoding: "utf8", flag: "wx" });
+    return true;
   } catch (error) {
     if (!isCode(error, "EEXIST")) throw error;
+    return false;
   }
 }
 
@@ -148,7 +225,12 @@ async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
-function serializeDefaultConfig(project: string, options: InitWorkspaceOptions): string {
+function serializeDefaultConfig(
+  project: string,
+  options: InitWorkspaceOptions,
+  routing: LedgerDocsRoutingPaths = defaultDocsRouting,
+  routingFilesDetected = false,
+): string {
   const sections = defaultConfig.validation.requiredSections;
   const adoption = options.adoption ?? "partial";
   return [
@@ -225,9 +307,12 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "  root: docs",
     "  managed: false",
     `  adoption: ${adoption}`,
+    ...(routingFilesDetected
+      ? ["  # Existing docs/llm routing files are curated; Ledger writes derived routing here."]
+      : []),
     "  routing:",
-    "    startHere: docs/llm/START_HERE.md",
-    "    manifest: docs/llm/manifest.json",
+    `    startHere: ${routing.startHere}`,
+    `    manifest: ${routing.manifest}`,
     "git:",
     "  requireEntryFor:",
     "    - src/**",
@@ -285,6 +370,8 @@ function docsReadme(): string {
 
 function docsStartHere(): string {
   return [
+    docsStartHereMarker,
+    "",
     "# LLM Start Here",
     "",
     "Use Ledger records in `.ledger/` for change history, decisions, backlog,",

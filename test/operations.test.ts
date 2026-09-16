@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,6 +9,11 @@ import {
   ledgerOperations,
   mcpInputSchema,
 } from "../src/operations/registry.js";
+import { docsStartHereMarker } from "../src/docs.js";
+import { ledgerOwnedDocsRouting } from "../src/workspace.js";
+
+const curatedStartHere = "# Curated\n\nHand-written router.\n";
+const curatedManifest = `${JSON.stringify({ version: 1, repo: "fixture", entrypoint: "docs/llm/START_HERE.md" }, null, 2)}\n`;
 
 const contractPath = path.join(process.cwd(), "test", "fixtures", "operations-contract.json");
 
@@ -106,7 +111,12 @@ describe("registry-driven CLI", () => {
       schemaVersion: 1,
       ok: true,
       command: "init",
-      data: { withDocs: true, adoption: "partial" },
+      data: {
+        withDocs: true,
+        adoption: "partial",
+        routing: { startHere: "docs/llm/START_HERE.md", manifest: "docs/llm/manifest.json" },
+        routingFilesDetected: false,
+      },
     });
 
     const created = await captureRun(
@@ -144,9 +154,10 @@ describe("registry-driven CLI", () => {
     });
 
     const reconcile = await captureRun(["docs", "reconcile", "--json"], tempDir);
+    expect(reconcile.exitCode).toBe(0);
     expect(JSON.parse(reconcile.stdout)).toMatchObject({
       command: "docs.reconcile",
-      data: { manifestPath: expect.stringContaining("manifest.json") },
+      data: { manifestPath: expect.stringContaining("manifest.json"), written: true, refused: [] },
     });
 
     const explain = await captureRun(["explain", "src/nothing.ts", "--json"], tempDir);
@@ -155,6 +166,90 @@ describe("registry-driven CLI", () => {
       data: { target: "src/nothing.ts", matches: [], records: [], related: [], missing: [] },
     });
   });
+
+  it("refuses to replace a curated START_HERE on docs reconcile unless forced", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-operations-")));
+    expect((await captureRun(["init", "--with-docs"], tempDir)).exitCode).toBe(0);
+    const startHerePath = path.join(tempDir, "docs", "llm", "START_HERE.md");
+    const manifestPath = path.join(tempDir, "docs", "llm", "manifest.json");
+    const scaffoldManifest = await readFile(manifestPath, "utf8");
+    await writeFile(startHerePath, curatedStartHere, "utf8");
+
+    const refused = await captureRun(["docs", "reconcile"], tempDir);
+    expect(refused.exitCode).toBe(1);
+    expect(refused.stdout).toContain("refused to replace docs/llm/START_HERE.md");
+    expect(refused.stdout).toContain("Ledger did not generate");
+    expect(refused.stdout).toContain("No routing file was written.");
+    expect(refused.stdout).toContain("would have written");
+    expect(refused.stdout).toContain("--force");
+    expect(await readFile(startHerePath, "utf8")).toBe(curatedStartHere);
+    expect(await readFile(manifestPath, "utf8")).toBe(scaffoldManifest);
+
+    const refusedJson = await captureRun(["docs", "reconcile", "--json"], tempDir);
+    expect(refusedJson.exitCode).toBe(1);
+    expect(JSON.parse(refusedJson.stdout)).toMatchObject({
+      ok: true,
+      command: "docs.reconcile",
+      data: {
+        written: false,
+        refused: [{ path: "docs/llm/START_HERE.md", reason: "no-ledger-marker" }],
+        routes: expect.any(Number),
+        manifestPath: "docs/llm/manifest.json",
+        startHerePath: "docs/llm/START_HERE.md",
+      },
+    });
+    expect(await readFile(startHerePath, "utf8")).toBe(curatedStartHere);
+
+    const forced = await captureRun(["docs", "reconcile", "--force", "--json"], tempDir);
+    expect(forced.exitCode).toBe(0);
+    expect(JSON.parse(forced.stdout)).toMatchObject({
+      data: {
+        written: true,
+        refused: [{ path: "docs/llm/START_HERE.md", reason: "no-ledger-marker" }],
+      },
+    });
+    expect((await readFile(startHerePath, "utf8")).startsWith(docsStartHereMarker)).toBe(true);
+  }, 30_000);
+
+  it("points adopt at Ledger-owned routing paths when curated routing files exist", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-operations-")));
+    await mkdir(path.join(tempDir, "docs", "llm"), { recursive: true });
+    const startHerePath = path.join(tempDir, "docs", "llm", "START_HERE.md");
+    const manifestPath = path.join(tempDir, "docs", "llm", "manifest.json");
+    await writeFile(startHerePath, curatedStartHere, "utf8");
+    await writeFile(manifestPath, curatedManifest, "utf8");
+
+    const adopt = await captureRun(["adopt", "--json"], tempDir);
+    expect(adopt.exitCode).toBe(0);
+    expect(JSON.parse(adopt.stdout)).toMatchObject({
+      command: "adopt",
+      data: { routingFilesDetected: true, routing: ledgerOwnedDocsRouting, configWritten: true },
+    });
+    expect(await readFile(startHerePath, "utf8")).toBe(curatedStartHere);
+    expect(await readFile(manifestPath, "utf8")).toBe(curatedManifest);
+
+    const configPath = path.join(tempDir, ".ledger", "config.yaml");
+    const writtenConfig = await readFile(configPath, "utf8");
+    const again = await captureRun(["adopt"], tempDir);
+    expect(again.exitCode).toBe(0);
+    expect(again.stdout).toContain(
+      `.ledger/config.yaml already existed and was left alone; docs.routing stays at ${ledgerOwnedDocsRouting.startHere} and ${ledgerOwnedDocsRouting.manifest}.`,
+    );
+    expect(await readFile(configPath, "utf8")).toBe(writtenConfig);
+
+    const reconcile = await captureRun(["docs", "reconcile", "--json"], tempDir);
+    expect(reconcile.exitCode).toBe(0);
+    expect(JSON.parse(reconcile.stdout)).toMatchObject({
+      data: {
+        written: true,
+        refused: [],
+        startHerePath: ".ledger/reports/docs-start-here.md",
+        manifestPath: ".ledger/indexes/docs-routing.json",
+      },
+    });
+    expect(await readFile(startHerePath, "utf8")).toBe(curatedStartHere);
+    expect(await readFile(manifestPath, "utf8")).toBe(curatedManifest);
+  }, 30_000);
 
   it("rejects unknown group subcommands and reports group usage", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-operations-"));

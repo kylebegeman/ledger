@@ -61,13 +61,38 @@
           },
           "adoption": {
             "type": "string"
+          },
+          "routing": {
+            "type": "object",
+            "properties": {
+              "startHere": {
+                "type": "string"
+              },
+              "manifest": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "startHere",
+              "manifest"
+            ],
+            "additionalProperties": {}
+          },
+          "routingFilesDetected": {
+            "type": "boolean"
+          },
+          "configWritten": {
+            "type": "boolean"
           }
         },
         "required": [
           "projectRoot",
           "ledgerRoot",
           "withDocs",
-          "adoption"
+          "adoption",
+          "routing",
+          "routingFilesDetected",
+          "configWritten"
         ],
         "additionalProperties": {}
       }
@@ -118,13 +143,38 @@
           },
           "adoption": {
             "type": "string"
+          },
+          "routing": {
+            "type": "object",
+            "properties": {
+              "startHere": {
+                "type": "string"
+              },
+              "manifest": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "startHere",
+              "manifest"
+            ],
+            "additionalProperties": {}
+          },
+          "routingFilesDetected": {
+            "type": "boolean"
+          },
+          "configWritten": {
+            "type": "boolean"
           }
         },
         "required": [
           "projectRoot",
           "ledgerRoot",
           "withDocs",
-          "adoption"
+          "adoption",
+          "routing",
+          "routingFilesDetected",
+          "configWritten"
         ],
         "additionalProperties": {}
       }
@@ -5695,7 +5745,7 @@
     {
       "name": "docs.reconcile",
       "title": "Reconcile docs routing",
-      "description": "Regenerate the docs routing manifest and START_HERE file from the docs audit.",
+      "description": "Regenerate the docs routing manifest and START_HERE file from the docs audit, refusing files Ledger did not generate unless forced.",
       "workspace": "required",
       "mutates": true,
       "interactive": false,
@@ -5705,14 +5755,24 @@
           "reconcile"
         ],
         "aliases": [],
-        "usage": "ledger docs reconcile [--json]",
+        "usage": "ledger docs reconcile [--force] [--json]",
         "json": true,
-        "flags": {}
+        "flags": {
+          "force": {
+            "type": "boolean",
+            "field": "force"
+          }
+        }
       },
       "input": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "properties": {},
+        "properties": {
+          "force": {
+            "description": "Replace routing files that Ledger did not generate.",
+            "type": "boolean"
+          }
+        },
         "additionalProperties": false
       },
       "output": {
@@ -5727,12 +5787,36 @@
           },
           "startHerePath": {
             "type": "string"
+          },
+          "written": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "reason"
+              ],
+              "additionalProperties": {}
+            }
           }
         },
         "required": [
           "routes",
           "manifestPath",
-          "startHerePath"
+          "startHerePath",
+          "written",
+          "refused"
         ],
         "additionalProperties": {}
       }

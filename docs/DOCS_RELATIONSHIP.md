@@ -142,6 +142,11 @@ ledger docs reconcile
 
 `ledger docs reconcile` should not blindly rewrite prose. It should produce a
 patch plan or a focused checklist unless the project opts into generated docs.
+The concrete rule today: it writes only the two configured routing files, and
+it refuses to replace either one when Ledger did not generate it (a manifest
+without `generatedBy: "ledger"`, a START_HERE without the
+`<!-- ledger:docs:start-here -->` marker) unless `--force` is passed. On
+refusal nothing is written to the routing paths and the command exits 1.
 
 ## Features This Unlocks
 
