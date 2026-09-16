@@ -63,14 +63,45 @@ describe("buildDocsImpact", () => {
     expect(impact.missingDocsImpact).toEqual(["src/cli.ts"]);
   });
 
-  it("accepts source changes when docs files changed directly", () => {
+  it("does not let a docs edit alone satisfy a source file", () => {
     const impact = buildDocsImpact(workspace(), [document([])], [
       "src/cli.ts",
       "docs/architecture/runtime.md",
     ]);
 
     expect(impact.docsFiles).toEqual(["docs/architecture/runtime.md"]);
-    expect(impact.missingDocsImpact).toEqual([]);
+    expect(impact.files).toEqual([{ path: "src/cli.ts", satisfied: false, entries: [], evidence: [] }]);
+    expect(impact.missingDocsImpact).toEqual(["src/cli.ts"]);
+  });
+
+  it("attributes evidence per file through the entries that list each file", () => {
+    const impact = buildDocsImpact(
+      workspace(),
+      [document([], { status: "not-needed", reason: "CLI plumbing." })],
+      ["src/cli.ts", "src/other.ts", ".ledger/entries/0001-docs.md"],
+    );
+
+    expect(impact.files.map((file) => [file.path, file.satisfied])).toEqual([
+      ["src/cli.ts", true],
+      ["src/other.ts", false],
+    ]);
+    expect(impact.files[0]?.evidence).toEqual([
+      { entry: ".ledger/entries/0001-docs.md", kind: "declaration", status: "not-needed", reason: "CLI plumbing.", docs: [] },
+    ]);
+    expect(impact.missingDocsImpact).toEqual(["src/other.ts"]);
+    const report = formatDocsImpactReport(impact);
+    expect(report).toContain("- satisfied: `src/cli.ts`");
+    expect(report).toContain("- missing: `src/other.ts` (no changed entry lists it)");
+  });
+
+  it("marks a listed file without a reviewed declaration as missing", () => {
+    const impact = buildDocsImpact(
+      workspace(),
+      [document([], { status: "none", reason: "TODO: decide." })],
+      ["src/cli.ts", ".ledger/entries/0001-docs.md"],
+    );
+    expect(impact.files[0]).toMatchObject({ satisfied: false, entries: [".ledger/entries/0001-docs.md"], evidence: [] });
+    expect(formatDocsImpactReport(impact)).toContain("without a reviewed docs impact");
   });
 });
 

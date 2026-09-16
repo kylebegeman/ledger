@@ -5397,6 +5397,25 @@
               "additionalProperties": {}
             }
           },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "satisfied": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "path",
+                "satisfied"
+              ],
+              "additionalProperties": {}
+            }
+          },
           "missingDocsImpact": {
             "type": "array",
             "items": {
@@ -5409,6 +5428,7 @@
           "docsFiles",
           "referencedDocs",
           "declarations",
+          "files",
           "missingDocsImpact"
         ],
         "additionalProperties": {}

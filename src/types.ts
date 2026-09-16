@@ -291,7 +291,25 @@ export interface LedgerDocsImpact {
   readonly changedEntries: readonly string[];
   readonly referencedDocs: readonly string[];
   readonly declarations: readonly LedgerDocsImpactDeclaration[];
+  /** Per-source-file evidence; a file is satisfied only through an entry that lists it. */
+  readonly files: readonly LedgerDocsImpactFile[];
   readonly missingDocsImpact: readonly string[];
+}
+
+export interface LedgerDocsImpactEvidence {
+  readonly entry: string;
+  readonly kind: "declaration" | "docs-reference";
+  readonly status?: LedgerDocsImpactStatus;
+  readonly reason?: string;
+  readonly docs: readonly string[];
+}
+
+export interface LedgerDocsImpactFile {
+  readonly path: string;
+  readonly satisfied: boolean;
+  /** Changed entries whose file references match this path. */
+  readonly entries: readonly string[];
+  readonly evidence: readonly LedgerDocsImpactEvidence[];
 }
 
 export type LedgerDocsImpactStatus = "updated" | "not-needed" | "none";
