@@ -1,23 +1,44 @@
 import { normalizeDocument, normalizePath } from "./documents.js";
-import { getChangedFiles, type GetChangedFilesOptions } from "./git.js";
+import { getChangedFileDetails, type GetChangedFilesOptions } from "./git.js";
 import type {
   LedgerCoverageFile,
+  LedgerCoverageMode,
   LedgerCoverageResult,
   LedgerWorkspace,
   ParsedLedgerDocument,
 } from "./types.js";
 
-export interface CheckCoverageOptions extends GetChangedFilesOptions {}
+export interface CheckCoverageOptions extends GetChangedFilesOptions {
+  /** Override the configured coverage mode. */
+  readonly mode?: LedgerCoverageMode;
+}
 
+/**
+ * Compare changed files against Ledger file references. Under the `current`
+ * mode a required path must be listed by a change entry that is itself part
+ * of the change set (added or modified in the working tree, staged diff, or
+ * revision range); a path listed only by older records is `historical` and
+ * counts as missing. Under `any`, every record counts.
+ */
 export async function checkCoverage(
   workspace: LedgerWorkspace,
   documents: readonly ParsedLedgerDocument[],
   options: CheckCoverageOptions = {},
 ): Promise<LedgerCoverageResult> {
-  const changedFiles = (await getChangedFiles(workspace.projectRoot, options)).map(normalizePath);
+  const mode = options.mode ?? workspace.config.git.coverage;
+  const { mode: _mode, ...changeOptions } = options;
+  const changedDetails = await getChangedFileDetails(workspace.projectRoot, changeOptions);
+  const changedFiles = changedDetails.map((file) => normalizePath(file.path));
+  const changedSet = new Set(
+    changedDetails.filter((file) => file.status !== "deleted").map((file) => normalizePath(file.path)),
+  );
   const coveragePatterns = collectCoveragePatterns(documents);
+  const currentEntries = documents
+    .filter((document) => document.kind === "change" && changedSet.has(normalizePath(document.relativePath)))
+    .map((document) => ({ id: normalizeDocument(document).id, files: normalizeDocument(document).files.map(normalizePath) }))
+    .sort((left, right) => left.id.localeCompare(right.id));
   const files = changedFiles.map((filePath) =>
-    explainCoverageForPath(workspace, filePath, coveragePatterns),
+    explainCoverageForPath(workspace, filePath, coveragePatterns, currentEntries, mode),
   );
   const requiredFiles = files
     .filter((file) => file.required)
@@ -28,14 +49,25 @@ export async function checkCoverage(
   const missingFiles = files
     .filter((file) => file.required && !file.covered)
     .map((file) => file.path);
+  const historicalFiles = files
+    .filter((file) => file.status === "historical")
+    .map((file) => file.path);
 
   return {
+    mode,
     changedFiles,
     requiredFiles,
     coveredFiles,
     missingFiles,
+    historicalFiles,
+    currentEntries: currentEntries.map((entry) => entry.id),
     files,
   };
+}
+
+interface CurrentEntry {
+  readonly id: string;
+  readonly files: readonly string[];
 }
 
 export function isCoverageRequired(workspace: LedgerWorkspace, filePath: string): boolean {
@@ -124,6 +156,8 @@ function explainCoverageForPath(
   workspace: LedgerWorkspace,
   filePath: string,
   coveragePatterns: readonly string[],
+  currentEntries: readonly CurrentEntry[],
+  mode: LedgerCoverageMode,
 ): LedgerCoverageFile {
   const normalized = normalizePath(filePath);
   const ignoredBy = findMatchingPattern(normalized, workspace.config.git.ignore);
@@ -135,6 +169,7 @@ function explainCoverageForPath(
       status: "ignored",
       ignoredBy,
       coveredBy: [],
+      currentEntries: [],
     };
   }
 
@@ -146,19 +181,30 @@ function explainCoverageForPath(
       covered: false,
       status: "not-required",
       coveredBy: [],
+      currentEntries: [],
     };
   }
 
   const coveredBy = coveragePatterns.filter((pattern) =>
     coveragePatternMatches(normalized, pattern),
   );
+  const current = currentEntries
+    .filter((entry) => entry.files.some((pattern) => coveragePatternMatches(normalized, pattern)))
+    .map((entry) => entry.id);
+  const covered = mode === "any" ? coveredBy.length > 0 : current.length > 0;
+  const status = covered
+    ? "covered"
+    : coveredBy.length > 0
+      ? "historical"
+      : "missing";
   return {
     path: normalized,
     required: true,
-    covered: coveredBy.length > 0,
-    status: coveredBy.length > 0 ? "covered" : "missing",
+    covered,
+    status,
     requiredBy,
     coveredBy,
+    currentEntries: current,
   };
 }
 

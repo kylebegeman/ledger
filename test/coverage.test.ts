@@ -94,6 +94,50 @@ describe("checkCoverage", () => {
     expect(result.missingFiles).toEqual(["src/range-missing.ts"]);
   });
 
+  it("treats coverage from records outside the change set as historical under current mode", async () => {
+    const workspace = await createFixtureWorkspace();
+    await writeFile(path.join(workspace.projectRoot, "src", "covered.ts"), "v1");
+    await git(workspace.projectRoot, "init");
+    await git(workspace.projectRoot, "config", "user.email", "ledger@example.com");
+    await git(workspace.projectRoot, "config", "user.name", "Ledger Test");
+    await git(workspace.projectRoot, "add", ".");
+    await git(workspace.projectRoot, "commit", "-m", "base with receipt");
+    const base = await gitOutput(workspace.projectRoot, "rev-parse", "HEAD");
+    await writeFile(path.join(workspace.projectRoot, "src", "covered.ts"), "v2");
+    await git(workspace.projectRoot, "add", ".");
+    await git(workspace.projectRoot, "commit", "-m", "change without a new receipt");
+    const head = await gitOutput(workspace.projectRoot, "rev-parse", "HEAD");
+    const documents = await readLedgerDocuments(workspace);
+
+    const current = await checkCoverage(workspace, documents, { base, head });
+    expect(current.mode).toBe("current");
+    expect(current.currentEntries).toEqual([]);
+    expect(current.historicalFiles).toEqual(["src/covered.ts"]);
+    expect(current.missingFiles).toEqual(["src/covered.ts"]);
+    const file = current.files.find((candidate) => candidate.path === "src/covered.ts");
+    expect(file?.status).toBe("historical");
+    expect(file?.coveredBy).toEqual(["src/covered.ts"]);
+    expect(file?.currentEntries).toEqual([]);
+
+    const any = await checkCoverage(workspace, documents, { base, head, mode: "any" });
+    expect(any.missingFiles).toEqual([]);
+    expect(any.files.find((candidate) => candidate.path === "src/covered.ts")?.status).toBe("covered");
+
+    await writeFile(
+      path.join(workspace.projectRoot, ".ledger", "entries", "0001-test.md"),
+      entry("0001", ["src/covered.ts"]).replace('updated: "2026-06-29"', 'updated: "2026-09-16"'),
+    );
+    await git(workspace.projectRoot, "add", ".");
+    await git(workspace.projectRoot, "commit", "-m", "update the receipt");
+    const refreshed = await checkCoverage(workspace, await readLedgerDocuments(workspace), {
+      base,
+      head: await gitOutput(workspace.projectRoot, "rev-parse", "HEAD"),
+    });
+    expect(refreshed.currentEntries).toEqual(["0001"]);
+    expect(refreshed.missingFiles).toEqual([]);
+    expect(refreshed.files.find((candidate) => candidate.path === "src/covered.ts")?.currentEntries).toEqual(["0001"]);
+  });
+
   it("requires coverage when a source file is renamed outside the required path set", async () => {
     const workspace = await createFixtureWorkspace();
     await writeFile(path.join(workspace.projectRoot, "src", "renamed.ts"), "source");

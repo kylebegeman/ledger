@@ -118,8 +118,16 @@ export interface LedgerConfig {
   readonly git: {
     readonly requireEntryFor: readonly string[];
     readonly ignore: readonly string[];
+    /**
+     * `current`: a required changed path must be listed by a change entry that
+     * is itself part of the inspected change set. `any`: any record listing the
+     * path satisfies coverage.
+     */
+    readonly coverage: LedgerCoverageMode;
   };
 }
+
+export type LedgerCoverageMode = "current" | "any";
 
 export interface LedgerWorkspace {
   readonly projectRoot: string;
@@ -296,19 +304,28 @@ export interface LedgerDocsImpactDeclaration {
 }
 
 export interface LedgerCoverageResult {
+  readonly mode: LedgerCoverageMode;
   readonly changedFiles: readonly string[];
   readonly requiredFiles: readonly string[];
   readonly coveredFiles: readonly string[];
   readonly missingFiles: readonly string[];
+  /** Required paths listed only by records outside the change set. */
+  readonly historicalFiles: readonly string[];
+  /** Change entries that are part of the inspected change set. */
+  readonly currentEntries: readonly string[];
   readonly files: readonly LedgerCoverageFile[];
 }
 
 export interface LedgerCoverageFile {
   readonly path: string;
   readonly required: boolean;
+  /** Satisfied under the configured coverage mode. */
   readonly covered: boolean;
-  readonly status: "ignored" | "not-required" | "covered" | "missing";
+  readonly status: "ignored" | "not-required" | "covered" | "historical" | "missing";
   readonly requiredBy?: string;
   readonly ignoredBy?: string;
+  /** File references from any record that match the path. */
   readonly coveredBy: readonly string[];
+  /** Ids of change entries in the change set whose file references match the path. */
+  readonly currentEntries: readonly string[];
 }

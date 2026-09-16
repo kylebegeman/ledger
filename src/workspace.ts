@@ -229,6 +229,7 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "    - docs/**",
     "  ignore:",
     ...defaultConfig.git.ignore.map((pattern) => `    - ${JSON.stringify(pattern)}`),
+    "  coverage: current",
     "",
   ].join("\n");
 }
