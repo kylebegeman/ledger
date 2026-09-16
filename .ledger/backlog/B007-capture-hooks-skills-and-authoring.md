@@ -79,6 +79,9 @@ Excluded:
 
 Promoted into 0.6 change entries milestone by milestone: 0106 (authoring
 commands), 0107 (session records), 0108 (`ready`), 0109 (host hooks), and
-0110 (skill and `AGENTS.md` block). The Kore adoption check stays open until
-`ledger adopt` and `ledger hooks install` run in that repository. See
-`docs/HANDOFF.md` for sequencing and conventions.
+0110 (skill and `AGENTS.md` block). Kore adopted Ledger 0.7.0 on 2026-09-16
+with hooks for Claude Code and Codex, the skill, and the agents block
+(kylebegeman/forge#23, Kore receipt 0001); friction from that install is in
+product notes 0125, 0126, and 0127, recorded by 0128. The Kore check closes
+after a live Claude Code session there leaves a session record and a draft
+receipt. See `docs/HANDOFF.md` for sequencing and conventions.
