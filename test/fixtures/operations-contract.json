@@ -5212,7 +5212,7 @@
           "hook"
         ],
         "aliases": [],
-        "usage": "ledger hook <session-start|post-tool-use|stop|session-end|pre-compact> [--host <host>] [--budget <tokens>]",
+        "usage": "ledger hook <session-start|user-prompt-submit|post-tool-use|stop|session-end|pre-compact> [--host <host>] [--budget <tokens>]",
         "json": false,
         "positionals": {
           "field": "event",
@@ -5243,6 +5243,7 @@
             "type": "string",
             "enum": [
               "session-start",
+              "user-prompt-submit",
               "post-tool-use",
               "stop",
               "session-end",

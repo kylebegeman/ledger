@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
+import { coveragePatternMatches } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction, hashFileContent, type LedgerFileChange } from "./fileTransaction.js";
 import {
@@ -8,7 +9,7 @@ import {
   setFrontmatterScalars,
 } from "./frontmatterEdit.js";
 import { LedgerError } from "./machine.js";
-import { draftChangeEntry, inferAreas, slugify } from "./newEntry.js";
+import { defaultDraftTitle, draftChangeEntry, inferAreas, slugify } from "./newEntry.js";
 import { nextRecordId } from "./authoring.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import { extractBullets, getSectionBody } from "./query.js";
@@ -67,7 +68,10 @@ export interface StartSessionResult {
 
 /**
  * Start a session record, or return the active record that already matches
- * the host session id so hooks can call this on every SessionStart.
+ * the host session id so hooks can call this on every SessionStart. An
+ * active record past `expires` no longer matches; the new record copies the
+ * `related` list of the most recent expired record for the host session so
+ * the receipts linked to the dead tab stay linked to the work that continues.
  */
 export async function startSession(
   workspace: LedgerWorkspace,
@@ -78,11 +82,40 @@ export async function startSession(
     const existing = findSession(documents, options, { activeOnly: true });
     if (existing) return { session: toSessionRecord(existing.normalized), created: false };
   }
+  const related = inheritedRelated(documents, options.hostSession);
   const draft = await draftSession(workspace, documents, options);
+  const content = related.length > 0 ? setFrontmatterArray(draft.content, "related", related) : draft.content;
   await applyFileTransaction(workspace, "start session", [
-    { path: draft.path, content: draft.content, expectedHash: null },
+    { path: draft.path, content, expectedHash: null },
   ]);
-  return { session: draft.session, created: true };
+  return { session: { ...draft.session, related }, created: true };
+}
+
+/** The `related` list a replacement record inherits from the host session's expired record, if any. */
+function inheritedRelated(documents: readonly ParsedLedgerDocument[], hostSession: string | undefined): readonly string[] {
+  if (!hostSession) return [];
+  return findExpiredActiveSession(documents, hostSession)?.normalized.related ?? [];
+}
+
+/**
+ * The most recent record for a host session that is still `active` but past
+ * its `expires` date. Hosts such as the Claude desktop app may never fire
+ * SessionEnd, so a tab can outlive its record; the replacement record inherits
+ * this one's links, and a late SessionEnd can still close it.
+ */
+export function findExpiredActiveSession(
+  documents: readonly ParsedLedgerDocument[],
+  hostSession: string,
+): FoundSession | undefined {
+  const today = isoDate(new Date());
+  return documents
+    .filter((document) => document.kind === "session")
+    .map((parsed) => ({ parsed, normalized: normalizeDocument(parsed) }))
+    .filter(
+      ({ normalized }) =>
+        normalized.hostSession === hostSession && normalized.status === "active" && isExpiredSession(normalized, today),
+    )
+    .sort((left, right) => right.normalized.id.localeCompare(left.normalized.id))[0];
 }
 
 interface DraftedSession {
@@ -156,16 +189,24 @@ export async function touchSession(
   const normalizedPaths = [...new Set(paths.map(normalizePath).filter((value) => value.length > 0))];
   const existing = findSession(documents, options, { activeOnly: true });
   if (!existing) {
+    // A touch after the host session's record expired starts a replacement that keeps its links.
+    const related = inheritedRelated(documents, options.hostSession);
     const draft = await draftSession(workspace, documents, {
       host: options.host,
       hostSession: options.hostSession,
     });
-    const content = withSessionFiles(workspace, draft.content, [], normalizedPaths);
+    let content = withSessionFiles(workspace, draft.content, [], normalizedPaths);
+    if (related.length > 0) content = setFrontmatterArray(content, "related", related);
     await applyFileTransaction(workspace, "touch session", [
       { path: draft.path, content, expectedHash: null },
     ]);
     return {
-      session: { ...draft.session, files: normalizedPaths, areas: inferSessionAreas(workspace, normalizedPaths) },
+      session: {
+        ...draft.session,
+        files: normalizedPaths,
+        areas: inferSessionAreas(workspace, normalizedPaths),
+        related,
+      },
       added: normalizedPaths,
       created: true,
     };
@@ -274,6 +315,14 @@ export interface SessionReceiptResult {
  * Draft the change entry for a session, or refresh the draft already linked
  * to it. Returns undefined when the session has touched nothing. The session
  * stays active so later touches keep flowing into the same draft.
+ *
+ * Every change entry the session lists in `related` counts as linked, whatever
+ * its status. Touched paths that no linked entry's `files` cover (patterns such
+ * as `src/**` count) go to the linked draft when one exists; when every path is
+ * covered nothing is written and the most recent linked entry is returned with
+ * `created: false`; otherwise a new draft is created for the uncovered paths,
+ * related to the session and the earlier receipts. With `fromDiff` the new
+ * draft's file list still follows the Git working tree.
  */
 export async function draftSessionReceipt(
   workspace: LedgerWorkspace,
@@ -286,44 +335,41 @@ export async function draftSessionReceipt(
   const { parsed, normalized } = found;
   const today = isoDate(new Date());
 
-  const linkedDraft = documents
+  const linked = documents
     .map((document) => ({ parsed: document, normalized: normalizeDocument(document) }))
-    .find(
-      ({ parsed: candidate, normalized: entry }) =>
-        candidate.kind === "change" && entry.status === "draft" && normalized.related.includes(entry.id),
-    );
+    .filter(({ parsed: candidate, normalized: entry }) => candidate.kind === "change" && normalized.related.includes(entry.id));
+  const uncovered = normalized.files.filter(
+    (file) => !linked.some(({ normalized: entry }) => entry.files.some((pattern) => coveragePatternMatches(file, pattern))),
+  );
+  const linkedDraft = linked.find(({ normalized: entry }) => entry.status === "draft");
   if (linkedDraft) {
-    const files = [...new Set([...linkedDraft.normalized.files, ...normalized.files])];
-    if (files.length === linkedDraft.normalized.files.length) {
-      return {
-        session: toSessionRecord(normalized),
-        entry: { id: linkedDraft.normalized.id, path: normalizePath(linkedDraft.parsed.relativePath), created: false },
-      };
-    }
+    const entry = { id: linkedDraft.normalized.id, path: normalizePath(linkedDraft.parsed.relativePath), created: false };
+    if (uncovered.length === 0) return { session: toSessionRecord(normalized), entry };
+    const files = [...new Set([...linkedDraft.normalized.files, ...uncovered])];
     let content = setFrontmatterArray(linkedDraft.parsed.raw, "files", files);
     content = setFrontmatterScalars(content, { updated: today });
     await applyFileTransaction(workspace, `refresh receipt for ${normalized.id}`, [
-      {
-        path: normalizePath(linkedDraft.parsed.relativePath),
-        content,
-        expectedHash: hashFileContent(linkedDraft.parsed.raw),
-      },
+      { path: entry.path, content, expectedHash: hashFileContent(linkedDraft.parsed.raw) },
     ]);
+    return { session: toSessionRecord(normalized), entry };
+  }
+  if (linked.length > 0 && uncovered.length === 0) {
+    const latest = [...linked].sort((left, right) => right.normalized.id.localeCompare(left.normalized.id))[0]!;
     return {
       session: toSessionRecord(normalized),
-      entry: { id: linkedDraft.normalized.id, path: normalizePath(linkedDraft.parsed.relativePath), created: false },
+      entry: { id: latest.normalized.id, path: normalizePath(latest.parsed.relativePath), created: false },
     };
   }
 
   const notes = sessionNoteLines(parsed);
   const sectionBodies: Record<string, string> = notes.length > 0 ? { Notes: notes.join("\n") } : {};
   const entryOptions = {
-    title: normalized.title,
+    title: sessionSummaryTitle(parsed) ?? defaultDraftTitle(normalized.areas, uncovered),
     staged: false,
     areas: normalized.areas,
     status: "draft",
-    files: normalized.files,
-    related: [normalized.id],
+    files: uncovered,
+    related: [normalized.id, ...linked.map(({ normalized: entry }) => entry.id)],
     sectionBodies,
   };
   let draft;
@@ -343,6 +389,17 @@ export async function draftSessionReceipt(
     session: { ...toSessionRecord(normalized), related: [...normalized.related, draft.id] },
     entry: { id: draft.id, path: draft.path, created: true },
   };
+}
+
+/** The first Summary line of a session that is not the template placeholder, as a receipt title. */
+function sessionSummaryTitle(parsed: ParsedLedgerDocument): string | undefined {
+  const body = getSectionBody(parsed, "Summary") ?? "";
+  for (const raw of body.split(/\r?\n/)) {
+    const line = raw.trim().replace(/^[-*]\s+/, "");
+    if (line.length === 0 || sessionPlaceholderLines.has(line)) continue;
+    return line;
+  }
+  return undefined;
 }
 
 function sessionNoteLines(parsed: ParsedLedgerDocument): readonly string[] {
@@ -392,7 +449,10 @@ export interface FoundSession {
 
 /**
  * Resolve a session record: by id, by host session id, or the most recently
- * updated active session when nothing more specific is given.
+ * updated active session when nothing more specific is given. With
+ * `activeOnly`, an active record whose `expires` date is before today is
+ * treated as inactive, so a tab whose host never fired SessionEnd stops
+ * receiving touches, notes, and drafts; a by-id lookup still reaches it.
  */
 export function findSession(
   documents: readonly ParsedLedgerDocument[],
@@ -405,8 +465,9 @@ export function findSession(
   if (selector.id) {
     return sessions.find(({ normalized }) => normalized.id === selector.id);
   }
+  const today = isoDate(new Date());
   const candidates = options.activeOnly
-    ? sessions.filter(({ normalized }) => normalized.status === "active")
+    ? sessions.filter(({ normalized }) => normalized.status === "active" && !isExpiredSession(normalized, today))
     : sessions;
   if (selector.hostSession) {
     return candidates.find(({ normalized }) => normalized.hostSession === selector.hostSession);

@@ -7,7 +7,16 @@ import { run } from "../src/cli.js";
 import { readLedgerDocuments } from "../src/documents.js";
 import { setFrontmatterArray } from "../src/frontmatterEdit.js";
 import { queryDocuments } from "../src/query.js";
-import { closeSession, findSession, noteSession, pruneSessions, startSession, touchSession } from "../src/sessions.js";
+import {
+  closeSession,
+  draftSessionReceipt,
+  findExpiredActiveSession,
+  findSession,
+  noteSession,
+  pruneSessions,
+  startSession,
+  touchSession,
+} from "../src/sessions.js";
 import { detectStaleKnowledge } from "../src/stale.js";
 import { validateDocuments } from "../src/validate.js";
 import { findWorkspace, initWorkspace } from "../src/workspace.js";
@@ -153,6 +162,124 @@ describe("session records", () => {
     expect(pruned.removed).toEqual([".ledger/sessions/S0001-old.md"]);
     const remaining = await readLedgerDocuments(workspace);
     expect(remaining.map((document) => String(document.frontmatter.id))).toEqual(["S0002"]);
+  });
+
+  it("treats an expired active session as inactive and starts a replacement that keeps its links", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    await startSession(workspace, await readLedgerDocuments(workspace), { host: "claude-code", hostSession: "tab-1" });
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["src/cli.ts"], { hostSession: "tab-1" });
+    const drafted = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "tab-1" }, { fromDiff: false });
+    expect(drafted?.entry).toMatchObject({ id: "0001", created: true });
+    const oldPath = path.join(root, ".ledger/sessions", (await readLedgerDocuments(workspace)).find((document) => document.kind === "session")!.relativePath.split("/").at(-1)!);
+    await writeFile(oldPath, (await readFile(oldPath, "utf8")).replace(/expires: "[^"]+"/, 'expires: "2000-01-01"'));
+
+    let documents = await readLedgerDocuments(workspace);
+    expect(findSession(documents, { hostSession: "tab-1" }, { activeOnly: true })).toBeUndefined();
+    expect(findSession(documents, {}, { activeOnly: true })).toBeUndefined();
+    expect(findSession(documents, { hostSession: "tab-1" }, { activeOnly: false })?.normalized.id).toBe("S0001");
+    expect(findSession(documents, { id: "S0001" }, { activeOnly: true })?.normalized.id).toBe("S0001");
+    await expect(noteSession(workspace, documents, "orphan", { hostSession: "tab-1" })).rejects.toMatchObject({ code: "record-not-found" });
+    expect(await draftSessionReceipt(workspace, documents, { hostSession: "tab-1" }, { fromDiff: false })).toBeUndefined();
+
+    const replaced = await startSession(workspace, documents, { host: "claude-code", hostSession: "tab-1" });
+    expect(replaced.created).toBe(true);
+    expect(replaced.session).toMatchObject({ id: "S0002", related: ["0001"] });
+    expect(await readFile(path.join(root, replaced.session.path), "utf8")).toContain('related:\n  - "0001"');
+    documents = await readLedgerDocuments(workspace);
+    expect(findSession(documents, { hostSession: "tab-1" }, { activeOnly: true })?.normalized.id).toBe("S0002");
+    const touched = await touchSession(workspace, documents, ["src/other.ts"], { hostSession: "tab-1" });
+    expect(touched.session.id).toBe("S0002");
+
+    const closed = await closeSession(workspace, await readLedgerDocuments(workspace), { id: "S0001" });
+    expect(closed.changed).toBe(true);
+    expect(closed.session.status).toBe("closed");
+    const third = await startSession(workspace, await readLedgerDocuments(workspace), { host: "claude-code", hostSession: "tab-1" });
+    expect(third).toMatchObject({ created: false, session: { id: "S0002" } });
+  });
+
+  it("keeps links across a repeated expiry and when a touch starts the replacement", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    const expire = async (id: string) => {
+      const found = findSession(await readLedgerDocuments(workspace), { id }, { activeOnly: false })!;
+      const file = path.join(root, found.parsed.relativePath);
+      await writeFile(file, (await readFile(file, "utf8")).replace(/expires: "[^"]+"/, 'expires: "2000-01-01"'));
+    };
+    await startSession(workspace, await readLedgerDocuments(workspace), { host: "claude-code", hostSession: "tab-2" });
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["src/cli.ts"], { hostSession: "tab-2" });
+    const drafted = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "tab-2" }, { fromDiff: false });
+    expect(drafted?.entry).toMatchObject({ id: "0001", created: true });
+
+    await expire("S0001");
+    const second = await startSession(workspace, await readLedgerDocuments(workspace), { host: "claude-code", hostSession: "tab-2" });
+    expect(second.session).toMatchObject({ id: "S0002", related: ["0001"] });
+
+    await expire("S0002");
+    expect(findExpiredActiveSession(await readLedgerDocuments(workspace), "tab-2")?.normalized.id).toBe("S0002");
+    const touched = await touchSession(workspace, await readLedgerDocuments(workspace), ["src/cli.ts"], { hostSession: "tab-2" });
+    expect(touched).toMatchObject({ created: true, session: { id: "S0003", related: ["0001"] } });
+    expect(await readFile(path.join(root, touched.session.path), "utf8")).toContain('related:\n  - "0001"');
+
+    const again = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "tab-2" }, { fromDiff: false });
+    expect(again?.entry).toEqual({ id: "0001", path: drafted!.entry.path, created: false });
+    expect((await readLedgerDocuments(workspace)).filter((document) => document.kind === "change")).toHaveLength(1);
+  });
+
+  it("writes nothing when every touched path is covered by a linked receipt", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    await startSession(workspace, await readLedgerDocuments(workspace), { host: "codex", hostSession: "cov-1" });
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["src/cli.ts"], { hostSession: "cov-1" });
+    const drafted = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "cov-1" }, { fromDiff: false });
+    const entryPath = path.join(root, drafted!.entry.path);
+    await writeFile(entryPath, (await readFile(entryPath, "utf8")).replace('status: "draft"', 'status: "landed"'));
+    const landedRaw = await readFile(entryPath, "utf8");
+    const sessionPath = path.join(root, drafted!.session.path);
+    const sessionRaw = await readFile(sessionPath, "utf8");
+
+    const quiet = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "cov-1" }, { fromDiff: false });
+    expect(quiet?.entry).toEqual({ id: "0001", path: drafted!.entry.path, created: false });
+    expect(await readFile(entryPath, "utf8")).toBe(landedRaw);
+    expect(await readFile(sessionPath, "utf8")).toBe(sessionRaw);
+    expect((await readLedgerDocuments(workspace)).filter((document) => document.kind === "change")).toHaveLength(1);
+
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["src/search/core.ts"], { hostSession: "cov-1" });
+    await writeFile(entryPath, landedRaw.replace('files:\n  - "src/cli.ts"', 'files:\n  - "src/**"'));
+    const pattern = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "cov-1" }, { fromDiff: false });
+    expect(pattern?.entry.created).toBe(false);
+    expect((await readLedgerDocuments(workspace)).filter((document) => document.kind === "change")).toHaveLength(1);
+
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["docs/API.md"], { hostSession: "cov-1" });
+    const second = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "cov-1" }, { fromDiff: false });
+    expect(second?.entry).toMatchObject({ id: "0002", created: true });
+    const secondRaw = await readFile(path.join(root, second!.entry.path), "utf8");
+    expect(secondRaw).toContain('files:\n  - "docs/API.md"\n');
+    expect(secondRaw).not.toContain('"src/cli.ts"');
+    expect(secondRaw).toContain('related:\n  - "S0001"\n  - "0001"');
+    expect(await readFile(sessionPath, "utf8")).toContain('related:\n  - "0001"\n  - "0002"');
+  });
+
+  it("titles a drafted receipt from the Summary note or the neutral default", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    await startSession(workspace, await readLedgerDocuments(workspace), { host: "claude-code", hostSession: "t-1" });
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["src/cli.ts", "docs/API.md"], { hostSession: "t-1" });
+    const plain = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "t-1" }, { fromDiff: false });
+    expect(plain?.entry.path).toBe(".ledger/entries/0001-changes-to-cli-docs.md");
+    expect(await readFile(path.join(root, plain!.entry.path), "utf8")).toContain('title: "Changes to cli, docs"');
+
+    await startSession(workspace, await readLedgerDocuments(workspace), { host: "claude-code", hostSession: "t-2" });
+    await noteSession(workspace, await readLedgerDocuments(workspace), "Speed up the search index", { hostSession: "t-2", section: "Summary" });
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["src/search.ts"], { hostSession: "t-2" });
+    const named = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "t-2" }, { fromDiff: false });
+    expect(named?.entry.path).toBe(".ledger/entries/0002-speed-up-the-search-index.md");
+    expect(await readFile(path.join(root, named!.entry.path), "utf8")).toContain('title: "Speed up the search index"');
+
+    await startSession(workspace, await readLedgerDocuments(workspace), { hostSession: "t-3" });
+    await touchSession(workspace, await readLedgerDocuments(workspace), ["README.md"], { hostSession: "t-3" });
+    const root3 = await draftSessionReceipt(workspace, await readLedgerDocuments(workspace), { hostSession: "t-3" }, { fromDiff: false });
+    expect(await readFile(path.join(root, root3!.entry.path), "utf8")).toContain('title: "Changes to readme"');
   });
 
   it("exposes the session commands and the scratch alias on the CLI", async () => {

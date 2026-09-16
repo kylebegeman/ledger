@@ -339,13 +339,59 @@ source, touched paths made project-relative, stop-hook flag), and dispatches:
 - `session-start` starts or resumes the session record for the host session
   id and prints the SessionStart context object with a budgeted packet built
   from the session's touched files, or the Git working tree, or recent changes
-  and open backlog
-- `post-tool-use` appends touched paths to the session record
+  and open backlog; after the session line it lists every change entry the
+  session links as `Linked receipt: <id> <title> (<path>, <status>)`, with the
+  instruction to finish a draft and run `ready` rather than create another
+- `user-prompt-submit` (Claude Code and Codex only; Cursor has no prompt hook
+  that adds agent context) reads the cached catalog once, finds the active
+  session for the host session id, and prints a UserPromptSubmit
+  `additionalContext` notice for each linked draft not yet announced:
+  `Ledger drafted <path> for this session (<id>). Finish that draft and run
+  <command> ready; do not create another receipt with <command> new.`
+  Announcements are recorded per session id in the derived, git-ignored
+  `<cache.output>/hook-notices.json` through `applyFileTransaction`, read
+  tolerantly (missing or invalid means nothing announced), so each draft is
+  announced once at creation and a refresh is not announced again. The case
+  never calls Git and returns `{}` on any failure.
+- `post-tool-use` appends touched paths to the session record; for Codex the
+  `apply_patch` body may arrive in `tool_input.command`, which is scanned with
+  the same patch-header regex
 - `stop` and `session-end` draft a change entry from the touched paths and the
   Git diff, link it to the session through `related`, and refresh its file
-  list on later stops; `session-end` also closes the session
+  list on later stops; `session-end` also closes the session. In
+  `draftSessionReceipt` every change entry named in the session's `related`
+  counts as linked whatever its status; touched paths that no linked entry's
+  `files` cover (checked with `coveragePatternMatches`, so `src/**` entries
+  count) go to the linked draft when one exists, nothing is written when every
+  path is covered (the most recent linked entry is returned with
+  `created: false`, so Stop prints `{}`), and a new draft is created only for
+  uncovered paths with `related` naming the session and the earlier receipts.
+  The draft's title is the session's first Summary line when one was noted,
+  else `defaultDraftTitle` (`Changes to <areas>` or `Changes to <first path>`),
+  which `ready` reports as a template placeholder until it is edited.
 - `pre-compact` records the working tree on the session and writes
   `.ledger/reports/handoff.md`
+
+`findSession` with `activeOnly` skips an active record whose `expires` date is
+before today, so a session whose host never sent SessionEnd stops receiving
+touches, notes, and drafts; `startSession` or the first `touchSession` then
+creates a new record for the host session and copies the `related` list of the
+most recent expired record (`findExpiredActiveSession`) so its receipts stay
+linked, the `session-end` hook falls back to that record so a late SessionEnd
+still closes it, and `session close --id` still reaches it.
+
+`draftChangeEntry` in `src/newEntry.ts` drops changed files under the
+configured `source.sessions` directory and `.ledger/templates/**` before it
+derives `files`, `symbols`, `docs`, the Changed Files section, and inferred
+areas, so neither a hook draft nor `ledger new --from-diff` lists Ledger's own
+scaffold or takes session headings as symbols; other `.ledger/` paths such as
+config, entries, and backlog items stay eligible. `inferAreas` uses root-level
+file names as areas only when no directory-derived area exists. The shipped
+change template holds a single `{{changedFiles}}` placeholder; for adopters
+holding the older template copy, `renderLedgerTemplate` replaces the whole
+legacy block (the sample heading and its three bare bullets, CRLF tolerant)
+with the rendered sections, and a draft made without a diff renders the sample
+heading with TODO bullets so `ready` keeps nudging.
 
 `src/skills.ts` renders `.agents/skills/ledger/SKILL.md` from the workspace
 config, links it into `.claude/skills/ledger` for Claude Code (copying when

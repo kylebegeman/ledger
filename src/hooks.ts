@@ -12,6 +12,7 @@ import { extractBullets, getSectionBody } from "./query.js";
 import {
   closeSession,
   draftSessionReceipt,
+  findExpiredActiveSession,
   findSession,
   startSession,
   touchSession,
@@ -23,7 +24,14 @@ import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 export const hookHosts = ["claude-code", "codex", "cursor"] as const;
 export type LedgerHookHost = (typeof hookHosts)[number];
 
-export const hookEvents = ["session-start", "post-tool-use", "stop", "session-end", "pre-compact"] as const;
+export const hookEvents = [
+  "session-start",
+  "user-prompt-submit",
+  "post-tool-use",
+  "stop",
+  "session-end",
+  "pre-compact",
+] as const;
 export type LedgerHookEvent = (typeof hookEvents)[number];
 
 /** Default token budget for the context a SessionStart hook injects. */
@@ -32,7 +40,10 @@ export const defaultHookContextBudget = 1600;
 /** Largest hook payload read from stdin. Hosts send small JSON objects. */
 export const maxHookPayloadBytes = 1_000_000;
 
-const hookCommandPattern = /\bhook\s+(session-start|post-tool-use|stop|session-end|pre-compact)\b/;
+const hookCommandPattern = /\bhook\s+(session-start|user-prompt-submit|post-tool-use|stop|session-end|pre-compact)\b/;
+
+/** Derived, git-ignored record of which hook drafts each host session has been told about. */
+const hookNoticesFile = "hook-notices.json";
 
 /** Host-neutral view of a hook payload. */
 export interface LedgerHookPayload {
@@ -63,9 +74,14 @@ export function normalizeHookPayload(
   const toolName = firstString(payload.tool_name);
   const candidates: string[] = [];
   if (event === "post-tool-use") {
+    // Codex puts the apply_patch body in tool_input.command. Only a patch body is parsed, so a shell
+    // command that merely contains patch-shaped text (a heredoc, for example) records no paths.
+    const command = firstString(toolInput.command);
+    const patchCommand = command !== undefined && (toolName === "apply_patch" || /^\s*\*\*\* Begin Patch\b/.test(command));
     candidates.push(
       ...stringsOf(toolInput.file_path, toolInput.notebook_path, toolInput.path, payload.file_path),
       ...patchPaths(firstString(toolInput.patch, toolInput.input)),
+      ...(patchCommand ? patchPaths(command) : []),
     );
     if (Array.isArray(toolInput.edits)) {
       for (const edit of toolInput.edits) {
@@ -154,12 +170,12 @@ const defaultAgentsCommand = "ledger";
 const hostHookFiles: Record<LedgerHookHost, Omit<HostHookFile, "host">> = {
   "claude-code": {
     path: ".claude/settings.json",
-    events: ["SessionStart", "PostToolUse", "Stop", "SessionEnd", "PreCompact"],
+    events: ["SessionStart", "UserPromptSubmit", "PostToolUse", "Stop", "SessionEnd", "PreCompact"],
     nextSteps: ["Restart the Claude Code session so it reloads .claude/settings.json."],
   },
   codex: {
     path: ".codex/hooks.json",
-    events: ["SessionStart", "PostToolUse", "Stop", "SessionEnd", "PreCompact"],
+    events: ["SessionStart", "UserPromptSubmit", "PostToolUse", "Stop", "SessionEnd", "PreCompact"],
     nextSteps: [
       "Codex requires trusting the project and approving the hook definitions once with /hooks.",
       "Re-approve after editing the hook file; Codex pins a hash of each definition.",
@@ -240,14 +256,16 @@ function renderNestedHooks(
   host: "claude-code" | "codex",
 ): Record<string, unknown> {
   const events: Record<string, { readonly event: LedgerHookEvent; readonly matcher?: string; readonly timeout: number }> = {
-    SessionStart: { event: "session-start", matcher: "startup|resume|compact", timeout: 30 },
+    SessionStart: { event: "session-start", matcher: "startup|resume|clear|compact", timeout: 30 },
+    UserPromptSubmit: { event: "user-prompt-submit", timeout: 15 },
     PostToolUse: {
       event: "post-tool-use",
       matcher: host === "codex" ? "apply_patch|Edit|Write|MultiEdit|NotebookEdit" : "Edit|Write|MultiEdit|NotebookEdit",
       timeout: 30,
     },
     Stop: { event: "stop", timeout: 60 },
-    SessionEnd: { event: "session-end", timeout: 30 },
+    // Codex caps SessionEnd hooks at 3 seconds; Claude Code raises its budget to the per-hook timeout.
+    SessionEnd: { event: "session-end", timeout: host === "codex" ? 3 : 30 },
     PreCompact: { event: "pre-compact", timeout: 30 },
   };
   const existingHooks = isRecord(current.hooks) ? current.hooks : {};
@@ -449,7 +467,7 @@ export interface HookEventResult {
   readonly host: LedgerHookHost;
   readonly event: LedgerHookEvent;
   readonly session?: SessionRecord;
-  /** Context injected for SessionStart. */
+  /** Context injected for SessionStart, or the draft notice injected for UserPromptSubmit. */
   readonly context?: string;
   readonly touched?: readonly string[];
   readonly entry?: { readonly id: string; readonly path: string; readonly created: boolean };
@@ -477,7 +495,18 @@ export async function runHookEvent(
         source: payload.source,
         budgetTokens: options.budgetTokens ?? defaultHookContextBudget,
       });
-      return { host, event, session: started.session, context, output: contextOutput(host, context) };
+      return { host, event, session: started.session, context, output: contextOutput(host, context, "SessionStart") };
+    }
+    case "user-prompt-submit": {
+      // Cursor has no prompt hook that can add agent context; the other hosts get one notice per draft.
+      if (host === "cursor" || !payload.sessionId) return { host, event, output: {} };
+      try {
+        const context = await announcePendingDrafts(workspace, payload.sessionId);
+        if (!context) return { host, event, output: {} };
+        return { host, event, context, output: contextOutput(host, context, "UserPromptSubmit") };
+      } catch {
+        return { host, event, output: {} };
+      }
     }
     case "post-tool-use": {
       if (payload.paths.length === 0) return { host, event, output: {} };
@@ -496,14 +525,21 @@ export async function runHookEvent(
         session: drafted.session,
         entry: drafted.entry,
         output: drafted.entry.created
-          ? systemMessage(host, `Ledger drafted ${drafted.entry.path}; finish it and run ${workspace.config.agents.command} ready.`)
+          ? systemMessage(
+            host,
+            `Ledger drafted ${drafted.entry.path}; give it a title and finish it with ${workspace.config.agents.command} ready.`,
+          )
           : {},
       };
     }
     case "session-end": {
       const documents = await readLedgerDocuments(workspace);
       const drafted = await draftSessionReceipt(workspace, documents, selector, { fromDiff: true });
-      const session = findSession(drafted ? await readLedgerDocuments(workspace) : documents, selector, { activeOnly: true });
+      const current = drafted ? await readLedgerDocuments(workspace) : documents;
+      // A record that expired while its tab stayed open is still closed when SessionEnd finally arrives.
+      const session =
+        findSession(current, selector, { activeOnly: true }) ??
+        (payload.sessionId ? findExpiredActiveSession(current, payload.sessionId) : undefined);
       if (!session) return { host, event, entry: drafted?.entry, output: {} };
       const closed = await closeSession(workspace, await readLedgerDocuments(workspace), { id: session.normalized.id });
       return { host, event, session: closed.session, entry: drafted?.entry, closed: closed.changed, output: {} };
@@ -563,9 +599,88 @@ async function changedWorkingTreePaths(workspace: LedgerWorkspace): Promise<read
   }
 }
 
-function contextOutput(host: LedgerHookHost, context: string): Readonly<Record<string, unknown>> {
+type HookContextEvent = "SessionStart" | "UserPromptSubmit";
+
+function contextOutput(host: LedgerHookHost, context: string, eventName: HookContextEvent): Readonly<Record<string, unknown>> {
   if (host === "cursor") return { additional_context: context };
-  return { hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } };
+  return { hookSpecificOutput: { hookEventName: eventName, additionalContext: context } };
+}
+
+/** Announced draft ids keyed by session record id. */
+type HookNotices = Readonly<Record<string, readonly string[]>>;
+
+function hookNoticesPath(workspace: LedgerWorkspace): string {
+  return normalizePath(path.join(workspace.config.cache.output, hookNoticesFile));
+}
+
+/** Read the notice store tolerantly: a missing or invalid file means nothing has been announced. */
+async function readHookNotices(workspace: LedgerWorkspace): Promise<{ readonly raw?: string; readonly notices: HookNotices }> {
+  let raw: string | undefined;
+  try {
+    raw = await readProjectFile(workspace, hookNoticesPath(workspace));
+  } catch {
+    return { notices: {} };
+  }
+  if (raw === undefined) return { notices: {} };
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return { raw, notices: {} };
+    const notices: Record<string, readonly string[]> = {};
+    for (const [sessionId, value] of Object.entries(parsed)) {
+      if (Array.isArray(value)) notices[sessionId] = value.filter((item): item is string => typeof item === "string");
+    }
+    return { raw, notices };
+  } catch {
+    return { raw, notices: {} };
+  }
+}
+
+/**
+ * Build the one-time notice for hook drafts linked to the host session that
+ * the agent has not been told about, and record the announcement. Reads the
+ * cached catalog once and never calls Git, so it stays cheap on every prompt.
+ */
+async function announcePendingDrafts(workspace: LedgerWorkspace, hostSession: string): Promise<string | undefined> {
+  const documents = await readLedgerDocuments(workspace);
+  const session = findSession(documents, { hostSession }, { activeOnly: true });
+  if (!session || session.normalized.related.length === 0) return undefined;
+  const store = await readHookNotices(workspace);
+  const announced = new Set(store.notices[session.normalized.id] ?? []);
+  const pending = linkedChangeEntries(documents, session.normalized.related).filter(
+    (entry) => entry.status === "draft" && !announced.has(entry.id),
+  );
+  if (pending.length === 0) return undefined;
+  const command = workspace.config.agents.command;
+  const context = pending
+    .map(
+      (entry) =>
+        `Ledger drafted ${entry.path} for this session (${session.normalized.id}). Finish that draft and run ${command} ready; do not create another receipt with ${command} new.`,
+    )
+    .join("\n");
+  const next: HookNotices = {
+    ...store.notices,
+    [session.normalized.id]: [...announced, ...pending.map((entry) => entry.id)],
+  };
+  await applyFileTransaction(workspace, "record hook notices", [
+    {
+      path: hookNoticesPath(workspace),
+      content: `${JSON.stringify(next, null, 2)}\n`,
+      expectedHash: store.raw === undefined ? null : hashFileContent(store.raw),
+    },
+  ]);
+  return context;
+}
+
+/** Change entries whose id the session lists in `related`, in catalog order. */
+function linkedChangeEntries(
+  documents: readonly ParsedLedgerDocument[],
+  related: readonly string[],
+): readonly ReturnType<typeof normalizeDocument>[] {
+  if (related.length === 0) return [];
+  return documents
+    .filter((document) => document.kind === "change")
+    .map(normalizeDocument)
+    .filter((entry) => related.includes(entry.id));
 }
 
 function systemMessage(host: LedgerHookHost, message: string): Readonly<Record<string, unknown>> {
@@ -595,8 +710,16 @@ export async function buildSessionStartContext(
     `# Ledger memory for ${workspace.config.project}`,
     "",
     `Session record: ${session.id} (${session.path}). Run \`${command} packet <path> --budget 1200\` before editing a file, \`${command} session note "<fact>"\` to remember something, and \`${command} ready\` before marking a receipt landed.`,
-    "",
   ];
+  for (const entry of linkedChangeEntries(documents, session.related)) {
+    const label = `Linked receipt: ${entry.id} ${entry.title} (${entry.path}, ${entry.status}).`;
+    lines.push(
+      entry.status === "draft"
+        ? `${label} Finish it and run ${command} ready before landing; do not create another receipt with ${command} new.`
+        : label,
+    );
+  }
+  lines.push("");
   const sessionDoc = documents.find((document) => normalizePath(document.relativePath) === session.path);
   const learned = sessionDoc ? extractBullets(getSectionBody(sessionDoc, "Learned")) : [];
   const next = sessionDoc ? extractBullets(getSectionBody(sessionDoc, "Next")) : [];

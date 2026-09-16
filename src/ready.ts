@@ -2,6 +2,7 @@ import { readKindTemplate } from "./authoring.js";
 import { docsImpactDeclaration } from "./docsImpact.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { parseMarkdownWithFrontmatter } from "./frontmatter.js";
+import { isDefaultDraftTitle } from "./newEntry.js";
 import { extractBullets, getSectionBody } from "./query.js";
 import type {
   LedgerDocumentKind,
@@ -87,7 +88,8 @@ export async function checkReadiness(
 
     let kindPlaceholders = placeholders.get(parsed.kind);
     if (!kindPlaceholders) {
-      kindPlaceholders = templatePlaceholderLines(await readKindTemplate(workspace, parsed.kind));
+      const fromTemplate = templatePlaceholderLines(await readKindTemplate(workspace, parsed.kind));
+      kindPlaceholders = parsed.kind === "change" ? new Set([...fromTemplate, ...legacyChangedFilesPlaceholders]) : fromTemplate;
       placeholders.set(parsed.kind, kindPlaceholders);
     }
     issues.push(...lineIssues(parsed.raw, kindPlaceholders));
@@ -127,6 +129,18 @@ function selectRecords(
   const status = selection.status ?? "draft";
   return all.filter(({ parsed, normalized }) => parsed.kind === kind && normalized.status === status);
 }
+
+/**
+ * The sample block older change templates carried under Changed Files. Drafts
+ * rendered from those templates keep these lines, so they stay placeholders
+ * even after the workspace template moves to a single `{{changedFiles}}` line.
+ */
+const legacyChangedFilesPlaceholders: readonly string[] = [
+  "### path/to/file.ts",
+  "- What changed:",
+  "- Anchor:",
+  "- On conflict:",
+];
 
 /** Non-heading body lines of a template that a finished record should have replaced. */
 export function templatePlaceholderLines(template: string): ReadonlySet<string> {
@@ -184,6 +198,9 @@ function changeEntryIssues(
 ): readonly LedgerReadinessIssue[] {
   const issues: LedgerReadinessIssue[] = [];
   const { requireVerification, requireInvariants } = workspace.config.validation;
+  if (isDefaultDraftTitle(normalized.title, normalized.areas, normalized.files)) {
+    issues.push({ code: "template-placeholder", message: "title is the drafted default; describe the change" });
+  }
   const realBullets = (title: string) =>
     extractBullets(getSectionBody(parsed, title)).filter((bullet) => !placeholders.has(`- ${bullet}`));
   if (requireVerification && realBullets("Verification").length === 0) {

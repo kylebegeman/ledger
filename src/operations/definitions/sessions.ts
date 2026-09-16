@@ -79,8 +79,11 @@ export const sessionStartOperation = defineOperation<SessionStartInput, StartSes
     help: `Starts a session record under the configured sessions directory. The record
 expires after sessions.expiresInDays (default 7) unless it is promoted with
 ledger promote <id>. When --host-session names a host session that already has
-an active record, that record is returned instead of creating another.
-ledger scratch <title> is an alias for scratch notes without a host.`,
+an active record, that record is returned instead of creating another. An
+active record past its expires date is treated as inactive: a new record is
+started and inherits the related receipts of the most recent expired record
+for that host session. ledger scratch <title> is an alias
+for scratch notes without a host.`,
     prepare: (input) => (input.title === "" ? { ...input, title: undefined } : input),
   },
   async run(context, input) {
@@ -132,7 +135,8 @@ export const sessionTouchOperation = defineOperation<SessionTouchInput, TouchSes
     json: true,
     help: `Appends paths to the files list of the active session and refreshes its
 inferred areas. Starts a session first when no active record matches, so a
-hook installed mid-session still captures paths.`,
+hook installed mid-session still captures paths. An active session past its
+expires date is not selected without --id.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -183,8 +187,10 @@ export const sessionNoteOperation = defineOperation<SessionNoteInput, NoteSessio
     },
     json: true,
     help: `Appends one bullet to a section of the active session record, replacing the
-template placeholder on first use. Use Learned for durable facts and Next for
-follow-ups the next session should pick up.`,
+template placeholder on first use. Use Learned for durable facts, Next for
+follow-ups the next session should pick up, and Summary for the intent of the
+work; the first Summary line becomes the title of the receipt the hooks
+draft. An active session past its expires date is not selected without --id.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -219,7 +225,9 @@ export const sessionCloseOperation = defineOperation<SessionCloseInput, CloseSes
     flags: { ...selectorFlags },
     json: true,
     help: `Sets the session status to closed. Closed sessions keep their expiry and can
-still be promoted with ledger promote <id>.`,
+still be promoted with ledger promote <id>. An active session past its expires
+date is treated as inactive and is not selected without --id; pass --id to
+close it explicitly.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);

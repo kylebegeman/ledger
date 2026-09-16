@@ -475,8 +475,17 @@ infers `areas`; `session note` appends bullets to `Learned`, `Next`, or
 creates a change entry carrying the files and notes, links both records
 through `related`, and sets `status: "promoted"`. A session past `expires`
 that was not promoted is reported by `ledger stale` as `expired-session` and
-deleted by `ledger session prune --write`. `host` and `hostSession` identify
-the agent host and its own session id so hooks can find the active record.
+deleted by `ledger session prune --write`. An active session past `expires`
+is treated as inactive: hooks and `session note`, `touch`, and `close`
+without `--id` no longer select it, the next host session start or touch
+creates a fresh record that copies the `related` list of the most recent
+expired record for that host session, and a late SessionEnd still closes it;
+`--id` still reaches it. `host`
+and `hostSession` identify the agent host and its own session id so hooks can
+find the active record. `related` may name several change entries: the hook
+draft, receipts landed during the session, and a later draft for paths those
+receipts did not cover. No other field records hook notices; the once-only
+prompt notice lives in the derived `.ledger/cache/hook-notices.json`.
 Ids use `ids.sessionPrefix` and `ids.sessionWidth` (defaults `S` and `4`).
 
 ## Normalized Manifest Shape

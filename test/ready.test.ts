@@ -6,7 +6,7 @@ import { run } from "../src/cli.js";
 import { readLedgerDocuments } from "../src/documents.js";
 import { createChangeEntry } from "../src/newEntry.js";
 import { checkReadiness, templatePlaceholderLines } from "../src/ready.js";
-import { findWorkspace, initWorkspace } from "../src/workspace.js";
+import { changeTemplate, findWorkspace, initWorkspace } from "../src/workspace.js";
 
 let tempDir: string | undefined;
 
@@ -84,6 +84,14 @@ describe("templatePlaceholderLines", () => {
     );
     expect([...lines]).toEqual(["Describe what changed.", "- Add checks."]);
   });
+
+  it("finds no bare Changed Files bullets in the shipped change template", () => {
+    const lines = templatePlaceholderLines(changeTemplate());
+    expect(lines.has("- What changed:")).toBe(false);
+    expect(lines.has("- Anchor:")).toBe(false);
+    expect(lines.has("- On conflict:")).toBe(false);
+    expect(lines.has("Describe what changed.")).toBe(true);
+  });
 });
 
 describe("ledger ready", () => {
@@ -114,6 +122,59 @@ describe("ledger ready", () => {
     expect(codes).toContain("docs-impact");
     expect(codes).toContain("validation");
     expect(draft?.issues.find((issue) => issue.code === "todo")?.line).toBeGreaterThan(0);
+  });
+
+  it("flags the drafted default title until it is edited", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    const entryPath = path.join(root, ".ledger/entries/0004-changes-to-cli.md");
+    await writeFile(entryPath, finishedEntry("0004").replace('title: "Finished work"', 'title: "Changes to cli"'));
+    const flagged = await checkReadiness(workspace, await readLedgerDocuments(workspace), { targets: ["0004"] });
+    expect(flagged.ok).toBe(false);
+    expect(flagged.records[0]?.issues).toEqual([
+      { code: "template-placeholder", message: "title is the drafted default; describe the change" },
+    ]);
+
+    await writeFile(entryPath, finishedEntry("0004").replace('title: "Finished work"', 'title: "Add the cli feature"'));
+    const clean = await checkReadiness(workspace, await readLedgerDocuments(workspace), { targets: ["0004"] });
+    expect(clean.ok).toBe(true);
+    expect(clean.records[0]?.issues).toEqual([]);
+  });
+
+  it("flags a default title built from a file or the working tree but not a descriptive one", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    const entryPath = path.join(root, ".ledger/entries/0005-changes.md");
+    for (const title of ["Changes to src/feature.ts", "Changes to the working tree"]) {
+      await writeFile(entryPath, finishedEntry("0005").replace('title: "Finished work"', `title: "${title}"`));
+      const report = await checkReadiness(workspace, await readLedgerDocuments(workspace), { targets: ["0005"] });
+      expect(report.records[0]?.issues).toEqual([
+        { code: "template-placeholder", message: "title is the drafted default; describe the change" },
+      ]);
+    }
+    await writeFile(entryPath, finishedEntry("0005").replace('title: "Finished work"', 'title: "Changes to caching"'));
+    const clean = await checkReadiness(workspace, await readLedgerDocuments(workspace), { targets: ["0005"] });
+    expect(clean.records[0]?.issues).toEqual([]);
+  });
+
+  it("keeps flagging the sample Changed Files block from older change templates", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    const legacy = finishedEntry("0006").replace(
+      "## Behavior And UX Impact",
+      "### path/to/file.ts\n\n- What changed:\n- Anchor:\n- On conflict:\n\n## Behavior And UX Impact",
+    );
+    await writeFile(path.join(root, ".ledger/entries/0006-legacy.md"), legacy);
+    const report = await checkReadiness(workspace, await readLedgerDocuments(workspace), { targets: ["0006"] });
+    const messages = report.records[0]!.issues.filter((issue) => issue.code === "template-placeholder").map((issue) => issue.message);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        "template placeholder: ### path/to/file.ts",
+        "template placeholder: - What changed:",
+        "template placeholder: - Anchor:",
+        "template placeholder: - On conflict:",
+      ]),
+    );
   });
 
   it("flags missing references, empty sections, and updated docs impact without docs", async () => {
