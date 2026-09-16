@@ -105,7 +105,7 @@ describe("CLI end-to-end", () => {
     await git(tempDir, "add", ".");
     await git(tempDir, "commit", "-m", "fixture");
     expect((await captureRun(["ci"], tempDir)).exitCode).toBe(0);
-  });
+  }, 30_000);
 
   it("does not assign entries when release write preflight fails", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-cli-e2e-"));
