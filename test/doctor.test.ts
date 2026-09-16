@@ -34,6 +34,7 @@ describe("doctor", () => {
       "docs",
       "indexes",
       "cache",
+      "engine",
       "render",
       "render-budget",
       "performance",

@@ -90,14 +90,15 @@ export {
   scoreSearchDocument,
 } from "./search.js";
 export { closeStaticReader, serveStaticReader, watchLedgerSources } from "./serve.js";
+export { apiOperations, startLedgerEngine } from "./engine.js";
 export {
-  apiOperations,
   ledgerDaemonFileName,
   ledgerEngineApiVersion,
   ledgerExitCodeHeader,
+  probeEngine,
   readDaemonRecord,
-  startLedgerEngine,
-} from "./engine.js";
+} from "./daemon.js";
+export { delegateOperation, isDelegatable } from "./operations/delegate.js";
 export { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
 export { extractCodeSymbols, extractFileSymbols, extractMarkdownSymbols } from "./symbols.js";
 export { renderLedgerTemplate, yamlStringArray } from "./template.js";
@@ -115,6 +116,8 @@ export type * from "./coverage.js";
 export type * from "./docs.js";
 export type * from "./docsImpact.js";
 export type * from "./engine.js";
+export type * from "./daemon.js";
+export type * from "./operations/delegate.js";
 export type * from "./doctor.js";
 export type * from "./integrity.js";
 export type * from "./mcp.js";

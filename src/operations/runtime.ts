@@ -1,5 +1,6 @@
 import { LedgerError, machineFailure, machineSuccess } from "../machine.js";
 import { findWorkspace } from "../workspace.js";
+import { delegateOperation } from "./delegate.js";
 import type {
   AnyLedgerOperation,
   LedgerFlagSpec,
@@ -78,6 +79,7 @@ export async function runLedgerCli(
   const resolved = resolveInvocation(registry, command, rest);
   const parsed = parseInvocation(resolved.operation, resolved.args);
   const wantsJson = lastValue(parsed.flags.json) === "true" && resolved.operation?.cli.json !== false;
+  const wantsLocal = lastValue(parsed.flags.local) === "true";
 
   try {
     if (parsed.flags.help) {
@@ -102,6 +104,20 @@ export async function runLedgerCli(
     const operation = resolved.operation;
     const rawInput = buildInput(operation, parsed);
     const input = validateInput(operation, rawInput);
+
+    const delegated = await delegateOperation(operation, input, cwd, { local: wantsLocal });
+    if (delegated) {
+      if (wantsJson) {
+        console.log(JSON.stringify(delegated.envelope, null, 2));
+      } else if (delegated.envelope.ok) {
+        const rendered = operation.format(delegated.envelope.data, input);
+        if (rendered.length > 0) console.log(rendered);
+      } else {
+        console.error(delegated.envelope.error.message);
+      }
+      return delegated.exitCode;
+    }
+
     const context = await buildContext(operation, cwd, options.version);
     const outcome = await operation.run(context, input);
 
@@ -189,7 +205,7 @@ function parseInvocation(
       continue;
     }
     const spec = specs[raw];
-    const isBoolean = raw === "help" || raw === "json" || spec?.type === "boolean";
+    const isBoolean = raw === "help" || raw === "json" || raw === "local" || spec?.type === "boolean";
     if (isBoolean) {
       push(flags, raw, "true");
       continue;
@@ -215,6 +231,12 @@ function buildInput(
 
   for (const [flag, values] of Object.entries(parsed.flags)) {
     if (flag === "help") continue;
+    if (flag === "local") {
+      if (values.some((value) => value !== "true" && value !== "false")) {
+        throw invalidArgument("--local must be true or false");
+      }
+      continue;
+    }
     if (flag === "json") {
       if (!cli.json) throw invalidArgument(`Unknown option for ${operation.name}: --json`);
       if (values.some((value) => value !== "true" && value !== "false")) {
@@ -374,6 +396,7 @@ export function generalHelp(registry: readonly AnyLedgerOperation[]): string {
     "Usage:",
     "  ledger help [command]",
     "  ledger version",
+    "  ledger <command> --local",
     ...usage,
     "",
     "Examples:",
@@ -389,6 +412,10 @@ export function generalHelp(registry: readonly AnyLedgerOperation[]): string {
     "  ledger doctor",
     "  ledger release v0.1.0 --include-unreleased",
     "  ledger ci --json",
+    "",
+    "When `ledger serve --api` is running for the project, commands run inside that",
+    "engine against its warm cache. Pass --local or set LEDGER_NO_DAEMON=1 to run in",
+    "this process instead.",
   ].join("\n");
 }
 
