@@ -43,6 +43,7 @@ decisions:
   - "D005"
 related:
   - "0109"
+release: "v0.6.0"
 ---
 
 # 0110: Ship The Ledger Skill And A Managed AGENTS.md Block

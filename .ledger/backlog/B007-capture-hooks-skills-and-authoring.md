@@ -77,5 +77,8 @@ Excluded:
 
 ## Promotion Notes
 
-Promote into 0.6 change entries milestone by milestone. See
+Promoted into 0.6 change entries milestone by milestone: 0106 (authoring
+commands), 0107 (session records), 0108 (`ready`), 0109 (host hooks), and
+0110 (skill and `AGENTS.md` block). The Kore adoption check stays open until
+`ledger adopt` and `ledger hooks install` run in that repository. See
 `docs/HANDOFF.md` for sequencing and conventions.

@@ -33,6 +33,7 @@ commits: []
 related:
   - "0093"
   - "0104"
+release: "v0.6.0"
 ---
 
 # 0105: Record The September 2026 Handoff
