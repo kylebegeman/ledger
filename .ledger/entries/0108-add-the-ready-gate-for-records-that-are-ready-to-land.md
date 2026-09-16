@@ -42,6 +42,7 @@ decisions:
 related:
   - "0106"
   - "0107"
+release: "v0.6.0"
 ---
 
 # 0108: Add The Ready Gate For Records That Are Ready To Land

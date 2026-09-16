@@ -60,6 +60,7 @@ decisions:
 related:
   - "S0001"
   - "0106"
+release: "v0.6.0"
 ---
 
 # 0107: Add Expiring Session Records With Start, Touch, Note, Close, Prune, And Promotion

@@ -50,6 +50,7 @@ decisions:
 related:
   - "0107"
   - "0108"
+release: "v0.6.0"
 ---
 
 # 0109: Install Host Hooks That Capture Sessions, Touched Paths, And Draft Receipts

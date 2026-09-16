@@ -59,6 +59,7 @@ backlog:
 decisions:
   - "D005"
   - "D007"
+release: "v0.6.0"
 ---
 
 # 0106: Add Authoring Commands For Backlog Items, Decisions, Promotion, And Release Notes
