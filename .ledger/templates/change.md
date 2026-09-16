@@ -28,11 +28,7 @@ should not accidentally undo.
 
 ## Changed Files
 
-### path/to/file.ts
-
-- What changed:
-- Anchor:
-- On conflict:
+{{changedFiles}}
 
 ## Behavior And UX Impact
 

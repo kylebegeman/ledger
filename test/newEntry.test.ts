@@ -5,9 +5,9 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { defaultConfig, readLedgerConfig } from "../src/config.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
-import { createChangeEntry, inferAreas, nextEntryId } from "../src/newEntry.js";
+import { createChangeEntry, defaultDraftTitle, inferAreas, nextEntryId } from "../src/newEntry.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
-import { initWorkspace } from "../src/workspace.js";
+import { changeTemplate, initWorkspace } from "../src/workspace.js";
 
 let tempDir: string | undefined;
 
@@ -83,6 +83,126 @@ describe("createChangeEntry", () => {
         { path: "docs/architecture/runtime.md", status: "modified" },
       ]),
     ).toEqual(["docs", "runtime", "tests"]);
+    expect(
+      inferAreas(workspace, [
+        { path: "CONTRIBUTING.md", status: "modified" },
+        { path: "src/runtime/x.ts", status: "modified" },
+      ]),
+    ).toEqual(["runtime"]);
+    expect(inferAreas(workspace, [{ path: "CONTRIBUTING.md", status: "modified" }])).toEqual(["contributing"]);
+    expect(
+      inferAreas(workspace, [
+        { path: "CONTRIBUTING.md", status: "modified" },
+        { path: "packages/core/index.ts", status: "modified" },
+      ]),
+    ).toEqual(["packages"]);
+    expect(defaultDraftTitle(["cli", "docs"], ["src/cli.ts"])).toBe("Changes to cli, docs");
+    expect(defaultDraftTitle([], ["README.md"])).toBe("Changes to README.md");
+  });
+
+  it("keeps session records and templates out of a diff draft while keeping other .ledger paths", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-new-entry-scaffold-"));
+    await initWorkspace(tempDir, { withDocs: true });
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "feature.ts"), "export const value = 1;\n");
+    await git("init");
+    await git("add", ".");
+    await git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial");
+    await writeFile(path.join(tempDir, "src", "feature.ts"), "export const value = 2;\n");
+    await mkdir(path.join(tempDir, ".ledger", "sessions"), { recursive: true });
+    await writeFile(
+      path.join(tempDir, ".ledger", "sessions", "S0001-open-tab.md"),
+      '---\nid: "S0001"\nkind: "session"\ntitle: "Open tab"\ndate: "2026-09-16"\nupdated: "2026-09-16"\nstatus: "active"\nexpires: "2036-01-01"\nareas: []\nfiles: []\n---\n\n# S0001: Open Tab\n\n## Summary\n\n## Learned\n\n## Next\n',
+    );
+    const templatePath = path.join(tempDir, ".ledger", "templates", "change.md");
+    await writeFile(templatePath, `${await readFile(templatePath, "utf8")}\n## Template Note\n`);
+    await writeFile(
+      path.join(tempDir, ".ledger", "backlog", "B001-open-item.md"),
+      '---\nid: "B001"\nkind: "backlog"\ntitle: "Open item"\ndate: "2026-09-16"\nupdated: "2026-09-16"\nstatus: "proposed"\nareas: []\n---\n\n# B001: Open Item\n\n## Problem\n\nSomething.\n',
+    );
+
+    const createdPath = await createChangeEntry(await readWorkspace(), [], {
+      title: "Scaffold aware draft",
+      fromDiff: true,
+      staged: false,
+      areas: [],
+      status: "draft",
+    });
+    const entry = await readFile(path.join(tempDir, createdPath), "utf8");
+    expect(entry).toContain('  - "src/feature.ts"');
+    expect(entry).toContain('  - ".ledger/backlog/B001-open-item.md"');
+    expect(entry).not.toContain(".ledger/sessions/");
+    expect(entry).not.toContain(".ledger/templates/");
+    for (const heading of ["Summary", "Learned", "Next", "Template Note", "Open Tab"]) {
+      expect(entry).not.toContain(`  - "${heading}"`);
+    }
+    expect(entry).toContain('  - "B001: Open Item"');
+    expect(entry).not.toMatch(/^- What changed:\s*$/m);
+    expect(entry).toContain("## Template Note");
+    const parsed = parseMarkdownWithFrontmatter(entry);
+    expect(parsed.frontmatter.areas).toEqual(["feature"]);
+  }, 30_000);
+
+  it("renders no bare template bullets for the shipped, legacy, and CRLF legacy templates", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-new-entry-bullets-"));
+    await initWorkspace(tempDir, { withDocs: true });
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "feature.ts"), "export const value = 1;\n");
+    await git("init");
+    await git("add", ".");
+    await git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "initial");
+    await writeFile(path.join(tempDir, "src", "feature.ts"), "export const value = 2;\n");
+    const workspace = await readWorkspace();
+    const templatePath = path.join(tempDir, ".ledger", "templates", "change.md");
+    const shipped = await readFile(templatePath, "utf8");
+    expect(shipped).toContain("{{changedFiles}}");
+    expect(shipped).toBe(changeTemplate());
+    const legacy = shipped.replace(
+      "{{changedFiles}}",
+      "### path/to/file.ts\n\n- What changed:\n- Anchor:\n- On conflict:",
+    );
+    const variants: readonly (readonly [string, string])[] = [
+      ["shipped", shipped],
+      ["legacy", legacy],
+      ["legacy-crlf", legacy.replace(/\n/g, "\r\n")],
+    ];
+    const documents: ParsedLedgerDocument[] = [];
+    for (const [label, template] of variants) {
+      await writeFile(templatePath, template);
+      const createdPath = await createChangeEntry(workspace, documents, {
+        title: `Bullets ${label}`,
+        fromDiff: true,
+        staged: false,
+        areas: ["feature"],
+        status: "draft",
+      });
+      const entry = await readFile(path.join(tempDir, createdPath), "utf8");
+      expect(entry, label).toContain("### src/feature.ts");
+      expect(entry, label).toContain("- What changed: TODO: summarize the implementation change");
+      expect(entry, label).not.toContain("### path/to/file.ts");
+      expect(entry, label).not.toMatch(/^- What changed:\s*$/m);
+      expect(entry, label).not.toMatch(/^- Anchor:\s*$/m);
+      expect(entry, label).not.toMatch(/^- On conflict:\s*$/m);
+      expect(entry, label).toContain("## Behavior And UX Impact");
+      documents.push(document(parseMarkdownWithFrontmatter(entry).frontmatter.id as string, "change"));
+    }
+  }, 30_000);
+
+  it("keeps the TODO nudge for a draft made without a diff", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-new-entry-nodiff-"));
+    await initWorkspace(tempDir, { withDocs: true });
+    const createdPath = await createChangeEntry(await readWorkspace(), [], {
+      title: "Hand written",
+      fromDiff: false,
+      staged: false,
+      areas: ["cli"],
+      status: "draft",
+    });
+    const entry = await readFile(path.join(tempDir, createdPath), "utf8");
+    expect(entry).toContain(
+      "## Changed Files\n\n### path/to/file.ts\n\n- What changed: TODO: describe the change.\n- Anchor: TODO: name the important symbol.\n- On conflict: TODO: describe what must be preserved.\n\n## Behavior And UX Impact",
+    );
+    expect(entry).not.toMatch(/^- What changed:\s*$/m);
   });
 
   it("groups large diffs without flooding frontmatter with every symbol", async () => {

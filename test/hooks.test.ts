@@ -15,7 +15,7 @@ import {
   renderHostHooks,
   runHookEvent,
 } from "../src/hooks.js";
-import { findSession } from "../src/sessions.js";
+import { findSession, noteSession } from "../src/sessions.js";
 import { findWorkspace, initWorkspace } from "../src/workspace.js";
 
 const execFileAsync = promisify(execFile);
@@ -67,7 +67,7 @@ docs:
 `;
 
 describe("renderHostHooks", () => {
-  it("writes the five Claude Code hooks and preserves foreign entries and keys", () => {
+  it("writes the six Claude Code hooks and preserves foreign entries and keys", () => {
     const existing = JSON.stringify({
       permissions: { allow: ["Bash(npm test)"] },
       hooks: {
@@ -77,7 +77,7 @@ describe("renderHostHooks", () => {
     });
     const rendered = JSON.parse(renderHostHooks("claude-code", "npx ledger", existing));
     expect(rendered.permissions).toEqual({ allow: ["Bash(npm test)"] });
-    expect(Object.keys(rendered.hooks).sort()).toEqual(["PostToolUse", "PreCompact", "SessionEnd", "SessionStart", "Stop"]);
+    expect(Object.keys(rendered.hooks).sort()).toEqual(["PostToolUse", "PreCompact", "SessionEnd", "SessionStart", "Stop", "UserPromptSubmit"]);
     expect(rendered.hooks.PostToolUse).toHaveLength(2);
     expect(rendered.hooks.PostToolUse[0].hooks[0].command).toBe("echo done");
     expect(rendered.hooks.PostToolUse[1]).toEqual({
@@ -86,9 +86,32 @@ describe("renderHostHooks", () => {
     });
     expect(rendered.hooks.Stop).toHaveLength(1);
     expect(rendered.hooks.Stop[0].hooks[0].timeout).toBe(60);
-    expect(rendered.hooks.SessionStart[0].matcher).toBe("startup|resume|compact");
+    expect(rendered.hooks.SessionStart[0].matcher).toBe("startup|resume|clear|compact");
+    expect(rendered.hooks.SessionEnd[0].hooks[0].timeout).toBe(30);
+    expect(rendered.hooks.UserPromptSubmit).toEqual([
+      { hooks: [{ type: "command", command: "npx ledger hook user-prompt-submit --host claude-code", timeout: 15 }] },
+    ]);
     const again = renderHostHooks("claude-code", "npx ledger", JSON.stringify(rendered));
     expect(JSON.parse(again)).toEqual(rendered);
+  });
+
+  it("adds the UserPromptSubmit group once to a file installed with the five-event layout", () => {
+    const fiveEvents = JSON.parse(renderHostHooks("codex", "ledger", undefined));
+    delete fiveEvents.hooks.UserPromptSubmit;
+    expect(Object.keys(fiveEvents.hooks)).toHaveLength(5);
+    const upgraded = JSON.parse(renderHostHooks("codex", "ledger", JSON.stringify(fiveEvents)));
+    expect(Object.keys(upgraded.hooks).sort()).toEqual(["PostToolUse", "PreCompact", "SessionEnd", "SessionStart", "Stop", "UserPromptSubmit"]);
+    expect(upgraded.hooks.UserPromptSubmit).toHaveLength(1);
+    expect(upgraded.hooks.UserPromptSubmit[0]).not.toHaveProperty("matcher");
+    expect(upgraded.hooks.UserPromptSubmit[0].hooks[0]).toEqual({
+      type: "command",
+      command: "ledger hook user-prompt-submit --host codex",
+      timeout: 15,
+    });
+    expect(upgraded.hooks.SessionStart[0].matcher).toBe("startup|resume|clear|compact");
+    expect(upgraded.hooks.SessionEnd[0].hooks[0].timeout).toBe(3);
+    expect(hostHookFile("codex").events).toContain("UserPromptSubmit");
+    expect(hostHookFile("cursor").events).not.toContain("UserPromptSubmit");
   });
 
   it("writes Codex nested hooks with a description and Cursor flat hooks with a version", () => {
@@ -174,6 +197,41 @@ describe("normalizeHookPayload", () => {
       root,
     );
     expect(outside.paths).toEqual(["notes/n.ipynb"]);
+  });
+
+  it("reads a Codex apply_patch body sent as a shell command and ignores ordinary commands", () => {
+    const patch = normalizeHookPayload(
+      "codex",
+      "post-tool-use",
+      {
+        session_id: "c2",
+        tool_name: "apply_patch",
+        tool_input: { command: "*** Begin Patch\n*** Update File: src/touched.ts\n@@\n-a\n+b\n*** End Patch" },
+      },
+      root,
+    );
+    expect(patch.paths).toEqual(["src/touched.ts"]);
+    const shell = normalizeHookPayload(
+      "codex",
+      "post-tool-use",
+      { session_id: "c2", tool_name: "shell", tool_input: { command: "npm test -- --run src/touched.ts" } },
+      root,
+    );
+    expect(shell.paths).toEqual([]);
+    const heredoc = normalizeHookPayload(
+      "codex",
+      "post-tool-use",
+      { session_id: "c2", tool_name: "shell", tool_input: { command: "cat > notes.txt <<EOF\n*** Update File: src/ghost.ts\nEOF" } },
+      root,
+    );
+    expect(heredoc.paths).toEqual([]);
+    const aliased = normalizeHookPayload(
+      "codex",
+      "post-tool-use",
+      { session_id: "c2", tool_name: "Edit", tool_input: { command: "*** Begin Patch\n*** Add File: src/added.ts\n+x\n*** End Patch" } },
+      root,
+    );
+    expect(aliased.paths).toEqual(["src/added.ts"]);
   });
 
   it("reads Codex apply_patch paths and Cursor afterFileEdit payloads", () => {
@@ -267,11 +325,27 @@ describe("hook events", () => {
 
     const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
     expect(stop.entry).toMatchObject({ id: "0001", created: true });
-    expect(stop.output).toHaveProperty("systemMessage");
+    expect(stop.output).toEqual({
+      systemMessage: `Ledger drafted ${stop.entry!.path}; give it a title and finish it with ledger ready.`,
+    });
     const entry = await readFile(path.join(root, stop.entry!.path), "utf8");
     expect(entry).toContain('status: "draft"');
+    expect(entry).toContain('title: "Changes to feature"');
     expect(entry).toContain('  - "src/feature.ts"');
     expect(entry).toContain('related:\n  - "S0001"');
+
+    const prompt = await runHookEvent(workspace, "claude-code", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false });
+    expect(prompt.output).toEqual({
+      hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: prompt.context },
+    });
+    expect(prompt.context).toBe(
+      `Ledger drafted ${stop.entry!.path} for this session (S0001). Finish that draft and run ledger ready; do not create another receipt with ledger new.`,
+    );
+    const notices = JSON.parse(await readFile(path.join(root, ".ledger/cache/hook-notices.json"), "utf8"));
+    expect(notices).toEqual({ S0001: ["0001"] });
+    const promptAgain = await runHookEvent(workspace, "claude-code", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false });
+    expect(promptAgain.output).toEqual({});
+    expect(promptAgain.context).toBeUndefined();
 
     const loop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: true });
     expect(loop.entry).toBeUndefined();
@@ -291,10 +365,17 @@ describe("hook events", () => {
     expect(handoff).toContain("`src/feature.ts`");
     expect(handoff).not.toContain("- 0001 ");
     expect(handoff).not.toContain("Add invariants.");
+    const linkedLine = `Linked receipt: 0001 Changes to feature (${stop.entry!.path}, draft). Finish it and run ledger ready before landing; do not create another receipt with ledger new.`;
+    expect(handoff).toContain(linkedLine);
 
     const resumed = await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "compact", paths: [], stopHookActive: false });
     expect(resumed.session?.id).toBe("S0001");
     expect(resumed.context).toContain("Touched:");
+    expect(resumed.context).toContain(linkedLine);
+    const restarted = await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "resume", paths: [], stopHookActive: false });
+    expect(restarted.context).toContain(linkedLine);
+    // A refreshed draft is announced once at creation only.
+    expect((await runHookEvent(workspace, "claude-code", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false })).output).toEqual({});
 
     const end = await runHookEvent(workspace, "claude-code", "session-end", { sessionId, paths: [], stopHookActive: false, reason: "other" });
     expect(end.closed).toBe(true);
@@ -317,6 +398,189 @@ describe("hook events", () => {
     expect(stop.output).toEqual({});
     const empty = await runHookEvent(workspace, "cursor", "post-tool-use", { sessionId: "cur-1", paths: [], stopHookActive: false });
     expect(empty.output).toEqual({});
+
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 4;\n");
+    await runHookEvent(workspace, "cursor", "post-tool-use", { sessionId: "cur-1", paths: ["src/feature.ts"], stopHookActive: false });
+    const drafted = await runHookEvent(workspace, "cursor", "stop", { sessionId: "cur-1", paths: [], stopHookActive: false });
+    expect(drafted.entry?.created).toBe(true);
+    expect(drafted.output).toEqual({});
+    const cursorPrompt = await runHookEvent(workspace, "cursor", "user-prompt-submit", { sessionId: "cur-1", paths: [], stopHookActive: false });
+    expect(cursorPrompt.output).toEqual({});
+    await expect(readFile(path.join(root, ".ledger/cache/hook-notices.json"), "utf8")).rejects.toThrow();
+  }, 30_000);
+
+  it("announces a Codex draft in the Codex shape and stays silent without a session", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    expect((await runHookEvent(workspace, "codex", "user-prompt-submit", { paths: [], stopHookActive: false })).output).toEqual({});
+    expect((await runHookEvent(workspace, "codex", "user-prompt-submit", { sessionId: "nobody", paths: [], stopHookActive: false })).output).toEqual({});
+
+    const sessionId = "codex-thread-1";
+    await runHookEvent(workspace, "codex", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+    expect((await runHookEvent(workspace, "codex", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false })).output).toEqual({});
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 5;\n");
+    await runHookEvent(workspace, "codex", "post-tool-use", { sessionId, toolName: "apply_patch", paths: ["src/feature.ts"], stopHookActive: false });
+    const stop = await runHookEvent(workspace, "codex", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(stop.entry?.created).toBe(true);
+    const prompt = await runHookEvent(workspace, "codex", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false });
+    expect(prompt.output).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: expect.stringContaining(`Ledger drafted ${stop.entry!.path} for this session (S0001).`),
+      },
+    });
+    expect((await runHookEvent(workspace, "codex", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false })).output).toEqual({});
+  }, 30_000);
+
+  it("never re-drafts a landed linked receipt and drafts again only for an uncovered path", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const sessionId = "land-1";
+    await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 2;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/feature.ts"], stopHookActive: false });
+    const first = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(first.entry).toMatchObject({ id: "0001", created: true });
+    const entryPath = path.join(root, first.entry!.path);
+    await writeFile(entryPath, (await readFile(entryPath, "utf8")).replace('status: "draft"', 'status: "landed"'));
+    const landedRaw = await readFile(entryPath, "utf8");
+
+    const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(stop.entry).toEqual({ id: "0001", path: first.entry!.path, created: false });
+    expect(stop.output).toEqual({});
+    expect(await readFile(entryPath, "utf8")).toBe(landedRaw);
+    const end = await runHookEvent(workspace, "claude-code", "session-end", { sessionId, paths: [], stopHookActive: false, reason: "other" });
+    expect(end.entry?.created).toBe(false);
+    expect(end.closed).toBe(true);
+    let entries = (await readLedgerDocuments(workspace)).filter((document) => document.kind === "change");
+    expect(entries).toHaveLength(1);
+    const linked = await runHookEvent(workspace, "claude-code", "session-start", { sessionId: "land-2", source: "startup", paths: [], stopHookActive: false });
+    expect(linked.context).not.toContain("Linked receipt:");
+
+    await git(root, "add", ".");
+    await git(root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "land");
+    const reopened = await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+    expect(reopened.session?.id).toBe("S0003");
+    await writeFile(path.join(root, "src", "other.ts"), "export const other = 1;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/other.ts"], stopHookActive: false });
+    const second = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(second.entry).toMatchObject({ id: "0002", created: true });
+    const secondRaw = await readFile(path.join(root, second.entry!.path), "utf8");
+    expect(secondRaw).toContain('  - "src/other.ts"');
+    expect(secondRaw).toContain('related:\n  - "S0003"');
+    entries = (await readLedgerDocuments(workspace)).filter((document) => document.kind === "change");
+    expect(entries).toHaveLength(2);
+
+    const covered = await runHookEvent(workspace, "claude-code", "session-start", { sessionId: "land-4", source: "startup", paths: [], stopHookActive: false });
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId: "land-4", paths: ["src/feature.ts"], stopHookActive: false });
+    const session = findSession(await readLedgerDocuments(workspace), { id: covered.session!.id }, { activeOnly: false })!;
+    await writeFile(
+      path.join(root, session.parsed.relativePath),
+      session.parsed.raw.replace("files:", 'related:\n  - "0001"\nfiles:'),
+    );
+    const quiet = await runHookEvent(workspace, "claude-code", "stop", { sessionId: "land-4", paths: [], stopHookActive: false });
+    expect(quiet.entry).toEqual({ id: "0001", path: first.entry!.path, created: false });
+    expect(quiet.output).toEqual({});
+    expect((await readLedgerDocuments(workspace)).filter((document) => document.kind === "change")).toHaveLength(2);
+  }, 30_000);
+
+  it("keeps session records, templates, and their headings out of hook drafts", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const templatePath = path.join(root, ".ledger/templates/change.md");
+    await writeFile(templatePath, `${await readFile(templatePath, "utf8")}\nTrailing template note.\n`);
+    const sessionId = "scaffold-1";
+    await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 2;\nexport function runFeature() {}\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/feature.ts"], stopHookActive: false });
+    const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(stop.entry?.created).toBe(true);
+    const entry = await readFile(path.join(root, stop.entry!.path), "utf8");
+    expect(entry).not.toContain(".ledger/sessions/");
+    expect(entry).not.toContain(".ledger/templates/");
+    expect(entry).toContain('  - "runFeature"');
+    for (const heading of ["Learned", "Next", "Summary"]) expect(entry).not.toContain(`  - "${heading}"`);
+    expect(entry).not.toMatch(/^- What changed:\s*$/m);
+    expect(entry).not.toMatch(/^- Anchor:\s*$/m);
+    expect(entry).not.toMatch(/^- On conflict:\s*$/m);
+    expect(entry).toContain("Trailing template note.");
+  }, 30_000);
+
+  it("replaces an expired active session on session start and carries its linked receipts", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const sessionId = "desktop-tab";
+    const first = await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+    expect(first.session?.id).toBe("S0001");
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 2;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/feature.ts"], stopHookActive: false });
+    const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(stop.entry?.created).toBe(true);
+    const sessionPath = path.join(root, first.session!.path);
+    await writeFile(sessionPath, (await readFile(sessionPath, "utf8")).replace(/expires: "[^"]+"/, 'expires: "2000-01-01"'));
+
+    const restarted = await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+    expect(restarted.session).toMatchObject({ id: "S0002", related: ["0001"] });
+    expect(restarted.context).not.toContain("## This session so far");
+    expect(restarted.context).toContain(`Linked receipt: 0001 Changes to feature (${stop.entry!.path}, draft).`);
+    expect(await readFile(path.join(root, restarted.session!.path), "utf8")).toContain('related:\n  - "0001"');
+
+    const touch = await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["docs/README.md"], stopHookActive: false });
+    expect(touch.session?.id).toBe("S0002");
+    expect(touch.touched).toEqual(["docs/README.md"]);
+    expect(await readFile(sessionPath, "utf8")).not.toContain("docs/README.md");
+    const stale = findSession(await readLedgerDocuments(workspace), { id: "S0001" }, { activeOnly: false });
+    expect(stale?.normalized.status).toBe("active");
+    expect(findSession(await readLedgerDocuments(workspace), { hostSession: sessionId }, { activeOnly: true })?.normalized.id).toBe("S0002");
+    const refreshed = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(refreshed.entry).toEqual({ id: "0001", path: stop.entry!.path, created: false });
+    expect(await readFile(path.join(root, stop.entry!.path), "utf8")).toContain('  - "docs/README.md"');
+  }, 30_000);
+
+  it("closes an expired active session when SessionEnd arrives late", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const sessionId = "late-end";
+    const first = await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 3;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/feature.ts"], stopHookActive: false });
+    const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(stop.entry?.created).toBe(true);
+    const sessionPath = path.join(root, first.session!.path);
+    await writeFile(sessionPath, (await readFile(sessionPath, "utf8")).replace(/expires: "[^"]+"/, 'expires: "2000-01-01"'));
+
+    const ended = await runHookEvent(workspace, "claude-code", "session-end", { sessionId, paths: [], stopHookActive: false, reason: "other" });
+    expect(ended).toMatchObject({ closed: true, output: {} });
+    expect(ended.session?.id).toBe("S0001");
+    expect(await readFile(sessionPath, "utf8")).toContain('status: "closed"');
+    expect((await readLedgerDocuments(workspace)).filter((document) => document.kind === "change")).toHaveLength(1);
+  }, 30_000);
+
+  it("titles a draft from the Summary note or the neutral default and prefers directory areas", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    await writeFile(path.join(root, "CONTRIBUTING.md"), "# Contributing\n");
+    const named = "summary-1";
+    await runHookEvent(workspace, "claude-code", "session-start", { sessionId: named, source: "startup", paths: [], stopHookActive: false });
+    await noteSession(workspace, await readLedgerDocuments(workspace), "Rename Forge to Kore in the contributing guide", {
+      hostSession: named,
+      section: "Summary",
+    });
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 2;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId: named, paths: ["CONTRIBUTING.md", "src/feature.ts"], stopHookActive: false });
+    const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId: named, paths: [], stopHookActive: false });
+    expect(stop.entry?.path).toBe(".ledger/entries/0001-rename-forge-to-kore-in-the-contributing-guide.md");
+    const entry = await readFile(path.join(root, stop.entry!.path), "utf8");
+    expect(entry).toContain('title: "Rename Forge to Kore in the contributing guide"');
+    expect(entry).toContain('areas:\n  - "feature"\n');
+    expect(entry).not.toContain('"contributing"');
+
+    const plain = "summary-2";
+    await runHookEvent(workspace, "claude-code", "session-start", { sessionId: plain, source: "startup", paths: [], stopHookActive: false });
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId: plain, paths: ["CONTRIBUTING.md"], stopHookActive: false });
+    const plainStop = await runHookEvent(workspace, "claude-code", "stop", { sessionId: plain, paths: [], stopHookActive: false });
+    expect(plainStop.entry?.path).toBe(".ledger/entries/0002-changes-to-contributing.md");
+    expect(await readFile(path.join(root, plainStop.entry!.path), "utf8")).toContain('title: "Changes to contributing"');
   }, 30_000);
 
   it("keeps injected context within the budget", async () => {
@@ -354,12 +618,17 @@ describe("hook events", () => {
     await writeFile(path.join(root, "src", "feature.ts"), "export const value = 3;\n");
     await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, toolName: "Edit", paths: ["src/feature.ts"], stopHookActive: false });
     const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
-    expect(stop.output).toMatchObject({ systemMessage: expect.stringContaining("finish it and run npx ledger ready.") });
+    expect(stop.output).toMatchObject({ systemMessage: expect.stringContaining("give it a title and finish it with npx ledger ready.") });
+    const prompt = await runHookEvent(workspace, "claude-code", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false });
+    expect(prompt.context).toContain("run npx ledger ready; do not create another receipt with npx ledger new.");
+    expect(prompt.context).not.toContain("run ledger ready");
+    expect(prompt.context).not.toContain("with ledger new");
 
     const compact = await runHookEvent(workspace, "claude-code", "pre-compact", { sessionId, paths: [], stopHookActive: false, trigger: "auto" });
     expect(compact.handoffPath).toBe(".ledger/reports/handoff.md");
     const handoff = await readFile(path.join(root, ".ledger/reports/handoff.md"), "utf8");
     expect(handoff).toContain("`npx ledger packet <path> --budget 1200`");
+    expect(handoff).toContain("Finish it and run npx ledger ready before landing; do not create another receipt with npx ledger new.");
   }, 30_000);
 });
 

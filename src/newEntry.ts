@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
-import { isIgnoredByGitConfig } from "./coverage.js";
+import { isIgnoredByGitConfig, matchesGlob } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import { applyFileTransaction } from "./fileTransaction.js";
@@ -9,6 +9,7 @@ import { resolveSafeProjectPath } from "./projectPaths.js";
 import { extractFileSymbolsDetailed, type LedgerSymbolExtractor } from "./symbols.js";
 import { renderLedgerTemplate } from "./template.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
+import { changeTemplate } from "./workspace.js";
 
 const largeDiffFileThreshold = 40;
 const largeDiffGroupThreshold = 5;
@@ -76,7 +77,7 @@ export async function draftChangeEntry(
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
   const changedFiles = options.fromDiff
     ? (await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })).filter(
-        (file) => !isIgnoredByGitConfig(workspace, file.path),
+        (file) => !isIgnoredByGitConfig(workspace, file.path) && !isLedgerScaffoldPath(workspace, file.path),
       )
     : [];
   const files = options.files && options.files.length > 0
@@ -125,6 +126,39 @@ export async function draftChangeEntry(
 
 function uniqueSorted(values: readonly string[]): readonly string[] {
   return [...new Set(values)].sort();
+}
+
+/**
+ * Session records and templates are Ledger's own scaffold: a draft must not
+ * list them as changed files, take their headings as symbols, or infer areas
+ * from them. Other `.ledger/` paths (config, entries, backlog) stay eligible.
+ */
+export function isLedgerScaffoldPath(workspace: LedgerWorkspace, filePath: string): boolean {
+  const sessions = normalizePath(workspace.config.source.sessions).replace(/\/$/, "");
+  return matchesGlob(filePath, `${sessions}/**`) || matchesGlob(filePath, ".ledger/templates/**");
+}
+
+/**
+ * The neutral title a hook draft carries until the agent describes the change:
+ * `Changes to <areas>` or, without areas, `Changes to <first file>`. `ready`
+ * flags a draft whose title still equals this value.
+ */
+export function defaultDraftTitle(areas: readonly string[], files: readonly string[]): string {
+  if (areas.length > 0) return `Changes to ${areas.join(", ")}`;
+  return `Changes to ${files[0] ?? "the working tree"}`;
+}
+
+/**
+ * Whether a title is still a drafted default. A hook draft takes its title
+ * from the session's areas or first touched path, while the entry's own areas
+ * may be inferred from the diff later, so any default shape counts: the
+ * entry's areas, one of its files, or the working tree.
+ */
+export function isDefaultDraftTitle(title: string, areas: readonly string[], files: readonly string[]): boolean {
+  const match = /^Changes to (.+)$/.exec(title.trim());
+  if (!match) return false;
+  const subject = match[1]!;
+  return (areas.length > 0 && subject === areas.join(", ")) || files.includes(subject) || subject === "the working tree";
 }
 
 export async function createProductNoteEntry(
@@ -205,7 +239,7 @@ async function readTemplate(workspace: LedgerWorkspace): Promise<string> {
     );
   } catch (error) {
     if (!isCode(error, "ENOENT")) throw error;
-    return defaultTemplate();
+    return changeTemplate();
   }
 }
 
@@ -241,6 +275,8 @@ export function inferAreas(
   files: readonly GitChangedFile[],
 ): readonly string[] {
   const areas = new Set<string>();
+  // Root-level file names (CONTRIBUTING.md) only become areas when no directory names one.
+  const rootFileAreas = new Set<string>();
   const docsRoot = normalizePath(workspace.config.docs.root);
   for (const file of files) {
     const normalized = normalizePath(file.path);
@@ -252,11 +288,16 @@ export function inferAreas(
     } else if (normalized.startsWith("src/")) {
       const [, second] = normalized.split("/");
       areas.add(second ? areaFromSegment(second) : "src");
-    } else if (first) {
+    } else if (normalized.includes("/")) {
       areas.add(areaFromSegment(first));
+    } else if (first) {
+      rootFileAreas.add(areaFromSegment(first));
     }
   }
-  return [...areas].sort();
+  // A dot directory such as .ledger has no area name once its extension is stripped.
+  const named = (values: ReadonlySet<string>) => [...values].filter((area) => area.length > 0);
+  const directoryAreas = named(areas);
+  return (directoryAreas.length > 0 ? directoryAreas : named(rootFileAreas)).sort();
 }
 
 interface ChangedSymbols {
@@ -298,7 +339,16 @@ function renderChangedFiles(
   files: readonly GitChangedFile[],
   symbolsByFile: ReadonlyMap<string, readonly string[]> = new Map(),
 ): string {
-  if (files.length === 0) return "### path/to/file.ts";
+  // Without changed files, keep the TODO bullets so `ready` still nudges a draft made without a diff.
+  if (files.length === 0) {
+    return [
+      "### path/to/file.ts",
+      "",
+      "- What changed: TODO: describe the change.",
+      "- Anchor: TODO: name the important symbol.",
+      "- On conflict: TODO: describe what must be preserved.",
+    ].join("\n");
+  }
   if (files.length > largeDiffFileThreshold) {
     return renderChangedFileGroups(workspace, files);
   }
@@ -433,47 +483,6 @@ function countStatuses(files: readonly GitChangedFile[]): string {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([status, count]) => `${status} ${count}`)
     .join(", ");
-}
-
-function defaultTemplate(): string {
-  return [
-    "---",
-    'id: "{{id}}"',
-    'kind: "change"',
-    'title: "{{title}}"',
-    'date: "{{date}}"',
-    'updated: "{{date}}"',
-    'status: "draft"',
-    "areas: []",
-    "files: []",
-    "symbols: []",
-    "docs: []",
-    "commits: []",
-    "---",
-    "",
-    "# {{id}}: {{title}}",
-    "",
-    "## Summary",
-    "",
-    "## Why",
-    "",
-    "## Changed Files",
-    "",
-    "### path/to/file.ts",
-    "",
-    "- What changed:",
-    "- Anchor:",
-    "- On conflict:",
-    "",
-    "## Behavior And UX Impact",
-    "",
-    "## Invariants",
-    "",
-    "## Verification",
-    "",
-    "## Notes",
-    "",
-  ].join("\n");
 }
 
 function defaultProductNoteTemplate(): string {

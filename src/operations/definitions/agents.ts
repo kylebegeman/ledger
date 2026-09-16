@@ -126,8 +126,9 @@ export function agentInstructions(project: string, docsMode: string, role: Ledge
     case "contributor":
       return [
         ...common,
-        `- For implementation changes, create a receipt with \`${command} new "<title>" --from-diff --area <area>\`.`,
-        "- Fill in Summary, Why, Changed Files, Invariants, Verification, and Notes before handoff.",
+        "- With hooks installed, finish the hook-drafted receipt named in the prompt notice and the session start context (`Linked receipt:`); do not create another receipt.",
+        `- Without hooks, create a receipt with \`${command} new "<title>" --from-diff --area <area>\`.`,
+        `- Give the draft a real title and fill in Summary, Why, Changed Files, Invariants, Verification, and Notes; \`${command} ready\` must pass before it is marked landed.`,
         `- For dogfood findings, use \`${command} feedback "<title>" --area <area> --tag dogfood\`.`,
         `- Before handoff, run \`${command} ci\` or the narrowest relevant Ledger command and record the result.`,
         "",

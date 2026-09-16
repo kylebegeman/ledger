@@ -36,7 +36,11 @@ export function renderLedgerTemplate(
       rendered = rendered.replace(`status: "${placeholder}"`, `status: "${escapeYamlString(status)}"`);
     }
   }
-  rendered = replaceDefaultBlock(rendered, "changedFiles", blockValues.changedFiles);
+  // Only a template without the placeholder still holds the sample block; the
+  // rendered value may itself contain the sample heading and must not be replaced again.
+  if (!template.includes("{{changedFiles}}")) {
+    rendered = replaceDefaultBlock(rendered, "changedFiles", blockValues.changedFiles);
+  }
 
   return rendered;
 }
@@ -50,18 +54,28 @@ export function escapeYamlString(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
 }
 
+/**
+ * Legacy change templates carry a sample heading followed by three bare
+ * bullets instead of `{{changedFiles}}`; adopters still hold copies of them.
+ */
+const legacyChangedFilesBlock =
+  /### path\/to\/file\.ts[ \t]*\r?\n(?:[ \t]*\r?\n)?- What changed:[ \t]*\r?\n- Anchor:[ \t]*\r?\n- On conflict:[ \t]*/;
+
 function replaceDefaultBlock(
   rendered: string,
   key: string,
   value: string | undefined,
 ): string {
-  if (!value) return rendered;
-  let next = rendered;
-  if (key === "changedFiles" && rendered.includes("### path/to/file.ts")) {
-    next = next.replace("### path/to/file.ts", value);
+  if (!value || key !== "changedFiles") return rendered;
+  if (legacyChangedFilesBlock.test(rendered)) {
+    return rendered.replace(legacyChangedFilesBlock, () => value);
   }
-  if (key === "changedFiles" && rendered.includes("Add changed files.")) {
-    next = next.replace("Add changed files.", value);
+  let next = rendered;
+  if (rendered.includes("### path/to/file.ts")) {
+    next = next.replace("### path/to/file.ts", () => value);
+  }
+  if (rendered.includes("Add changed files.")) {
+    next = next.replace("Add changed files.", () => value);
   }
   return next;
 }

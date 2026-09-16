@@ -8,8 +8,10 @@ status: "active"
 expires: "2026-09-23"
 areas:
   - "docs"
+  - "hooks"
   - "operations"
   - "readme"
+  - "sessions"
   - "tests"
   - "types"
   - "workspace"
@@ -22,11 +24,14 @@ files:
   - "test/workspace.test.ts"
   - "test/operations.test.ts"
   - "src/types.ts"
+  - "src/hooks.ts"
+  - "src/sessions.ts"
 host: "claude-code"
 hostSession: "6cf5fed7-a387-4a27-bb1a-125e18d27bfd"
 related:
   - "0131"
   - "0132"
+  - "0133"
 ---
 
 # S0002: Claude Code session 2026-09-16

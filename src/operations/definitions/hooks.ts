@@ -78,10 +78,11 @@ export const hooksInstallOperation = defineOperation<HooksInstallInput, InstallH
       "dry-run": { type: "boolean", description: "Print the merged hook file without writing it." },
     },
     json: true,
-    help: `Writes Ledger's SessionStart, PostToolUse, Stop, SessionEnd, and PreCompact
-hooks into the host's project hook file: .claude/settings.json for Claude Code,
-.codex/hooks.json for Codex, or .cursor/hooks.json for Cursor. Existing hooks
-that are not Ledger's are preserved; earlier Ledger entries are replaced. Each
+    help: `Writes Ledger's SessionStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd,
+and PreCompact hooks into the host's project hook file: .claude/settings.json
+for Claude Code, .codex/hooks.json for Codex, or .cursor/hooks.json for Cursor
+(Cursor has no prompt hook, so it gets the other five). Existing hooks that
+are not Ledger's are preserved; earlier Ledger entries are replaced. Each
 hook runs "<command> hook <event> --host <host>". The prefix is saved as
 agents.command in .ledger/config.yaml and reused by hooks install, agents
 --write, skills install, and the hook context; pass --command "npx ledger"
@@ -149,7 +150,7 @@ export const hookOperation = defineOperation<HookInput, HookOutput>({
   }),
   cli: {
     path: ["hook"],
-    usage: "ledger hook <session-start|post-tool-use|stop|session-end|pre-compact> [--host <host>] [--budget <tokens>]",
+    usage: "ledger hook <session-start|user-prompt-submit|post-tool-use|stop|session-end|pre-compact> [--host <host>] [--budget <tokens>]",
     positionals: { field: "event", min: 1, max: 1 },
     flags: {
       host: {
@@ -163,9 +164,13 @@ export const hookOperation = defineOperation<HookInput, HookOutput>({
     json: false,
     hidden: true,
     help: `Handles one host lifecycle event. The host's JSON payload is read from stdin
-and the response object the host expects is written to stdout. Exits 0 with an
-empty object when Ledger is not initialized or the event cannot be handled, so
-hosts are never blocked. Installed by ledger hooks install.`,
+and the response object the host expects is written to stdout. session-start
+injects the session context, user-prompt-submit injects a one-time notice of a
+hook-drafted receipt linked to the session, post-tool-use records touched
+paths, stop and session-end draft or refresh the linked receipt, and
+pre-compact writes the handoff. Exits 0 with an empty object when Ledger is
+not initialized or the event cannot be handled, so hosts are never blocked.
+Installed by ledger hooks install.`,
   },
   async run(context, input) {
     const workspace = context.workspace;

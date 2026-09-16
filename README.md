@@ -576,13 +576,35 @@ the workflow instead of by memory:
 
 - session start creates or resumes a session record and injects a budgeted
   Ledger packet for the paths in play, or recent changes and open backlog when
-  the tree is clean
+  the tree is clean, plus a `Linked receipt:` line for every change entry the
+  session already links, telling the agent to finish a draft rather than
+  create another
+- every user prompt (Claude Code and Codex; Cursor has no prompt hook that can
+  add agent context) injects a one-time notice naming a receipt the hooks
+  drafted for the session, so the agent finishes that draft instead of running
+  `ledger new`; the notice is recorded in `.ledger/cache/hook-notices.json`
+  and never repeats for the same draft
 - every file edit records the touched path on the session record
 - stop and session end draft a change entry from the touched paths and the
-  Git diff, linked to the session, and refresh it on later stops
+  Git diff, linked to the session, and refresh it on later stops; the draft
+  takes its title from the session's Summary note or a neutral `Changes to
+  <areas>` default that `ledger ready` flags until it is edited, and never
+  lists session records or templates
+- every change entry the session links counts as linked whatever its status:
+  new paths go to the linked draft, nothing is written when every touched path
+  is already covered by a linked receipt (so landing a receipt mid-session does
+  not produce a second one), and a new draft appears only for paths no linked
+  receipt covers
 - pre-compaction records the working tree on the session and writes
   `.ledger/reports/handoff.md`, so the post-compaction session start receives
   the same memory
+- an active session past its `expires` date is treated as inactive by the
+  hooks and by `session note`, `touch`, and `close` without `--id`, so a tab
+  whose host never fired SessionEnd (the Claude desktop app on `/exit`) stops
+  collecting touches; the next session start or touch opens a fresh record
+  that inherits the linked receipts of the most recent expired record, a late
+  SessionEnd still closes the expired record, and `ledger session close --id`
+  closes it explicitly
 
 The hooks run `<command> hook <event> --host <host>` with the host's JSON on
 stdin, where `<command>` is `agents.command` from `.ledger/config.yaml`
