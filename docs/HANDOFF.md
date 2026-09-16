@@ -6,13 +6,10 @@ milestone lands or a plan changes; retire sections that stop being true.
 
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.5.0 on npm, GitHub Release v0.5.0, both
-  created by `.github/workflows/release.yml` through npm trusted publishing.
-  `@kylebegeman/dossier` 0.6.7 publishes the same way from its own repo.
-- Prepared but not yet tagged: v0.6.0 (capture). The `capture-0.6` branch
-  carries five milestone commits plus the release preparation; the release
-  record `.ledger/releases/v0.6.0.md` exists. Publishing needs the tag on
-  `master` after the pull request merges; see the release step below.
+- Published: `@kylebegeman/ledger` 0.6.0 on npm, GitHub Release v0.6.0, both
+  created by `.github/workflows/release.yml` through npm trusted publishing
+  on 2026-09-16 from pull request #16. `@kylebegeman/dossier` 0.6.7 publishes
+  the same way from its own repo.
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
@@ -77,26 +74,22 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Tag and publish v0.6.0**: merge the `capture-0.6` pull request after the
-   three-OS matrix passes, then on `master` run `git tag v0.6.0 && git push
-   origin v0.6.0`; `release.yml` publishes to npm and creates the GitHub
-   Release from the record's Public Notes.
-2. **Kore adoption** (B007's last acceptance check): in
+1. **Kore adoption** (B007's last acceptance check): in
    `/Users/kyle/Developer/active/kore` run `npx @kylebegeman/ledger adopt`,
    `ledger hooks install --host claude-code --command "npx ledger"` (and
    `--host codex`), `ledger skills install`, and `ledger agents --write`, then
    work one Claude Code session and check that a session record and a draft
    receipt appear. Record friction as `ledger feedback` here.
-3. **0.7 trust and TypeScript hardening** (backlog B008): current-change
+2. **0.7 trust and TypeScript hardening** (backlog B008): current-change
    coverage provenance, per-file docs impact, `ledger verify --run` with
    evidence sidecars, freshness checks against the code tree, a first-party
    GitHub Action, the typed browser runtime with a bundler and browser tests
    (A4), a typed API client generated from the operations contract, parser
    backed symbols that ship (A5), sharded search and sqlite full-text search
    with chunked artifacts.
-4. **Dossier visual system** (backlog B009): can be scheduled inside 0.7's
+3. **Dossier visual system** (backlog B009): can be scheduled inside 0.7's
    reader work or as its own minor release.
-5. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
+4. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
    multi round-trip confirmation on write tools, the Tasks extension, and list
    caching TTLs. The installed SDK 1.29 speaks 2025-11-25.
 
@@ -104,6 +97,9 @@ D006 records what was retired; D007 records the runtime decision below.
 
 - Milestone per commit, receipt per milestone, one PR per release-sized slice
   (0.5 and 0.6 shipped as one PR each; 0.4 as four PRs). Both were fine.
+- The permission classifier in Claude Code's auto mode blocks an agent from
+  merging a pull request; Kyle merges and tags. Everything up to the open PR
+  with a green matrix can be done autonomously.
 - Registry changes require regenerating `test/fixtures/operations-contract.json`
   with `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts`;
   review the diff as a contract change and mention it in the receipt.
