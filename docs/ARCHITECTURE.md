@@ -299,6 +299,16 @@ metadata before full detailed fields so agents can inspect compact signals
 first. Tools that do not mutate are annotated read-only. The MCP layer contains
 no command logic; behavior lives in the operation definitions the CLI uses.
 
+The server also exposes resources and prompts. `ledger://records/{id}` lists
+every record and reads its raw Markdown; `ledger://packet/{path}` returns a
+token-bounded handoff packet for a URL-encoded project path;
+`ledger://contract` returns the operations contract as JSON. The
+`ledger_agent_instructions` prompt renders the role instructions from
+`ledger agents` for the configured project, and `ledger_handoff` wraps the
+packet for a path in a message an agent can read before editing. Both
+transports, stdio and the engine's `/mcp`, register the same tools,
+resources, and prompts.
+
 ### Render And Export Adapters
 
 Ledger core should provide normalized exports, not own every presentation.

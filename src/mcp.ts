@@ -1,11 +1,22 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { readLedgerCatalog } from "./catalogCache.js";
+import { normalizeDocument } from "./documents.js";
 import { LedgerError, machineFailure, machineSuccess, type LedgerMachineResult } from "./machine.js";
-import { findOperationByTool, ledgerOperations, mcpInputSchema } from "./operations/registry.js";
+import { agentInstructions, agentRoles } from "./operations/definitions/agents.js";
+import {
+  buildOperationsContract,
+  findOperationByTool,
+  ledgerOperations,
+  mcpInputSchema,
+} from "./operations/registry.js";
 import { buildContext } from "./operations/runtime.js";
 import type { AnyLedgerOperation } from "./operations/types.js";
+import { buildAgentPacket, formatAgentPacket } from "./packet.js";
+import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
+import { findWorkspace } from "./workspace.js";
 
 /** MCP tool name. Every tool is an operation from the registry with `mcp` metadata. */
 export type LedgerMcpToolName = string;
@@ -46,6 +57,9 @@ export function createLedgerMcpServer(options: LedgerMcpOptions = {}): McpServer
     version: options.version ?? "0.0.0",
   });
 
+  registerLedgerResources(server, options);
+  registerLedgerPrompts(server, options);
+
   for (const operation of ledgerOperations) {
     const mcp = operation.mcp;
     if (!mcp) continue;
@@ -66,6 +80,156 @@ export function createLedgerMcpServer(options: LedgerMcpOptions = {}): McpServer
   }
 
   return server;
+}
+
+/** Default token budget for packet resources and handoff prompts. */
+export const mcpPacketBudgetTokens = 1_600;
+
+/** Resource URIs the server exposes. Records list; packets and the contract are read on demand. */
+export const ledgerMcpResourceUris = {
+  record: "ledger://records/{id}",
+  packet: "ledger://packet/{path}",
+  contract: "ledger://contract",
+} as const;
+
+function registerLedgerResources(server: McpServer, options: LedgerMcpOptions): void {
+  server.registerResource(
+    "ledger-record",
+    new ResourceTemplate(ledgerMcpResourceUris.record, {
+      list: async () => {
+        const { documents } = await loadCatalog(options);
+        return {
+          resources: documents.map((document) => {
+            const normalized = normalizeDocument(document);
+            return {
+              uri: `ledger://records/${encodeURIComponent(normalized.id)}`,
+              name: normalized.id,
+              title: normalized.title,
+              description: `${normalized.kind} ${normalized.status} at ${normalized.path}`,
+              mimeType: "text/markdown",
+            };
+          }),
+        };
+      },
+    }),
+    {
+      title: "Ledger record",
+      description: "The raw Markdown of one Ledger record, addressed by id.",
+      mimeType: "text/markdown",
+    },
+    async (uri, variables) => {
+      const id = decodeURIComponent(String(variables.id ?? ""));
+      const { documents } = await loadCatalog(options);
+      const document = documents.find((candidate) => String(candidate.frontmatter.id) === id);
+      if (!document) {
+        throw new LedgerError("invalid-argument", `Unknown Ledger record: ${id}`, { id });
+      }
+      return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: document.raw }] };
+    },
+  );
+
+  server.registerResource(
+    "ledger-packet",
+    new ResourceTemplate(ledgerMcpResourceUris.packet, { list: undefined }),
+    {
+      title: "Agent packet for a path",
+      description:
+        "A token-bounded handoff packet for a project-relative file path. Encode the path with encodeURIComponent.",
+      mimeType: "text/markdown",
+    },
+    async (uri, variables) => {
+      const target = decodeURIComponent(String(variables.path ?? ""));
+      if (!target) throw new LedgerError("invalid-argument", "Packet path must not be empty");
+      const { documents } = await loadCatalog(options);
+      const packet = buildAgentPacket(documents, target, { budgetTokens: mcpPacketBudgetTokens });
+      return { contents: [{ uri: uri.href, mimeType: "text/markdown", text: formatAgentPacket(packet) }] };
+    },
+  );
+
+  server.registerResource(
+    "ledger-contract",
+    ledgerMcpResourceUris.contract,
+    {
+      title: "Ledger operations contract",
+      description: "Every Ledger operation with JSON Schema for its input and output.",
+      mimeType: "application/json",
+    },
+    async (uri) => ({
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "application/json",
+          text: JSON.stringify(buildOperationsContract(), null, 2),
+        },
+      ],
+    }),
+  );
+}
+
+function registerLedgerPrompts(server: McpServer, options: LedgerMcpOptions): void {
+  server.registerPrompt(
+    "ledger_agent_instructions",
+    {
+      title: "Ledger workflow instructions",
+      description: "Operating instructions for an agent role in this Ledger project.",
+      argsSchema: {
+        role: z.enum(agentRoles).optional().describe("contributor, reviewer, release, migration, or conflict"),
+      },
+    },
+    async ({ role }) => {
+      const workspace = await tryWorkspace(options);
+      const text = agentInstructions(
+        workspace?.config.project ?? "this project",
+        workspace?.config.docs.adoption ?? "partial",
+        role ?? "contributor",
+      );
+      return { messages: [{ role: "user", content: { type: "text", text } }] };
+    },
+  );
+
+  server.registerPrompt(
+    "ledger_handoff",
+    {
+      title: "Ledger handoff for a path",
+      description: "Context an agent should read before editing a file: matching records, conflict rules, invariants, verification, and related decisions.",
+      argsSchema: {
+        path: z.string().min(1).describe("Project-relative file path."),
+        budgetTokens: z.string().optional().describe("Approximate token budget, default 1600."),
+      },
+    },
+    async ({ path: target, budgetTokens }) => {
+      const { documents } = await loadCatalog(options);
+      const budget = budgetTokens && /^[1-9]\d*$/.test(budgetTokens) ? Number.parseInt(budgetTokens, 10) : mcpPacketBudgetTokens;
+      const packet = buildAgentPacket(documents, target, { budgetTokens: budget });
+      return {
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Before editing ${target}, read this Ledger handoff and preserve its conflict rules and invariants.\n\n${formatAgentPacket(packet)}`,
+            },
+          },
+        ],
+      };
+    },
+  );
+}
+
+async function loadCatalog(
+  options: LedgerMcpOptions,
+): Promise<{ readonly workspace: LedgerWorkspace; readonly documents: readonly ParsedLedgerDocument[] }> {
+  const workspace = await findWorkspace(options.cwd ?? process.cwd());
+  const { documents } = await readLedgerCatalog(workspace);
+  return { workspace, documents };
+}
+
+async function tryWorkspace(options: LedgerMcpOptions): Promise<LedgerWorkspace | undefined> {
+  try {
+    return await findWorkspace(options.cwd ?? process.cwd());
+  } catch {
+    return undefined;
+  }
 }
 
 export async function startLedgerMcpServer(options: LedgerMcpOptions = {}): Promise<void> {
