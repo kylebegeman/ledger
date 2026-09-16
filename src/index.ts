@@ -29,7 +29,7 @@ export {
   classifyDocsFile,
   classifyDocsPaths,
 } from "./docs.js";
-export { buildDocsImpact } from "./docsImpact.js";
+export { buildDocsImpact, docsImpactDeclaration } from "./docsImpact.js";
 export { explainFile, buildIndexes, writeIndexes } from "./indexer.js";
 export {
   buildIntegrityReport,
@@ -64,6 +64,7 @@ export {
   findRecordById,
   nextRecordId,
   promoteRecord,
+  readKindTemplate,
   readReleaseNotes,
 } from "./authoring.js";
 export {
@@ -72,6 +73,7 @@ export {
   setFrontmatterArray,
   setFrontmatterScalars,
 } from "./frontmatterEdit.js";
+export { checkReadiness, formatReadinessReport } from "./ready.js";
 export {
   closeSession,
   findSession,
@@ -156,6 +158,7 @@ export type * from "./machine.js";
 export type * from "./packet.js";
 export type * from "./performance.js";
 export type * from "./query.js";
+export type * from "./ready.js";
 export type * from "./release.js";
 export type * from "./render.js";
 export type * from "./retrieval.js";

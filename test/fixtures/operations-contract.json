@@ -1586,6 +1586,210 @@
       }
     },
     {
+      "name": "ready",
+      "title": "Check records are ready to land",
+      "description": "Check that draft records have no TODOs or template placeholders and carry verification, invariants, docs impact, and valid references.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "ready"
+        ],
+        "aliases": [],
+        "usage": "ledger ready [id-or-path...] [--kind <kind>] [--status <status>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "targets",
+          "min": 0
+        },
+        "flags": {
+          "kind": {
+            "type": "string",
+            "field": "kind",
+            "choices": [
+              "change",
+              "backlog",
+              "decision",
+              "release",
+              "product-note",
+              "feedback",
+              "session"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "targets": {
+            "description": "Record ids or paths. Defaults to draft change entries.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "kind": {
+            "description": "Kind filter for the default selection.",
+            "type": "string",
+            "enum": [
+              "change",
+              "backlog",
+              "decision",
+              "release",
+              "product-note",
+              "feedback",
+              "session"
+            ]
+          },
+          "status": {
+            "description": "Status filter for the default selection. Defaults to draft.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "checked": {
+            "type": "number"
+          },
+          "ready": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notReady": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "ready": {
+                  "type": "boolean"
+                },
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      },
+                      "line": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "path",
+                "kind",
+                "status",
+                "ready",
+                "issues"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "checked",
+          "ready",
+          "notReady",
+          "records"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_ready",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "targets": {
+              "description": "Record ids or paths. Defaults to draft change entries.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "kind": {
+              "description": "Kind filter for the default selection.",
+              "type": "string",
+              "enum": [
+                "change",
+                "backlog",
+                "decision",
+                "release",
+                "product-note",
+                "feedback",
+                "session"
+              ]
+            },
+            "status": {
+              "description": "Status filter for the default selection. Defaults to draft.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
       "name": "index",
       "title": "Write Ledger indexes",
       "description": "Validate records and write JSON indexes under .ledger/indexes.",

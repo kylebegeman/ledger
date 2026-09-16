@@ -623,6 +623,27 @@ when present, must be real calendar dates in `YYYY-MM-DD` form. Validation and
 integrity baseline files are versioned and schema validated; malformed or
 unsupported baselines fail closed instead of silently resetting prior state.
 
+## Readiness
+
+`ledger validate` answers whether a record is structurally valid. `ledger
+ready` answers whether a draft is ready to land. By default it checks change
+entries with `status: "draft"`; pass ids or paths to check specific records of
+any kind, or `--kind` and `--status` to widen the selection. A record is ready
+when:
+
+- validation reports no error or warning for it, including missing `files`
+  and `docs` references
+- no line contains a `TODO:` style marker (prose that mentions TODOs is fine)
+- no line still matches a placeholder from the kind's template
+- every required section has a body
+- change entries list at least one Verification bullet and, when
+  `validation.requireInvariants` is set, at least one Invariants bullet
+- change entries carry a reviewed `docsImpact` declaration, and a declaration
+  with `status: "updated"` names at least one doc
+
+The command exits 1 when any checked record is not ready and prints one line
+per issue with the record path and, where known, the line number.
+
 ## Config Versioning
 
 `version` is the Ledger config schema version. The current supported version is

@@ -153,7 +153,11 @@ function collectDocsImpactDeclarations(
     .sort((left, right) => left.entry.localeCompare(right.entry));
 }
 
-function docsImpactDeclaration(
+/**
+ * The reviewed docs-impact declaration of a record, or undefined when the
+ * record declares none or its reason is still a TODO placeholder.
+ */
+export function docsImpactDeclaration(
   document: ParsedLedgerDocument,
   docsRoot: string,
 ): LedgerDocsImpactDeclaration | undefined {

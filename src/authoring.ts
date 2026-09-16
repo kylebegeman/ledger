@@ -14,7 +14,15 @@ import type {
   NormalizedLedgerDocument,
   ParsedLedgerDocument,
 } from "./types.js";
-import { backlogTemplate, decisionTemplate, sessionTemplatePlaceholders } from "./workspace.js";
+import {
+  backlogTemplate,
+  changeTemplate,
+  decisionTemplate,
+  productNoteTemplate,
+  releaseTemplate,
+  sessionTemplate,
+  sessionTemplatePlaceholders,
+} from "./workspace.js";
 
 /** Backlog status written when an item is promoted into a change entry. */
 export const promotedBacklogStatus = "in-progress";
@@ -116,6 +124,22 @@ async function draftRecord(workspace: LedgerWorkspace, input: DraftRecordInput):
   rendered = ensureFrontmatterArrays(rendered, { decisions, related, docs });
   const relativePath = normalizePath(path.join(input.directory, `${input.id}-${slugify(options.title)}.md`));
   return { id: input.id, path: relativePath, content: rendered };
+}
+
+const kindTemplates: Record<LedgerDocumentKind, { readonly path: string; readonly fallback: () => string }> = {
+  change: { path: ".ledger/templates/change.md", fallback: changeTemplate },
+  backlog: { path: ".ledger/templates/backlog.md", fallback: backlogTemplate },
+  decision: { path: ".ledger/templates/decision.md", fallback: decisionTemplate },
+  release: { path: ".ledger/templates/release.md", fallback: releaseTemplate },
+  "product-note": { path: ".ledger/templates/product-note.md", fallback: productNoteTemplate },
+  feedback: { path: ".ledger/templates/product-note.md", fallback: productNoteTemplate },
+  session: { path: ".ledger/templates/session.md", fallback: sessionTemplate },
+};
+
+/** The project's template for a record kind, or the built-in one when the file is missing. */
+export async function readKindTemplate(workspace: LedgerWorkspace, kind: LedgerDocumentKind): Promise<string> {
+  const template = kindTemplates[kind];
+  return readRecordTemplate(workspace, template.path, kind, template.fallback);
 }
 
 async function readRecordTemplate(
