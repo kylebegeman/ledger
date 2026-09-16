@@ -216,7 +216,7 @@ async function renderBudgetCheck(workspace: LedgerWorkspace): Promise<LedgerDoct
   }
   return {
     name: "render-budget",
-    level: budget.ok ? "pass" : "warn",
+    level: budget.ok ? "pass" : budget.totalBytes === 0 ? "warn" : "fail",
     message: messages.join(", "),
   };
 }
