@@ -217,10 +217,13 @@ they never collapse into an apparently clean change set.
 
 Drafting from Git diffs stays conservative. Ledger can infer areas from changed
 paths, extract Markdown headings and parser-backed TypeScript or JavaScript
-top-level anchors when the host project has `typescript` available, and add
-docs-impact prompts. Regex extraction remains a fallback for portability, and
-generated prose remains marked as TODO so agents must still verify and finish
-the entry before landing it.
+top-level anchors, and add docs-impact prompts. `typescript` is an optional
+peer dependency: when it is installed the parser runs, otherwise a regex
+extractor runs and the draft says so (`ledger new` prints the extractor
+counts and the fallback reason, and `ledger doctor` has a `symbols` check).
+Callers that need parser quality pass `parser: "typescript"` and get an error
+instead of silent regex output. Generated prose remains marked as TODO so
+agents must still verify and finish the entry before landing it.
 
 ### CI Summary
 

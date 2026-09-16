@@ -63,6 +63,14 @@
     "yaml": "^2.8.0",
     "zod": "^4.4.3"
   },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.8.0",

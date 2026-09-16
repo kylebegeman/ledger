@@ -9,7 +9,7 @@ import {
   type PromoteResult,
   type ReleaseNotes,
 } from "../../authoring.js";
-import { createChangeEntry, createProductNoteEntry } from "../../newEntry.js";
+import { createChangeEntryDetailed, createProductNoteEntry, type LedgerSymbolExtractorReport } from "../../newEntry.js";
 import {
   applyRelease,
   buildReleaseDocument,
@@ -34,9 +34,13 @@ interface CreatedRecord {
   readonly path: string;
 }
 
+interface CreatedEntry extends CreatedRecord {
+  readonly symbolExtractors?: LedgerSymbolExtractorReport;
+}
+
 const createdRecordOutput = looseRecord({ path: z.string() });
 
-export const newEntryOperation = defineOperation<NewEntryInput, CreatedRecord>({
+export const newEntryOperation = defineOperation<NewEntryInput, CreatedEntry>({
   name: "new",
   title: "Create a change entry",
   description: "Create the next numbered change entry from the template.",
@@ -49,7 +53,10 @@ export const newEntryOperation = defineOperation<NewEntryInput, CreatedRecord>({
     areas: z.array(shortString).optional().describe("Area tags."),
     status: shortString.default("draft").describe("Entry status."),
   }),
-  output: createdRecordOutput,
+  output: looseRecord({
+    path: z.string(),
+    symbolExtractors: looseRecord({ counts: looseRecord({}), fallbackReason: z.string().optional() }).optional(),
+  }),
   cli: {
     path: ["new"],
     usage: "ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>] [--json]",
@@ -67,17 +74,25 @@ are omitted, and very large diffs are grouped into coverage patterns.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
-    const path = await createChangeEntry(workspace, documents, {
+    const draft = await createChangeEntryDetailed(workspace, documents, {
       title: input.title,
       fromDiff: Boolean(input.fromDiff),
       staged: Boolean(input.staged),
       areas: input.areas ?? [],
       status: input.status,
     });
-    return { data: { path } };
+    return { data: { path: draft.path, symbolExtractors: draft.symbolExtractors } };
   },
   format(data) {
-    return `Created ${data.path}`;
+    const lines = [`Created ${data.path}`];
+    const counts = Object.entries(data.symbolExtractors?.counts ?? {}).filter(([, count]) => (count ?? 0) > 0);
+    if (counts.length > 0) {
+      lines.push(`Symbols: ${counts.map(([name, count]) => `${name} ${count} file(s)`).join(", ")}`);
+    }
+    if (data.symbolExtractors?.fallbackReason) {
+      lines.push(`Regex fallback: ${data.symbolExtractors.fallbackReason}; install typescript for parser-backed anchors.`);
+    }
+    return lines.join("\n");
   },
 });
 

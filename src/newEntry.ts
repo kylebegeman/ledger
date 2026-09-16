@@ -6,7 +6,7 @@ import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import { ensureFrontmatterArrays, replaceSectionBody } from "./frontmatterEdit.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
-import { extractFileSymbols } from "./symbols.js";
+import { extractFileSymbolsDetailed, type LedgerSymbolExtractor } from "./symbols.js";
 import { renderLedgerTemplate } from "./template.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
@@ -35,6 +35,13 @@ export interface DraftedRecord {
   readonly id: string;
   readonly path: string;
   readonly content: string;
+  /** Files handled by each symbol extractor while drafting, with any fallback reason. */
+  readonly symbolExtractors?: LedgerSymbolExtractorReport;
+}
+
+export interface LedgerSymbolExtractorReport {
+  readonly counts: Readonly<Partial<Record<LedgerSymbolExtractor, number>>>;
+  readonly fallbackReason?: string;
 }
 
 export async function createChangeEntry(
@@ -42,11 +49,20 @@ export async function createChangeEntry(
   documents: readonly ParsedLedgerDocument[],
   options: CreateEntryOptions,
 ): Promise<string> {
+  return (await createChangeEntryDetailed(workspace, documents, options)).path;
+}
+
+/** Create a change entry and report which symbol extractors ran. */
+export async function createChangeEntryDetailed(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  options: CreateEntryOptions,
+): Promise<DraftedRecord> {
   const draft = await draftChangeEntry(workspace, documents, options);
   await applyFileTransaction(workspace, "create change entry", [
     { path: draft.path, content: draft.content, expectedHash: null },
   ]);
-  return draft.path;
+  return draft;
 }
 
 /** Render the next change entry without writing it. */
@@ -71,7 +87,7 @@ export async function draftChangeEntry(
     : coverageReferencesForChangedFiles(changedFiles);
   const symbols = options.fromDiff && changedFiles.length <= largeDiffFileThreshold
     ? await collectChangedSymbols(workspace, changedFiles)
-    : { all: [], byFile: new Map<string, readonly string[]>() };
+    : { all: [], byFile: new Map<string, readonly string[]>(), extractors: { counts: {} } };
   const docs = files.filter((file) => isDocsPath(file, workspace.config.docs.root));
   const areas = options.areas.length > 0 ? options.areas : inferAreas(workspace, changedFiles);
   const date = new Date().toISOString().slice(0, 10);
@@ -104,7 +120,7 @@ export async function draftChangeEntry(
     rendered = replaceSectionBody(rendered, title, body);
   }
 
-  return { id, path: normalizePath(relativePath), content: rendered };
+  return { id, path: normalizePath(relativePath), content: rendered, symbolExtractors: symbols.extractors };
 }
 
 function uniqueSorted(values: readonly string[]): readonly string[] {
@@ -246,6 +262,7 @@ export function inferAreas(
 interface ChangedSymbols {
   readonly all: readonly string[];
   readonly byFile: ReadonlyMap<string, readonly string[]>;
+  readonly extractors: LedgerSymbolExtractorReport;
 }
 
 async function collectChangedSymbols(
@@ -254,18 +271,25 @@ async function collectChangedSymbols(
 ): Promise<ChangedSymbols> {
   const all = new Set<string>();
   const byFile = new Map<string, readonly string[]>();
+  const counts: Partial<Record<LedgerSymbolExtractor, number>> = {};
+  let fallbackReason: string | undefined;
 
   for (const file of files) {
     if (file.status === "deleted") continue;
-    const symbols = await extractFileSymbols(workspace, file.path);
-    if (symbols.length === 0) continue;
-    byFile.set(file.path, symbols);
-    for (const symbol of symbols) all.add(symbol);
+    const extraction = await extractFileSymbolsDetailed(workspace, file.path);
+    if (extraction.extractor !== "none") {
+      counts[extraction.extractor] = (counts[extraction.extractor] ?? 0) + 1;
+    }
+    fallbackReason ??= extraction.fallbackReason;
+    if (extraction.symbols.length === 0) continue;
+    byFile.set(file.path, extraction.symbols);
+    for (const symbol of extraction.symbols) all.add(symbol);
   }
 
   return {
     all: [...all].sort(),
     byFile,
+    extractors: fallbackReason ? { counts, fallbackReason } : { counts },
   };
 }
 
