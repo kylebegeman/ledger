@@ -1,9 +1,21 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { readUtf8FileLimited } from "./boundedFile.js";
-import { findMarkdownFiles, normalizeKind, normalizePath } from "./documents.js";
+import {
+  findMarkdownFiles,
+  normalizeKind,
+  normalizePath,
+} from "./documents.js";
 import { parseMarkdownWithFrontmatter } from "./frontmatter.js";
 import { LedgerError } from "./machine.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
@@ -19,7 +31,8 @@ import type {
 export const ledgerCatalogCacheFormatVersion = 1 as const;
 
 export type LedgerCatalogCacheBackendKind = "json" | "sqlite";
-export type LedgerCatalogCacheSetting = LedgerCatalogCacheBackendKind | "auto" | "none";
+export type LedgerCatalogCacheSetting =
+  LedgerCatalogCacheBackendKind | "auto" | "none";
 
 /** Files whose mtime falls inside this window of the cache write are re-hashed. */
 const racyWindowMs = 2_000;
@@ -117,7 +130,8 @@ export async function readLedgerCatalog(
   options: LedgerCatalogReadOptions = {},
 ): Promise<LedgerCatalogReadResult> {
   const files = await scanSourceFiles(workspace);
-  const useCache = options.cache !== false && workspace.config.cache.backend !== "none";
+  const useCache =
+    options.cache !== false && workspace.config.cache.backend !== "none";
   const backend = useCache ? await openBackend(workspace) : undefined;
   const fingerprint = cacheFingerprint(workspace);
   const cacheValid = backend ? await backend.open(fingerprint) : false;
@@ -129,83 +143,109 @@ export async function readLedgerCatalog(
   let misses = 0;
   let totalBytes = 0;
 
-  for (const file of files) {
-    totalBytes += file.size;
-    if (totalBytes > workspace.config.limits.maxTotalDocumentBytes) {
-      throw new LedgerError(
-        "resource-limit-exceeded",
-        `Ledger document bytes exceed ${workspace.config.limits.maxTotalDocumentBytes}`,
-        { limit: workspace.config.limits.maxTotalDocumentBytes, kind: "total-document-bytes" },
-      );
-    }
-
-    const cached = cacheValid ? backend?.get(file.relativePath) : undefined;
-    const racy = header !== undefined && file.mtimeMs >= header.writtenAt - racyWindowMs;
-    if (cached && cached.size === file.size && cached.mtimeMs === file.mtimeMs && !racy) {
-      documents.push(reviveDocument(file, cached));
-      hits += 1;
-      continue;
-    }
-
-    const raw = await readUtf8FileLimited(
-      file.absolutePath,
-      workspace.config.limits.maxDocumentBytes,
-      "document",
-    );
-    const hash = hashContent(raw);
-    if (cached && cached.hash === hash) {
-      const refreshed: CachedDocumentRecord = { ...cached, size: file.size, mtimeMs: file.mtimeMs };
-      documents.push(reviveDocument(file, refreshed));
-      if (cached.size !== file.size || cached.mtimeMs !== file.mtimeMs) upserts.push(refreshed);
-      hits += 1;
-      continue;
-    }
-
-    const parsed = parseMarkdownWithFrontmatter(raw, file.relativePath);
-    const kind = normalizeKind(parsed.frontmatter.kind) ?? file.fallbackKind;
-    const record: CachedDocumentRecord = {
-      path: file.relativePath,
-      size: file.size,
-      mtimeMs: file.mtimeMs,
-      hash,
-      document: {
-        frontmatterRaw: parsed.frontmatterRaw,
-        frontmatter: parsed.frontmatter,
-        body: parsed.body,
-        sections: parsed.sections,
-        kind,
-        raw,
-      },
-    };
-    documents.push(reviveDocument(file, record));
-    upserts.push(record);
-    misses += 1;
-  }
-
-  documents.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
-
   let written = false;
   let removed = 0;
   let note: string | undefined;
-  if (backend) {
-    const present = new Set(files.map((file) => file.relativePath));
-    const removals = cacheValid ? backend.paths().filter((item) => !present.has(item)) : [];
-    removed = removals.length;
-    if (!cacheValid || upserts.length > 0 || removals.length > 0) {
-      try {
-        await backend.commit(
-          { formatVersion: ledgerCatalogCacheFormatVersion, fingerprint, writtenAt: Date.now() },
-          upserts,
-          removals,
+  try {
+    for (const file of files) {
+      totalBytes += file.size;
+      if (totalBytes > workspace.config.limits.maxTotalDocumentBytes) {
+        throw new LedgerError(
+          "resource-limit-exceeded",
+          `Ledger document bytes exceed ${workspace.config.limits.maxTotalDocumentBytes}`,
+          {
+            limit: workspace.config.limits.maxTotalDocumentBytes,
+            kind: "total-document-bytes",
+          },
         );
-        written = true;
-      } catch (error) {
-        note = `cache not written: ${error instanceof Error ? error.message : String(error)}`;
       }
+
+      const cached = cacheValid ? backend?.get(file.relativePath) : undefined;
+      const racy =
+        header !== undefined && file.mtimeMs >= header.writtenAt - racyWindowMs;
+      if (
+        cached &&
+        cached.size === file.size &&
+        cached.mtimeMs === file.mtimeMs &&
+        !racy
+      ) {
+        documents.push(reviveDocument(file, cached));
+        hits += 1;
+        continue;
+      }
+
+      const raw = await readUtf8FileLimited(
+        file.absolutePath,
+        workspace.config.limits.maxDocumentBytes,
+        "document",
+      );
+      const hash = hashContent(raw);
+      if (cached && cached.hash === hash) {
+        const refreshed: CachedDocumentRecord = {
+          ...cached,
+          size: file.size,
+          mtimeMs: file.mtimeMs,
+        };
+        documents.push(reviveDocument(file, refreshed));
+        if (cached.size !== file.size || cached.mtimeMs !== file.mtimeMs)
+          upserts.push(refreshed);
+        hits += 1;
+        continue;
+      }
+
+      const parsed = parseMarkdownWithFrontmatter(raw, file.relativePath);
+      const kind = normalizeKind(parsed.frontmatter.kind) ?? file.fallbackKind;
+      const record: CachedDocumentRecord = {
+        path: file.relativePath,
+        size: file.size,
+        mtimeMs: file.mtimeMs,
+        hash,
+        document: {
+          frontmatterRaw: parsed.frontmatterRaw,
+          frontmatter: parsed.frontmatter,
+          body: parsed.body,
+          sections: parsed.sections,
+          kind,
+          raw,
+        },
+      };
+      documents.push(reviveDocument(file, record));
+      upserts.push(record);
+      misses += 1;
     }
-    await backend.close();
-  } else if (!useCache) {
-    note = options.cache === false ? "cache bypassed" : "cache disabled by config";
+
+    documents.sort((left, right) =>
+      left.relativePath.localeCompare(right.relativePath),
+    );
+
+    if (backend) {
+      const present = new Set(files.map((file) => file.relativePath));
+      const removals = cacheValid
+        ? backend.paths().filter((item) => !present.has(item))
+        : [];
+      removed = removals.length;
+      if (!cacheValid || upserts.length > 0 || removals.length > 0) {
+        try {
+          await backend.commit(
+            {
+              formatVersion: ledgerCatalogCacheFormatVersion,
+              fingerprint,
+              writtenAt: Date.now(),
+            },
+            upserts,
+            removals,
+          );
+          written = true;
+        } catch (error) {
+          note = `cache not written: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      }
+    } else if (!useCache) {
+      note =
+        options.cache === false ? "cache bypassed" : "cache disabled by config";
+    }
+  } finally {
+    await backend?.close();
   }
 
   return {
@@ -230,11 +270,27 @@ export async function inspectLedgerCatalogCache(
 ): Promise<LedgerCatalogCacheInspection> {
   const setting = workspace.config.cache.backend;
   if (setting === "none") {
-    return { setting, backend: "none", exists: false, entries: 0, bytes: 0, current: false, note: "disabled by config" };
+    return {
+      setting,
+      backend: "none",
+      exists: false,
+      entries: 0,
+      bytes: 0,
+      current: false,
+      note: "disabled by config",
+    };
   }
   const backend = await openBackend(workspace);
   if (!backend) {
-    return { setting, backend: "none", exists: false, entries: 0, bytes: 0, current: false, note: "no backend available" };
+    return {
+      setting,
+      backend: "none",
+      exists: false,
+      entries: 0,
+      bytes: 0,
+      current: false,
+      note: "no backend available",
+    };
   }
   const fingerprint = cacheFingerprint(workspace);
   const current = await backend.open(fingerprint);
@@ -253,21 +309,34 @@ export async function inspectLedgerCatalogCache(
   return {
     setting,
     backend: backend.kind,
-    cachePath: normalizePath(path.relative(workspace.projectRoot, backend.cachePath)),
+    cachePath: normalizePath(
+      path.relative(workspace.projectRoot, backend.cachePath),
+    ),
     exists,
     entries,
     bytes,
     writtenAt: header ? new Date(header.writtenAt).toISOString() : undefined,
     current,
-    note: exists && !current ? "cache was built for a different configuration or format" : undefined,
+    note:
+      exists && !current
+        ? "cache was built for a different configuration or format"
+        : undefined,
   };
 }
 
 /** Delete every catalog cache artifact. Returns the removed paths. */
-export async function clearLedgerCatalogCache(workspace: LedgerWorkspace): Promise<readonly string[]> {
+export async function clearLedgerCatalogCache(
+  workspace: LedgerWorkspace,
+): Promise<readonly string[]> {
   const directory = await cacheDirectory(workspace);
   const removed: string[] = [];
-  for (const name of ["catalog.json", "catalog.sqlite", "catalog.sqlite-journal", "catalog.sqlite-wal", "catalog.sqlite-shm"]) {
+  for (const name of [
+    "catalog.json",
+    "catalog.sqlite",
+    "catalog.sqlite-journal",
+    "catalog.sqlite-wal",
+    "catalog.sqlite-shm",
+  ]) {
     const target = path.join(directory, name);
     try {
       await rm(target, { force: false });
@@ -299,7 +368,9 @@ export function cacheFingerprint(workspace: LedgerWorkspace): string {
   );
 }
 
-async function scanSourceFiles(workspace: LedgerWorkspace): Promise<readonly SourceFile[]> {
+async function scanSourceFiles(
+  workspace: LedgerWorkspace,
+): Promise<readonly SourceFile[]> {
   const sourceDirectories: Array<[LedgerDocumentKind, string]> = [
     ["change", workspace.config.source.entries],
     ["backlog", workspace.config.source.backlog],
@@ -331,12 +402,18 @@ async function scanSourceFiles(workspace: LedgerWorkspace): Promise<readonly Sou
         throw new LedgerError(
           "resource-limit-exceeded",
           `${absolutePath}: document exceeds ${workspace.config.limits.maxDocumentBytes} bytes`,
-          { path: absolutePath, kind: "document", limit: workspace.config.limits.maxDocumentBytes },
+          {
+            path: absolutePath,
+            kind: "document",
+            limit: workspace.config.limits.maxDocumentBytes,
+          },
         );
       }
       files.push({
         absolutePath,
-        relativePath: normalizePath(path.relative(workspace.projectRoot, absolutePath)),
+        relativePath: normalizePath(
+          path.relative(workspace.projectRoot, absolutePath),
+        ),
         fallbackKind,
         size: stats.size,
         mtimeMs: stats.mtimeMs,
@@ -346,7 +423,10 @@ async function scanSourceFiles(workspace: LedgerWorkspace): Promise<readonly Sou
   return files;
 }
 
-function reviveDocument(file: SourceFile, record: CachedDocumentRecord): ParsedLedgerDocument {
+function reviveDocument(
+  file: SourceFile,
+  record: CachedDocumentRecord,
+): ParsedLedgerDocument {
   return {
     absolutePath: file.absolutePath,
     relativePath: file.relativePath,
@@ -364,16 +444,26 @@ function hashContent(content: string): string {
 }
 
 async function cacheDirectory(workspace: LedgerWorkspace): Promise<string> {
-  return resolveSafeProjectPath(workspace.projectRoot, workspace.config.cache.output, "cache.output");
+  return resolveSafeProjectPath(
+    workspace.projectRoot,
+    workspace.config.cache.output,
+    "cache.output",
+  );
 }
 
-async function openBackend(workspace: LedgerWorkspace): Promise<CatalogCacheBackend | undefined> {
+async function openBackend(
+  workspace: LedgerWorkspace,
+): Promise<CatalogCacheBackend | undefined> {
   const kind = await resolveCatalogCacheBackend(workspace.config.cache.backend);
   if (kind === "none") return undefined;
   const directory = await cacheDirectory(workspace);
   if (kind === "sqlite") {
     const sqlite = await loadSqlite();
-    if (sqlite) return new SqliteCacheBackend(path.join(directory, "catalog.sqlite"), sqlite);
+    if (sqlite)
+      return new SqliteCacheBackend(
+        path.join(directory, "catalog.sqlite"),
+        sqlite,
+      );
   }
   return new JsonCacheBackend(path.join(directory, "catalog.json"));
 }
@@ -441,7 +531,9 @@ class JsonCacheBackend implements CatalogCacheBackend {
   ): Promise<void> {
     for (const relativePath of removals) this.records.delete(relativePath);
     for (const record of upserts) this.records.set(record.path, record);
-    const records = [...this.records.values()].sort((left, right) => left.path.localeCompare(right.path));
+    const records = [...this.records.values()].sort((left, right) =>
+      left.path.localeCompare(right.path),
+    );
     const payload: JsonCacheFile = { header, records };
     await mkdir(path.dirname(this.cachePath), { recursive: true });
     const temporary = `${this.cachePath}.${process.pid}.tmp`;
@@ -479,13 +571,16 @@ class SqliteCacheBackend implements CatalogCacheBackend {
       "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);" +
         "CREATE TABLE IF NOT EXISTS documents (path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime REAL NOT NULL, hash TEXT NOT NULL, record TEXT NOT NULL);",
     );
-    const row = this.database.prepare("SELECT value FROM meta WHERE key = 'header'").get() as
-      | { readonly value: string }
-      | undefined;
+    const row = this.database
+      .prepare("SELECT value FROM meta WHERE key = 'header'")
+      .get() as { readonly value: string } | undefined;
     if (!row) return false;
     try {
       const header = JSON.parse(row.value) as CacheHeader;
-      if (header.formatVersion !== ledgerCatalogCacheFormatVersion || header.fingerprint !== fingerprint) {
+      if (
+        header.formatVersion !== ledgerCatalogCacheFormatVersion ||
+        header.fingerprint !== fingerprint
+      ) {
         return false;
       }
       this.loadedHeader = header;
@@ -503,14 +598,30 @@ class SqliteCacheBackend implements CatalogCacheBackend {
   get(relativePath: string): CachedDocumentRecord | undefined {
     if (!this.database || !this.valid) return undefined;
     const row = this.database
-      .prepare("SELECT path, size, mtime, hash, record FROM documents WHERE path = ?")
+      .prepare(
+        "SELECT path, size, mtime, hash, record FROM documents WHERE path = ?",
+      )
       .get(relativePath) as
-      | { readonly path: string; readonly size: number; readonly mtime: number; readonly hash: string; readonly record: string }
+      | {
+          readonly path: string;
+          readonly size: number;
+          readonly mtime: number;
+          readonly hash: string;
+          readonly record: string;
+        }
       | undefined;
     if (!row) return undefined;
     try {
-      const document = JSON.parse(row.record) as CachedDocumentRecord["document"];
-      return { path: row.path, size: row.size, mtimeMs: row.mtime, hash: row.hash, document };
+      const document = JSON.parse(
+        row.record,
+      ) as CachedDocumentRecord["document"];
+      return {
+        path: row.path,
+        size: row.size,
+        mtimeMs: row.mtime,
+        hash: row.hash,
+        document,
+      };
     } catch {
       return undefined;
     }
@@ -518,13 +629,17 @@ class SqliteCacheBackend implements CatalogCacheBackend {
 
   paths(): readonly string[] {
     if (!this.database || !this.valid) return [];
-    const rows = this.database.prepare("SELECT path FROM documents").all() as unknown as readonly { readonly path: string }[];
+    const rows = this.database
+      .prepare("SELECT path FROM documents")
+      .all() as unknown as readonly { readonly path: string }[];
     return rows.map((row) => row.path);
   }
 
   entryCount(): number {
     if (!this.database || !this.valid) return 0;
-    const row = this.database.prepare("SELECT COUNT(*) AS count FROM documents").get() as { readonly count: number };
+    const row = this.database
+      .prepare("SELECT COUNT(*) AS count FROM documents")
+      .get() as { readonly count: number };
     return row.count;
   }
 
@@ -545,10 +660,18 @@ class SqliteCacheBackend implements CatalogCacheBackend {
           "ON CONFLICT(path) DO UPDATE SET size = excluded.size, mtime = excluded.mtime, hash = excluded.hash, record = excluded.record",
       );
       for (const record of upserts) {
-        upsert.run(record.path, record.size, record.mtimeMs, record.hash, JSON.stringify(record.document));
+        upsert.run(
+          record.path,
+          record.size,
+          record.mtimeMs,
+          record.hash,
+          JSON.stringify(record.document),
+        );
       }
       database
-        .prepare("INSERT INTO meta (key, value) VALUES ('header', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .prepare(
+          "INSERT INTO meta (key, value) VALUES ('header', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        )
         .run(JSON.stringify(header));
       database.exec("COMMIT");
       this.valid = true;
@@ -577,8 +700,12 @@ async function loadSqlite(): Promise<SqliteModule | undefined> {
 }
 
 /** node:sqlite reached release-candidate stability in Node 24.15; earlier lines warn on import. */
-export function nodeSupportsStableSqlite(version = process.versions.node): boolean {
-  const [major = 0, minor = 0] = version.split(".").map((part) => Number.parseInt(part, 10));
+export function nodeSupportsStableSqlite(
+  version = process.versions.node,
+): boolean {
+  const [major = 0, minor = 0] = version
+    .split(".")
+    .map((part) => Number.parseInt(part, 10));
   if (major > 24) return true;
   return major === 24 && minor >= 15;
 }
