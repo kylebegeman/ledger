@@ -347,6 +347,10 @@ loads. If a browser blocks sidecar loading from a direct file open, the reader
 falls back to inline compact search text. `ledger search` uses the same weighted
 search documents from Node, which gives terminal retrieval and browser
 retrieval the same ranking behavior.
+The weights and scoring functions live once in `src/searchCore.ts`; the
+reader runtime embeds them by serializing the functions with
+`Function.prototype.toString()` at build time, and a parity test evaluates that
+embedded JavaScript against the Node module.
 
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.

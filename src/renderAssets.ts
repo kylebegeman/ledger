@@ -909,6 +909,8 @@ export const staticReaderStyles = `    :root {
       *, *::before, *::after, ::backdrop { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     }`;
 
+import { sharedSearchRuntime } from "./searchCore.js";
+
 export const staticReaderRuntime = `    let searchIndexPromise;
     let filterRequest = 0;
     let commandItems = [];
@@ -924,44 +926,13 @@ export const staticReaderRuntime = `    let searchIndexPromise;
       return searchIndexPromise;
     }
 
-    const searchWeights = {
-      id: 16,
-      title: 14,
-      path: 10,
-      symbols: 9,
-      files: 8,
-      docs: 6,
-      metadata: 5,
-      context: 4,
-      summary: 3,
-      terms: 1
-    };
-
-    function fuzzyScore(query, terms) {
-      if (!query) return 1;
-      if (!terms) return 0;
-      const normalizedQuery = query.toLowerCase();
-      const normalizedTerms = terms.toLowerCase();
-      if (normalizedTerms.includes(normalizedQuery)) return 100 + normalizedQuery.length;
-      let score = 0;
-      let position = 0;
-      for (const character of normalizedQuery) {
-        const found = normalizedTerms.indexOf(character, position);
-        if (found === -1) return 0;
-        score += Math.max(1, 12 - (found - position));
-        position = found + 1;
-      }
-      return score;
-    }
+    // Shared with \`ledger search\`: the same weights and scoring functions,
+    // serialized from src/searchCore.ts at build time.
+${sharedSearchRuntime}
 
     function scoreSearchDocument(query, document) {
-      if (!document.fields) return fuzzyScore(query, document.terms);
-      return Object.entries(searchWeights).reduce((score, pair) => {
-        const field = pair[0];
-        const weight = pair[1];
-        const value = field === "terms" ? document.terms : document.fields[field];
-        return score + fuzzyScore(query, value) * weight;
-      }, 0);
+      if (!document.fields) return fuzzyScore(query, document.terms || "");
+      return scoreSearchFields(document, query).score;
     }
 
     async function searchMatches(query) {
