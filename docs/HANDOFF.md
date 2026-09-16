@@ -93,13 +93,13 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Kore follow-through**: the live session left an uncommitted rename in
-   Kore's `CONTRIBUTING.md` with finished receipt 0002 (still `draft`) and
-   active session S0001. After that Claude Code session exits, mark 0002
-   `landed` and commit it with the rename and the closed session record on
-   `kore/ledger-adoption`. Landing it earlier makes the next Stop draft a
-   second receipt (0129). Then Kyle merges kylebegeman/forge#22, forge#23, and
-   this repository's pull request for the adoption records.
+1. **Merge the Kore adoption**: Kore's branch `kore/ledger-adoption` holds the
+   adoption, the live session's `CONTRIBUTING.md` rename with landed receipt
+   0002, and closed session S0001 (commit `c9b3ad5`). Kyle merges
+   kylebegeman/forge#22 first, then forge#23, then this repository's pull
+   request for the adoption records. In the Claude desktop app, `/exit` does
+   not fire SessionEnd, so close a finished session with
+   `ledger session close --id <id>` before landing its receipt (0129).
 2. **Adoption and capture fixes** (backlog B010), most urgent first: the
    `docs reconcile` guard (0126); one configured Ledger command rendered into
    the hooks, agents block, skill, and hook context (0127); the draft receipt

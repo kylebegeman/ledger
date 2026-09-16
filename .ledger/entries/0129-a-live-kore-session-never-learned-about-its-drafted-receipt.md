@@ -58,6 +58,11 @@ The loop around the agent did not work:
 - The draft kept the session title, `docsImpact: none` with a TODO reason,
   three empty template bullets, and an area inferred from the file name,
   `contributing`.
+- The session ran in the Claude desktop app, where `/exit` was recorded but
+  the Claude Code process kept running, so SessionEnd never fired and S0001
+  stayed `active`. It was closed with `ledger session close --id S0001` before
+  0002 was landed, so a later Stop in that tab could not draft a second
+  receipt.
 
 ## Impact
 
@@ -84,3 +89,5 @@ pruning does to receipts that link a pruned session.
 - Linked-receipt lookup that does not re-draft after landing.
 - Drafts without session paths, with the change's title and areas.
 - A rule for committing session records and for links to pruned sessions.
+- Close sessions without relying on SessionEnd, which the desktop app did not
+  fire on `/exit`.
