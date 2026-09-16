@@ -23,7 +23,7 @@ import {
   writeValidationBaseline,
   writeValidationReport,
 } from "../../validate.js";
-import { initWorkspace } from "../../workspace.js";
+import { initWorkspace, type LedgerDocsRoutingPaths } from "../../workspace.js";
 import { loadDocuments, looseRecord, validationLine, validationResultShape } from "../shared.js";
 import { defineOperation } from "../types.js";
 import { readEvidence } from "../../verify.js";
@@ -39,6 +39,12 @@ export interface InitOutput {
   readonly ledgerRoot: string;
   readonly withDocs: boolean;
   readonly adoption: LedgerDocsAdoption;
+  /** The docs.routing pair in effect: chosen for a new config, or read from the existing one. */
+  readonly routing: LedgerDocsRoutingPaths;
+  /** True when docs/llm already held a routing file Ledger did not generate. */
+  readonly routingFilesDetected: boolean;
+  /** False when .ledger/config.yaml already existed and was left untouched. */
+  readonly configWritten: boolean;
 }
 
 const initOutput = looseRecord({
@@ -46,6 +52,9 @@ const initOutput = looseRecord({
   ledgerRoot: z.string(),
   withDocs: z.boolean(),
   adoption: z.string(),
+  routing: looseRecord({ startHere: z.string(), manifest: z.string() }),
+  routingFilesDetected: z.boolean(),
+  configWritten: z.boolean(),
 });
 
 export const initOperation = defineOperation<InitInput, InitOutput>({
@@ -75,9 +84,9 @@ creates docs routing files in partial adoption mode unless --managed-docs is set
   async run(context, input) {
     const adoption: LedgerDocsAdoption = input.managedDocs ? "managed" : "partial";
     const withDocs = Boolean(input.withDocs || input.migrate);
-    await initWorkspace(context.cwd, { withDocs, adoption });
+    const result = await initWorkspace(context.cwd, { withDocs, adoption });
     return {
-      data: { projectRoot: context.cwd, ledgerRoot: ".ledger", withDocs, adoption },
+      data: { projectRoot: context.cwd, ledgerRoot: ".ledger", withDocs, adoption, ...result },
     };
   },
   format(data) {
@@ -87,7 +96,11 @@ creates docs routing files in partial adoption mode unless --managed-docs is set
   },
 });
 
-export const adoptOperation = defineOperation<{ managedDocs?: boolean }, InitOutput>({
+export interface AdoptInput extends Record<string, unknown> {
+  readonly managedDocs?: boolean;
+}
+
+export const adoptOperation = defineOperation<AdoptInput, InitOutput>({
   name: "adopt",
   title: "Adopt Ledger",
   description: "Initialize Ledger for an established repository with partial docs adoption.",
@@ -103,15 +116,25 @@ export const adoptOperation = defineOperation<{ managedDocs?: boolean }, InitOut
     },
     json: true,
     help: `Initializes Ledger for an established repo. By default this uses partial docs
-adoption, updating routing docs and impact reports without owning all docs.`,
+adoption, updating routing docs and impact reports without owning all docs.
+Existing docs/llm routing files are never replaced: when one exists that Ledger
+did not generate, docs.routing points at derived files under .ledger/ instead.`,
   },
   async run(context, input) {
     const adoption: LedgerDocsAdoption = input.managedDocs ? "managed" : "partial";
-    await initWorkspace(context.cwd, { withDocs: true, adoption });
-    return { data: { projectRoot: context.cwd, ledgerRoot: ".ledger", withDocs: true, adoption } };
+    const result = await initWorkspace(context.cwd, { withDocs: true, adoption });
+    return {
+      data: { projectRoot: context.cwd, ledgerRoot: ".ledger", withDocs: true, adoption, ...result },
+    };
   },
   format(data) {
-    return `Initialized Ledger adoption scaffold in ${data.adoption} docs mode.`;
+    const base = `Initialized Ledger adoption scaffold in ${data.adoption} docs mode.`;
+    const routing = `${data.routing.startHere} and ${data.routing.manifest}`;
+    if (!data.configWritten) {
+      return `${base} .ledger/config.yaml already existed and was left alone; docs.routing stays at ${routing}.`;
+    }
+    if (!data.routingFilesDetected) return base;
+    return `${base} Existing docs/llm routing files were left alone; docs.routing points at ${routing}.`;
   },
 });
 

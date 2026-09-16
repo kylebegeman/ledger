@@ -298,7 +298,7 @@ full local verification and publishing checklist.
 | --- | --- |
 | `ledger init --with-docs` | Creates `.ledger/` and optional `docs/` scaffolding. |
 | `ledger init --migrate` | Creates a partial-adoption scaffold for replacing an existing changelog or docs workflow. |
-| `ledger adopt` | Initializes Ledger for an established repo without claiming ownership of the whole docs tree. |
+| `ledger adopt` | Initializes Ledger for an established repo without claiming ownership of the whole docs tree. Existing `docs/llm` routing files are left alone; when one exists that Ledger did not generate, `docs.routing` points at `.ledger/reports/docs-start-here.md` and `.ledger/indexes/docs-routing.json`. |
 | `ledger new "Title" --from-diff` | Drafts a change entry from git status. |
 | `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
 | `ledger backlog new "Title" --area cli --decision D001` | Creates the next numbered backlog item from the template. |
@@ -322,7 +322,7 @@ full local verification and publishing checklist.
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
 | `ledger docs impact --check` | Fails when a changed source file has no docs impact evidence from a change entry in the same change set (a reviewed `docsImpact` declaration or referenced docs). |
-| `ledger docs reconcile` | Regenerates the docs routing manifest and `START_HERE.md` from the docs audit. |
+| `ledger docs reconcile` | Regenerates the configured docs routing manifest and `START_HERE.md` from the docs audit. Refuses to replace a routing file Ledger did not generate unless `--force` is passed, and exits 1 on refusal without writing either file. |
 | `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
 | `ledger explain <path>` | Shows records that mention a file plus the decisions, backlog items, and superseding records one hop away. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
@@ -387,6 +387,14 @@ possible, writes duplicate-ID suggestions in a migration receipt, and maps
 frontmatter plus body sections into Ledger change entries. `--rewrite-docs`
 updates docs references from old changelog paths to the new `.ledger/entries`
 paths.
+
+`ledger adopt` never replaces routing files you already maintain. When
+`docs/llm/START_HERE.md` or `docs/llm/manifest.json` exists and Ledger did not
+generate it, the written config points `docs.routing` at
+`.ledger/reports/docs-start-here.md` and `.ledger/indexes/docs-routing.json`,
+which are derived and git-ignored, and no sibling scaffold is created under
+`docs/llm`. Existing workspaces are unchanged because `config.yaml` is only
+written when missing.
 
 For long-lived histories, mark migrated records with `status: "historical"` or
 acknowledge stale paths with `staleRefs`. Historical records stay queryable but
@@ -638,7 +646,11 @@ Use:
 Ledger can scaffold and audit `docs/`, but it does not try to become a docs CMS.
 `ledger docs reconcile` keeps agent routing files current, and
 `ledger docs migrate` reports scratch, generated, unknown, missing, and
-unreferenced docs that may need cleanup.
+unreferenced docs that may need cleanup. Reconcile never overwrites a curated
+routing file: it replaces only a manifest with `generatedBy: "ledger"` or a
+`START_HERE.md` that carries the `<!-- ledger:docs:start-here -->` marker (or
+the generated sentence older files carry near the top), unless `--force` is
+passed.
 
 ## Integrity
 
