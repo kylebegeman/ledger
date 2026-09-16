@@ -306,6 +306,7 @@ full local verification and publishing checklist.
 | `ledger session start --host claude-code` | Starts an expiring session record; `session touch <path>` records touched files, `session note "<text>"` appends a Learned or Next bullet, `session close` ends it, and `session prune --write` deletes expired ones. |
 | `ledger scratch "Title"` | Starts a session record for scratch notes that expire unless promoted. |
 | `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
+| `ledger verify --run` | Runs the allowlisted commands from change entries' Verification sections and records evidence (command, exit status, duration, commit) that doctor, stale, packets, and the reader surface as fresh, stale, or failed. |
 | `ledger ready` | Gates draft change entries on readiness to land: no TODO markers or template placeholders, verification and invariants present, docs impact reviewed, and referenced files present. Pass ids or paths to check specific records. |
 | `ledger index` | Validates records and writes JSON indexes under `.ledger/indexes/`. |
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. Use `--check` to compare without replacing the baseline. |
@@ -488,6 +489,8 @@ After editing:
 
 ```bash
 ledger new "Describe the change" --from-diff
+ledger verify --run
+ledger ready
 ledger doctor
 ledger stale
 ledger ci

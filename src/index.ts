@@ -85,6 +85,16 @@ export {
 } from "./hooks.js";
 export { checkReadiness, formatReadinessReport } from "./ready.js";
 export {
+  evidenceFreshness,
+  formatVerifyReport,
+  isAllowedCommand,
+  parseVerificationBullet,
+  readEvidence,
+  runVerification,
+  splitShellWords,
+  writeEvidence,
+} from "./verify.js";
+export {
   installLedgerSkill,
   ledgerSkillPath,
   renderLedgerSkill,
@@ -198,4 +208,5 @@ export type * from "./symbols.js";
 export type * from "./template.js";
 export type * from "./types.js";
 export type * from "./validate.js";
+export type * from "./verify.js";
 export type * from "./workspace.js";

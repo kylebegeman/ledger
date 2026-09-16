@@ -12,6 +12,7 @@ import {
 } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
 import { renderStaticReaderHtml } from "./renderHtml.js";
+import { evidenceFreshness, type LedgerEvidenceIndex, type LedgerVerificationFreshness } from "./verify.js";
 import type {
   LedgerIssue,
   LedgerValidationResult,
@@ -39,6 +40,10 @@ export interface LedgerRenderedDocument extends NormalizedLedgerDocument {
   readonly hasDuplicateId: boolean;
   readonly hasMissingRefs: boolean;
   readonly coverageStatus: "none" | "exact" | "pattern";
+  /** Freshness of verification evidence for change entries; `none` when no evidence was supplied. */
+  readonly verificationStatus: LedgerVerificationFreshness;
+  readonly verifiedAt?: string;
+  readonly verifiedCommit?: string;
 }
 
 export interface LedgerStaticReaderModel {
@@ -194,6 +199,7 @@ export function buildStaticReaderModel(
   options: {
     readonly validation?: LedgerValidationResult;
     readonly profile?: LedgerRenderProfile;
+    readonly evidence?: LedgerEvidenceIndex;
   } = {},
 ): LedgerStaticReaderModel {
   const profile = options.profile ?? "internal";
@@ -221,6 +227,7 @@ export function buildStaticReaderModel(
         hasDuplicateId: issues.some((issue) => issue.code === "duplicate-id"),
         hasMissingRefs: issues.some((issue) => issue.code === "missing-reference"),
         coverageStatus: coverageStatus(normalized.files),
+        ...verificationFields(workspace, document.kind, normalized.id, options.evidence),
       };
       return profile === "public" ? publicDocument(rendered) : rendered;
     })
@@ -793,6 +800,20 @@ function compactSection(value: string | undefined): string | undefined {
   return `${compacted.slice(0, 317).trimEnd()}...`;
 }
 
+function verificationFields(
+  workspace: LedgerWorkspace,
+  kind: string,
+  id: string,
+  evidence: LedgerEvidenceIndex | undefined,
+): Pick<LedgerRenderedDocument, "verificationStatus" | "verifiedAt" | "verifiedCommit"> {
+  if (!evidence || kind !== "change") return { verificationStatus: "none" };
+  const entry = evidence.entries[id];
+  return {
+    verificationStatus: evidenceFreshness(entry, workspace.config.verification.maxAgeDays),
+    ...(entry ? { verifiedAt: entry.ranAt, verifiedCommit: entry.commit } : {}),
+  };
+}
+
 function publicDocument(document: LedgerRenderedDocument): LedgerRenderedDocument {
   return {
     id: document.id,
@@ -823,6 +844,7 @@ function publicDocument(document: LedgerRenderedDocument): LedgerRenderedDocumen
     sections: [],
     invariants: [],
     verification: [],
+    verificationStatus: "none",
     issues: [],
     warningCount: 0,
     errorCount: 0,

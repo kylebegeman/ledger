@@ -5,6 +5,7 @@ import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.
 import { applyFileTransaction } from "./fileTransaction.js";
 import { extractBullets, getSectionBody } from "./query.js";
 import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
+import { evidenceFreshness, readEvidence } from "./verify.js";
 import type {
   LedgerValidationResult,
   LedgerWorkspace,
@@ -19,7 +20,8 @@ export interface LedgerStaleIssue {
     | "superseded-relationship"
     | "stale-symbol"
     | "release-verification"
-    | "expired-session";
+    | "expired-session"
+    | "stale-verification";
   readonly path: string;
   readonly message: string;
   readonly target?: string;
@@ -40,6 +42,7 @@ export async function detectStaleKnowledge(
   const parsedByPath = new Map(documents.map((document) => [document.relativePath, document]));
   const issues: LedgerStaleIssue[] = [];
   const today = new Date().toISOString().slice(0, 10);
+  const evidence = await readEvidence(workspace);
 
   for (const issue of validation.issues) {
     if (issue.code !== "missing-reference" || !issue.path) continue;
@@ -84,6 +87,20 @@ export async function detectStaleKnowledge(
           path: document.path,
           target: document.id,
           message: `release ${document.id} has no verification bullets`,
+        });
+      }
+    }
+
+    if (document.kind === "change") {
+      const freshness = evidenceFreshness(evidence.entries[document.id], workspace.config.verification.maxAgeDays);
+      if (freshness === "stale" || freshness === "failed") {
+        issues.push({
+          kind: "stale-verification",
+          path: document.path,
+          target: document.id,
+          message: freshness === "failed"
+            ? `verification evidence for ${document.id} records a failed run; rerun ledger verify ${document.id} --run`
+            : `verification evidence for ${document.id} is older than ${workspace.config.verification.maxAgeDays} days; rerun ledger verify ${document.id} --run`,
         });
       }
     }

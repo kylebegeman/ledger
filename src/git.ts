@@ -66,6 +66,17 @@ export async function inspectGit(cwd: string): Promise<GitInspection> {
   }
 }
 
+/** The HEAD commit hash, or undefined outside a repository or before the first commit. */
+export async function getHeadCommit(cwd: string): Promise<string | undefined> {
+  try {
+    const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd });
+    const hash = stdout.trim();
+    return /^[a-f0-9]{7,64}$/.test(hash) ? hash : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getChangedFiles(
   cwd: string,
   options: GetChangedFilesOptions = {},

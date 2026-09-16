@@ -70,6 +70,22 @@ validation:
 schema:
   allowedFrontmatterFields: []
   extensions: {}
+verification:
+  allow:
+    - "npm run **"
+    - "npm test **"
+    - "npm ci"
+    - "npx vitest **"
+    - "npx tsc **"
+    - "node dist/cli.js ci **"
+    - "node dist/cli.js doctor **"
+    - "node dist/cli.js validate **"
+    - "node dist/cli.js ready **"
+    - "node dist/cli.js stale **"
+    - "node dist/cli.js coverage **"
+  evidence: .ledger/reports/evidence.json
+  maxAgeDays: 30
+  timeoutMs: 600000
 git:
   requireEntryFor:
     - src/**

@@ -28,6 +28,7 @@ import {
   type LedgerRenderProfile,
   type RenderStaticReaderResult,
 } from "./render.js";
+import { readEvidence } from "./verify.js";
 import {
   closeStaticReader,
   formatUrlHost,
@@ -497,6 +498,7 @@ async function renderReader(
     return { ok: false, errors: validation.errors.length };
   }
   const model = buildStaticReaderModel(state.workspace, read.documents, {
+    evidence: await readEvidence(state.workspace),
     validation,
     profile: state.profile,
   });

@@ -26,6 +26,7 @@ import {
 import { initWorkspace } from "../../workspace.js";
 import { loadDocuments, looseRecord, validationLine, validationResultShape } from "../shared.js";
 import { defineOperation } from "../types.js";
+import { readEvidence } from "../../verify.js";
 
 interface InitInput extends Record<string, unknown> {
   readonly withDocs?: boolean;
@@ -394,6 +395,7 @@ and relationship graph JSON artifacts. The public profile writes to
       );
     }
     const model = buildStaticReaderModel(workspace, documents, {
+      evidence: await readEvidence(workspace),
       validation: result,
       profile: input.profile,
     });

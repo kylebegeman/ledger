@@ -1807,6 +1807,145 @@
       }
     },
     {
+      "name": "verify",
+      "title": "Run verification commands",
+      "description": "List the verification commands of change entries and, with --run, execute the allowlisted ones and record evidence.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "verify"
+        ],
+        "aliases": [],
+        "usage": "ledger verify [id-or-path...] [--all] [--run] [--timeout <ms>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "targets",
+          "min": 0
+        },
+        "flags": {
+          "all": {
+            "type": "boolean",
+            "field": "all"
+          },
+          "run": {
+            "type": "boolean",
+            "field": "run"
+          },
+          "timeout": {
+            "type": "number",
+            "field": "timeoutMs"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "targets": {
+            "description": "Change entry ids or paths. Defaults to entries in the working-tree change set.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "all": {
+            "description": "Select every change entry.",
+            "type": "boolean"
+          },
+          "run": {
+            "description": "Execute allowlisted commands and write the evidence sidecar.",
+            "type": "boolean"
+          },
+          "timeoutMs": {
+            "description": "Per-command timeout in milliseconds.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 3600000
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ran": {
+            "type": "boolean"
+          },
+          "evidencePath": {
+            "type": "string"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "freshness": {
+                  "type": "string",
+                  "enum": [
+                    "fresh",
+                    "stale",
+                    "failed",
+                    "none"
+                  ]
+                },
+                "ran": {
+                  "type": "boolean"
+                },
+                "commands": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "bullet": {
+                        "type": "string"
+                      },
+                      "allowed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "bullet",
+                      "allowed"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "path",
+                "freshness",
+                "ran",
+                "commands"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "ran",
+          "evidencePath",
+          "records"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
       "name": "index",
       "title": "Write Ledger indexes",
       "description": "Validate records and write JSON indexes under .ledger/indexes.",
@@ -3282,6 +3421,21 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "verificationStatus": {
+                  "type": "string",
+                  "enum": [
+                    "fresh",
+                    "stale",
+                    "failed",
+                    "none"
+                  ]
+                },
+                "verifiedAt": {
+                  "type": "string"
+                },
+                "verifiedCommit": {
+                  "type": "string"
                 }
               },
               "required": [

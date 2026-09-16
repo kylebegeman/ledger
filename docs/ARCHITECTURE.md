@@ -348,6 +348,22 @@ to the engine, never appears on the HTTP API, and exits 0 with an empty JSON
 object when Ledger is not initialized or an error occurs; hosts must never be
 blocked by Ledger.
 
+### Verification Evidence
+
+`src/verify.ts` turns Verification bullets into runnable commands: the first
+backticked span is parsed into an optional environment prefix and argv,
+rejected when it contains shell operators, and checked against
+`verification.allow`. `ledger verify --run` executes allowed commands with
+`execFile` from the project root under a timeout and output cap, then writes
+`.ledger/reports/evidence.json`, a validated sidecar keyed by entry id with
+command results, the HEAD commit, and a dirty-tree flag. `evidenceFreshness`
+derives `fresh`, `stale`, `failed`, or `none` from the sidecar and
+`verification.maxAgeDays`; `stale` reports `stale-verification`, `doctor` has
+a `verification` check, `retrieveByPath` and packets carry
+`verificationStatus`, and the reader's Verification panel shows when and at
+which commit an entry was last proven. Evidence never changes a record; it is
+derived under D001 and `ready` does not require it.
+
 ### Render And Export Adapters
 
 Ledger core should provide normalized exports, not own every presentation.

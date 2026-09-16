@@ -211,6 +211,9 @@ Weak:
 
 ### Verification Section
 
+Bullets that start with a backticked command are runnable by `ledger verify
+--run`; see Verification Config for the allowlist and evidence sidecar.
+
 Verification should contain exact commands or checks.
 
 ```markdown
@@ -534,6 +537,34 @@ overrides the setting for one run.
 `ledger validate` also uses `git.ignore` when warning about missing `files` or
 `docs` references, so generated outputs can stay out of source-control and
 validation churn.
+
+## Verification Config
+
+`ledger verify --run` executes the commands in a change entry's Verification
+section and records evidence:
+
+```yaml
+verification:
+  allow:
+    - "npm run **"
+    - "npm test **"
+    - "npx vitest **"
+    - "node dist/cli.js ci **"
+  evidence: .ledger/reports/evidence.json
+  maxAgeDays: 30
+  timeoutMs: 600000
+```
+
+A bullet runs only when it starts with a backticked command (an optional
+`KEY=value` prefix sets the environment), contains no shell operators, and
+matches an `allow` pattern: tokens match literally, `*` matches one token,
+and a trailing `**` matches the rest. Everything else is listed as skipped,
+never failed. The evidence sidecar records, per entry, the commands, exit
+status, duration, the HEAD commit, whether the tree was dirty, and the run
+time. Passing evidence older than `maxAgeDays` is `stale`; a failed run is
+`failed`; `doctor`, `stale`, `explain`, `packet`, and the reader show the
+state. The sidecar is derived data under the Markdown source of truth and is
+committed so pull requests carry it.
 
 ## Render Budget Config
 

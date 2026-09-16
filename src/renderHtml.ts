@@ -324,9 +324,24 @@ function issueList(issues: readonly LedgerIssue[]): string {
 function contextGrid(document: LedgerRenderedDocument): string {
   const sections = [
     contextBlock("Invariants", "What must stay true", document.invariants, icon("shield")),
-    contextBlock("Verification", "How this was proven", document.verification, icon("check")),
+    contextBlock("Verification", verificationDescription(document), document.verification, icon("check")),
   ].filter((section) => section.length > 0);
   return sections.length === 0 ? "" : `<div class="context-grid">${sections.join("")}</div>`;
+}
+
+function verificationDescription(document: LedgerRenderedDocument): string {
+  const ranAt = document.verifiedAt ? document.verifiedAt.slice(0, 10) : undefined;
+  const commit = document.verifiedCommit ? ` at ${document.verifiedCommit.slice(0, 7)}` : "";
+  switch (document.verificationStatus) {
+    case "fresh":
+      return `Verified ${ranAt}${commit}`;
+    case "stale":
+      return `Evidence from ${ranAt}${commit} is stale`;
+    case "failed":
+      return `Last run on ${ranAt}${commit} failed`;
+    default:
+      return "How this was proven";
+  }
 }
 
 function contextBlock(label: string, description: string, values: readonly string[], icon: string): string {
