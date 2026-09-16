@@ -5,9 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { defaultConfig } from "../src/config.js";
 import {
   extractCodeSymbols,
+  extractCodeSymbolsDetailed,
   extractFileSymbols,
+  extractFileSymbolsDetailed,
   extractCodeSymbolsWithRegex,
   extractMarkdownSymbols,
+  symbolExtractorStatus,
 } from "../src/symbols.js";
 import type { LedgerWorkspace } from "../src/types.js";
 
@@ -50,6 +53,41 @@ export function outer() {
       "outer",
     ]);
     expect(extractCodeSymbolsWithRegex(raw)).toEqual(["nestedImplementationDetail", "outer"]);
+  });
+
+  it("reports which extractor ran and why it fell back", async () => {
+    const raw = "export function outer() {\n  function inner() {}\n}\n";
+    const parsed = await extractCodeSymbolsDetailed(raw, "fixture.ts");
+    expect(parsed).toEqual({ symbols: ["outer"], extractor: "typescript" });
+
+    const unavailable = async () => undefined;
+    const fallback = await extractCodeSymbolsDetailed(raw, "fixture.ts", { loadTypeScript: unavailable });
+    expect(fallback.extractor).toBe("regex");
+    expect(fallback.symbols).toEqual(["inner", "outer"]);
+    expect(fallback.fallbackReason).toContain("unavailable");
+
+    await expect(
+      extractCodeSymbolsDetailed(raw, "fixture.ts", { parser: "typescript", loadTypeScript: unavailable }),
+    ).rejects.toThrow(/TypeScript parser was requested but is unavailable/);
+
+    const statuses = await symbolExtractorStatus();
+    expect(statuses.map((status) => status.name)).toEqual(["typescript", "regex", "markdown"]);
+    expect(statuses[0]).toMatchObject({ available: true, version: expect.stringMatching(/^\d+\./) });
+  });
+
+  it("labels markdown and unsupported files", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-symbols-detail-"));
+    await writeFile(path.join(tempDir, "notes.md"), "# Title\n");
+    await writeFile(path.join(tempDir, "data.json"), "{}");
+    const workspace: LedgerWorkspace = {
+      projectRoot: tempDir,
+      ledgerRoot: path.join(tempDir, ".ledger"),
+      configPath: path.join(tempDir, ".ledger", "config.yaml"),
+      config: defaultConfig,
+    };
+    expect(await extractFileSymbolsDetailed(workspace, "notes.md")).toEqual({ symbols: ["Title"], extractor: "markdown" });
+    expect(await extractFileSymbolsDetailed(workspace, "data.json")).toEqual({ symbols: [], extractor: "none" });
+    expect(await extractFileSymbolsDetailed(workspace, "missing.ts")).toEqual({ symbols: [], extractor: "none" });
   });
 
   it("extracts Markdown headings as document anchors", () => {

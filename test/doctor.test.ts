@@ -38,6 +38,7 @@ describe("doctor", () => {
       "render",
       "render-budget",
       "performance",
+      "symbols",
       "stale-knowledge",
     ]);
     expect(formatDoctorResult(result)).toContain("Ledger doctor: passed.");

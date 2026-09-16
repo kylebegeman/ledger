@@ -102,6 +102,7 @@ export {
 } from "./sessions.js";
 export {
   createChangeEntry,
+  createChangeEntryDetailed,
   createProductNoteEntry,
   draftChangeEntry,
   inferAreas,
@@ -148,7 +149,14 @@ export {
 } from "./daemon.js";
 export { delegateOperation, isDelegatable } from "./operations/delegate.js";
 export { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
-export { extractCodeSymbols, extractFileSymbols, extractMarkdownSymbols } from "./symbols.js";
+export {
+  extractCodeSymbols,
+  extractCodeSymbolsDetailed,
+  extractFileSymbols,
+  extractFileSymbolsDetailed,
+  extractMarkdownSymbols,
+  symbolExtractorStatus,
+} from "./symbols.js";
 export { renderLedgerTemplate, yamlStringArray } from "./template.js";
 export {
   issueKey,

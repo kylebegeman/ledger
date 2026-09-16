@@ -1,24 +1,61 @@
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
+import { LedgerError } from "./machine.js";
 import { resolveProjectPath } from "./projectPaths.js";
 import type { LedgerWorkspace } from "./types.js";
 
 type TypeScriptModule = typeof import("typescript");
 
+/** Extractors Ledger can run, in preference order for code files. */
+export type LedgerSymbolExtractor = "typescript" | "regex" | "markdown" | "none";
+
 export interface ExtractSymbolsOptions {
+  /** `auto` prefers the TypeScript parser and falls back to regex; `typescript` fails when the parser is unavailable. */
   readonly parser?: "auto" | "typescript" | "regex";
+  /** Test seam: replaces the `typescript` module loader. */
+  readonly loadTypeScript?: () => Promise<TypeScriptModule | undefined>;
 }
 
-let loadedTypeScript: TypeScriptModule | undefined;
-let typeScriptUnavailable = false;
+/** Symbols plus the extractor that produced them, so drafts can say what ran. */
+export interface LedgerSymbolExtraction {
+  readonly symbols: readonly string[];
+  readonly extractor: LedgerSymbolExtractor;
+  /** Present when a preferred extractor was unavailable and another ran instead. */
+  readonly fallbackReason?: string;
+}
 
+export interface LedgerSymbolExtractorStatus {
+  readonly name: "typescript" | "regex" | "markdown";
+  readonly available: boolean;
+  readonly version?: string;
+  readonly reason?: string;
+}
+
+const codeExtensions = [".ts", ".tsx", ".js", ".jsx"];
+const markdownExtensions = [".md", ".mdx"];
+
+let loadedTypeScript: TypeScriptModule | undefined;
+let typeScriptFailure: string | undefined;
+
+/** Symbols for a project file; an empty list for unsupported or missing files. */
 export async function extractFileSymbols(
   workspace: LedgerWorkspace,
   filePath: string,
   options: ExtractSymbolsOptions = {},
 ): Promise<readonly string[]> {
+  return (await extractFileSymbolsDetailed(workspace, filePath, options)).symbols;
+}
+
+/** Symbols for a project file together with the extractor that produced them. */
+export async function extractFileSymbolsDetailed(
+  workspace: LedgerWorkspace,
+  filePath: string,
+  options: ExtractSymbolsOptions = {},
+): Promise<LedgerSymbolExtraction> {
   const extension = path.extname(filePath).toLowerCase();
-  if (![".ts", ".tsx", ".js", ".jsx", ".md", ".mdx"].includes(extension)) return [];
+  if (![...codeExtensions, ...markdownExtensions].includes(extension)) {
+    return { symbols: [], extractor: "none" };
+  }
 
   let raw: string;
   try {
@@ -29,11 +66,13 @@ export async function extractFileSymbols(
     );
   } catch (error) {
     if (!isCode(error, "ENOENT")) throw error;
-    return [];
+    return { symbols: [], extractor: "none" };
   }
 
-  if (extension === ".md" || extension === ".mdx") return extractMarkdownSymbols(raw);
-  return await extractCodeSymbols(raw, filePath, options);
+  if (markdownExtensions.includes(extension)) {
+    return { symbols: extractMarkdownSymbols(raw), extractor: "markdown" };
+  }
+  return await extractCodeSymbolsDetailed(raw, filePath, options);
 }
 
 function isCode(error: unknown, code: string): boolean {
@@ -46,11 +85,49 @@ export async function extractCodeSymbols(
   filePath = "source.ts",
   options: ExtractSymbolsOptions = {},
 ): Promise<readonly string[]> {
-  if (options.parser !== "regex") {
-    const parsed = await extractTypeScriptSymbols(raw, filePath);
-    if (parsed) return parsed;
+  return (await extractCodeSymbolsDetailed(raw, filePath, options)).symbols;
+}
+
+/**
+ * Code symbols with provenance. `auto` uses the TypeScript parser when the
+ * optional `typescript` peer is installed and reports a regex fallback
+ * otherwise; `typescript` throws when the parser is unavailable so callers
+ * that need parser quality never get regex output silently.
+ */
+export async function extractCodeSymbolsDetailed(
+  raw: string,
+  filePath = "source.ts",
+  options: ExtractSymbolsOptions = {},
+): Promise<LedgerSymbolExtraction> {
+  const parser = options.parser ?? "auto";
+  if (parser === "regex") {
+    return { symbols: extractCodeSymbolsWithRegex(raw), extractor: "regex" };
   }
-  return extractCodeSymbolsWithRegex(raw);
+  const ts = await (options.loadTypeScript ?? loadTypeScript)();
+  if (ts) {
+    return { symbols: extractTypeScriptSymbols(ts, raw, filePath), extractor: "typescript" };
+  }
+  const reason = options.loadTypeScript ? "typescript parser unavailable" : (typeScriptFailure ?? "typescript parser unavailable");
+  if (parser === "typescript") {
+    throw new LedgerError(
+      "operational-error",
+      `The TypeScript parser was requested but is unavailable: ${reason}. Install the optional typescript peer dependency or use --parser regex.`,
+      { extractor: "typescript", reason },
+    );
+  }
+  return { symbols: extractCodeSymbolsWithRegex(raw), extractor: "regex", fallbackReason: reason };
+}
+
+/** Availability of each extractor on this host, for doctor and drafts. */
+export async function symbolExtractorStatus(): Promise<readonly LedgerSymbolExtractorStatus[]> {
+  const ts = await loadTypeScript();
+  return [
+    ts
+      ? { name: "typescript", available: true, version: ts.version }
+      : { name: "typescript", available: false, reason: typeScriptFailure ?? "typescript parser unavailable" },
+    { name: "regex", available: true },
+    { name: "markdown", available: true },
+  ];
 }
 
 export function extractMarkdownSymbols(raw: string): readonly string[] {
@@ -82,13 +159,7 @@ export function extractCodeSymbolsWithRegex(raw: string): readonly string[] {
   return [...symbols].sort();
 }
 
-async function extractTypeScriptSymbols(
-  raw: string,
-  filePath: string,
-): Promise<readonly string[] | undefined> {
-  const ts = await loadTypeScript();
-  if (!ts) return undefined;
-
+function extractTypeScriptSymbols(ts: TypeScriptModule, raw: string, filePath: string): readonly string[] {
   const sourceFile = ts.createSourceFile(
     filePath,
     raw,
@@ -97,22 +168,23 @@ async function extractTypeScriptSymbols(
     scriptKindForPath(ts, filePath),
   );
   const symbols = new Set<string>();
-
   for (const statement of sourceFile.statements) {
     collectStatementSymbols(ts, statement, symbols);
   }
-
   return [...symbols].sort();
 }
 
 async function loadTypeScript(): Promise<TypeScriptModule | undefined> {
   if (loadedTypeScript) return loadedTypeScript;
-  if (typeScriptUnavailable) return undefined;
+  if (typeScriptFailure) return undefined;
   try {
     loadedTypeScript = await import("typescript");
     return loadedTypeScript;
-  } catch {
-    typeScriptUnavailable = true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    typeScriptFailure = /cannot find (?:package|module)/i.test(message)
+      ? "the typescript package is not installed"
+      : `the typescript package failed to load (${message.split("\n")[0]})`;
     return undefined;
   }
 }

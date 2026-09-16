@@ -9,6 +9,7 @@ import { inspectWorkspaceWriteState } from "./fileTransaction.js";
 import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
 import { checkRenderBudgets } from "./render.js";
 import { detectStaleKnowledge } from "./stale.js";
+import { symbolExtractorStatus } from "./symbols.js";
 import type {
   LedgerDocsAudit,
   LedgerValidationResult,
@@ -67,6 +68,7 @@ export async function runDoctor(
     await renderOutputCheck(workspace),
     await renderBudgetCheck(workspace),
     performanceCheck(performance),
+    await symbolsCheck(),
     {
       name: "stale-knowledge",
       level: stale.issues.length > 0 ? "warn" : "pass",
@@ -79,6 +81,19 @@ export async function runDoctor(
     checks,
     docsAudit,
     performance,
+  };
+}
+
+async function symbolsCheck(): Promise<LedgerDoctorCheck> {
+  const statuses = await symbolExtractorStatus();
+  const typescript = statuses.find((status) => status.name === "typescript");
+  if (typescript?.available) {
+    return { name: "symbols", level: "pass", message: `typescript ${typescript.version ?? ""} parser available for anchors`.replace("  ", " ") };
+  }
+  return {
+    name: "symbols",
+    level: "warn",
+    message: `regex fallback for code anchors: ${typescript?.reason ?? "typescript parser unavailable"}; install the optional typescript peer for parser-backed symbols`,
   };
 }
 

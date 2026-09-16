@@ -214,6 +214,23 @@
         "properties": {
           "path": {
             "type": "string"
+          },
+          "symbolExtractors": {
+            "type": "object",
+            "properties": {
+              "counts": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
+              },
+              "fallbackReason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "counts"
+            ],
+            "additionalProperties": {}
           }
         },
         "required": [
