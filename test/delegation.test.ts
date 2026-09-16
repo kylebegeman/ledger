@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -115,7 +115,7 @@ describe("engine delegation", () => {
 });
 
 async function fixtureWorkspace(): Promise<LedgerWorkspace> {
-  tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-delegation-"));
+  tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-delegation-")));
   await initWorkspace(tempDir);
   const workspace = await findWorkspace(tempDir);
   await createChangeEntry(workspace, [], {

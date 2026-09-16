@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -212,7 +212,7 @@ describe("Ledger engine", () => {
 });
 
 async function fixtureWorkspace(): Promise<LedgerWorkspace> {
-  tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-engine-"));
+  tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-engine-")));
   await initWorkspace(tempDir);
   await writeFile(
     path.join(tempDir, ".ledger", "entries", "0001-engine-fixture.md"),
