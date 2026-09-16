@@ -161,7 +161,9 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     '  entryPrefix: ""',
     "  entryWidth: 4",
     "  backlogPrefix: B",
+    "  backlogWidth: 3",
     "  decisionPrefix: D",
+    "  decisionWidth: 3",
     "validation:",
     "  profile: standard",
     "  requireVerification: true",
@@ -332,7 +334,7 @@ function changeTemplate(): string {
   ].join("\n");
 }
 
-function backlogTemplate(): string {
+export function backlogTemplate(): string {
   return [
     "---",
     'id: "{{id}}"',
@@ -373,7 +375,7 @@ function backlogTemplate(): string {
   ].join("\n");
 }
 
-function decisionTemplate(): string {
+export function decisionTemplate(): string {
   return [
     "---",
     'id: "{{id}}"',

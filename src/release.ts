@@ -4,6 +4,7 @@ import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
+import { setFrontmatterScalars } from "./frontmatterEdit.js";
 import { LedgerError } from "./machine.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import type {
@@ -194,16 +195,7 @@ export async function applyRelease(
 
 export function assignReleaseInMarkdown(markdown: string, version: string): string {
   validateReleaseVersion(version);
-  const match = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?=\r?\n|$)/.exec(markdown);
-  if (!match) {
-    throw new LedgerError("invalid-markdown", "Cannot assign release: missing YAML frontmatter");
-  }
-  const frontmatter = match[1] ?? "";
-  const releaseLine = `release: "${escapeYamlString(version)}"`;
-  const updatedFrontmatter = /^release[ \t]*:/m.test(frontmatter)
-    ? frontmatter.replace(/^release[ \t]*:.*$/m, releaseLine)
-    : `${frontmatter}\n${releaseLine}`;
-  return markdown.replace(match[0], `---\n${updatedFrontmatter}\n---`);
+  return setFrontmatterScalars(markdown, { release: version }, "assign release");
 }
 
 export function formatReleaseMarkdown(

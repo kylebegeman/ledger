@@ -276,10 +276,12 @@ and `On conflict` instructions.
 ledger new "Implement git-aware entry drafting" --from-diff
 ```
 
-Backlog promotion is currently explicit: add `backlog: ["B001"]` to the new
-change entry and preserve the relevant acceptance checks in its implementation
-and verification sections. A dedicated `ledger promote` convenience command is
-a future workflow, not part of the current CLI.
+Backlog promotion is a command: `ledger promote B001 --from-diff` creates the
+next change entry with `backlog: ["B001"]`, copies the item's areas and
+decisions, carries its acceptance checks into the Verification section, and
+marks the item `in-progress` in the same transaction. Backlog items and
+decisions are created with `ledger backlog new` and `ledger decision new`;
+`ledger release notes <version>` prints a release record's Public Notes.
 
 ### Prepare Release Notes
 

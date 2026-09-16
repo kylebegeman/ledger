@@ -58,7 +58,22 @@ export {
   ledgerOperationsContractVersion,
 } from "./operations/registry.js";
 export { defineOperation } from "./operations/types.js";
-export { createChangeEntry, createProductNoteEntry, inferAreas, nextEntryId } from "./newEntry.js";
+export {
+  createBacklogItem,
+  createDecision,
+  findRecordById,
+  nextRecordId,
+  promoteRecord,
+  readReleaseNotes,
+} from "./authoring.js";
+export { ensureFrontmatterArrays, replaceSectionBody, setFrontmatterScalars } from "./frontmatterEdit.js";
+export {
+  createChangeEntry,
+  createProductNoteEntry,
+  draftChangeEntry,
+  inferAreas,
+  nextEntryId,
+} from "./newEntry.js";
 export {
   buildAgentPacket,
   buildSearchAgentPacket,
@@ -110,6 +125,7 @@ export {
   writeValidationReport,
 } from "./validate.js";
 export { findProjectRoot, findWorkspace, initWorkspace } from "./workspace.js";
+export type * from "./authoring.js";
 export type * from "./commands/index.js";
 export type * from "./config.js";
 export type * from "./coverage.js";

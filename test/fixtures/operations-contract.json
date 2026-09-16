@@ -317,6 +317,398 @@
       }
     },
     {
+      "name": "backlog.new",
+      "title": "Create a backlog item",
+      "description": "Create the next numbered backlog item from the template.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "backlog",
+          "new"
+        ],
+        "aliases": [],
+        "usage": "ledger backlog new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "title",
+          "min": 1,
+          "join": true
+        },
+        "flags": {
+          "area": {
+            "type": "string[]",
+            "field": "areas"
+          },
+          "decision": {
+            "type": "string[]",
+            "field": "decisions"
+          },
+          "related": {
+            "type": "string[]",
+            "field": "related"
+          },
+          "doc": {
+            "type": "string[]",
+            "field": "docs"
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Backlog item title."
+          },
+          "areas": {
+            "description": "Area tags.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "decisions": {
+            "description": "Decision ids the item depends on.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "related": {
+            "description": "Related record ids.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "docs": {
+            "description": "Durable docs the item relates to.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "status": {
+            "default": "proposed",
+            "description": "Item status.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "title",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "decision.new",
+      "title": "Create a decision record",
+      "description": "Create the next numbered decision record from the template.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "decision",
+          "new"
+        ],
+        "aliases": [],
+        "usage": "ledger decision new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "title",
+          "min": 1,
+          "join": true
+        },
+        "flags": {
+          "area": {
+            "type": "string[]",
+            "field": "areas"
+          },
+          "decision": {
+            "type": "string[]",
+            "field": "decisions"
+          },
+          "related": {
+            "type": "string[]",
+            "field": "related"
+          },
+          "doc": {
+            "type": "string[]",
+            "field": "docs"
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Decision title."
+          },
+          "areas": {
+            "description": "Area tags.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "decisions": {
+            "description": "Decision ids this decision builds on.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "related": {
+            "description": "Related record ids.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "docs": {
+            "description": "Durable docs the decision affects.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "status": {
+            "default": "proposed",
+            "description": "Decision status.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "title",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "promote",
+      "title": "Promote a backlog item",
+      "description": "Create a linked draft change entry from a backlog item and update the item in one transaction.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "promote"
+        ],
+        "aliases": [],
+        "usage": "ledger promote <id> [--title <title>] [--area <area>] [--from-diff] [--staged] [--status <status>] [--source-status <status>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "id",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {
+          "title": {
+            "type": "string",
+            "field": "title"
+          },
+          "area": {
+            "type": "string[]",
+            "field": "areas"
+          },
+          "from-diff": {
+            "type": "boolean",
+            "field": "fromDiff"
+          },
+          "staged": {
+            "type": "boolean",
+            "field": "staged"
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          },
+          "source-status": {
+            "type": "string",
+            "field": "sourceStatus"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Backlog item id, for example B007."
+          },
+          "title": {
+            "description": "Entry title. Defaults to the item title.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "areas": {
+            "description": "Area tags. Defaults to the item areas.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "fromDiff": {
+            "description": "Prefill files from Git changes.",
+            "type": "boolean"
+          },
+          "staged": {
+            "description": "Read the staged diff.",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "draft",
+            "description": "Entry status.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "sourceStatus": {
+            "description": "Status written to the promoted item. Defaults to in-progress.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "path",
+              "status"
+            ],
+            "additionalProperties": {}
+          },
+          "entry": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "path"
+            ],
+            "additionalProperties": {}
+          },
+          "carriedChecks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "entry",
+          "carriedChecks"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
       "name": "validate",
       "title": "Validate Ledger records",
       "description": "Validate Ledger source records and return errors and warnings.",
@@ -3020,6 +3412,103 @@
           "markdown"
         ],
         "additionalProperties": {}
+      }
+    },
+    {
+      "name": "release.notes",
+      "title": "Print release notes",
+      "description": "Print the Public Notes of a release record for changelogs and GitHub Releases.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "release",
+          "notes"
+        ],
+        "aliases": [],
+        "usage": "ledger release notes <version> [--json]",
+        "json": true,
+        "positionals": {
+          "field": "version",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Release version, for example v1.2.3."
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "title",
+          "date",
+          "status",
+          "path",
+          "notes"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_release_notes",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Release version, for example v1.2.3."
+            }
+          },
+          "required": [
+            "version"
+          ],
+          "additionalProperties": false
+        }
       }
     },
     {

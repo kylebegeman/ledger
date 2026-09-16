@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { LedgerError } from "../../machine.js";
 import { migrateChangelog, type ChangelogMigrationResult } from "../../migrate.js";
+import {
+  createBacklogItem,
+  createDecision,
+  promoteRecord,
+  readReleaseNotes,
+  type PromoteResult,
+  type ReleaseNotes,
+} from "../../authoring.js";
 import { createChangeEntry, createProductNoteEntry } from "../../newEntry.js";
 import {
   applyRelease,
@@ -246,6 +254,225 @@ export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
     }
     lines.push(data.writtenPath ? `Wrote ${data.writtenPath}` : data.markdown);
     return lines.join("\n");
+  },
+});
+
+interface NewRecordInput extends Record<string, unknown> {
+  readonly title: string;
+  readonly areas?: readonly string[];
+  readonly decisions?: readonly string[];
+  readonly related?: readonly string[];
+  readonly docs?: readonly string[];
+  readonly status: string;
+}
+
+export const backlogNewOperation = defineOperation<NewRecordInput, CreatedRecord>({
+  name: "backlog.new",
+  title: "Create a backlog item",
+  description: "Create the next numbered backlog item from the template.",
+  workspace: "required",
+  mutates: true,
+  input: z.strictObject({
+    title: z.string().min(1).max(500).describe("Backlog item title."),
+    areas: z.array(shortString).optional().describe("Area tags."),
+    decisions: z.array(shortString).optional().describe("Decision ids the item depends on."),
+    related: z.array(shortString).optional().describe("Related record ids."),
+    docs: z.array(shortString).optional().describe("Durable docs the item relates to."),
+    status: shortString.default("proposed").describe("Item status."),
+  }),
+  output: createdRecordOutput,
+  cli: {
+    path: ["backlog", "new"],
+    usage:
+      "ledger backlog new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+    positionals: { field: "title", min: 1, join: true },
+    flags: {
+      area: { type: "string[]", field: "areas", description: "Area tag (repeatable)." },
+      decision: { type: "string[]", field: "decisions", description: "Decision id (repeatable)." },
+      related: { type: "string[]", description: "Related record id (repeatable)." },
+      doc: { type: "string[]", field: "docs", description: "Durable doc path (repeatable)." },
+      status: { type: "string", description: "Item status." },
+    },
+    json: true,
+    help: `Creates the next numbered backlog item under the configured backlog directory
+from .ledger/templates/backlog.md. Promote it later with ledger promote <id>.`,
+  },
+  async run(context, input) {
+    const { workspace, documents } = await loadDocuments(context);
+    const path = await createBacklogItem(workspace, documents, {
+      title: input.title,
+      areas: input.areas ?? [],
+      decisions: input.decisions,
+      related: input.related,
+      docs: input.docs,
+      status: input.status,
+    });
+    return { data: { path } };
+  },
+  format(data) {
+    return `Created ${data.path}`;
+  },
+});
+
+export const decisionNewOperation = defineOperation<NewRecordInput, CreatedRecord>({
+  name: "decision.new",
+  title: "Create a decision record",
+  description: "Create the next numbered decision record from the template.",
+  workspace: "required",
+  mutates: true,
+  input: z.strictObject({
+    title: z.string().min(1).max(500).describe("Decision title."),
+    areas: z.array(shortString).optional().describe("Area tags."),
+    decisions: z.array(shortString).optional().describe("Decision ids this decision builds on."),
+    related: z.array(shortString).optional().describe("Related record ids."),
+    docs: z.array(shortString).optional().describe("Durable docs the decision affects."),
+    status: shortString.default("proposed").describe("Decision status."),
+  }),
+  output: createdRecordOutput,
+  cli: {
+    path: ["decision", "new"],
+    usage:
+      "ledger decision new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+    positionals: { field: "title", min: 1, join: true },
+    flags: {
+      area: { type: "string[]", field: "areas", description: "Area tag (repeatable)." },
+      decision: { type: "string[]", field: "decisions", description: "Prior decision id (repeatable)." },
+      related: { type: "string[]", description: "Related record id (repeatable)." },
+      doc: { type: "string[]", field: "docs", description: "Durable doc path (repeatable)." },
+      status: { type: "string", description: "Decision status." },
+    },
+    json: true,
+    help: `Creates the next numbered decision record under the configured decisions
+directory from .ledger/templates/decision.md.`,
+  },
+  async run(context, input) {
+    const { workspace, documents } = await loadDocuments(context);
+    const path = await createDecision(workspace, documents, {
+      title: input.title,
+      areas: input.areas ?? [],
+      decisions: input.decisions,
+      related: input.related,
+      docs: input.docs,
+      status: input.status,
+    });
+    return { data: { path } };
+  },
+  format(data) {
+    return `Created ${data.path}`;
+  },
+});
+
+interface PromoteInput extends Record<string, unknown> {
+  readonly id: string;
+  readonly title?: string;
+  readonly areas?: readonly string[];
+  readonly fromDiff?: boolean;
+  readonly staged?: boolean;
+  readonly status: string;
+  readonly sourceStatus?: string;
+}
+
+export const promoteOperation = defineOperation<PromoteInput, PromoteResult>({
+  name: "promote",
+  title: "Promote a backlog item",
+  description: "Create a linked draft change entry from a backlog item and update the item in one transaction.",
+  workspace: "required",
+  mutates: true,
+  input: z.strictObject({
+    id: shortString.describe("Backlog item id, for example B007."),
+    title: z.string().min(1).max(500).optional().describe("Entry title. Defaults to the item title."),
+    areas: z.array(shortString).optional().describe("Area tags. Defaults to the item areas."),
+    fromDiff: z.boolean().optional().describe("Prefill files from Git changes."),
+    staged: z.boolean().optional().describe("Read the staged diff."),
+    status: shortString.default("draft").describe("Entry status."),
+    sourceStatus: shortString.optional().describe("Status written to the promoted item. Defaults to in-progress."),
+  }),
+  output: looseRecord({
+    source: looseRecord({ id: z.string(), kind: z.string(), path: z.string(), status: z.string() }),
+    entry: looseRecord({ id: z.string(), path: z.string() }),
+    carriedChecks: z.array(z.string()),
+  }),
+  cli: {
+    path: ["promote"],
+    usage:
+      "ledger promote <id> [--title <title>] [--area <area>] [--from-diff] [--staged] [--status <status>] [--source-status <status>] [--json]",
+    positionals: { field: "id", min: 1, max: 1 },
+    flags: {
+      title: { type: "string", description: "Entry title." },
+      area: { type: "string[]", field: "areas", description: "Area tag (repeatable)." },
+      "from-diff": { type: "boolean", description: "Prefill files from Git changes." },
+      staged: { type: "boolean", description: "Read the staged diff." },
+      status: { type: "string", description: "Entry status." },
+      "source-status": { type: "string", description: "Status written to the promoted item." },
+    },
+    json: true,
+    help: `Creates a draft change entry linked to a backlog item through the backlog
+frontmatter field. The entry carries the item's areas, decisions, and acceptance
+checks (as Verification bullets). The item's status becomes in-progress unless
+--source-status says otherwise. Both writes happen in one transaction.`,
+  },
+  async run(context, input) {
+    const { workspace, documents } = await loadDocuments(context);
+    const result = await promoteRecord(workspace, documents, input.id, {
+      title: input.title,
+      areas: input.areas,
+      fromDiff: Boolean(input.fromDiff),
+      staged: Boolean(input.staged),
+      status: input.status,
+      sourceStatus: input.sourceStatus,
+    });
+    return { data: result };
+  },
+  format(data) {
+    const checks = data.carriedChecks.length;
+    return [
+      `Created ${data.entry.path} from ${data.source.id} (${checks} acceptance ${plural(checks, "check", "checks")} carried).`,
+      `Updated ${data.source.path} to status ${data.source.status}.`,
+    ].join("\n");
+  },
+});
+
+interface ReleaseNotesInput extends Record<string, unknown> {
+  readonly version: string;
+}
+
+export const releaseNotesOperation = defineOperation<ReleaseNotesInput, ReleaseNotes>({
+  name: "release.notes",
+  title: "Print release notes",
+  description: "Print the Public Notes of a release record for changelogs and GitHub Releases.",
+  workspace: "required",
+  mutates: false,
+  input: z.strictObject({
+    version: shortString.describe("Release version, for example v1.2.3."),
+  }),
+  output: looseRecord({
+    version: z.string(),
+    title: z.string(),
+    date: z.string(),
+    status: z.string(),
+    path: z.string(),
+    notes: z.string(),
+  }),
+  cli: {
+    path: ["release", "notes"],
+    usage: "ledger release notes <version> [--json]",
+    positionals: { field: "version", min: 1, max: 1 },
+    flags: {},
+    json: true,
+    help: `Prints the Public Notes section of .ledger/releases/<version>.md as Markdown.
+Use it to publish GitHub Releases or changelog entries from the release record.`,
+  },
+  mcp: {
+    tool: "ledger_release_notes",
+    title: "Print release notes",
+    summary: (data) => ({ version: data.version, status: data.status, hasNotes: data.notes.length > 0 }),
+  },
+  async run(context, input) {
+    const { documents } = await loadDocuments(context);
+    return { data: readReleaseNotes(documents, input.version) };
+  },
+  format(data) {
+    return data.notes.length > 0 ? data.notes : `Release ${data.version} has no Public Notes.`;
   },
 });
 

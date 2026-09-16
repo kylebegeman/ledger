@@ -295,6 +295,9 @@ full local verification and publishing checklist.
 | `ledger adopt` | Initializes Ledger for an established repo without claiming ownership of the whole docs tree. |
 | `ledger new "Title" --from-diff` | Drafts a change entry from git status. |
 | `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
+| `ledger backlog new "Title" --area cli --decision D001` | Creates the next numbered backlog item from the template. |
+| `ledger decision new "Title" --area architecture` | Creates the next numbered decision record from the template. |
+| `ledger promote B001 --from-diff` | Creates a draft change entry linked to a backlog item, carrying its acceptance checks, and marks the item in-progress in one transaction. |
 | `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
 | `ledger index` | Validates records and writes JSON indexes under `.ledger/indexes/`. |
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. Use `--check` to compare without replacing the baseline. |
@@ -321,6 +324,7 @@ full local verification and publishing checklist.
 | `ledger query --kind change --area cli --symbol run --text retry` | Filters records by kind, area, status, release, relationship, symbol, file, doc, id, or metadata text. |
 | `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
 | `ledger release v0.1.1 --include-unreleased --assign --status released --write` | Assigns selected entries and writes a release record. |
+| `ledger release notes v0.1.1` | Prints the Public Notes of a release record for GitHub Releases or changelogs. |
 | `ledger migrate changelog <dir> --rewrite-docs` | Migrates legacy Markdown changelog records into `.ledger/entries` and writes a receipt. |
 | `ledger agents --role reviewer` | Prints role-specific `AGENTS.md` instructions for the configured workflow. |
 | `ledger ci` | Runs validation, docs audit, coverage, and docs impact together; accepts `--base` and `--head` for clean PR checkouts. |

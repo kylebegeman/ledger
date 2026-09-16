@@ -45,7 +45,9 @@ export interface LedgerConfig {
     readonly entryPrefix: string;
     readonly entryWidth: number;
     readonly backlogPrefix: string;
+    readonly backlogWidth: number;
     readonly decisionPrefix: string;
+    readonly decisionWidth: number;
   };
   readonly validation: {
     readonly profile: LedgerValidationProfile;

@@ -4,7 +4,7 @@ kind: "backlog"
 title: "Capture: hooks, skills, authoring commands, readiness, and session records"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "proposed"
+status: "in-progress"
 areas:
   - "agents"
   - "cli"

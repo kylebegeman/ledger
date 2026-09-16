@@ -13,6 +13,7 @@ export type LedgerErrorCode =
   | "integrity-baseline-missing"
   | "integrity-baseline-invalid"
   | "operational-error"
+  | "record-not-found"
   | "release-exists"
   | "render-validation-failed"
   | "resource-limit-exceeded"

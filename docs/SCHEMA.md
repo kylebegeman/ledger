@@ -221,6 +221,11 @@ File path:
 .ledger/backlog/B001-kebab-title.md
 ```
 
+`ledger backlog new "<title>"` creates the next item from
+`.ledger/templates/backlog.md`. The id prefix and zero-padded width come from
+`ids.backlogPrefix` and `ids.backlogWidth` in `.ledger/config.yaml` (defaults
+`B` and `3`). `ledger promote <id>` turns an item into a linked change entry.
+
 Frontmatter:
 
 ```yaml
@@ -257,6 +262,10 @@ File path:
 ```txt
 .ledger/decisions/D001-kebab-title.md
 ```
+
+`ledger decision new "<title>"` creates the next record from
+`.ledger/templates/decision.md` using `ids.decisionPrefix` and
+`ids.decisionWidth` (defaults `D` and `3`).
 
 Frontmatter:
 
