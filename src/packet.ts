@@ -1,8 +1,8 @@
 import path from "node:path";
-import { buildConflictTargets } from "./conflict.js";
-import { normalizeDocument, normalizePath } from "./documents.js";
+import { normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import type { LedgerStaticReaderModel } from "./render.js";
+import { relatedRecords, retrieveByPath, type LedgerRelationshipKind } from "./retrieval.js";
 import { searchLedgerIndex } from "./search.js";
 import { LedgerError } from "./machine.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
@@ -22,9 +22,21 @@ export interface LedgerPacketEntry {
   readonly matchedFields?: readonly string[];
 }
 
+/** A record one relationship hop away from a packet entry. */
+export interface LedgerPacketRelated {
+  readonly id: string;
+  readonly kind: string;
+  readonly title: string;
+  readonly status: string;
+  readonly path: string;
+  readonly via: readonly LedgerRelationshipKind[];
+  readonly from: readonly string[];
+}
+
 export interface LedgerAgentPacket {
   readonly target: string;
   readonly entries: readonly LedgerPacketEntry[];
+  readonly related: readonly LedgerPacketRelated[];
   readonly estimatedTokens: number;
   readonly budgetTokens?: number;
   readonly truncated: boolean;
@@ -45,33 +57,27 @@ export function buildAgentPacket(
   target: string,
   options: LedgerAgentPacketOptions = {},
 ): LedgerAgentPacket {
-  const [conflictTarget] = buildConflictTargets(documents, [target]);
-  const normalizedById = new Map(documents.map((document) => {
-    const normalized = normalizeDocument(document);
-    return [normalized.id, normalized] as const;
+  const retrieval = retrieveByPath(documents, target);
+  const allEntries: readonly LedgerPacketEntry[] = retrieval.records.map((record) => ({
+    id: record.id,
+    title: record.title,
+    path: record.path,
+    areas: record.areas,
+    symbols: record.symbols,
+    docs: record.docs,
+    matchedFiles: record.matchedFiles,
+    conflictRules: record.conflictRules,
+    invariants: record.invariants,
+    verification: record.verification,
   }));
-
-  const allEntries = (conflictTarget?.entries ?? []).map((entry) => {
-    const normalized = normalizedById.get(entry.id);
-    return {
-      id: entry.id,
-      title: entry.title,
-      path: entry.path,
-      areas: normalized?.areas ?? [],
-      symbols: normalized?.symbols ?? [],
-      docs: normalized?.docs ?? [],
-      matchedFiles: entry.matchedFiles,
-      conflictRules: entry.conflictRules,
-      invariants: entry.invariants,
-      verification: entry.verification,
-    };
-  });
-  const entries = selectPacketEntries(allEntries, conflictTarget?.target ?? target, options);
+  const allRelated: readonly LedgerPacketRelated[] = retrieval.related.map((record) => ({ ...record }));
+  const { entries, related } = selectPacketEntries(allEntries, allRelated, retrieval.target, options);
 
   return {
-    target: conflictTarget?.target ?? target,
+    target: retrieval.target,
     entries,
-    estimatedTokens: estimatePacketTokens(conflictTarget?.target ?? target, entries),
+    related,
+    estimatedTokens: estimatePacketTokens(retrieval.target, entries, related),
     budgetTokens: options.budgetTokens,
     truncated: entries.length < allEntries.length,
     omittedEntries: Math.max(0, allEntries.length - entries.length),
@@ -112,12 +118,24 @@ export function buildSearchAgentPacket(
     };
   });
   const target = `search:${normalizedQuery}`;
-  const entries = selectPacketEntries(candidateEntries, target, { ...options, maxEntries });
+  const candidateDocuments = candidateEntries.flatMap((entry) => {
+    const rendered = renderedById.get(entry.id);
+    return rendered ? [rendered] : [];
+  });
+  const allRelated: readonly LedgerPacketRelated[] = relatedRecords(
+    candidateDocuments,
+    model.documents,
+  ).related.map((record) => ({ ...record }));
+  const { entries, related } = selectPacketEntries(candidateEntries, allRelated, target, {
+    ...options,
+    maxEntries,
+  });
 
   return {
     target,
     entries,
-    estimatedTokens: estimatePacketTokens(target, entries),
+    related,
+    estimatedTokens: estimatePacketTokens(target, entries, related),
     budgetTokens: options.budgetTokens,
     truncated: entries.length < matches.length,
     omittedEntries: Math.max(0, matches.length - entries.length),
@@ -157,6 +175,16 @@ export function formatAgentPacket(packet: LedgerAgentPacket): string {
     pushSection(lines, "Verification", entry.verification);
   }
 
+  if (packet.related.length > 0) {
+    lines.push("## Related Records", "");
+    for (const record of packet.related) {
+      lines.push(
+        `- ${record.id} ${record.title} (${record.kind}, ${record.status}; via ${record.via.join(", ")}) \`${record.path}\``,
+      );
+    }
+    lines.push("");
+  }
+
   return `${lines.join("\n")}\n`;
 }
 
@@ -174,9 +202,11 @@ export async function writeAgentPacketReport(
 export function estimatePacketTokens(
   target: string,
   entries: readonly LedgerPacketEntry[],
+  related: readonly LedgerPacketRelated[] = [],
 ): number {
   const text = [
     target,
+    ...related.flatMap((record) => [record.id, record.title, record.path, ...record.via]),
     ...entries.flatMap((entry) => [
       entry.id,
       entry.title,
@@ -200,27 +230,36 @@ export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+const maxRelatedUnderBudget = 8;
+
 function selectPacketEntries(
   entries: readonly LedgerPacketEntry[],
+  related: readonly LedgerPacketRelated[],
   target: string,
   options: LedgerAgentPacketOptions,
-): readonly LedgerPacketEntry[] {
+): { readonly entries: readonly LedgerPacketEntry[]; readonly related: readonly LedgerPacketRelated[] } {
   const maxEntries = options.maxEntries && options.maxEntries > 0
     ? options.maxEntries
     : entries.length;
   let selected = entries.slice(0, maxEntries);
+  const budgeted = Boolean(options.budgetTokens && options.budgetTokens > 0);
+  const relatedFor = (chosen: readonly LedgerPacketEntry[]) => {
+    const ids = new Set(chosen.map((entry) => entry.id));
+    const scoped = related.filter((record) => record.from.some((id) => ids.has(id)));
+    return budgeted ? scoped.slice(0, maxRelatedUnderBudget) : scoped;
+  };
 
-  if (options.budgetTokens && options.budgetTokens > 0) {
+  if (budgeted && options.budgetTokens) {
     selected = selected.map(compactPacketEntry);
     while (
       selected.length > 0 &&
-      estimatePacketTokens(target, selected) > options.budgetTokens
+      estimatePacketTokens(target, selected, relatedFor(selected)) > options.budgetTokens
     ) {
       selected = selected.slice(0, -1);
     }
   }
 
-  return selected;
+  return { entries: selected, related: relatedFor(selected) };
 }
 
 function compactPacketEntry(entry: LedgerPacketEntry): LedgerPacketEntry {

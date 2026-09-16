@@ -68,6 +68,7 @@ export {
   writeAgentPacketReport,
 } from "./packet.js";
 export { extractBullets, getSectionBody, normalizeKindFilter, queryDocuments } from "./query.js";
+export { matchFilePath, relatedRecords, retrieveByPath, supersededByIndex } from "./retrieval.js";
 export {
   assignEntriesToRelease,
   buildReleaseDocument,
@@ -116,6 +117,7 @@ export type * from "./performance.js";
 export type * from "./query.js";
 export type * from "./release.js";
 export type * from "./render.js";
+export type * from "./retrieval.js";
 export type * from "./search.js";
 export type * from "./serve.js";
 export type * from "./stale.js";

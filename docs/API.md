@@ -44,6 +44,7 @@ The package root should stay focused on:
 - validation, CI, docs impact, stale checks, and doctor results
 - index, integrity, render, search, and graph model generation
 - release generation
+- the retrieval contract (`retrieveByPath`, `matchFilePath`, `relatedRecords`)
 - agent packets, including file-first and search-first workflows
 - command result models for reusable CLI behavior
 - MCP server construction and direct tool execution
@@ -109,6 +110,8 @@ arbitrary fields from thrown objects.
 Agent-facing APIs should avoid forcing consumers to load the full ledger when a
 bounded result is enough. Prefer:
 
+- `retrieveByPath` for everything a file path is related to, including one hop
+  of decisions, backlog, and supersession
 - `searchLedgerIndex` over scanning raw Markdown in integrations
 - `buildAgentPacket` for known file paths
 - `buildSearchAgentPacket` for topic-first context retrieval

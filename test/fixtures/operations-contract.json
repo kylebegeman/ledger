@@ -1854,7 +1854,7 @@
               "additionalProperties": {}
             }
           },
-          "context": {
+          "records": {
             "type": "array",
             "items": {
               "type": "object",
@@ -1862,11 +1862,53 @@
                 "id": {
                   "type": "string"
                 },
+                "kind": {
+                  "type": "string"
+                },
                 "title": {
+                  "type": "string"
+                },
+                "status": {
                   "type": "string"
                 },
                 "path": {
                   "type": "string"
+                },
+                "matchedFiles": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "matches": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "exact",
+                          "pattern",
+                          "suffix"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "file",
+                      "kind"
+                    ],
+                    "additionalProperties": {}
+                  }
+                },
+                "conflictRules": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "invariants": {
                   "type": "array",
@@ -1879,14 +1921,94 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "supersededBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
                 "id",
+                "kind",
                 "title",
+                "status",
                 "path",
+                "matchedFiles",
+                "matches",
+                "conflictRules",
                 "invariants",
-                "verification"
+                "verification",
+                "supersededBy"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "via": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "from": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "title",
+                "status",
+                "path",
+                "via",
+                "from"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "via": {
+                  "type": "string"
+                },
+                "from": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "via",
+                "from"
               ],
               "additionalProperties": {}
             }
@@ -1895,7 +2017,9 @@
         "required": [
           "target",
           "matches",
-          "context"
+          "records",
+          "related",
+          "missing"
         ],
         "additionalProperties": {}
       },

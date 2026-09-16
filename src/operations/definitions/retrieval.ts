@@ -16,7 +16,12 @@ import {
 } from "../../conflict.js";
 import { explainFile } from "../../indexer.js";
 import type { LedgerAgentPacket } from "../../packet.js";
-import { extractBullets, getSectionBody } from "../../query.js";
+import {
+  retrieveByPath,
+  type LedgerRetrievalMissingRecord,
+  type LedgerRetrievalRecord,
+  type LedgerRetrievalRelatedRecord,
+} from "../../retrieval.js";
 import type { LedgerSearchResult } from "../../search.js";
 import type { LedgerDocumentKind, NormalizedLedgerDocument } from "../../types.js";
 import { loadDocuments, looseRecord, pathString, positiveInt, shortString } from "../shared.js";
@@ -29,19 +34,37 @@ interface ExplainInput extends Record<string, unknown> {
   readonly agent?: boolean;
 }
 
-interface ExplainContextEntry {
-  readonly id: string;
-  readonly title: string;
-  readonly path: string;
-  readonly invariants: readonly string[];
-  readonly verification: readonly string[];
-}
-
 interface ExplainOutput {
   readonly target: string;
   readonly matches: readonly NormalizedLedgerDocument[];
-  readonly context: readonly ExplainContextEntry[];
+  readonly records: readonly LedgerRetrievalRecord[];
+  readonly related: readonly LedgerRetrievalRelatedRecord[];
+  readonly missing: readonly LedgerRetrievalMissingRecord[];
 }
+
+const retrievalRecordSchema = looseRecord({
+  id: z.string(),
+  kind: z.string(),
+  title: z.string(),
+  status: z.string(),
+  path: z.string(),
+  matchedFiles: z.array(z.string()),
+  matches: z.array(looseRecord({ file: z.string(), kind: z.enum(["exact", "pattern", "suffix"]) })),
+  conflictRules: z.array(z.string()),
+  invariants: z.array(z.string()),
+  verification: z.array(z.string()),
+  supersededBy: z.array(z.string()),
+});
+
+const relatedRecordSchema = looseRecord({
+  id: z.string(),
+  kind: z.string(),
+  title: z.string(),
+  status: z.string(),
+  path: z.string(),
+  via: z.array(z.string()),
+  from: z.array(z.string()),
+});
 
 export const explainOperation = defineOperation<ExplainInput, ExplainOutput>({
   name: "explain",
@@ -56,15 +79,9 @@ export const explainOperation = defineOperation<ExplainInput, ExplainOutput>({
   output: looseRecord({
     target: z.string(),
     matches: z.array(looseRecord({ id: z.string(), title: z.string() })),
-    context: z.array(
-      looseRecord({
-        id: z.string(),
-        title: z.string(),
-        path: z.string(),
-        invariants: z.array(z.string()),
-        verification: z.array(z.string()),
-      }),
-    ),
+    records: z.array(retrievalRecordSchema),
+    related: z.array(relatedRecordSchema),
+    missing: z.array(looseRecord({ id: z.string(), via: z.string(), from: z.string() })),
   }),
   cli: {
     path: ["explain"],
@@ -74,43 +91,57 @@ export const explainOperation = defineOperation<ExplainInput, ExplainOutput>({
       agent: { type: "boolean", description: "Print compact invariants and verification context." },
     },
     json: true,
-    help: "Shows Ledger records that mention a path. --agent prints compact context.",
+    help: `Shows Ledger records that mention a path, plus decisions, backlog items, and
+superseding records one relationship hop away. --agent prints compact context.`,
   },
   mcp: {
     tool: "ledger_explain",
     title: "Explain file history",
     input: z.strictObject({ path: pathString.describe("File path to explain.") }),
-    summary: (data) => ({ target: data.target, matches: data.matches.length }),
+    summary: (data) => ({
+      target: data.target,
+      matches: data.matches.length,
+      related: data.related.length,
+      missing: data.missing.length,
+    }),
   },
   async run(context, input) {
     const { documents } = await loadDocuments(context);
+    const retrieval = retrieveByPath(documents, input.path);
     const matches = explainFile(documents, input.path);
-    const context_ = matches.flatMap((match): ExplainContextEntry[] => {
-      const parsed = documents.find((document) => String(document.frontmatter.id) === match.id);
-      if (!parsed) return [];
-      return [
-        {
-          id: match.id,
-          title: match.title,
-          path: parsed.relativePath,
-          invariants: extractBullets(getSectionBody(parsed, "Invariants")),
-          verification: extractBullets(getSectionBody(parsed, "Verification")),
-        },
-      ];
-    });
-    return { data: { target: input.path, matches, context: context_ } };
+    return {
+      data: {
+        target: retrieval.target,
+        matches,
+        records: retrieval.records,
+        related: retrieval.related,
+        missing: retrieval.missing,
+      },
+    };
   },
   format(data, input) {
     if (data.matches.length === 0) return `No Ledger records mention ${data.target}.`;
     if (input.agent) {
       const lines = [`# Ledger Context: ${data.target}`];
-      for (const entry of data.context) {
+      for (const entry of data.records) {
         lines.push("", `## ${entry.id}: ${entry.title}`, `Path: ${entry.path}`);
+        if (entry.conflictRules.length > 0) {
+          lines.push("Conflict rules:", ...entry.conflictRules.map((item) => `- ${item}`));
+        }
         if (entry.invariants.length > 0) {
           lines.push("Invariants:", ...entry.invariants.map((item) => `- ${item}`));
         }
         if (entry.verification.length > 0) {
           lines.push("Verification:", ...entry.verification.map((item) => `- ${item}`));
+        }
+        if (entry.supersededBy.length > 0) {
+          lines.push(`Superseded by: ${entry.supersededBy.join(", ")}`);
+        }
+      }
+      if (data.related.length > 0) {
+        lines.push("", "## Related Records");
+        for (const record of data.related) {
+          lines.push(`- ${record.id} ${record.title} (${record.kind}, ${record.status}; via ${record.via.join(", ")})`);
         }
       }
       return lines.join("\n");
@@ -121,6 +152,12 @@ export const explainOperation = defineOperation<ExplainInput, ExplainOutput>({
       if (document.areas.length > 0) lines.push(`  Areas: ${document.areas.join(", ")}`);
       if (document.docs.length > 0) lines.push(`  Docs: ${document.docs.join(", ")}`);
       if (document.symbols.length > 0) lines.push(`  Symbols: ${document.symbols.join(", ")}`);
+    }
+    if (data.related.length > 0) {
+      lines.push("Related records:");
+      for (const record of data.related) {
+        lines.push(`- ${record.id} ${record.title} (${record.kind}; via ${record.via.join(", ")})`);
+      }
     }
     return lines.join("\n");
   },
