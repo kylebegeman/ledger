@@ -57,6 +57,13 @@ export interface LedgerConfig {
     /** Days an unpromoted session record stays fresh before it expires. */
     readonly expiresInDays: number;
   };
+  readonly agents: {
+    /**
+     * Command prefix that runs Ledger in this repository; rendered into hook
+     * files, the agents block, the skill, and hook context.
+     */
+    readonly command: string;
+  };
   readonly validation: {
     readonly profile: LedgerValidationProfile;
     readonly requireVerification: boolean;

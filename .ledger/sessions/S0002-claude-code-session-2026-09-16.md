@@ -11,6 +11,7 @@ areas:
   - "operations"
   - "readme"
   - "tests"
+  - "types"
   - "workspace"
 files:
   - "src/workspace.ts"
@@ -20,10 +21,12 @@ files:
   - "docs/ARCHITECTURE.md"
   - "test/workspace.test.ts"
   - "test/operations.test.ts"
+  - "src/types.ts"
 host: "claude-code"
 hostSession: "6cf5fed7-a387-4a27-bb1a-125e18d27bfd"
 related:
   - "0131"
+  - "0132"
 ---
 
 # S0002: Claude Code session 2026-09-16

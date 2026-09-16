@@ -17,7 +17,9 @@ import { defineOperation } from "../types.js";
 
 export interface HooksInstallInput extends Record<string, unknown> {
   readonly host: LedgerHookHost;
-  readonly command: string;
+  /** Defaults to agents.command in .ledger/config.yaml and is saved there when given. */
+  readonly command?: string;
+  readonly importAgents?: boolean;
   readonly dryRun?: boolean;
 }
 
@@ -29,7 +31,12 @@ export const hooksInstallOperation = defineOperation<HooksInstallInput, InstallH
   mutates: true,
   input: z.strictObject({
     host: z.enum(hookHosts).describe("Agent host to install hooks for."),
-    command: shortString.default("ledger").describe("Command prefix that runs Ledger, for example npx ledger."),
+    command: shortString.optional().describe(
+      "Command prefix that runs Ledger; defaults to agents.command in .ledger/config.yaml and is saved there when given.",
+    ),
+    importAgents: z.boolean().optional().describe(
+      "Add the @AGENTS.md import to CLAUDE.md when it is missing (claude-code only).",
+    ),
     dryRun: z.boolean().optional().describe("Print the merged hook file without writing it."),
   }),
   output: looseRecord({
@@ -39,12 +46,19 @@ export const hooksInstallOperation = defineOperation<HooksInstallInput, InstallH
     events: z.array(z.string()),
     changed: z.boolean(),
     dryRun: z.boolean(),
+    configured: z.boolean(),
+    agentsImport: looseRecord({
+      path: z.string(),
+      present: z.boolean(),
+      added: z.boolean(),
+      created: z.boolean(),
+    }).optional(),
     nextSteps: z.array(z.string()),
     content: z.string().optional(),
   }),
   cli: {
     path: ["hooks", "install"],
-    usage: "ledger hooks install --host <claude-code|codex|cursor> [--command <prefix>] [--dry-run] [--json]",
+    usage: "ledger hooks install --host <claude-code|codex|cursor> [--command <prefix>] [--import-agents] [--dry-run] [--json]",
     flags: {
       host: {
         type: "string",
@@ -52,7 +66,15 @@ export const hooksInstallOperation = defineOperation<HooksInstallInput, InstallH
         choices: [...hookHosts],
         choicesLabel: "hook host",
       },
-      command: { type: "string", description: "Command prefix that runs Ledger." },
+      command: {
+        type: "string",
+        description: "Command prefix that runs Ledger; saved as agents.command in .ledger/config.yaml.",
+      },
+      "import-agents": {
+        type: "boolean",
+        field: "importAgents",
+        description: "Add the @AGENTS.md import to CLAUDE.md when it is missing (claude-code only).",
+      },
       "dry-run": { type: "boolean", description: "Print the merged hook file without writing it." },
     },
     json: true,
@@ -60,14 +82,19 @@ export const hooksInstallOperation = defineOperation<HooksInstallInput, InstallH
 hooks into the host's project hook file: .claude/settings.json for Claude Code,
 .codex/hooks.json for Codex, or .cursor/hooks.json for Cursor. Existing hooks
 that are not Ledger's are preserved; earlier Ledger entries are replaced. Each
-hook runs "<command> hook <event> --host <host>"; pass --command "npx ledger"
-when Ledger is a project dependency. Nothing auto-starts the engine.`,
+hook runs "<command> hook <event> --host <host>". The prefix is saved as
+agents.command in .ledger/config.yaml and reused by hooks install, agents
+--write, skills install, and the hook context; pass --command "npx ledger"
+when Ledger is a project dependency. A dry run computes but never writes the
+config. --import-agents adds the @AGENTS.md import to CLAUDE.md so Claude Code
+reads the Ledger block. Nothing auto-starts the engine.`,
   },
   async run(context, input) {
     const workspace = requireWorkspace(context);
     const result = await installHostHooks(workspace, {
       host: input.host,
       command: input.command,
+      importAgents: Boolean(input.importAgents),
       dryRun: Boolean(input.dryRun),
     });
     return { data: result };
@@ -78,8 +105,12 @@ when Ledger is a project dependency. Nothing auto-starts the engine.`,
       data.changed
         ? `Installed ${data.events.length} Ledger hooks into ${data.path} for ${data.host}.`
         : `${data.path} already has the current Ledger hooks for ${data.host}.`,
-      ...data.nextSteps.map((step) => `- ${step}`),
     ];
+    if (data.configured) lines.push(`Saved agents.command "${data.command}" in .ledger/config.yaml.`);
+    if (data.agentsImport?.added) {
+      lines.push(`${data.agentsImport.created ? "Created" : "Updated"} CLAUDE.md with the @AGENTS.md import.`);
+    }
+    lines.push(...data.nextSteps.map((step) => `- ${step}`));
     return lines.join("\n");
   },
 });

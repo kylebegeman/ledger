@@ -1,7 +1,9 @@
 import { realpathSync } from "node:fs";
 import path from "node:path";
+import { readUtf8FileLimited } from "./boundedFile.js";
+import { agentsCommandRule, isValidAgentsCommand, renderConfigWithAgentsCommand } from "./config.js";
 import { normalizeDocument, normalizePath, readLedgerDocuments } from "./documents.js";
-import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
+import { applyFileTransaction, hashFileContent, type LedgerFileChange } from "./fileTransaction.js";
 import { getChangedFileDetails } from "./git.js";
 import { LedgerError } from "./machine.js";
 import { buildAgentPacket, estimateTokens } from "./packet.js";
@@ -15,6 +17,7 @@ import {
   touchSession,
   type SessionRecord,
 } from "./sessions.js";
+import { agentsBlockStart } from "./skills.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 
 export const hookHosts = ["claude-code", "codex", "cursor"] as const;
@@ -146,21 +149,18 @@ export interface HostHookFile {
   readonly nextSteps: readonly string[];
 }
 
+const defaultAgentsCommand = "ledger";
+
 const hostHookFiles: Record<LedgerHookHost, Omit<HostHookFile, "host">> = {
   "claude-code": {
     path: ".claude/settings.json",
     events: ["SessionStart", "PostToolUse", "Stop", "SessionEnd", "PreCompact"],
-    nextSteps: [
-      "Confirm the hook command resolves to this Ledger: `ledger version` should print the package version. Pass --command \"npx ledger\" or \"node dist/cli.js\" when another program owns the name.",
-      "Restart the Claude Code session so it reloads .claude/settings.json.",
-      "Claude Code reads CLAUDE.md, not AGENTS.md; add `@AGENTS.md` to CLAUDE.md if the Ledger block lives there.",
-    ],
+    nextSteps: ["Restart the Claude Code session so it reloads .claude/settings.json."],
   },
   codex: {
     path: ".codex/hooks.json",
     events: ["SessionStart", "PostToolUse", "Stop", "SessionEnd", "PreCompact"],
     nextSteps: [
-      "Confirm the hook command resolves to this Ledger; pass --command when another program owns the name.",
       "Codex requires trusting the project and approving the hook definitions once with /hooks.",
       "Re-approve after editing the hook file; Codex pins a hash of each definition.",
     ],
@@ -168,15 +168,25 @@ const hostHookFiles: Record<LedgerHookHost, Omit<HostHookFile, "host">> = {
   cursor: {
     path: ".cursor/hooks.json",
     events: ["sessionStart", "afterFileEdit", "stop", "sessionEnd", "preCompact"],
-    nextSteps: [
-      "Confirm the hook command resolves to this Ledger; pass --command when another program owns the name.",
-      "Cursor reloads .cursor/hooks.json automatically in a trusted workspace.",
-    ],
+    nextSteps: ["Cursor reloads .cursor/hooks.json automatically in a trusted workspace."],
   },
 };
 
-export function hostHookFile(host: LedgerHookHost): HostHookFile {
-  return { host, ...hostHookFiles[host] };
+/** The host's hook file description with next steps rendered for the command that runs Ledger. */
+export function hostHookFile(host: LedgerHookHost, command = defaultAgentsCommand): HostHookFile {
+  const file = hostHookFiles[host];
+  const hint = command === defaultAgentsCommand
+    ? " Pass --command \"npx ledger\" or \"node dist/cli.js\" when another program owns the name."
+    : "";
+  return {
+    host,
+    path: file.path,
+    events: file.events,
+    nextSteps: [
+      `Confirm the hook command resolves to this Ledger: \`${command} version\` should print the package version.${hint}`,
+      ...file.nextSteps,
+    ],
+  };
 }
 
 function hookCommand(command: string, event: LedgerHookEvent, host: LedgerHookHost): string {
@@ -284,9 +294,24 @@ function renderCursorHooks(current: Record<string, unknown>, command: string): R
 
 export interface InstallHooksOptions {
   readonly host: LedgerHookHost;
-  /** Command prefix that runs Ledger, for example `ledger` or `npx ledger`. */
-  readonly command: string;
+  /**
+   * Command prefix that runs Ledger, for example `ledger` or `npx ledger`.
+   * Defaults to `agents.command` in the config and is persisted there when given.
+   */
+  readonly command?: string;
+  /** Add the `@AGENTS.md` import to CLAUDE.md when it is missing (Claude Code only). */
+  readonly importAgents?: boolean;
   readonly dryRun: boolean;
+}
+
+export interface AgentsImportResult {
+  readonly path: "CLAUDE.md";
+  /** Whether CLAUDE.md already imports AGENTS.md or carries the Ledger block. */
+  readonly present: boolean;
+  /** Whether this run added the import. */
+  readonly added: boolean;
+  /** Whether this run created CLAUDE.md. */
+  readonly created: boolean;
 }
 
 export interface InstallHooksResult {
@@ -296,34 +321,120 @@ export interface InstallHooksResult {
   readonly events: readonly string[];
   readonly changed: boolean;
   readonly dryRun: boolean;
+  /** Whether `agents.command` was written to the config in this run. */
+  readonly configured: boolean;
+  /** The CLAUDE.md import check, present for Claude Code. */
+  readonly agentsImport?: AgentsImportResult;
   readonly nextSteps: readonly string[];
   /** The rendered file, returned on dry runs so callers can inspect it. */
   readonly content?: string;
 }
 
+const claudeMdPath = "CLAUDE.md";
+const agentsMdPath = "AGENTS.md";
+const agentsImportLine = "@AGENTS.md";
+
+/**
+ * Whether CLAUDE.md loads the Ledger instructions: an `@AGENTS.md` import
+ * outside code spans and fenced blocks, or the managed block itself.
+ */
+export function claudeMdImportsAgents(content: string): boolean {
+  // Code spans open and close with a backtick run of the same length, so ``@AGENTS.md`` is a mention too.
+  const stripped = content.replace(/```[\s\S]*?```/g, "").replace(/(`+)[^\n]*?\1/g, "");
+  // A trailing period must end the sentence; @AGENTS.md.bak names another file.
+  return /(^|\s)@(?:\.\/)?AGENTS\.md(?=$|[\s,;:)]|\.(?=\s|$))/m.test(stripped) || stripped.includes(agentsBlockStart);
+}
+
+/**
+ * Install the host's hooks, persist `--command` as `agents.command`, and
+ * optionally add the CLAUDE.md import, all in one file transaction.
+ */
 export async function installHostHooks(
   workspace: LedgerWorkspace,
   options: InstallHooksOptions,
 ): Promise<InstallHooksResult> {
-  const file = hostHookFile(options.host);
+  if (options.importAgents && options.host !== "claude-code") {
+    throw new LedgerError("invalid-argument", "--import-agents applies to --host claude-code", { host: options.host });
+  }
+  if (options.command !== undefined && !isValidAgentsCommand(options.command)) {
+    throw new LedgerError("invalid-argument", `--command ${agentsCommandRule}`, { command: options.command });
+  }
+  const command = options.command ?? workspace.config.agents.command;
+  const file = hostHookFile(options.host, command);
   const existing = await readProjectFile(workspace, file.path);
-  const content = renderHostHooks(options.host, options.command, existing);
+  const content = renderHostHooks(options.host, command, existing);
   const changed = existing !== content;
-  if (options.dryRun) {
-    return { host: options.host, path: file.path, command: options.command, events: file.events, changed, dryRun: true, nextSteps: file.nextSteps, content };
-  }
+  const changes: LedgerFileChange[] = [];
   if (changed) {
-    await applyFileTransaction(workspace, `install ${options.host} hooks`, [
-      { path: file.path, content, expectedHash: existing === undefined ? null : hashFileContent(existing) },
-    ]);
+    changes.push({ path: file.path, content, expectedHash: existing === undefined ? null : hashFileContent(existing) });
   }
-  return { host: options.host, path: file.path, command: options.command, events: file.events, changed, dryRun: false, nextSteps: file.nextSteps };
+
+  let configChange = false;
+  if (options.command !== undefined) {
+    const configRelative = normalizePath(path.relative(workspace.projectRoot, workspace.configPath));
+    const rawConfig = await readProjectFile(workspace, configRelative);
+    if (rawConfig === undefined) {
+      throw new LedgerError("invalid-config", `${configRelative} is missing; run ledger init first`, { path: configRelative });
+    }
+    const nextConfig = renderConfigWithAgentsCommand(rawConfig, command);
+    if (nextConfig !== rawConfig) {
+      changes.push({ path: configRelative, content: nextConfig, expectedHash: hashFileContent(rawConfig) });
+      configChange = true;
+    }
+  }
+
+  const nextSteps = [...file.nextSteps];
+  let agentsImport: AgentsImportResult | undefined;
+  if (options.host === "claude-code") {
+    const claudeMd = await readProjectFile(workspace, claudeMdPath);
+    const present = claudeMd !== undefined && claudeMdImportsAgents(claudeMd);
+    if (present) {
+      agentsImport = { path: claudeMdPath, present: true, added: false, created: false };
+    } else if (options.importAgents) {
+      const imported = claudeMd === undefined
+        ? `${agentsImportLine}\n`
+        : `${claudeMd.replace(/\s+$/, "")}\n\n${agentsImportLine}\n`;
+      changes.push({ path: claudeMdPath, content: imported, expectedHash: claudeMd === undefined ? null : hashFileContent(claudeMd) });
+      agentsImport = { path: claudeMdPath, present: false, added: true, created: claudeMd === undefined };
+      if ((await readProjectFile(workspace, agentsMdPath)) === undefined) {
+        nextSteps.push(`${agentsMdPath} is missing; run \`${command} agents --write\` so the import has a block to load.`);
+      }
+    } else {
+      agentsImport = { path: claudeMdPath, present: false, added: false, created: false };
+      nextSteps.push(
+        `${claudeMdPath} does not import ${agentsMdPath}; re-run with --import-agents to add \`${agentsImportLine}\`, or keep the block in ${claudeMdPath} with \`${command} agents --write --file ${claudeMdPath}\`.`,
+      );
+    }
+  }
+
+  const base = { host: options.host, path: file.path, command, events: file.events, changed, nextSteps };
+  if (options.dryRun) {
+    // Nothing is written on a dry run, so the import result reports the check only.
+    return {
+      ...base,
+      dryRun: true,
+      configured: false,
+      agentsImport: agentsImport && { ...agentsImport, added: false, created: false },
+      content,
+    };
+  }
+  if (changes.length > 0) {
+    await applyFileTransaction(workspace, `install ${options.host} hooks`, changes);
+  }
+  return { ...base, dryRun: false, configured: configChange, agentsImport };
 }
 
+/**
+ * Read a project file the way the transaction reads it (bounded, BOM
+ * stripped), so `expectedHash` matches what the transaction hashes.
+ */
 async function readProjectFile(workspace: LedgerWorkspace, relativePath: string): Promise<string | undefined> {
-  const { readFile } = await import("node:fs/promises");
   try {
-    return await readFile(path.join(workspace.projectRoot, relativePath), "utf8");
+    return await readUtf8FileLimited(
+      path.join(workspace.projectRoot, relativePath),
+      workspace.config.limits.maxTotalDocumentBytes,
+      relativePath,
+    );
   } catch (error) {
     if (isCode(error, "ENOENT")) return undefined;
     throw error;
@@ -384,7 +495,9 @@ export async function runHookEvent(
         event,
         session: drafted.session,
         entry: drafted.entry,
-        output: drafted.entry.created ? systemMessage(host, `Ledger drafted ${drafted.entry.path}; finish it and run ledger ready.`) : {},
+        output: drafted.entry.created
+          ? systemMessage(host, `Ledger drafted ${drafted.entry.path}; finish it and run ${workspace.config.agents.command} ready.`)
+          : {},
       };
     }
     case "session-end": {
@@ -477,10 +590,11 @@ export async function buildSessionStartContext(
   options: SessionStartContextOptions,
 ): Promise<string> {
   const budget = Math.max(200, options.budgetTokens);
+  const command = workspace.config.agents.command;
   const lines: string[] = [
     `# Ledger memory for ${workspace.config.project}`,
     "",
-    `Session record: ${session.id} (${session.path}). Run \`ledger packet <path> --budget 1200\` before editing a file, \`ledger session note "<fact>"\` to remember something, and \`ledger ready\` before marking a receipt landed.`,
+    `Session record: ${session.id} (${session.path}). Run \`${command} packet <path> --budget 1200\` before editing a file, \`${command} session note "<fact>"\` to remember something, and \`${command} ready\` before marking a receipt landed.`,
     "",
   ];
   const sessionDoc = documents.find((document) => normalizePath(document.relativePath) === session.path);
@@ -532,7 +646,7 @@ export async function buildSessionStartContext(
     }
   }
 
-  return trimToBudget(lines, budget);
+  return trimToBudget(lines, budget, command);
 }
 
 function isPlaceholder(line: string): boolean {
@@ -544,12 +658,12 @@ function isSubstantive(line: string): boolean {
   return !/^Add (invariants|checks)\b/.test(line) && !/\bTODO(?=\s*[:(\-]|\s*$)/i.test(line);
 }
 
-function trimToBudget(lines: readonly string[], budgetTokens: number): string {
+function trimToBudget(lines: readonly string[], budgetTokens: number, command: string): string {
   const kept: string[] = [];
   for (const line of lines) {
     const candidate = [...kept, line].join("\n");
     if (estimateTokens(candidate) > budgetTokens) {
-      kept.push("", "(Ledger context truncated to the budget; run ledger packet for more.)");
+      kept.push("", `(Ledger context truncated to the budget; run ${command} packet for more.)`);
       break;
     }
     kept.push(line);

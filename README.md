@@ -338,7 +338,7 @@ full local verification and publishing checklist.
 | `ledger migrate changelog <dir> --rewrite-docs` | Migrates legacy Markdown changelog records into `.ledger/entries` and writes a receipt. |
 | `ledger agents --role reviewer` | Prints role-specific `AGENTS.md` instructions for the configured workflow. `--write` maintains them as a fenced block in `AGENTS.md` or `--file <path>`. |
 | `ledger skills install` | Writes `.agents/skills/ledger/SKILL.md` so skills-aware agents know when to call Ledger, with a `.claude/skills/ledger` link for Claude Code. |
-| `ledger hooks install --host claude-code` | Installs Ledger lifecycle hooks into the host's project hook file (`.claude/settings.json`, `.codex/hooks.json`, or `.cursor/hooks.json`), preserving other hooks. Use `--dry-run` to print the merged file. |
+| `ledger hooks install --host claude-code` | Installs Ledger lifecycle hooks into the host's project hook file (`.claude/settings.json`, `.codex/hooks.json`, or `.cursor/hooks.json`), preserving other hooks. `--command <prefix>` is saved as `agents.command` in `.ledger/config.yaml` and reused by every later install and render; `--import-agents` adds the `@AGENTS.md` import to `CLAUDE.md`. Use `--dry-run` to print the merged file. |
 | `ledger ci` | Runs validation, docs audit, coverage, and docs impact together; accepts `--base` and `--head` for clean PR checkouts. |
 
 Every command has focused help:
@@ -561,7 +561,12 @@ tells an agent when to call `packet`, `explain`, `search-packet`, `session
 note`, `new`, `promote`, and `ready`. `ledger agents --write` maintains the
 same workflow as a fenced block between `<!-- ledger:agents:start -->` and
 `<!-- ledger:agents:end -->` in `AGENTS.md`, preserving everything else in the
-file; Claude Code reads `CLAUDE.md`, so import `AGENTS.md` from it.
+file. Both render every command span with `agents.command` from
+`.ledger/config.yaml` (`npx ledger`, `node dist/cli.js`, or a pinned `npx
+--yes @kylebegeman/ledger@<version>`), so an agent never reads an instruction
+for a program it cannot run. Claude Code reads `CLAUDE.md`, so import
+`AGENTS.md` from it; `ledger hooks install --host claude-code --import-agents`
+adds the `@AGENTS.md` line when it is missing.
 
 ### Host Hooks
 
@@ -579,13 +584,19 @@ the workflow instead of by memory:
   `.ledger/reports/handoff.md`, so the post-compaction session start receives
   the same memory
 
-The hooks run `ledger hook <event> --host <host>` with the host's JSON on
-stdin; pass `--command "npx ledger"` when Ledger is a project dependency
-rather than a global install, or `--command "node dist/cli.js"` in this
-repository, where another program owns the `ledger` name on PATH. Nothing
-auto-starts the engine. Codex asks you
-to trust the hook definitions once with `/hooks`; Claude Code reads
-`CLAUDE.md`, so import `AGENTS.md` from it.
+The hooks run `<command> hook <event> --host <host>` with the host's JSON on
+stdin, where `<command>` is `agents.command` from `.ledger/config.yaml`
+(default `ledger`). Pass `--command "npx ledger"` when Ledger is a project
+dependency rather than a global install, or `--command "node dist/cli.js"` in
+this repository, where another program owns the `ledger` name on PATH; the
+prefix is persisted under `agents.command` in the same file transaction as the
+hook file, preserving comments and key order, and reused by `hooks install`
+for the other hosts, `agents --write`, `skills install`, and the context and
+notices the hooks inject. A dry run computes but never writes it. Nothing
+auto-starts the engine. Codex asks you to trust the hook definitions once with
+`/hooks`. Claude Code reads `CLAUDE.md`, not `AGENTS.md`; `hooks install
+--host claude-code` reports when `CLAUDE.md` lacks the `@AGENTS.md` import and
+`--import-agents` appends it (creating `CLAUDE.md` when absent).
 
 From TypeScript, talk to a running engine with the typed client:
 

@@ -577,6 +577,27 @@ time. Passing evidence older than `maxAgeDays` is `stale`; a failed run is
 state. The sidecar is derived data under the Markdown source of truth and is
 committed so pull requests carry it.
 
+## Agents Config
+
+`agents.command` is the one command prefix that runs Ledger in this
+repository. Every agent-facing surface renders it: the hook files that
+`ledger hooks install` writes, the fenced block from `ledger agents --write`,
+the skill from `ledger skills install`, the SessionStart context and its
+truncation notice, and the Stop notice that names `ready`.
+
+```yaml
+agents:
+  command: ledger
+```
+
+A project that runs Ledger as a dependency or a pinned release sets it once,
+for example `npx ledger` or `npx --yes @kylebegeman/ledger@0.8.0`.
+`ledger hooks install --command <prefix>` writes the value here, updating an
+existing key in place or appending the section, and preserves comments,
+quoting, key order, and CRLF line endings in the rest of the file. `verification.allow` stays a
+separate, literal list: it bounds what `ledger verify --run` may execute and
+is not derived from the command.
+
 ## Render Budget Config
 
 `render.budgets` keeps generated static reader artifacts from growing
@@ -636,6 +657,8 @@ use the expected primitive shapes:
 - render budget values are positive numbers
 - performance budget values are positive numbers
 - `validation.profile` is `standard` or `strict`
+- `agents.command` is a non-empty single-line string without backticks or
+  surrounding whitespace
 - glob lists are arrays of strings
 - `validation.requiredSections.<kind>` values are non-empty arrays of strings
 

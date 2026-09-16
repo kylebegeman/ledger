@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.js";
+import { renderConfigWithAgentsCommand } from "../src/config.js";
 import { installLedgerSkill, renderLedgerSkill, replaceAgentsBlock, writeAgentsBlock } from "../src/skills.js";
 import { findWorkspace, initWorkspace } from "../src/workspace.js";
 
@@ -21,6 +22,12 @@ async function fixtureWorkspace(): Promise<string> {
   return tempDir;
 }
 
+/** Persist `agents.command` in the fixture config the way `hooks install --command` does. */
+async function configureCommand(root: string, command: string): Promise<void> {
+  const configPath = path.join(root, ".ledger", "config.yaml");
+  await writeFile(configPath, renderConfigWithAgentsCommand(await readFile(configPath, "utf8"), command));
+}
+
 describe("renderLedgerSkill", () => {
   it("renders Agent Skills frontmatter and the project workflow", async () => {
     const root = await fixtureWorkspace();
@@ -30,6 +37,18 @@ describe("renderLedgerSkill", () => {
     expect(skill).toContain("ledger ready");
     expect(skill).toContain("ledger session note");
     expect(skill).toContain("Docs adoption mode is `partial`");
+  });
+
+  it("renders every command span with agents.command", async () => {
+    const root = await fixtureWorkspace();
+    await configureCommand(root, "npx ledger");
+    const skill = renderLedgerSkill(await findWorkspace(root));
+    expect(skill).toContain("`npx ledger packet <path> --budget 1200`");
+    expect(skill).toContain("`npx ledger ready`");
+    expect(skill).toContain("`npx ledger hooks install`");
+    expect(skill).toContain("`npx ledger mcp`");
+    expect(skill).toContain("`npx ledger serve --api`");
+    expect(skill).not.toMatch(/`ledger /);
   });
 });
 
@@ -102,6 +121,24 @@ describe("agents --write", () => {
     expect(final).toContain("ledger unreleased --json");
     expect(final).not.toContain("ledger stale --check");
     expect(final.split("<!-- ledger:agents:start -->")).toHaveLength(2);
+  });
+
+  it("renders the configured command in the block and the agents envelope", async () => {
+    const root = await fixtureWorkspace();
+    await configureCommand(root, "npx ledger");
+    const workspace = await findWorkspace(root);
+    await writeAgentsBlock(workspace, { file: "AGENTS.md", role: "contributor" });
+    const contributor = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    expect(contributor).toContain("`npx ledger new \"<title>\" --from-diff --area <area>`");
+    expect(contributor).not.toMatch(/`ledger /);
+    await writeAgentsBlock(workspace, { file: "AGENTS.md", role: "reviewer" });
+    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("`npx ledger stale --check`");
+
+    const envelope = await captureRun(["agents", "--role", "release", "--json"], root);
+    expect(envelope.exitCode).toBe(0);
+    const data = JSON.parse(envelope.stdout).data;
+    expect(data.command).toBe("npx ledger");
+    expect(data.instructions).toContain("`npx ledger unreleased --json`");
   });
 
   it("rejects unbalanced markers and supports --file from the CLI", async () => {

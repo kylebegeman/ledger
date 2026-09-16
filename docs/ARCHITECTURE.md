@@ -353,6 +353,19 @@ symlinks are unavailable), and maintains the fenced Ledger block that
 `ledger agents --write` keeps in `AGENTS.md`; the block text is the same
 `agentInstructions` the MCP prompt serves.
 
+Every command span in those surfaces comes from `config.agents.command`:
+`renderLedgerSkill`, `agentInstructions` (through `writeAgentsBlock` and the
+`agents` operation), `buildSessionStartContext` with its truncation notice,
+and the Stop notice in `runHookEvent` all read it, so one config key names
+the program an agent should run. `installHostHooks` reads the same key as the
+default for `--command`, persists an explicit `--command` through
+`renderConfigWithAgentsCommand` (a `yaml` Document rewrite that keeps
+comments, quoting, and key order), and can add the `@AGENTS.md` import to
+`CLAUDE.md` under `--import-agents`; the hook file, the config, and
+`CLAUDE.md` are written in one `applyFileTransaction` with expected hashes,
+so a failed write cannot leave the config naming a command the hooks do not
+use. A dry run computes everything and writes nothing.
+
 The hook operation is interactive and workspace-optional so it never delegates
 to the engine, never appears on the HTTP API, and exits 0 with an empty JSON
 object when Ledger is not initialized or an error occurs; hosts must never be
