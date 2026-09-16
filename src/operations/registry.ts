@@ -21,6 +21,7 @@ import {
   docsReconcileOperation,
 } from "./definitions/docs.js";
 import { doctorOperation, metricsOperation, staleOperation } from "./definitions/health.js";
+import { readyOperation } from "./definitions/readiness.js";
 import {
   adoptOperation,
   indexOperation,
@@ -68,6 +69,7 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   sessionCloseOperation,
   sessionPruneOperation,
   validateOperation,
+  readyOperation,
   indexOperation,
   verifyIntegrityOperation,
   renderOperation,

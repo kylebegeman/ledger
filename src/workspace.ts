@@ -287,7 +287,7 @@ function docsStartHere(): string {
   ].join("\n");
 }
 
-function changeTemplate(): string {
+export function changeTemplate(): string {
   return [
     "---",
     'id: "{{id}}"',
@@ -454,7 +454,7 @@ export function sessionTemplate(): string {
   ].join("\n");
 }
 
-function releaseTemplate(): string {
+export function releaseTemplate(): string {
   return [
     "---",
     'id: "{{version}}"',
@@ -491,7 +491,7 @@ function releaseTemplate(): string {
   ].join("\n");
 }
 
-function productNoteTemplate(): string {
+export function productNoteTemplate(): string {
   return [
     "---",
     'id: "{{id}}"',
