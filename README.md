@@ -247,13 +247,6 @@ The package builds from source during `prepare`; release checks use
 `npm run release:build`. See [Release Prep](./docs/RELEASE_PREP.md) for the
 full local verification and publishing checklist.
 
-After the Homebrew tap is published, macOS users can install with:
-
-```bash
-brew tap kylebegeman/tap
-brew install ledger
-```
-
 ## What Ledger Creates
 
 | Path | Purpose |
@@ -594,7 +587,8 @@ packets, release tooling, or renderer adapters.
 
 ## Development
 
-Development happens on `next`. Stable releases are promoted to `master`.
+Development happens on short-lived branches merged into `master` through pull
+requests. Releases are tagged from `master`.
 
 ```bash
 npm ci
@@ -604,9 +598,10 @@ npm run ci
 `npm run ci` runs typecheck, tests, build, Ledger's own CI checks, and an npm
 package dry run.
 
-Tagged releases use `.github/workflows/release.yml`. When `NPM_TOKEN` is set in
-repository secrets, pushing `vX.Y.Z` publishes the verified package to npm with
-provenance.
+Tagged releases use `.github/workflows/release.yml`. Pushing `vX.Y.Z` runs the
+full verification, publishes the package to npm through trusted publishing with
+provenance (an `NPM_TOKEN` secret is accepted as a fallback), and creates a
+GitHub Release from the matching `.ledger/releases/` record.
 
 ### Publishing To npm
 
@@ -632,24 +627,6 @@ Actions once the package has a trusted publisher configured.
 Each publish needs a new package version. If npm reports that the version was
 already published, bump `package.json` and `package-lock.json`, rerun the release
 checks, and publish that new version.
-
-### Publishing To Homebrew
-
-Homebrew needs a tap repository and a stable package URL. Publish npm first,
-then update `kylebegeman/homebrew-tap` with a `Formula/ledger.rb` formula that
-installs the published npm tarball for the same version.
-
-```bash
-brew tap kylebegeman/tap
-brew bump-formula-pr --version <version> kylebegeman/tap/ledger
-```
-
-After the formula is pushed, users install with:
-
-```bash
-brew tap kylebegeman/tap
-brew install ledger
-```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) and [SECURITY.md](./SECURITY.md).
 

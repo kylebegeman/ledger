@@ -83,8 +83,9 @@ npm publish --access public
 
 Tagged releases publish through `.github/workflows/release.yml`. The workflow
 requires the `vX.Y.Z` tag to match `package.json`, runs the complete package
-verification, skips versions already present on npm, and otherwise fails if it
-cannot authenticate.
+verification, skips versions already present on npm, otherwise fails if it
+cannot authenticate, and then creates or updates the GitHub Release for the tag
+from the `Public Notes` section of `.ledger/releases/vX.Y.Z.md`.
 
 Configure npm trusted publishing for repository `kylebegeman/ledger` and
 workflow `release.yml` as the preferred authentication path. It uses short-lived

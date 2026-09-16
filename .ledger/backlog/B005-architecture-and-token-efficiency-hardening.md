@@ -3,7 +3,7 @@ id: "B005"
 kind: "backlog"
 title: "Architecture And Token Efficiency Hardening"
 date: "2026-07-03"
-updated: "2026-07-12"
+updated: "2026-09-15"
 status: "in-progress"
 areas:
   - "architecture"
@@ -84,5 +84,6 @@ Token-efficiency techniques to prioritize:
 Most accepted slices have shipped: packet budgets, health diagnostics, shared
 command models, parser-backed extraction, graph data, artifact budgets, config
 migrations, validation profiles, versioned machine results, and a stable versus
-unstable package boundary. Further command extraction from `src/cli.ts` remains
-incremental cleanup rather than a release blocker.
+unstable package boundary. Further command extraction from `src/cli.ts` is
+absorbed by the operation registry planned under decision D005; this item stays
+open until that registry replaces the CLI switch.

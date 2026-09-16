@@ -256,14 +256,42 @@ Shipped foundations:
 - maintained Node LTS and cross-platform CI coverage
 - production dependency audit and installed-package smoke testing
 
-Next product slices:
+Remaining slices were re-evaluated on 2026-09-15. Sharded search, richer graph
+navigation, and pull request annotations continue under Phase 11. Go and HTMX
+adapters and signed integrity or transparency-log records were retired by
+decision D006.
 
-- sharded or on-demand static search indexes for catalogs that outgrow the
-  compact JSON search artifact
-- optional Go and HTMX mini-app adapters that consume Ledger's stable JSON and
-  machine contracts without replacing Markdown as source of truth
-- signed integrity records or transparency-log adapters
-- richer graph navigation and pull request annotations
+## Phase 11: Local Memory Engine
+
+Status: planned; direction accepted in decision D005 on 2026-09-15
+
+The full brainstorm, including verdicts on every earlier proposal, is in
+`docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are
+recorded in decision D006.
+
+Pillars:
+
+- Engine: a single typed operation registry that generates the CLI, MCP tools,
+  HTTP routes, help, and contract tests; an incremental content-hash catalog
+  cache with JSON and optional `node:sqlite` backends; shared search scoring;
+  a typed, tested browser runtime; parser-backed symbols that ship
+- Engine server: `ledger serve --api` hosting the reader, a versioned JSON API,
+  a server-sent events stream, live reload, and MCP over Streamable HTTP, with
+  opportunistic CLI delegation to the warm server
+- Capture: host hook installation for Claude Code, Codex, and Cursor, a shipped
+  `SKILL.md`, authoring commands for backlog, decisions, promotion, and scratch,
+  a `ready` gate, and expiring session records
+- Trust: current-change coverage, per-file docs impact, an allowlisted
+  verification runner with evidence sidecars, freshness checks against the code
+  tree, a first-party GitHub Action, and GitHub Releases from release records
+- Reader and publishing: live reload, copy actions, entity navigation, chunked
+  artifacts, and a publishable public changelog
+- Hygiene first: publish the repository state to npm, align the Node engines
+  field, retire the dead `next` branch, remove the Homebrew claim, and
+  reconcile the render budget
+
+Sequencing: hygiene, then registry and cache, then the engine server, then
+capture, then trust. Releases stay on the 0.x line without a contract freeze.
 
 ## Long-Term Product Direction
 

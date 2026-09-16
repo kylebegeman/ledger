@@ -20,6 +20,7 @@ docsImpact:
   status: "none"
   reason: "Test-only portability fix; no documented behavior changed and no source code was touched."
 commits: []
+release: "v0.3.2"
 ---
 
 # 0091: Fix Windows CI Test Portability Failures

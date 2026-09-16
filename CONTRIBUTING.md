@@ -27,7 +27,9 @@ node dist/cli.js coverage
 
 ## Branches
 
-`master` is the stable branch. Active development happens on `next`.
+`master` is the only long-lived branch. Work on short-lived branches and open
+pull requests against `master`. CI runs the package checks plus the Ledger pull
+request range check on every pull request.
 
 ## Pull Requests
 
@@ -36,9 +38,10 @@ any generated files that should be ignored.
 
 ## Releases
 
-Patch releases are prepared on `next`, promoted to `master`, tagged as
-`vX.Y.Z`, and published by the tag-driven release workflow when `NPM_TOKEN` is
-available in repository secrets.
+Releases are tagged from `master` as `vX.Y.Z` and published by the tag-driven
+release workflow through npm trusted publishing; an `NPM_TOKEN` secret is
+accepted as a fallback. The workflow also creates a GitHub Release from the
+public notes of the matching `.ledger/releases/` record.
 
 Before tagging:
 

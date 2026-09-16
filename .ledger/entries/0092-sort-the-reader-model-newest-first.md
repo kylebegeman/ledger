@@ -28,6 +28,7 @@ docsImpact:
 commits: []
 related:
   - "0090"
+release: "v0.3.2"
 ---
 
 # 0092: Sort The Reader Model Newest-First
