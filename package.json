@@ -41,6 +41,7 @@
     "CONTRIBUTING.md",
     "SECURITY.md",
     "docs/*.md",
+    "!docs/HANDOFF.md",
     ".ledger/templates/*.md"
   ],
   "scripts": {
