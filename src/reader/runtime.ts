@@ -73,10 +73,27 @@ function required<T extends HTMLElement>(id: string): T {
   return element;
 }
 
+interface SearchIndexManifest {
+  readonly shards: readonly string[];
+  readonly documents: number;
+}
+
+async function fetchJson(href: string): Promise<unknown> {
+  const response = await fetch(href);
+  return response.ok ? ((await response.json()) as unknown) : [];
+}
+
+/** Load search-index.json, following the shard manifest when the index was sharded. */
 function loadSearchIndex(): Promise<readonly IndexDocument[]> {
   if (!searchIndexPromise) {
-    searchIndexPromise = fetch("search-index.json")
-      .then((response) => (response.ok ? (response.json() as Promise<readonly IndexDocument[]>) : []))
+    searchIndexPromise = fetchJson("search-index.json")
+      .then(async (index) => {
+        if (Array.isArray(index)) return index as IndexDocument[];
+        const manifest = index as Partial<SearchIndexManifest> | null;
+        if (!manifest || !Array.isArray(manifest.shards)) return [];
+        const shards = await Promise.all(manifest.shards.map((href) => fetchJson(href)));
+        return shards.flatMap((shard) => (Array.isArray(shard) ? (shard as IndexDocument[]) : []));
+      })
       .catch(() => []);
   }
   return searchIndexPromise;
@@ -426,12 +443,77 @@ function recordEntry(id: string): HTMLElement | undefined {
   return entries.find((candidate) => candidate.dataset.id === id);
 }
 
+const detailChunks = new Map<string, Promise<Record<string, string>>>();
+
+/** Fetch a detail chunk once; the promise rejects when the chunk cannot be read, for example from a file: URL. */
+function loadDetailChunk(href: string): Promise<Record<string, string>> {
+  let chunk = detailChunks.get(href);
+  if (!chunk) {
+    chunk = fetch(href).then(async (response) => {
+      if (!response.ok) throw new Error(`detail chunk ${href} returned ${response.status}`);
+      const parsed: unknown = await response.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`detail chunk ${href} is not an object`);
+      return parsed as Record<string, string>;
+    });
+    chunk.catch(() => detailChunks.delete(href));
+    detailChunks.set(href, chunk);
+  }
+  return chunk;
+}
+
+/** A detail panel built from the entry row alone, shown while a chunk loads or when it cannot load. */
+function fallbackDetail(entry: HTMLElement, message: string): DocumentFragment {
+  const fragment = document.createDocumentFragment();
+  const title = document.createElement("h2");
+  title.className = "record-panel-title";
+  title.textContent = entry.querySelector(".entry-title")?.textContent || entry.dataset.id || "";
+  const note = document.createElement("p");
+  note.className = "entry-summary";
+  note.textContent = message;
+  fragment.append(title, note);
+  const source = entry.dataset.source;
+  if (source) {
+    const link = document.createElement("a");
+    link.href = source;
+    link.textContent = "Open the source record";
+    const paragraph = document.createElement("p");
+    paragraph.append(link);
+    fragment.append(paragraph);
+  }
+  return fragment;
+}
+
+function detailFragment(html: string): DocumentFragment {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  return template.content;
+}
+
 function openPanel(id: string, syncUrl = true): boolean {
   if (!recordPanel || !recordPanelBody) return false;
   const entry = recordEntry(id);
-  const template = entry ? entry.querySelector<HTMLTemplateElement>("template.entry-detail") : null;
-  if (!template) return false;
-  recordPanelBody.replaceChildren(template.content.cloneNode(true));
+  if (!entry) return false;
+  const template = entry.querySelector<HTMLTemplateElement>("template.entry-detail");
+  const chunkHref = entry.dataset.detail;
+  if (!template && !chunkHref) return false;
+  if (template) {
+    recordPanelBody.replaceChildren(template.content.cloneNode(true));
+  } else if (chunkHref) {
+    const body = recordPanelBody;
+    body.replaceChildren(fallbackDetail(entry, "Loading record details."));
+    loadDetailChunk(chunkHref)
+      .then((chunk) => {
+        if (openRecordId !== id) return;
+        const html = chunk[id];
+        body.replaceChildren(html ? detailFragment(html) : fallbackDetail(entry, "This record's details are missing from its chunk."));
+      })
+      .catch(() => {
+        if (openRecordId !== id) return;
+        body.replaceChildren(
+          fallbackDetail(entry, "Record details load when the reader is served over HTTP, for example with ledger serve."),
+        );
+      });
+  }
   recordPanelBody.scrollTop = 0;
   const wasOpen = openRecordId !== "";
   openRecordId = id;

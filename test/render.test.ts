@@ -278,8 +278,10 @@ describe("writeStaticReader", () => {
       "html",
       "search-index",
       "graph",
+      "details",
       "sources",
     ]);
+    expect(result.artifacts.find((artifact) => artifact.kind === "details")).toMatchObject({ files: 0, bytes: 0, ok: true });
     const sourceArtifact = result.artifacts.find((artifact) => artifact.kind === "sources")!;
     const nonSourceBytes = result.artifacts
       .filter((artifact) => artifact.kind !== "sources")
@@ -393,7 +395,7 @@ describe("renderStaticReaderHtml", () => {
     expect(html).toContain("Escape &lt;script&gt;");
     expect(html).toContain('http-equiv="Content-Security-Policy"');
     expect(html).toContain('name="referrer" content="no-referrer"');
-    expect(html).toContain('fetch("search-index.json")');
+    expect(html).toContain('"search-index.json"');
     expect(html).toContain("fuzzyScore");
     expect(html).toContain("scoreSearchDocument");
     expect(html).toContain("searchWeights");

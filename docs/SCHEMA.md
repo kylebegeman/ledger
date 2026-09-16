@@ -589,7 +589,16 @@ render:
 ```
 
 `ledger render` reports the generated artifact sizes and write time.
-`ledger doctor` warns when generated reader output is missing or over budget.
+`ledger doctor` fails when generated reader output is missing or over budget.
+
+Per-artifact budgets apply to the largest file of that artifact, because large
+catalogs are split rather than truncated: the search index is sharded under
+`search/` when it exceeds `maxSearchIndexBytes`, the graph is split into
+`graph.json` and `graph/contracts.json`, and record details move into chunks
+under `details/` when the page would exceed `maxHtmlBytes` (checked against
+`maxHtmlBytes` per chunk). `maxTotalBytes` counts every generated file,
+including source sidecars, so it grows with the catalog and is the setting a
+project raises deliberately as its history grows.
 
 ## Performance Budget Config
 

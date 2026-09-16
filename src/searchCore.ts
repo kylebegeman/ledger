@@ -18,8 +18,24 @@ export interface SearchableFields {
 }
 
 export interface SearchableDocument {
-  readonly terms: string;
+  /** Concatenated field text; derived from `fields` with `searchTermsFor` when omitted. */
+  readonly terms?: string;
   readonly fields: SearchableFields;
+}
+
+/** The canonical `terms` text for a document: every field value joined in field order. */
+export function searchTermsFor(fields: SearchableFields): string {
+  return [
+    fields.id,
+    fields.title,
+    fields.path,
+    fields.metadata,
+    fields.files,
+    fields.symbols,
+    fields.docs,
+    fields.summary,
+    fields.context,
+  ].join(" ");
 }
 
 export interface SearchFieldScore {
@@ -70,7 +86,7 @@ export function scoreSearchFields(document: SearchableDocument, query: string): 
   const matchedFields: string[] = [];
   let score = 0;
   for (const field of Object.keys(searchWeights)) {
-    const value = field === "terms" ? document.terms : document.fields[field as keyof SearchableFields];
+    const value = field === "terms" ? (document.terms ?? searchTermsFor(document.fields)) : document.fields[field as keyof SearchableFields];
     const fieldScore = fuzzyScore(normalizedQuery, normalizeSearchText(value || ""));
     if (fieldScore <= 0) continue;
     matchedFields.push(field);

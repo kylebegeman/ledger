@@ -117,7 +117,7 @@ render:
     maxHtmlBytes: 1000000
     maxSearchIndexBytes: 500000
     maxGraphBytes: 500000
-    maxTotalBytes: 2500000
+    maxTotalBytes: 3500000
     maxWriteMs: 3000
 performance:
   budgets:

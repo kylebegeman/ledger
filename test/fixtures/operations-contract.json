@@ -3604,7 +3604,7 @@
           "search"
         ],
         "aliases": [],
-        "usage": "ledger search <query> [--limit <entries>] [--json]",
+        "usage": "ledger search <query> [--limit <entries>] [--full-text] [--json]",
         "json": true,
         "positionals": {
           "field": "query",
@@ -3615,6 +3615,10 @@
           "limit": {
             "type": "number",
             "field": "limit"
+          },
+          "full-text": {
+            "type": "boolean",
+            "field": "fullText"
           }
         }
       },
@@ -3633,6 +3637,10 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 100
+          },
+          "fullText": {
+            "description": "Narrow candidates with sqlite FTS5 before ranking.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3669,11 +3677,22 @@
               ],
               "additionalProperties": {}
             }
+          },
+          "candidates": {
+            "type": "string",
+            "enum": [
+              "fts5",
+              "scan"
+            ]
+          },
+          "fullTextUnavailable": {
+            "type": "boolean"
           }
         },
         "required": [
           "query",
-          "matches"
+          "matches",
+          "candidates"
         ],
         "additionalProperties": {}
       },
@@ -3700,6 +3719,10 @@
               "type": "integer",
               "exclusiveMinimum": 0,
               "maximum": 100
+            },
+            "fullText": {
+              "description": "Narrow candidates with sqlite FTS5 before ranking.",
+              "type": "boolean"
             }
           },
           "required": [
