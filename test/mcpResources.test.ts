@@ -38,7 +38,7 @@ describe("MCP resources and prompts", () => {
 
     const read = await client.readResource({ uri: "ledger://records/0001" });
     expect(read.contents[0]).toMatchObject({ uri: "ledger://records/0001", mimeType: "text/markdown" });
-    expect(String(read.contents[0]?.text)).toContain("# 0001: Resource Fixture");
+    expect(textOf(read.contents[0])).toContain("# 0001: Resource Fixture");
 
     await expect(client.readResource({ uri: "ledger://records/9999" })).rejects.toThrow(/Unknown Ledger record/);
   });
@@ -48,13 +48,13 @@ describe("MCP resources and prompts", () => {
     client = await connect(projectRoot);
 
     const packet = await client.readResource({ uri: `ledger://packet/${encodeURIComponent("src/resource.ts")}` });
-    const text = String(packet.contents[0]?.text);
+    const text = textOf(packet.contents[0]);
     expect(text).toContain("# Ledger Agent Packet");
     expect(text).toContain("Target: `src/resource.ts`");
     expect(text).toContain("## 0001: Resource fixture");
 
     const contract = await client.readResource({ uri: ledgerMcpResourceUris.contract });
-    const parsed = JSON.parse(String(contract.contents[0]?.text));
+    const parsed = JSON.parse(textOf(contract.contents[0]));
     expect(parsed.contractVersion).toBe(1);
     expect(parsed.operations.map((operation: { name: string }) => operation.name)).toContain("explain");
   });
@@ -81,6 +81,10 @@ describe("MCP resources and prompts", () => {
     expect(handoffText).toContain("Keep the resource contract.");
   });
 });
+
+function textOf(content: { readonly text?: unknown } | { readonly blob?: unknown } | undefined): string {
+  return content && "text" in content && typeof content.text === "string" ? content.text : "";
+}
 
 async function connect(projectRoot: string): Promise<Client> {
   const server = createLedgerMcpServer({ cwd: projectRoot, version: "0.0.0-test" });
