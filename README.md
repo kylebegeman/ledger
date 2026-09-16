@@ -505,7 +505,11 @@ stale, unreleased, docs audit, docs classify, docs impact, and integrity
 verification. Tools declare input and output schemas and return the machine
 envelope as structured content. Each response includes a compact `summary`
 object before detailed payload fields so agents can decide whether to read the
-full result.
+full result. Records are also available as resources (`ledger://records/{id}`,
+`ledger://packet/{path}`, `ledger://contract`), and the
+`ledger_agent_instructions` and `ledger_handoff` prompts give agents role
+instructions and a pre-edit handoff for a file. The same server runs over HTTP
+at `/mcp` under `ledger serve --api`.
 
 Use `ledger agents --role contributor`, `ledger agents --role reviewer`,
 `ledger agents --role release`, `ledger agents --role migration`, or
