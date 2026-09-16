@@ -1,9 +1,11 @@
+import { stat } from "node:fs/promises";
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import { extractBullets, getSectionBody } from "./query.js";
+import { extractAnchoredBlocks } from "./retrieval.js";
 import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
 import { evidenceFreshness, readEvidence } from "./verify.js";
 import type {
@@ -21,7 +23,9 @@ export interface LedgerStaleIssue {
     | "stale-symbol"
     | "release-verification"
     | "expired-session"
-    | "stale-verification";
+    | "stale-verification"
+    | "stale-anchor"
+    | "stale-invariant";
   readonly path: string;
   readonly message: string;
   readonly target?: string;
@@ -114,21 +118,54 @@ export async function detectStaleKnowledge(
       });
     }
 
+    const parsed = parsedByPath.get(document.path);
+    const acknowledged = new Set([
+      ...stringArrayValue(parsed?.frontmatter.staleRefs),
+      ...stringArrayValue(parsed?.frontmatter.stale_refs),
+    ]);
+    const staleTargets = new Set<string>();
+
     if (document.symbols.length > 0 && document.files.length > 0) {
-      const parsed = parsedByPath.get(document.path);
-      const acknowledged = new Set([
-        ...stringArrayValue(parsed?.frontmatter.staleRefs),
-        ...stringArrayValue(parsed?.frontmatter.stale_refs),
-      ]);
       const missingSymbols = await symbolsMissingFromFiles(workspace, document.files, document.symbols);
       for (const symbol of missingSymbols) {
         if (acknowledged.has(symbol) || acknowledged.has(`symbols:${symbol}`)) continue;
+        staleTargets.add(symbol);
         issues.push({
           kind: "stale-symbol",
           path: document.path,
           target: symbol,
           message: `symbol may be stale because it was not found in referenced files: ${symbol}`,
         });
+      }
+    }
+
+    if (parsed && document.kind === "change") {
+      for (const block of extractAnchoredBlocks(getSectionBody(parsed, "Changed Files"), document.files)) {
+        if (block.anchors.length === 0 || block.files.length === 0) continue;
+        const missing = await anchorsMissingFromFiles(workspace, block.files, block.anchors);
+        for (const anchor of missing) {
+          if (acknowledged.has(anchor) || acknowledged.has(`anchors:${anchor}`)) continue;
+          staleTargets.add(anchor);
+          issues.push({
+            kind: "stale-anchor",
+            path: document.path,
+            target: anchor,
+            message: `anchor "${anchor}" from the ${block.title} block was not found in ${block.files.join(", ")}`,
+          });
+        }
+      }
+      if (staleTargets.size > 0) {
+        for (const invariant of extractBullets(getSectionBody(parsed, "Invariants"))) {
+          const cited = [...invariant.matchAll(/`([^`]+)`/g)].map((match) => match[1]!.trim());
+          const stale = cited.find((name) => staleTargets.has(name));
+          if (!stale) continue;
+          issues.push({
+            kind: "stale-invariant",
+            path: document.path,
+            target: stale,
+            message: `invariant cites "${stale}", which no longer exists in the referenced files: ${clip(invariant)}`,
+          });
+        }
       }
     }
   }
@@ -201,30 +238,56 @@ async function symbolsMissingFromFiles(
 ): Promise<readonly string[]> {
   const checkableSymbols = symbols.filter(isCheckableSymbol);
   if (checkableSymbols.length === 0) return [];
+  const combined = await readReferencedFiles(workspace, files);
+  if (combined === undefined) return [];
+  return checkableSymbols.filter((symbol) => !combined.includes(symbol));
+}
+
+/** Anchors from a Changed Files block that none of the block's existing files contain. */
+async function anchorsMissingFromFiles(
+  workspace: LedgerWorkspace,
+  files: readonly string[],
+  anchors: readonly string[],
+): Promise<readonly string[]> {
+  const combined = await readReferencedFiles(workspace, files);
+  if (combined === undefined) return [];
+  return anchors.filter((anchor) => !combined.includes(anchor));
+}
+
+/**
+ * Concatenated contents of the exact, existing files in a reference list, or
+ * undefined when nothing could be read (patterns only, or every file missing).
+ */
+async function readReferencedFiles(
+  workspace: LedgerWorkspace,
+  files: readonly string[],
+): Promise<string | undefined> {
   const exactFiles = files
     .map(normalizePath)
     .filter((filePath) => !isCoveragePattern(filePath) && isSafeProjectRelativePath(filePath));
-  if (exactFiles.length === 0) return [];
-
+  if (exactFiles.length === 0) return undefined;
   const contents: string[] = [];
   let remainingBytes = workspace.config.limits.maxTotalDocumentBytes;
   for (const filePath of exactFiles) {
+    const absolutePath = resolveProjectPath(workspace.projectRoot, filePath, "files reference");
+    let regular: boolean;
     try {
-      const content = await readUtf8FileLimited(
-        resolveProjectPath(workspace.projectRoot, filePath, "files reference"),
-        remainingBytes,
-        "symbol source",
-      );
-      contents.push(content);
-      remainingBytes -= Buffer.byteLength(content, "utf8");
+      regular = (await stat(absolutePath)).isFile();
     } catch (error) {
       if (isCode(error, "ENOENT")) continue;
       throw error;
     }
+    if (!regular) continue;
+    const content = await readUtf8FileLimited(absolutePath, remainingBytes, "symbol source");
+    contents.push(content);
+    remainingBytes -= Buffer.byteLength(content, "utf8");
   }
-  const combined = contents.join("\n");
-  if (combined.length === 0) return [];
-  return checkableSymbols.filter((symbol) => !combined.includes(symbol));
+  if (contents.length === 0) return undefined;
+  return contents.join("\n");
+}
+
+function clip(value: string): string {
+  return value.length > 100 ? `${value.slice(0, 97)}...` : value;
 }
 
 function isCode(error: unknown, code: string): boolean {

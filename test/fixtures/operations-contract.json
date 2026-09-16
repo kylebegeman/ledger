@@ -2897,7 +2897,7 @@
             "type": "boolean"
           },
           "writeReport": {
-            "description": "Write .ledger/reports/stale.md.",
+            "description": "Write .ledger/reports/stale-knowledge.md.",
             "type": "boolean"
           }
         },
@@ -2960,7 +2960,7 @@
               "type": "boolean"
             },
             "writeReport": {
-              "description": "Write .ledger/reports/stale.md.",
+              "description": "Write .ledger/reports/stale-knowledge.md.",
               "type": "boolean"
             }
           },

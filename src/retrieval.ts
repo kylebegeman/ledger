@@ -294,6 +294,42 @@ export function extractConflictRules(markdown: string | undefined): readonly str
   return rules.filter((rule) => rule.length > 0);
 }
 
+/**
+ * Anchors declared in a Changed Files block body: `- Anchor:` bullets split
+ * on commas with backticks removed. TODO placeholders are dropped.
+ */
+export function extractAnchors(markdown: string | undefined): readonly string[] {
+  if (!markdown) return [];
+  const anchors = new Set<string>();
+  for (const line of markdown.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("- Anchor:")) continue;
+    const value = trimmed.slice("- Anchor:".length).trim();
+    if (!value || /^todo\b/i.test(value)) continue;
+    for (const part of value.split(",")) {
+      const anchor = part.replace(/`/g, "").trim();
+      if (anchor && !/^todo\b/i.test(anchor)) anchors.add(anchor);
+    }
+  }
+  return [...anchors];
+}
+
+/** Changed Files blocks with the record file references each block names and its anchors. */
+export function extractAnchoredBlocks(
+  markdown: string | undefined,
+  files: readonly string[],
+): readonly { readonly title: string; readonly files: readonly string[]; readonly anchors: readonly string[] }[] {
+  return extractChangedFileBlocks(markdown).map((block) => {
+    const matched = files.filter((filePath) => blockTitleMatchesPath(block.title, filePath));
+    const candidates = titleCandidates(block.title).map(normalizePath).filter((candidate) => !candidate.includes("*"));
+    return {
+      title: block.title,
+      files: matched.length > 0 ? matched : candidates,
+      anchors: extractAnchors(block.body),
+    };
+  });
+}
+
 export function extractChangedFileBlocks(markdown: string | undefined): readonly ChangedFileBlock[] {
   if (!markdown) return [];
 

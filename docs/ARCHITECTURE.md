@@ -672,8 +672,12 @@ is lighter than CI and is meant for local preflight and agent diagnostics.
 
 ### `ledger stale`
 
-Finds stale knowledge signals such as missing references, missing relationship
-targets, superseded relationships, stale symbols, and release verification gaps.
+Finds stale knowledge signals: missing references, missing relationship
+targets, superseded relationships, symbols and Changed Files anchors that no
+longer exist in the referenced files, invariants that cite them, release
+verification gaps, expired sessions, and stale or failed verification
+evidence. Anchors are checked per block against the files the block names,
+so the message says which file lost the anchor.
 
 ### `ledger explain <path>`
 

@@ -68,6 +68,99 @@ describe("stale knowledge detection", () => {
   });
 });
 
+describe("anchor and invariant freshness", () => {
+  it("flags anchors missing from their block's file and invariants that cite them", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-test-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "cli.ts"), "export function run() {}\n");
+    await writeFile(path.join(tempDir, "src", "other.ts"), "export const keep = 1;\n");
+    await writeFile(path.join(tempDir, ".ledger", "entries", "0002-anchors.md"), anchoredEntry(), "utf8");
+
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+
+    const anchors = report.issues.filter((issue) => issue.kind === "stale-anchor");
+    expect(anchors.map((issue) => issue.target)).toEqual(["oldDispatch"]);
+    expect(anchors[0]?.message).toContain("src/cli.ts");
+    expect(report.issues.filter((issue) => issue.kind === "stale-invariant").map((issue) => issue.target)).toEqual(["oldDispatch"]);
+    expect(report.issues.some((issue) => issue.kind === "stale-anchor" && issue.target === "keep")).toBe(false);
+    expect(report.issues.some((issue) => issue.target === "run")).toBe(false);
+  });
+
+  it("honors anchor acknowledgements", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-ack-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "cli.ts"), "export function run() {}\n");
+    await writeFile(path.join(tempDir, "src", "other.ts"), "export const keep = 1;\n");
+    await writeFile(
+      path.join(tempDir, ".ledger", "entries", "0002-anchors.md"),
+      anchoredEntry().replace("commits: []", 'staleRefs:\n  - "anchors:oldDispatch"\ncommits: []'),
+      "utf8",
+    );
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+    expect(report.issues.filter((issue) => issue.kind === "stale-anchor" || issue.kind === "stale-invariant")).toEqual([]);
+  });
+});
+
+function anchoredEntry(): string {
+  return `---
+id: "0002"
+kind: "change"
+title: "Anchor fixture"
+date: "2026-09-16"
+updated: "2026-09-16"
+status: "landed"
+areas: ["cli"]
+files:
+  - "src/cli.ts"
+  - "src/other.ts"
+commits: []
+---
+
+# 0002: Anchor Fixture
+
+## Summary
+
+Fixture.
+
+## Why
+
+Anchor checks.
+
+## Changed Files
+
+### src/cli.ts
+
+- What changed: dispatch.
+- Anchor: \`run\`, \`oldDispatch\`
+- On conflict: keep run.
+
+### src/other.ts
+
+- What changed: constant.
+- Anchor: keep
+- On conflict: keep keep.
+
+## Behavior And UX Impact
+
+None.
+
+## Invariants
+
+- \`run\` stays exported.
+- \`oldDispatch\` remains the only dispatch path.
+
+## Verification
+
+- npm test
+`;
+}
+
 function entry(options: { readonly acknowledgeSymbol?: boolean } = {}): string {
   return `---
 id: "0001"

@@ -116,7 +116,7 @@ export const staleOperation = defineOperation<StaleInput, StaleOutput>({
     currentOnly: z.boolean().optional().describe("Skip historical records."),
     noBaseline: z.boolean().optional().describe("Ignore the configured validation baseline."),
     check: z.boolean().optional().describe("Exit non-zero when stale signals exist."),
-    writeReport: z.boolean().optional().describe("Write .ledger/reports/stale.md."),
+    writeReport: z.boolean().optional().describe("Write .ledger/reports/stale-knowledge.md."),
   }),
   output: looseRecord({
     ok: z.boolean(),
@@ -133,8 +133,11 @@ export const staleOperation = defineOperation<StaleInput, StaleOutput>({
       "write-report": { type: "boolean", description: "Write the stale knowledge report." },
     },
     json: true,
-    help: `Finds stale knowledge signals such as missing references, missing relationship
-targets, superseded relationships, stale symbols, and release verification gaps.`,
+    help: `Finds stale knowledge signals: missing references, missing relationship
+targets, superseded relationships, symbols and Changed Files anchors that no
+longer exist in the referenced files, invariants that cite them, release
+verification gaps, expired sessions, and stale or failed verification
+evidence. --write-report writes .ledger/reports/stale-knowledge.md.`,
   },
   mcp: {
     tool: "ledger_stale",
