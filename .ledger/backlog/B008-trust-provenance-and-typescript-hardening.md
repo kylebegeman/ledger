@@ -4,7 +4,7 @@ kind: "backlog"
 title: "Trust, provenance, and TypeScript hardening"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "proposed"
+status: "landed"
 areas:
   - "ci"
   - "git"
@@ -78,4 +78,11 @@ Excluded:
 
 ## Promotion Notes
 
-Promote after B007 unless a trust item unblocks an adopter sooner.
+Landed in 0.7.0 as change entries 0112 (current-change coverage), 0113
+(per-file docs impact), 0114 (symbol extractor provenance and the optional
+`typescript` peer), 0115 (`verify --run` and evidence), 0116 and 0121 (anchor
+and invariant freshness), 0117 (GitHub Action), 0118 (typed API client), 0119
+(typed, bundled, browser-tested reader runtime), and 0120 (sharded search,
+chunked artifacts, and full-text search). Every acceptance check holds; the
+full-text search is an explicit `--full-text` mode so default rankings never
+depend on the cache backend.

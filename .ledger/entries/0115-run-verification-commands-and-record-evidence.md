@@ -64,6 +64,7 @@ decisions:
   - "D005"
 related:
   - "0114"
+release: "v0.7.0"
 ---
 
 # 0115: Run Verification Commands And Record Evidence

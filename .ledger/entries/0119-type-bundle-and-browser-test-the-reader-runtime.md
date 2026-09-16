@@ -46,6 +46,7 @@ decisions:
   - "D007"
 related:
   - "0103"
+release: "v0.7.0"
 ---
 
 # 0119: Type, Bundle, And Browser-Test The Reader Runtime

@@ -55,6 +55,7 @@ decisions:
 related:
   - "0103"
   - "0119"
+release: "v0.7.0"
 ---
 
 # 0120: Shard Search, Chunk Reader Artifacts, And Add Full-Text Search

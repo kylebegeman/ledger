@@ -39,6 +39,7 @@ decisions:
   - "D005"
 related:
   - "0112"
+release: "v0.7.0"
 ---
 
 # 0113: Judge Docs Impact Per Source File

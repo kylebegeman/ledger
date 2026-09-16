@@ -41,6 +41,7 @@ decisions:
   - "D005"
 related:
   - "0111"
+release: "v0.7.0"
 ---
 
 # 0112: Bind Coverage To The Current Change Set
