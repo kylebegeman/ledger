@@ -204,6 +204,11 @@ Every operation that runs inside a workspace is available as
 `POST /api/v1/operations/<name>` with its input as the JSON body and the same
 machine envelope as `--json`. MCP clients connect to `/mcp`.
 
+While the engine runs, CLI commands in the same project delegate to it and
+answer from its warm cache; nothing changes in how you call them. Pass
+`--local` on any command, or set `LEDGER_NO_DAEMON=1`, to run in-process. If
+the engine is gone, commands fall back to running locally on their own.
+
 The default server binds only to loopback, validates the request host, serves
 only `GET` and `HEAD`, and sends no-store plus browser security headers. The
 optional public profile renders and serves the isolated public release-notes

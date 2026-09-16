@@ -464,6 +464,20 @@ re-renders the reader. While it runs it writes `.ledger/daemon.json` (pid,
 url, port, profile, version) and removes it on shutdown; that file is ignored
 by Git and lets CLI commands find a warm server.
 
+CLI delegation (`src/operations/delegate.ts`) uses that record. Before running
+an operation that works inside a workspace and returns, the CLI reads the
+record for the project containing the current directory, probes
+`/api/v1/health` with a 400 ms timeout, and requires the answering pid and
+project root to match. When they do, it posts the validated input to
+`/api/v1/operations/{name}`, prints the envelope or the operation's human
+format exactly as a local run would, and exits with the code from the
+`Ledger-Exit-Code` header. Any probe failure, stale record, or transport error
+falls back to running in-process, so a crashed engine never breaks a command.
+`--local` on any command, or `LEDGER_NO_DAEMON=1`, skips delegation.
+`ledger doctor` reports whether an engine is running or its record is stale.
+The daemon record never carries a token; in network mode the CLI sends
+`LEDGER_SERVE_TOKEN` from its own environment.
+
 ### Docs Bridge
 
 Ledger should be able to reference existing project docs without owning them.

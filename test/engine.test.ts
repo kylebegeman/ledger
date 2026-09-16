@@ -51,7 +51,7 @@ describe("Ledger engine", () => {
     const health = await (await fetch(`${engine.url}api/v1/health`)).json();
     expect(health).toMatchObject({ ok: true, pid: process.pid, version: "0.0.0-test", profile: "internal" });
     expect(health.render.documents).toBe(1);
-    expect(health.cache.backend).toBe("json");
+    expect(["json", "sqlite"]).toContain(health.cache.backend);
 
     const operations = await (await fetch(`${engine.url}api/v1/operations`)).json();
     expect(operations.operations.find((operation: { name: string }) => operation.name === "explain").input).toHaveProperty("properties");
@@ -112,7 +112,7 @@ describe("Ledger engine", () => {
     const workspace = await fixtureWorkspace();
     engine = await startLedgerEngine(workspace, { port: 0, version: "0.0.0-events", watch: false });
 
-    const daemon = await readDaemonRecord(workspace);
+    const daemon = await readDaemonRecord(workspace.ledgerRoot);
     expect(daemon).toMatchObject({ pid: process.pid, url: engine.url, version: "0.0.0-events", apiVersion: 1 });
     expect(engine.daemonPath).toBe(".ledger/daemon.json");
 

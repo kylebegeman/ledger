@@ -1,4 +1,3 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import {
   createServer,
   type IncomingMessage,
@@ -9,6 +8,13 @@ import path from "node:path";
 import process from "node:process";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { readLedgerCatalog, type LedgerCatalogCacheStats } from "./catalogCache.js";
+import {
+  ledgerEngineApiVersion,
+  ledgerExitCodeHeader,
+  removeDaemonRecord,
+  writeDaemonRecord,
+  type LedgerDaemonRecord,
+} from "./daemon.js";
 import { normalizePath } from "./documents.js";
 import { LedgerError, machineFailure, machineSuccess, normalizeLedgerError } from "./machine.js";
 import { createLedgerMcpServer, listLedgerMcpTools } from "./mcp.js";
@@ -36,11 +42,13 @@ import type { LedgerWorkspace } from "./types.js";
 import { validateDocuments, writeValidationReport } from "./validate.js";
 import { realpath, stat } from "node:fs/promises";
 
-export const ledgerEngineApiVersion = 1 as const;
-export const ledgerDaemonFileName = "daemon.json";
-
-/** Response header that carries the operation's process exit code. */
-export const ledgerExitCodeHeader = "ledger-exit-code";
+export {
+  ledgerDaemonFileName,
+  ledgerEngineApiVersion,
+  ledgerExitCodeHeader,
+  readDaemonRecord,
+  type LedgerDaemonRecord,
+} from "./daemon.js";
 
 export interface LedgerEngineOptions {
   readonly host?: string;
@@ -55,17 +63,6 @@ export interface LedgerEngineOptions {
   readonly daemonFile?: boolean;
   readonly log?: (line: string) => void;
   readonly logError?: (line: string) => void;
-}
-
-export interface LedgerDaemonRecord {
-  readonly pid: number;
-  readonly url: string;
-  readonly host: string;
-  readonly port: number;
-  readonly profile: LedgerRenderProfile;
-  readonly version: string;
-  readonly startedAt: string;
-  readonly apiVersion: typeof ledgerEngineApiVersion;
 }
 
 export type LedgerEngineEventName =
@@ -97,6 +94,7 @@ interface EngineState {
   readonly token: string | undefined;
   readonly startedAt: number;
   readonly clients: Set<ServerResponse>;
+  operationsServed: number;
   readonly log: (line: string) => void;
   readonly logError: (line: string) => void;
   staticRoot: string;
@@ -133,6 +131,7 @@ export async function startLedgerEngine(
     token,
     startedAt: Date.now(),
     clients: new Set(),
+    operationsServed: 0,
     log: options.log ?? ((line) => console.log(line)),
     logError: options.logError ?? ((line) => console.error(line)),
     staticRoot: "",
@@ -232,7 +231,7 @@ export async function startLedgerEngine(
       startedAt: new Date(state.startedAt).toISOString(),
       apiVersion: ledgerEngineApiVersion,
     };
-    daemonPath = await writeDaemonRecord(workspace, record);
+    daemonPath = await writeDaemonRecord(workspace.ledgerRoot, record);
   }
 
   let closed = false;
@@ -243,7 +242,7 @@ export async function startLedgerEngine(
     for (const watcher of watchers) watcher.close();
     for (const client of state.clients) client.end();
     state.clients.clear();
-    if (daemonPath) await removeDaemonRecord(workspace).catch(() => undefined);
+    if (daemonPath) await removeDaemonRecord(workspace.ledgerRoot).catch(() => undefined);
     await closeStaticReader(
       { server, url, root: state.staticRoot, mode, authenticated: Boolean(token), profile },
       engineCloseGraceMs,
@@ -262,27 +261,6 @@ export async function startLedgerEngine(
     broadcast: (event, data) => broadcast(state, event, data),
     close,
   };
-}
-
-/** Read the daemon record for a workspace when an engine appears to be running. */
-export async function readDaemonRecord(
-  workspace: Pick<LedgerWorkspace, "ledgerRoot">,
-): Promise<LedgerDaemonRecord | undefined> {
-  try {
-    const raw = await readFile(path.join(workspace.ledgerRoot, ledgerDaemonFileName), "utf8");
-    const parsed = JSON.parse(raw) as Partial<LedgerDaemonRecord>;
-    if (
-      typeof parsed.pid !== "number" ||
-      typeof parsed.url !== "string" ||
-      typeof parsed.port !== "number" ||
-      parsed.apiVersion !== ledgerEngineApiVersion
-    ) {
-      return undefined;
-    }
-    return parsed as LedgerDaemonRecord;
-  } catch {
-    return undefined;
-  }
 }
 
 /** Operations exposed over the HTTP API: everything that runs inside a workspace and returns. */
@@ -382,6 +360,7 @@ async function runApiOperation(
     const base = await buildContext(operation, state.workspace.projectRoot, state.version);
     const context = { ...base, log: state.log, logError: state.logError };
     const outcome = await operation.run(context, input);
+    state.operationsServed += 1;
     sendJson(response, 200, machineSuccess(operation.name, outcome.data), {
       [ledgerExitCodeHeader]: String(outcome.exitCode ?? 0),
     });
@@ -455,6 +434,7 @@ async function health(state: EngineState): Promise<Record<string, unknown>> {
     profile: state.profile,
     uptimeMs: Date.now() - state.startedAt,
     clients: state.clients.size,
+    operationsServed: state.operationsServed,
     render: state.lastRender
       ? {
           documents: state.lastRender.documents,
@@ -540,22 +520,6 @@ async function staticRootFor(workspace: LedgerWorkspace, profile: LedgerRenderPr
     throw new LedgerError("filesystem-error", `Render output is not a directory: ${root}`, { path: root });
   }
   return realRoot;
-}
-
-async function writeDaemonRecord(workspace: LedgerWorkspace, record: LedgerDaemonRecord): Promise<string> {
-  const target = path.join(workspace.ledgerRoot, ledgerDaemonFileName);
-  await mkdir(workspace.ledgerRoot, { recursive: true });
-  const temporary = `${target}.${process.pid}.tmp`;
-  await writeFile(temporary, `${JSON.stringify(record, null, 2)}\n`, "utf8");
-  await rename(temporary, target);
-  return target;
-}
-
-async function removeDaemonRecord(workspace: LedgerWorkspace): Promise<void> {
-  const target = path.join(workspace.ledgerRoot, ledgerDaemonFileName);
-  const current = await readDaemonRecord(workspace);
-  if (current && current.pid !== process.pid) return;
-  await rm(target, { force: true });
 }
 
 function allowMethods(

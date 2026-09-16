@@ -1,6 +1,7 @@
 import { access, stat } from "node:fs/promises";
 import path from "node:path";
 import { inspectLedgerCatalogCache } from "./catalogCache.js";
+import { probeEngine, readDaemonRecord } from "./daemon.js";
 import { auditDocs } from "./docs.js";
 import { normalizePath } from "./documents.js";
 import { inspectGit } from "./git.js";
@@ -62,6 +63,7 @@ export async function runDoctor(
     },
     await indexFreshnessCheck(workspace, documents),
     await cacheCheck(workspace),
+    await engineCheck(workspace),
     await renderOutputCheck(workspace),
     await renderBudgetCheck(workspace),
     performanceCheck(performance),
@@ -77,6 +79,26 @@ export async function runDoctor(
     checks,
     docsAudit,
     performance,
+  };
+}
+
+async function engineCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorCheck> {
+  const record = await readDaemonRecord(workspace.ledgerRoot);
+  if (!record) {
+    return { name: "engine", level: "pass", message: "no engine running; start one with ledger serve --api" };
+  }
+  const health = await probeEngine(record);
+  if (!health) {
+    return {
+      name: "engine",
+      level: "warn",
+      message: `stale daemon record for pid ${record.pid} at ${record.url}; delete .ledger/daemon.json or restart ledger serve --api`,
+    };
+  }
+  return {
+    name: "engine",
+    level: "pass",
+    message: `running at ${record.url} (pid ${health.pid}, ${health.operationsServed} operation(s) served)`,
   };
 }
 
