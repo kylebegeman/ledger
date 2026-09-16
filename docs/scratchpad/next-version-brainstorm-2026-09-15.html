@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+<title>Ledger Next Version Brainstorm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --canvas: #f3f3ef;
+    --surface: #ffffff;
+    --surface-soft: #ebece7;
+    --ink: #171815;
+    --ink-soft: #40433d;
+    --muted: #74786f;
+    --line: rgba(23, 24, 21, 0.14);
+    --line-strong: rgba(23, 24, 21, 0.26);
+    --accent: #bc4a0a;
+    --accent-soft: #ffe8da;
+    --positive: #23856d;
+    --positive-soft: #dcf4eb;
+    --warning: #a86616;
+    --warning-soft: #fff0d4;
+    --danger: #b74b58;
+    --danger-soft: #ffe5e8;
+    --decision: #2c66a1;
+    --decision-soft: #e5f1ff;
+    --code: #171a18;
+    --code-ink: #f2f3ef;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --canvas: #111311;
+      --surface: #1b1e1b;
+      --surface-soft: #252925;
+      --ink: #f2f3ef;
+      --ink-soft: #c9ccc4;
+      --muted: #999e94;
+      --line: rgba(242, 243, 239, 0.16);
+      --line-strong: rgba(242, 243, 239, 0.3);
+      --accent: #ff8a4d;
+      --accent-soft: #492310;
+      --positive: #6fd3b5;
+      --positive-soft: #173d34;
+      --warning: #efb65f;
+      --warning-soft: #49351a;
+      --danger: #ff9aa5;
+      --danger-soft: #4c2329;
+      --decision: #8dc3ff;
+      --decision-soft: #1f354c;
+      --code: #0c0e0d;
+      --code-ink: #e6e8e2;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --canvas: #111311;
+    --surface: #1b1e1b;
+    --surface-soft: #252925;
+    --ink: #f2f3ef;
+    --ink-soft: #c9ccc4;
+    --muted: #999e94;
+    --line: rgba(242, 243, 239, 0.16);
+    --line-strong: rgba(242, 243, 239, 0.3);
+    --accent: #ff8a4d;
+    --accent-soft: #492310;
+    --positive: #6fd3b5;
+    --positive-soft: #173d34;
+    --warning: #efb65f;
+    --warning-soft: #49351a;
+    --danger: #ff9aa5;
+    --danger-soft: #4c2329;
+    --decision: #8dc3ff;
+    --decision-soft: #1f354c;
+    --code: #0c0e0d;
+    --code-ink: #e6e8e2;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding-inline: 20px;
+    padding-block: 0 96px;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    font-variant-numeric: tabular-nums;
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  code, .mono {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92em;
+  }
+  code { background: var(--surface-soft); padding: 0.06em 0.34em; border-radius: 3px; }
+  pre { margin: 0; overflow-x: auto; background: var(--code); color: var(--code-ink); padding: 14px 16px; border-radius: 6px; }
+  pre code { background: transparent; padding: 0; font-size: 0.86rem; }
+  .shell { width: min(1240px, 100%); margin: 0 auto; }
+  header.masthead {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 20px 22px;
+    align-items: start;
+    padding-block: 56px 36px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .mark { width: 56px; height: 56px; }
+  .kicker {
+    color: var(--accent);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 6px 0 14px;
+    font-family: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 700;
+    font-size: clamp(2.2rem, 5.2vw, 4rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+    max-width: 18ch;
+  }
+  .lede { max-width: 62ch; margin: 0; color: var(--ink-soft); font-size: 1.08rem; }
+  .meta {
+    grid-column: 1 / -1;
+    display: flex; flex-wrap: wrap; gap: 8px 28px;
+    margin-top: 10px;
+    color: var(--muted); font-size: 0.86rem;
+  }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 56px;
+    padding-top: 36px;
+  }
+  nav.toc { position: sticky; top: 20px; align-self: start; display: grid; gap: 2px; }
+  nav.toc small { color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.68rem; margin: 0 0 8px 8px; }
+  nav.toc a { padding: 6px 8px; border-radius: 5px; color: var(--muted); text-decoration: none; font-size: 0.86rem; line-height: 1.3; }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--ink); background: var(--accent-soft); outline: none; }
+  nav.toc a span { display: inline-block; width: 1.9em; color: var(--accent); font-family: "IBM Plex Mono", monospace; font-size: 0.78rem; }
+  main { min-width: 0; display: grid; gap: 64px; }
+  section > h2 {
+    margin: 0 0 6px;
+    font-family: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 700;
+    font-size: 1.8rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  section > h2 .n { color: var(--accent); font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 0.95rem; margin-right: 10px; vertical-align: 0.3em; letter-spacing: 0; }
+  section > p, section > ul, section > ol { max-width: 68ch; }
+  section > p:first-of-type { margin-top: 12px; }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 1.2em; }
+  li { margin-bottom: 6px; }
+  li::marker { color: var(--muted); }
+  h3 { margin: 26px 0 8px; font-size: 1.05rem; font-weight: 600; letter-spacing: -0.005em; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  td.num { font-family: "IBM Plex Mono", monospace; font-size: 0.88rem; white-space: nowrap; }
+  td.src { color: var(--muted); font-size: 0.84rem; }
+  .register { margin-top: 18px; }
+  .register td:first-child { color: var(--ink-soft); }
+  .callout {
+    max-width: 68ch;
+    margin: 18px 0 0;
+    padding: 14px 18px;
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; margin-top: 18px; }
+  .pair h3 { margin-top: 0; }
+  .pair ul { padding-left: 1.1em; }
+  .items { display: grid; margin-top: 18px; border-top: 1px solid var(--line-strong); }
+  .item {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 16px;
+    padding-block: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .item .id { font-family: "IBM Plex Mono", monospace; font-size: 0.86rem; color: var(--accent); padding-top: 3px; }
+  .item h4 { margin: 0 0 4px; font-size: 1rem; font-weight: 600; }
+  .item p { margin: 0; max-width: 68ch; color: var(--ink-soft); }
+  .item p + p { margin-top: 8px; }
+  .pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0; border-top: 1px solid var(--line-strong); border-left: 1px solid var(--line); margin-top: 20px; }
+  .pillar { padding: 18px 18px 20px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .pillar .l { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 1.6rem; color: var(--accent); line-height: 1; }
+  .pillar h4 { margin: 8px 0 6px; font-size: 1rem; }
+  .pillar p { margin: 0; color: var(--ink-soft); font-size: 0.92rem; }
+  .verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; margin-top: 18px; }
+  .stamp {
+    display: inline-block; padding: 2px 9px; border-radius: 3px;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .stamp.keep { color: var(--positive); background: var(--positive-soft); }
+  .stamp.merge { color: var(--decision); background: var(--decision-soft); }
+  .stamp.drop { color: var(--danger); background: var(--danger-soft); }
+  .verdict ul { margin-top: 10px; padding-left: 1.1em; }
+  .verdict li { font-size: 0.94rem; color: var(--ink-soft); }
+  .verdict li b { color: var(--ink); font-weight: 600; }
+  .timeline td:first-child { font-family: "IBM Plex Mono", monospace; white-space: nowrap; color: var(--accent); }
+  .timeline td:nth-child(2) { font-weight: 600; white-space: nowrap; }
+  ol.decisions li { margin-bottom: 12px; }
+  .quick { columns: 2; column-gap: 32px; max-width: none; }
+  .quick li { break-inside: avoid; }
+  .evidence { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0; border-top: 1px solid var(--line-strong); border-left: 1px solid var(--line); margin-top: 18px; }
+  .evidence div { padding: 14px 16px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .evidence .v { display: block; font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 1.7rem; line-height: 1.05; letter-spacing: -0.02em; }
+  .evidence .k { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 4px; }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.84rem; max-width: 68ch; }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; gap: 28px; }
+    nav.toc { position: static; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    header.masthead { grid-template-columns: 44px minmax(0, 1fr); }
+    .mark { width: 44px; height: 44px; }
+    .quick { columns: 1; }
+  }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header class="masthead">
+    <svg class="mark" viewBox="0 0 64 64" role="img" aria-label="Ledger mark">
+      <defs>
+        <linearGradient id="ledger-mark-gradient" x1="8" y1="6" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#ffb02e"/>
+          <stop offset="0.55" stop-color="#ff6a2e"/>
+          <stop offset="1" stop-color="#ef3d33"/>
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="56" height="56" rx="18" fill="url(#ledger-mark-gradient)"/>
+      <path d="M19 16h9v24h18v8H19V16Z" fill="#fff"/>
+      <circle cx="46" cy="18" r="4" fill="#ffd166"/>
+    </svg>
+    <div>
+      <div class="kicker">Ledger · scratchpad · exploration for review</div>
+      <h1>Ledger Next Version Brainstorm</h1>
+      <p class="lede">A fresh look at what the next version of Ledger should be, built from what the code actually does today, what is actually published, and what the agent-tooling landscape looks like in September 2026. Every earlier proposal was re-evaluated rather than carried forward.</p>
+    </div>
+    <div class="meta">
+      <span><b>Date</b> 2026-09-15</span>
+      <span><b>Repository</b> v0.3.1 on master</span>
+      <span><b>Published</b> 0.1.12 on npm</span>
+      <span><b>Status</b> not an implementation commitment</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="Sections">
+      <small>Sections</small>
+      <a href="#stand"><span>1</span>Where it stands</a>
+      <a href="#product"><span>2</span>The product, restated</a>
+      <a href="#landscape"><span>3</span>Landscape, Sept 2026</a>
+      <a href="#thesis"><span>4</span>Thesis</a>
+      <a href="#engine"><span>A</span>Engine</a>
+      <a href="#server"><span>B</span>Engine server</a>
+      <a href="#capture"><span>C</span>Capture</a>
+      <a href="#trust"><span>D</span>Trust</a>
+      <a href="#reader"><span>E</span>Reader</a>
+      <a href="#hygiene"><span>F</span>Hygiene first</a>
+      <a href="#verdicts"><span>11</span>Verdicts on proposals</a>
+      <a href="#sequence"><span>12</span>Sequencing</a>
+      <a href="#decisions"><span>13</span>Decisions recorded</a>
+      <a href="#quick"><span>14</span>Quick wins</a>
+      <a href="#evidence"><span>#</span>Evidence</a>
+    </nav>
+
+    <main>
+      <section id="stand">
+        <h2><span class="n">1</span>Where Ledger Actually Stands</h2>
+        <p>The published package and the repository have drifted apart, and nobody outside this project is using either yet. These values were read live on 2026-09-15.</p>
+        <div class="table-wrap">
+          <table class="register">
+            <thead><tr><th>Signal</th><th>Value</th><th>Source</th></tr></thead>
+            <tbody>
+              <tr><td>Repository <code>master</code></td><td class="num">v0.3.1, last product commit 2026-07-15</td><td class="src">GitHub</td></tr>
+              <tr><td>Local checkout</td><td>Identical to master; not a Git checkout</td><td class="src">Local diff</td></tr>
+              <tr><td>npm <code>latest</code></td><td class="num">0.1.12, published 2026-06-30</td><td class="src">registry.npmjs.org</td></tr>
+              <tr><td>Tags never published to npm</td><td class="num">v0.1.13, v0.2.0, v0.3.0, v0.3.1</td><td class="src">GitHub tags vs registry</td></tr>
+              <tr><td>GitHub Releases</td><td class="num">1 (v0.1.13)</td><td class="src">GitHub releases</td></tr>
+              <tr><td><code>next</code> branch</td><td class="num">46 commits behind master, tip 2026-06-29</td><td class="src">GitHub compare</td></tr>
+              <tr><td>Stars, forks, human issues</td><td class="num">0, 0, 0 (four Dependabot PRs open)</td><td class="src">GitHub</td></tr>
+              <tr><td>npm downloads, last week</td><td class="num">3</td><td class="src">api.npmjs.org</td></tr>
+              <tr><td>Landed entries without a release</td><td class="num">0091, 0092</td><td class="src">.ledger/entries</td></tr>
+              <tr><td>Product notes ever recorded</td><td class="num">0 of 92 records</td><td class="src">.ledger/entries</td></tr>
+              <tr><td>npm README</td><td>Stale, references the v0.1.1 era</td><td class="src">registry readme</td></tr>
+              <tr><td><code>engines.node</code></td><td class="num">&gt;=20 on npm, &gt;=22 in repo</td><td class="src">package metadata</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <p>Two conclusions follow. The version that is "live" is a June snapshot that lacks most of what the repository documents, so the first move is to close that gap. And the real consumers today are Kyle and the coding agents working in Kyle's repositories. The next version should be shaped by what makes that loop effortless, and by what makes a first outside adopter succeed in the first two minutes.</p>
+        </div>
+      </section>
+
+      <section id="product">
+        <h2><span class="n">2</span>What The Product Is, Restated</h2>
+        <p>Ledger is repo-native implementation memory. Markdown records under <code>.ledger/</code> say what changed, why, which files, symbols, docs, decisions, and backlog items are involved, what invariants must survive, what verification proved it, and what to preserve during a merge conflict. Agents are the primary audience. Everything generated is a derived artifact.</p>
+        <p>Standing constraints any plan must respect: D001 Markdown is the source of truth; D002 <code>.ledger/</code> is the root; D003 no Dossier coupling in core; D004 Ledger manages a docs lifecycle but is not a docs CMS; and the roadmap's direction of repo-native, no hosted service required, renderer independent, never a generic project management suite.</p>
+        <div class="pair">
+          <div>
+            <h3>Strong today</h3>
+            <ul>
+              <li>A complete record model with validation profiles, baselines, and typed error envelopes shared by CLI and MCP.</li>
+              <li>Git-aware drafting, coverage, docs impact, and CI range checks that are correct in clean pull request checkouts.</li>
+              <li>Token-budgeted packets, weighted search, conflict guidance, and eight read-only MCP tools.</li>
+              <li>Journaled, optimistic, recoverable source mutations.</li>
+              <li>A hardened loopback server, a fail-closed public export profile, and integrity hashing.</li>
+              <li>36 test files, three-OS CI, a supply-chain audit, and install smoke tests.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Structurally weak, verified in source</h3>
+            <ul>
+              <li><code>src/cli.ts</code> is one 1,830-line switch with hand-rolled argument parsing; five workflows have extracted command models.</li>
+              <li>Every command re-parses the whole catalog. No cache, no incremental indexing, no hash short-circuit.</li>
+              <li><code>ledger serve</code> is static only. No API, no events, no live reload; watch rebuilds everything.</li>
+              <li>MCP is stdio only, with no resources, prompts, output schemas, or structured content.</li>
+              <li><code>typescript</code> is a devDependency, so installed users silently get regex symbols.</li>
+              <li>The 1,573-line browser runtime is never executed by a test; search scoring is duplicated in Node and browser.</li>
+              <li>The internal reader measured 2,073,552 bytes against a 2,000,000 byte budget in August; never reconciled.</li>
+              <li>Nothing captures a record automatically, and the feedback command has never been used here.</li>
+              <li>Twelve commands and subcommands have no <code>--json</code> envelope.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="landscape">
+        <h2><span class="n">3</span>The Landscape In September 2026</h2>
+        <p>The roadmap was written before several things changed.</p>
+        <h3>Model Context Protocol</h3>
+        <p>The 2026-07-28 specification made the core stateless over Streamable HTTP, removed the session handshake, added required <code>Mcp-Method</code> and <code>Mcp-Name</code> headers, replaced server-initiated elicitation with multi round-trip requests, promoted long-running work to a Tasks extension, added <code>ttlMs</code> caching on list responses, and shipped MCP Apps as the first official extension. The public roadmap prioritizes local servers speaking Streamable HTTP, progressive discovery of large tool catalogs, and standardized tool results. Ledger's stdio server predates all of this. The TypeScript SDK is at 1.30.0 with Streamable HTTP and an experimental tasks module.</p>
+        <h3>Agent conventions</h3>
+        <p>Agent Skills (<code>SKILL.md</code> under <code>.agents/skills/</code>) are supported by Claude Code, Codex CLI, Cursor, Gemini CLI, and Copilot. <code>AGENTS.md</code> is the accepted place for project instructions. Claude Code exposes 33 lifecycle hook events including <code>SessionStart</code>, <code>PostToolUse</code>, <code>Stop</code>, and <code>PreCompact</code>. Ledger generates none of these; <code>ledger agents</code> prints text to paste.</p>
+        <h3>Competitors</h3>
+        <p>kgai keeps an immutable decision graph the agent captures automatically and syncs without merge conflicts. chamnan commits an architecture index, an impact map, and decision records beside the code. Cognee and Mem0 sell hosted graph or vector memory over MCP. PROJECTMEM proposes an event-sourced local memory and judgment layer. Ledger's edge is that it validates, gates CI, manages docs impact, groups releases, guides conflicts, and budgets tokens. Ledger's gap is that none of its memory is captured automatically, none is reachable without a shell, and none carries proof it is still true.</p>
+        <h3>Runtime</h3>
+        <p>Node 24 ships <code>node:sqlite</code> as a release candidate, native <code>fs.glob</code>, and stable worker threads. Ledger already requires Node 22 or newer.</p>
+      </section>
+
+      <section id="thesis">
+        <h2><span class="n">4</span>Thesis For The Next Version</h2>
+        <p>Move Ledger from a CLI that re-reads Markdown to a local memory engine that agents talk to. Four pillars carry that, plus one hygiene track that comes first.</p>
+        <div class="pillars">
+          <div class="pillar"><div class="l">A</div><h4>Engine</h4><p>One operation registry, an incremental cache, shared search, and parser-backed symbols that actually ship.</p></div>
+          <div class="pillar"><div class="l">B</div><h4>Engine server</h4><p>A loopback process with a versioned JSON API, an event stream, live reload, and MCP over Streamable HTTP.</p></div>
+          <div class="pillar"><div class="l">C</div><h4>Capture</h4><p>Hooks, skills, and authoring commands so records get written by the workflow instead of by memory.</p></div>
+          <div class="pillar"><div class="l">D</div><h4>Trust</h4><p>Provenance for the current change, evidence-backed verification, freshness against code, and CI annotations.</p></div>
+          <div class="pillar"><div class="l">E</div><h4>Reader and publishing</h4><p>The human surface catches up to the engine.</p></div>
+          <div class="pillar"><div class="l">F</div><h4>Hygiene</h4><p>Publish what exists, fix the branch model, and stop advertising what does not exist.</p></div>
+        </div>
+      </section>
+
+      <section id="engine">
+        <h2><span class="n">A</span>Engine</h2>
+        <p>Under the hood. Everything else derives from A1 and A2.</p>
+        <div class="items">
+          <div class="item"><div class="id">A1</div><div><h4>Operation registry</h4><p>Define each operation once: name, description, zod input schema, zod output schema, handler, human formatter. Derive the CLI parser and help, the MCP tool list with output schemas, the HTTP routes, the command reference in docs, and golden contract tests from that one table. This retires the 1,830-line switch and the flag allow-list, and ends the CLI, MCP, library, and browser drift the August audit named. Zod is already a dependency.</p></div></div>
+          <div class="item"><div class="id">A2</div><div><h4>Incremental catalog cache</h4><p>Key each parsed record by content hash and store the normalized document, sections, and derived relationships as a derived artifact under <code>.ledger/cache/</code>. Stat the source tree, re-parse only changed files, rebuild only dependent indexes. Targets for <code>ledger metrics</code>: a warm <code>explain</code> under 50 ms at 1,000 records and under 200 ms at 10,000.</p><p>Two backends worth prototyping: a single JSON cache file with no new dependency, and <code>node:sqlite</code> with no new dependency but a Node 24 floor. The cache is disposable and never read as source, so D001 holds.</p></div></div>
+          <div class="item"><div class="id">A3</div><div><h4>Search v2</h4><p>One scoring module shared by Node and the browser, bundled into the reader instead of duplicated. Shard <code>search-index.json</code> by kind and year so the reader loads only the shard the query needs. On the sqlite backend, FTS5 gives ranked search for catalogs that outgrow in-memory scoring.</p></div></div>
+          <div class="item"><div class="id">A4</div><div><h4>Typed browser runtime</h4><p>Move the reader runtime out of template strings into real TypeScript modules with a build step, and run it in a browser test harness. The runtime is 12 percent of the codebase with zero executed coverage.</p></div></div>
+          <div class="item"><div class="id">A5</div><div><h4>Symbols that ship</h4><p>Make <code>typescript</code> an optional peer dependency and report which extractor ran in the draft. Add an extractor registry so Swift, Python, Go, and Rust get at least heading-quality extraction, and document the fallback honestly.</p></div></div>
+          <div class="item"><div class="id">A6</div><div><h4>Budgets that tell the truth</h4><p>Lazy-load the raw source sidecars, recompute the budget, and make <code>doctor</code> fail rather than warn when a profile is over.</p></div></div>
+        </div>
+      </section>
+
+      <section id="server">
+        <h2><span class="n">B</span>The Engine Server</h2>
+        <p>The "tiny server with its own API" idea, made concrete. The existing loopback, token, and header hardening applies unchanged.</p>
+        <div class="items">
+          <div class="item"><div class="id">B1</div><div><h4><code>ledger serve --api</code></h4><p>One loopback process that hosts the static reader, a versioned JSON API at <code>/api/v1/</code> generated from the registry (explain, search, packet, query, conflict, docs impact, validate, doctor, stale, coverage), a server-sent events stream at <code>/events</code> for record changes and rebuild status, and the MCP server at <code>/mcp</code> speaking 2026-07-28 Streamable HTTP with a <code>.well-known</code> server card.</p></div></div>
+          <div class="item"><div class="id">B2</div><div><h4>CLI delegation</h4><p>Write <code>.ledger/daemon.json</code> with the port and token while the server runs. Any CLI command that finds a live server becomes a thin client against the warm cache instead of re-parsing the catalog. The largest single latency win available, and it costs nothing when no server is running.</p></div></div>
+          <div class="item"><div class="id">B3</div><div><h4>Live reload</h4><p>The reader subscribes to <code>/events</code> and re-renders changed records in place. Watch mode becomes incremental by using the A2 cache.</p></div></div>
+          <div class="item"><div class="id">B4</div><div><h4>MCP v2</h4><p>Resources (<code>ledger://entries/0092</code>, <code>ledger://packet/&lt;path&gt;</code>), prompts derived from the <code>ledger agents</code> roles, <code>outputSchema</code> and <code>structuredContent</code> on every tool, multi round-trip confirmation on any tool that writes, the Tasks extension for render and migrate, and <code>ttlMs</code> on list responses. Keep stdio for hosts that need it; both transports share the registry.</p></div></div>
+          <div class="item"><div class="id">B5</div><div><h4>Integrations as API clients</h4><p>A VS Code hover or a browser extension that shows the packet for the file under the cursor is a small client of B1, not a separate product.</p></div></div>
+        </div>
+      </section>
+
+      <section id="capture">
+        <h2><span class="n">C</span>Capture</h2>
+        <p>The competitive gap is that Ledger's memory depends on someone remembering to write it. Fix that at the workflow layer.</p>
+        <div class="items">
+          <div class="item"><div class="id">C1</div><div><h4><code>ledger hooks install --host claude-code|codex|cursor</code></h4><p>Generate host hook configuration. <code>SessionStart</code> injects a budgeted packet for the areas the session is likely to touch. <code>PostToolUse</code> on edit tools records touched paths into a session record. <code>Stop</code> and <code>SessionEnd</code> draft a receipt from the diff plus the touched-path list. <code>PreCompact</code> writes a handoff packet so the next context window starts with the same memory.</p></div></div>
+          <div class="item"><div class="id">C2</div><div><h4><code>ledger skills install</code></h4><p>Ship a <code>SKILL.md</code> into <code>.agents/skills/ledger/</code> with host symlinks, so any skills-aware agent learns when to call <code>explain</code>, <code>packet</code>, <code>conflict</code>, and <code>new</code> without prompt engineering. <code>ledger agents --write</code> maintains a fenced block in <code>AGENTS.md</code> instead of printing text.</p></div></div>
+          <div class="item"><div class="id">C3</div><div><h4>Authoring commands</h4><p><code>backlog new</code>, <code>decision new</code>, <code>promote &lt;id&gt;</code>, <code>scratch &lt;title&gt;</code>, and <code>release notes</code>, all through the transaction layer, all with <code>--json</code> envelopes, so agents can create every record kind.</p></div></div>
+          <div class="item"><div class="id">C4</div><div><h4><code>ledger ready</code></h4><p>A lifecycle-aware gate that distinguishes a structurally valid draft from a record ready to land: no TODO placeholders, verification present, docs impact declared, referenced files exist.</p></div></div>
+          <div class="item"><div class="id">C5</div><div><h4>Session and handoff records</h4><p>A short-lived record kind that captures what an agent session touched and learned, with an expiry, so it is promoted into a change entry or expires instead of rotting as scratch.</p></div></div>
+        </div>
+      </section>
+
+      <section id="trust">
+        <h2><span class="n">D</span>Trust And Provenance</h2>
+        <p>Why a team would rely on the records.</p>
+        <div class="items">
+          <div class="item"><div class="id">D1</div><div><h4>Current-change coverage</h4><p>Coverage today is satisfied by any historical record that mentions a path. Bind coverage to entries changed in the selected Git range so a pull request must carry its own receipt.</p></div></div>
+          <div class="item"><div class="id">D2</div><div><h4>Per-file docs impact</h4><p>Replace the single boolean with per-file evidence, so one docs touch cannot satisfy an entire change set.</p></div></div>
+          <div class="item"><div class="id">D3</div><div><h4>Evidence-backed verification</h4><p><code>ledger verify --run</code> executes the commands listed in a record's verification section from an allowlist and writes a derived sidecar with command, exit status, duration, and the commit it ran against. Records gain a "verified at" signal that <code>doctor</code>, the reader, and packets surface, and that <code>stale</code> ages out.</p></div></div>
+          <div class="item"><div class="id">D4</div><div><h4>Freshness against code</h4><p>Extend <code>stale</code> to check every referenced file, symbol, and anchor against the current tree, and flag invariants whose anchors no longer exist. The "withholds stale knowledge" property competitors advertise, computed from records Ledger already has.</p></div></div>
+          <div class="item"><div class="id">D5</div><div><h4>Unified retrieval contract</h4><p>One relationship-aware result model shared by explain, packet, conflict, MCP, and the API, with supersession edges in the graph and traversal into related decisions and backlog items.</p></div></div>
+          <div class="item"><div class="id">D6</div><div><h4>First-party GitHub Action</h4><p>Package the proven <code>ci --base --head</code> logic as a reusable action with annotations on missing coverage, a job summary, and an optional pull request comment.</p></div></div>
+          <div class="item"><div class="id">D7</div><div><h4>Release records drive GitHub Releases</h4><p><code>release.yml</code> publishes the release record's public notes as the GitHub Release body, so four unpublished tags never happen again.</p></div></div>
+        </div>
+      </section>
+
+      <section id="reader">
+        <h2><span class="n">E</span>Reader And Publishing</h2>
+        <div class="items">
+          <div class="item"><div class="id">E1</div><div><h4>Live reload</h4><p>From B3.</p></div></div>
+          <div class="item"><div class="id">E2</div><div><h4>Copy actions on every record</h4><p>Source path, deep link, the exact <code>packet</code> command, and the agent packet itself.</p></div></div>
+          <div class="item"><div class="id">E3</div><div><h4>Entity navigation</h4><p>Files, symbols, areas, decisions, and backlog items get their own views with relationship traversal, backed by sharded data.</p></div></div>
+          <div class="item"><div class="id">E4</div><div><h4>Chunked artifacts</h4><p>So large catalogs stay under budget.</p></div></div>
+          <div class="item"><div class="id">E5</div><div><h4>Public profile as a publishable changelog</h4><p>Stable permalinks, an Atom feed, metadata, and a GitHub Pages deploy recipe.</p></div></div>
+          <div class="item"><div class="id">E6</div><div><h4>"Since you last looked"</h4><p>A view driven by the event stream.</p></div></div>
+          <div class="item"><div class="id">E7</div><div><h4>Experiment only</h4><p>An MCP Apps view that renders a packet inside an MCP host.</p></div></div>
+        </div>
+      </section>
+
+      <section id="hygiene">
+        <h2><span class="n">F</span>Hygiene, Done First</h2>
+        <ul>
+          <li>Publish the repository state to npm as 0.3.2 with entries 0091 and 0092 assigned to a release record.</li>
+          <li>Align <code>engines.node</code> between npm and repo.</li>
+          <li>Generate a GitHub Release for every tag from its release record.</li>
+          <li>Delete or reset the <code>next</code> branch, and update CONTRIBUTING and README to the branch model actually in use.</li>
+          <li>Remove the Homebrew install instructions until a tap exists.</li>
+          <li>Add <code>Public Notes</code> to this repo's required release sections so the public profile is validation-enforced.</li>
+          <li>Set <code>render.budgets.maxTotalBytes</code> to the intended limit or fix the overage.</li>
+        </ul>
+      </section>
+
+      <section id="verdicts">
+        <h2><span class="n">11</span>Verdict On Every Existing Proposal</h2>
+        <p>Fifty-two recorded proposals have no implementing code and sixteen are partial. Each was weighed against the product goal, the four decisions, and whether a real consumer exists.</p>
+        <div class="verdict">
+          <div>
+            <span class="stamp keep">Keep as recorded</span>
+            <ul>
+              <li><b>B005 command extraction</b>, absorbed by A1.</li>
+              <li><b><code>ledger promote</code></b> from PRODUCT.md, absorbed by C3.</li>
+              <li><b>Sharded search indexes</b> (Roadmap Phase 10), absorbed by A3 and E4.</li>
+              <li><b>Richer graph navigation and PR annotations</b> (Phase 10), now E3 and D6.</li>
+              <li><b>Reusable GitHub Action</b> (Phase 7), now D6.</li>
+              <li><b>Evidence references in entries and releases</b> (Phase 9), now D3.</li>
+            </ul>
+          </div>
+          <div>
+            <span class="stamp merge">Merge, shape changed</span>
+            <ul>
+              <li><b>Change-set review workbench</b> becomes a <code>context</code> operation and API route, not a UI product.</li>
+              <li><b>Canonical operation registry</b> is A1 and is now the foundation everything derives from.</li>
+              <li><b>Write-capable agent lifecycle</b> is B4 plus C3, gated by multi round-trip confirmation rather than a bespoke revision token.</li>
+              <li><b>Live preview loop</b> is B3. <b>Typed progressive MCP</b> is B4.</li>
+              <li><b>Self-healing maintenance</b> becomes <code>doctor --fix</code> on top of the A2 cache.</li>
+              <li><b>Audit findings A, B, E, F</b> become D1, D2, D5.</li>
+              <li><b>Git merge hook helper</b> folds into C1.</li>
+              <li><b><code>search.sqlite</code> as an index</b> is recast as the optional A2 cache backend, never source.</li>
+              <li><b>VS Code extension prototype</b> becomes an API client under B5.</li>
+            </ul>
+          </div>
+          <div>
+            <span class="stamp drop">Drop or defer</span>
+            <ul>
+              <li><b>Go and HTMX mini-app adapters.</b> No consumer exists, and the B1 JSON API serves any language without shipping adapters.</li>
+              <li><b>Signed records and transparency logs.</b> Nobody is asking for non-repudiation; integrity hashes plus D3 evidence cover the real need. Revisit at 1.0 if a team adopter needs it.</li>
+              <li><b>Dossier adapter.</b> Out of core by D003; nothing to do until Dossier needs it.</li>
+              <li><b>Repository federation.</b> Premature before one repository has outside users.</li>
+              <li><b><code>.ledger/routing/</code> directory.</b> <code>docs/llm/</code> already works; keep one convention.</li>
+              <li><b>Separate scratch directory.</b> Replaced by C5 records with expiry, which validate and index like everything else.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="sequence">
+        <h2><span class="n">12</span>Sequencing Proposal</h2>
+        <div class="table-wrap">
+          <table class="timeline">
+            <thead><tr><th>Version</th><th>Theme</th><th>Contents</th></tr></thead>
+            <tbody>
+              <tr><td>0.3.2</td><td>Hygiene</td><td>Track F</td></tr>
+              <tr><td>0.4</td><td>Foundation</td><td>A1 registry, A2 cache, <code>--json</code> everywhere, A6 budgets, D5 contract, D7 releases</td></tr>
+              <tr><td>0.5</td><td>Engine server</td><td>B1 API, B2 delegation, B3 live reload, B4 MCP v2, A3 search</td></tr>
+              <tr><td>0.6</td><td>Capture</td><td>C1 hooks, C2 skills, C3 authoring, C4 ready, C5 sessions</td></tr>
+              <tr><td>0.7</td><td>Trust</td><td>D1, D2, D3, D4, D6, A4 browser runtime, A5 symbols</td></tr>
+              <tr><td>1.0</td><td>Contracts frozen</td><td>Registry schemas, API v1, MCP tools, index and sidecar JSON, docs generated from the registry, E3 to E6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top:16px">A1 must land before B1 or B4, because the API and the MCP tool list are generated from it. A2 must land before B2 and B3, because delegation and incremental reload depend on the cache. Everything in C is independent of D and can run in parallel once 0.5 exists.</p>
+      </section>
+
+      <section id="decisions">
+        <h2><span class="n">13</span>Decisions Recorded</h2>
+        <p>Kyle answered the five open questions on 2026-09-15 and asked for the better engineering option regardless of effort. The answers live in decision records D005 and D006 and in <code>docs/ROADMAP.md</code> Phase 11.</p>
+        <ol class="decisions">
+          <li><b>Dependency policy.</b> A bundler and a browser test harness are allowed as dev dependencies for A4. The cache sits behind a backend interface: JSON by default on every supported Node line, <code>node:sqlite</code> selected automatically when the runtime exposes it, with FTS for large catalogs. No native addons. <code>typescript</code> becomes an optional peer dependency.</li>
+          <li><b>Host priority:</b> Claude Code, then Codex CLI, then Cursor.</li>
+          <li><b>Server model:</b> an explicit <code>ledger serve --api</code> that CLI commands use opportunistically through <code>.ledger/daemon.json</code>. No auto-spawned daemon. Deterministic lifecycle, no orphaned processes, and the existing loopback hardening applies unchanged; a <code>SessionStart</code> hook can start it.</li>
+          <li><b>Version framing:</b> stay on 0.x with no contract freeze for now.</li>
+          <li><b>Drops recorded.</b> Section 11 is recorded in decision D006, and the roadmap now points at this direction as Phase 11.</li>
+        </ol>
+      </section>
+
+      <section id="quick">
+        <h2><span class="n">14</span>Quick Wins Under Half A Day Each</h2>
+        <ul class="quick">
+          <li><code>--json</code> envelopes on <code>new</code>, <code>feedback</code>, <code>index</code>, <code>agents</code>, and the <code>docs</code> subcommands.</li>
+          <li>Announce degraded fallback search in the reader instead of failing silently.</li>
+          <li>Emit supersession edges in <code>graph.json</code>.</li>
+          <li>Semantic year headings in the public changelog.</li>
+          <li>Reconcile the render budget.</li>
+          <li>Require <code>Public Notes</code> in this repo's release records.</li>
+          <li>Align <code>engines.node</code> and delete the dead <code>next</code> branch.</li>
+          <li>Report which symbol extractor ran in <code>ledger new --from-diff</code> drafts.</li>
+        </ul>
+      </section>
+
+      <section id="evidence">
+        <h2><span class="n">#</span>Evidence Snapshot</h2>
+        <div class="evidence">
+          <div><span class="v">13,100</span><span class="k">lines in src across 37 modules</span></div>
+          <div><span class="v">1,830</span><span class="k">lines in src/cli.ts, one switch</span></div>
+          <div><span class="v">1,573</span><span class="k">lines of untested browser runtime</span></div>
+          <div><span class="v">8</span><span class="k">MCP tools, stdio only, no output schemas</span></div>
+          <div><span class="v">36</span><span class="k">test files, about 257 tests</span></div>
+          <div><span class="v">52</span><span class="k">recorded proposals with no code</span></div>
+          <div><span class="v">92</span><span class="k">dogfood records, all kind change</span></div>
+          <div><span class="v">3</span><span class="k">npm downloads last week</span></div>
+        </div>
+        <footer>
+          Built 2026-09-15 from a source inventory of <code>src/</code> and <code>test/</code>, a cross-check of ROADMAP, IMPLEMENTATION_PLAN, PRODUCT, ARCHITECTURE, the backlog, and the two 2026-08-30 scratchpad reports against code, live reads of registry.npmjs.org, api.npmjs.org, and api.github.com, and the MCP 2026-07-28 specification and roadmap posts. The Markdown companion carries identical content.
+        </footer>
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>
