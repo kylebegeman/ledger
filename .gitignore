@@ -11,3 +11,4 @@ docs/llm/START_HERE.md
 .DS_Store
 npm-debug.log*
 .ledger/cache/
+.ledger/daemon.json

@@ -190,6 +190,20 @@ ledger serve --watch
 ledger serve --profile public --watch
 ```
 
+For the engine, which adds a JSON API, an event stream, and MCP over HTTP on
+the same loopback port:
+
+```bash
+ledger serve --api
+curl -s http://127.0.0.1:4173/api/v1/health
+curl -s -X POST http://127.0.0.1:4173/api/v1/operations/explain \\
+  -H "content-type: application/json" -d '{"path":"src/cli.ts"}'
+```
+
+Every operation that runs inside a workspace is available as
+`POST /api/v1/operations/<name>` with its input as the JSON body and the same
+machine envelope as `--json`. MCP clients connect to `/mcp`.
+
 The default server binds only to loopback, validates the request host, serves
 only `GET` and `HEAD`, and sends no-store plus browser security headers. The
 optional public profile renders and serves the isolated public release-notes
@@ -280,6 +294,7 @@ full local verification and publishing checklist.
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. Use `--check` to compare without replacing the baseline. |
 | `ledger render` | Builds the internal static reader. Use `--profile public` for released public notes only. |
 | `ledger serve --watch` | Serves the static reader on loopback and rebuilds it when Ledger records change. Use `--profile public` to preview only the isolated public output. |
+| `ledger serve --api` | Starts the engine: the reader plus a JSON API at `/api/v1`, an event stream at `/events`, MCP over Streamable HTTP at `/mcp`, and a daemon record for CLI delegation. |
 | `ledger coverage --explain` | Checks working-tree paths, or an explicit `--base`/`--head` range, and explains required, ignored, covered, and missing coverage. |
 | `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
 | `ledger metrics` | Measures cold read, warm cached read, validate, index, render-model, and search latency against configured budgets. |

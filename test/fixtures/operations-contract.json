@@ -763,7 +763,7 @@
     {
       "name": "serve",
       "title": "Serve the static reader",
-      "description": "Render and serve the selected static reader profile on loopback.",
+      "description": "Render and serve the static reader on loopback, optionally with the engine API.",
       "workspace": "required",
       "mutates": true,
       "interactive": true,
@@ -772,9 +772,13 @@
           "serve"
         ],
         "aliases": [],
-        "usage": "ledger serve [--host <host>] [--port <port>] [--profile <internal|public>] [--watch] [--expose]",
+        "usage": "ledger serve [--host <host>] [--port <port>] [--profile <internal|public>] [--watch] [--expose] [--api]",
         "json": false,
         "flags": {
+          "api": {
+            "type": "boolean",
+            "field": "api"
+          },
           "host": {
             "type": "string",
             "field": "host"
@@ -834,6 +838,10 @@
           "expose": {
             "description": "Allow a non-loopback host with a required token.",
             "type": "boolean"
+          },
+          "api": {
+            "description": "Also serve the JSON API, event stream, and MCP over HTTP.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -862,6 +870,9 @@
           "profile": {
             "type": "string"
           },
+          "api": {
+            "type": "boolean"
+          },
           "watchedDirectories": {
             "type": "number"
           }
@@ -871,6 +882,7 @@
           "url",
           "mode",
           "profile",
+          "api",
           "watchedDirectories"
         ],
         "additionalProperties": {}

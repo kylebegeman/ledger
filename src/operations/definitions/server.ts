@@ -1,11 +1,9 @@
-import { watch, type FSWatcher } from "node:fs";
-import path from "node:path";
 import process from "node:process";
 import { z } from "zod";
+import { startLedgerEngine } from "../../engine.js";
 import { LedgerError } from "../../machine.js";
 import { buildStaticReaderModel, writeStaticReader, type LedgerRenderProfile } from "../../render.js";
-import { closeStaticReader, serveStaticReader } from "../../serve.js";
-import type { LedgerWorkspace } from "../../types.js";
+import { closeStaticReader, serveStaticReader, watchLedgerSources } from "../../serve.js";
 import { validateDocuments, writeValidationReport } from "../../validate.js";
 import { readLedgerDocuments } from "../../documents.js";
 import { looseRecord, requireWorkspace } from "../shared.js";
@@ -18,6 +16,7 @@ interface ServeInput extends Record<string, unknown> {
   readonly profile: LedgerRenderProfile;
   readonly watch?: boolean;
   readonly expose?: boolean;
+  readonly api?: boolean;
 }
 
 interface ServeOutput {
@@ -25,13 +24,14 @@ interface ServeOutput {
   readonly url: string;
   readonly mode: "local" | "network";
   readonly profile: LedgerRenderProfile;
+  readonly api: boolean;
   readonly watchedDirectories: number;
 }
 
 export const serveOperation = defineOperation<ServeInput, ServeOutput>({
   name: "serve",
   title: "Serve the static reader",
-  description: "Render and serve the selected static reader profile on loopback.",
+  description: "Render and serve the static reader on loopback, optionally with the engine API.",
   workspace: "required",
   mutates: true,
   interactive: true,
@@ -41,18 +41,22 @@ export const serveOperation = defineOperation<ServeInput, ServeOutput>({
     profile: renderProfileSchema.default("internal").describe("Reader profile to serve."),
     watch: z.boolean().optional().describe("Rebuild when Ledger source records change."),
     expose: z.boolean().optional().describe("Allow a non-loopback host with a required token."),
+    api: z.boolean().optional().describe("Also serve the JSON API, event stream, and MCP over HTTP."),
   }),
   output: looseRecord({
     root: z.string(),
     url: z.string(),
     mode: z.enum(["local", "network"]),
     profile: z.string(),
+    api: z.boolean(),
     watchedDirectories: z.number(),
   }),
   cli: {
     path: ["serve"],
-    usage: "ledger serve [--host <host>] [--port <port>] [--profile <internal|public>] [--watch] [--expose]",
+    usage:
+      "ledger serve [--host <host>] [--port <port>] [--profile <internal|public>] [--watch] [--expose] [--api]",
     flags: {
+      api: { type: "boolean", description: "Serve the engine API, events, and MCP alongside the reader." },
       host: { type: "string", description: "Bind host." },
       port: { type: "number", description: "Bind port." },
       profile: {
@@ -65,13 +69,52 @@ export const serveOperation = defineOperation<ServeInput, ServeOutput>({
       expose: { type: "boolean", description: "Allow non-loopback binding with a token." },
     },
     json: false,
-    help: `Renders and serves the selected static reader profile. --watch rebuilds when
-Ledger source records change. The public profile serves .ledger/dist/public.
-Non-loopback binding requires --expose and an access token of at least 24
-characters from LEDGER_SERVE_TOKEN.`,
+    help: `Renders and serves the selected static reader profile. --api also serves the
+JSON API at /api/v1, the event stream at /events, and MCP over Streamable HTTP
+at /mcp, writes .ledger/daemon.json so CLI commands delegate to the warm
+server, and always watches source records. --watch rebuilds when Ledger source
+records change. The public profile serves .ledger/dist/public. Non-loopback
+binding requires --expose and an access token of at least 24 characters from
+LEDGER_SERVE_TOKEN.`,
   },
   async run(context, input) {
     const workspace = requireWorkspace(context);
+    const mode = input.expose ? "network" : "local";
+
+    if (input.api) {
+      const engine = await startLedgerEngine(workspace, {
+        host: input.host,
+        port: input.port,
+        mode,
+        accessToken: process.env.LEDGER_SERVE_TOKEN,
+        profile: input.profile,
+        version: context.version,
+        log: context.log,
+        logError: context.logError,
+      });
+      context.log(`Serving ${engine.root} at ${engine.url}`);
+      context.log(`API at ${engine.url}api/v1, events at ${engine.url}events, MCP at ${engine.url}mcp`);
+      if (engine.daemonPath) context.log(`Wrote ${engine.daemonPath}; CLI commands delegate to this server.`);
+      if (engine.mode === "network") {
+        context.log("Network exposure enabled; HTTP Basic user is ledger and the configured token is required.");
+      }
+      if (engine.watching > 0) {
+        context.log(`Watching ${engine.watching} Ledger source director${engine.watching === 1 ? "y" : "ies"}.`);
+      }
+      await waitForSignal();
+      await engine.close();
+      return {
+        data: {
+          root: engine.root,
+          url: engine.url,
+          mode: engine.mode,
+          profile: engine.profile,
+          api: true,
+          watchedDirectories: engine.watching,
+        },
+      };
+    }
+
     const render = async () => {
       const documents = await readLedgerDocuments(workspace);
       const result = validateDocuments(workspace, documents);
@@ -92,12 +135,12 @@ characters from LEDGER_SERVE_TOKEN.`,
     const served = await serveStaticReader(workspace, {
       host: input.host,
       port: input.port,
-      mode: input.expose ? "network" : "local",
+      mode,
       accessToken: process.env.LEDGER_SERVE_TOKEN,
       profile: input.profile,
     });
     const watchers = input.watch
-      ? watchStaticReaderSources(
+      ? watchLedgerSources(
           workspace,
           async () => {
             try {
@@ -120,16 +163,8 @@ characters from LEDGER_SERVE_TOKEN.`,
     if (watchers.length > 0) {
       context.log(`Watching ${watchers.length} Ledger source director${watchers.length === 1 ? "y" : "ies"}.`);
     }
-    await new Promise<void>((resolve) => {
-      const close = () => {
-        for (const watcher of watchers) watcher.close();
-        process.off("SIGINT", close);
-        process.off("SIGTERM", close);
-        resolve();
-      };
-      process.once("SIGINT", close);
-      process.once("SIGTERM", close);
-    });
+    await waitForSignal();
+    for (const watcher of watchers) watcher.close();
     await closeStaticReader(served);
     return {
       data: {
@@ -137,6 +172,7 @@ characters from LEDGER_SERVE_TOKEN.`,
         url: served.url,
         mode: served.mode,
         profile: served.profile,
+        api: false,
         watchedDirectories: watchers.length,
       },
     };
@@ -146,52 +182,16 @@ characters from LEDGER_SERVE_TOKEN.`,
   },
 });
 
-export function watchStaticReaderSources(
-  workspace: LedgerWorkspace,
-  rebuild: () => Promise<void>,
-  onError: (directory: string, error: Error) => void,
-): readonly FSWatcher[] {
-  const directories = [
-    workspace.config.source.entries,
-    workspace.config.source.backlog,
-    workspace.config.source.decisions,
-    workspace.config.source.releases,
-  ];
-  const watchers: FSWatcher[] = [];
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let rebuilding = false;
-  let rebuildAgain = false;
-  const runRebuild = async () => {
-    if (rebuilding) {
-      rebuildAgain = true;
-      return;
-    }
-    rebuilding = true;
-    try {
-      do {
-        rebuildAgain = false;
-        await rebuild();
-      } while (rebuildAgain);
-    } finally {
-      rebuilding = false;
-    }
-  };
-  const schedule = () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = undefined;
-      void runRebuild();
-    }, 150);
-  };
-
-  for (const directory of directories) {
-    try {
-      watchers.push(watch(path.join(workspace.projectRoot, directory), { recursive: true }, schedule));
-    } catch (error) {
-      onError(directory, error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-  return watchers;
+async function waitForSignal(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const close = () => {
+      process.off("SIGINT", close);
+      process.off("SIGTERM", close);
+      resolve();
+    };
+    process.once("SIGINT", close);
+    process.once("SIGTERM", close);
+  });
 }
 
 export const mcpOperation = defineOperation<Record<string, never>, { readonly transport: "stdio" }>({
@@ -210,8 +210,9 @@ export const mcpOperation = defineOperation<Record<string, never>, { readonly tr
     json: false,
     help: `Starts a stdio Model Context Protocol server exposing Ledger tools for agents:
 validate, query, search, explain, conflict, packet, search-packet, coverage, ci,
-doctor, metrics, stale, unreleased, docs audit, docs classify, docs impact, and
-integrity verification.`,
+doctor, metrics, stale, unreleased, cache status, docs audit, docs classify,
+docs impact, and integrity verification. For MCP over HTTP, run
+\`ledger serve --api\` and connect to /mcp.`,
   },
   async run(context) {
     const { startLedgerMcpServer } = await import("../../mcp.js");
