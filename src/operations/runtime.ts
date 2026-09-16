@@ -118,7 +118,7 @@ export async function runLedgerCli(
       return delegated.exitCode;
     }
 
-    const context = await buildContext(operation, cwd, options.version);
+    const context = await buildContext(operation, cwd, options.version, { json: wantsJson });
     const outcome = await operation.run(context, input);
 
     if (wantsJson) {
@@ -331,11 +331,13 @@ export async function buildContext(
   operation: AnyLedgerOperation,
   cwd: string,
   version: string,
+  options: { readonly json?: boolean } = {},
 ): Promise<LedgerOperationContext> {
   const base = {
     cwd,
     version,
-    log: (line: string) => console.log(line),
+    // With --json stdout must stay one JSON document, so progress lines go to stderr.
+    log: options.json ? (line: string) => console.error(line) : (line: string) => console.log(line),
     logError: (line: string) => console.error(line),
   };
   if (operation.workspace === "none") return base;

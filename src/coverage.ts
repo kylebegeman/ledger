@@ -35,7 +35,10 @@ export async function checkCoverage(
   const coveragePatterns = collectCoveragePatterns(documents);
   const currentEntries = documents
     .filter((document) => document.kind === "change" && changedSet.has(normalizePath(document.relativePath)))
-    .map((document) => ({ id: normalizeDocument(document).id, files: normalizeDocument(document).files.map(normalizePath) }))
+    .map((document) => {
+      const normalized = normalizeDocument(document);
+      return { id: normalized.id, files: normalized.files.map(normalizePath) };
+    })
     .sort((left, right) => left.id.localeCompare(right.id));
   const files = changedFiles.map((filePath) =>
     explainCoverageForPath(workspace, filePath, coveragePatterns, currentEntries, mode),

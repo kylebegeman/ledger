@@ -59,7 +59,7 @@ export function formatLedgerSearchResult(result: LedgerSearchCommandResult): str
   const note = result.candidates === "fts5"
     ? " (sqlite full-text candidates)"
     : result.fullTextUnavailable
-      ? " (full-text search needs the sqlite cache backend; scanned every record)"
+      ? " (full-text search needs a warm sqlite cache; scanned every record)"
       : "";
   const lines = [`Ledger search: ${result.matches.length} match(es)${note}.`];
   for (const match of result.matches) {

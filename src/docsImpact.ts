@@ -67,8 +67,8 @@ function docsImpactFile(
   const entries: string[] = [];
   const evidence: LedgerDocsImpactEvidence[] = [];
   for (const document of changedEntries) {
-    const normalized = normalizeDocument(document);
     if (document.kind !== "change") continue;
+    const normalized = normalizeDocument(document);
     const listed = normalized.files.some((pattern) => coveragePatternMatches(filePath, pattern));
     if (!listed) continue;
     const entry = normalizePath(document.relativePath);

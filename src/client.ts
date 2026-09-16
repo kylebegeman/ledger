@@ -83,32 +83,41 @@ export function createLedgerClient(options: LedgerClientOptions): LedgerClient {
     },
     async health() {
       const response = await request("api/v1/health", { method: "GET", headers: headers() });
-      const body = (await response.json()) as unknown;
+      const body = await parseJsonBody(response, "health");
       if (!isRecord(body) || typeof body.ok !== "boolean" || typeof body.pid !== "number") {
-        throw new LedgerError("operational-error", "Ledger engine returned an unexpected health response", { url: base });
+        throw new LedgerError("operational-error", "Ledger engine returned an unexpected health response", {
+          url: base,
+          status: response.status,
+        });
       }
       return body as unknown as LedgerEngineHealth;
     },
     async operations() {
       const response = await request("api/v1/operations", { method: "GET", headers: headers() });
-      const body = (await response.json()) as unknown;
+      const body = await parseJsonBody(response, "operations");
       if (!isRecord(body) || !Array.isArray(body.operations)) {
-        throw new LedgerError("operational-error", "Ledger engine returned an unexpected operations response", { url: base });
+        throw new LedgerError("operational-error", "Ledger engine returned an unexpected operations response", {
+          url: base,
+          status: response.status,
+        });
       }
       return body.operations as LedgerOperationsContract["operations"];
     },
   };
 }
 
-async function parseEnvelope(response: Response, name: string): Promise<LedgerMachineResult<unknown>> {
-  let body: unknown;
+async function parseJsonBody(response: Response, name: string): Promise<unknown> {
   try {
-    body = await response.json();
+    return (await response.json()) as unknown;
   } catch (error) {
     throw new LedgerError("operational-error", `Ledger engine returned a non-JSON response for ${name}`, {
       status: response.status,
     }, { cause: error });
   }
+}
+
+async function parseEnvelope(response: Response, name: string): Promise<LedgerMachineResult<unknown>> {
+  const body = await parseJsonBody(response, name);
   if (!isRecord(body) || body.schemaVersion !== 1 || typeof body.ok !== "boolean" || typeof body.command !== "string") {
     throw new LedgerError("operational-error", `Ledger engine returned an invalid envelope for ${name}`, {
       status: response.status,

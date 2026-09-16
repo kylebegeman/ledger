@@ -1,12 +1,14 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import os from "node:os";
 import path from "node:path";
+import { run } from "../src/cli.js";
 import { defaultConfig } from "../src/config.js";
 import { formatCiAnnotations, formatCiSummaryMarkdown, runCiChecks } from "../src/ci.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
+import { initWorkspace } from "../src/workspace.js";
 
 let tempDir: string | undefined;
 
@@ -85,6 +87,44 @@ describe("GitHub output", () => {
     expect(summary).toContain("| coverage | fail | 1 | 0 |");
     expect(summary).toContain("- coverage: `src/range.ts` has no change entry in this change set");
     expect(summary).toContain("- docs impact: `src/range.ts`");
+  });
+
+  it("keeps stdout a single JSON document when --github and --json combine", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-ci-test-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "uncovered.ts"), "export {};\n");
+    await git("init", "-q");
+    await git("add", ".");
+    const summaryPath = path.join(tempDir, "summary.md");
+    const previousSummary = process.env.GITHUB_STEP_SUMMARY;
+    process.env.GITHUB_STEP_SUMMARY = summaryPath;
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const originalLog = console.log;
+    const originalError = console.error;
+    console.log = (...args: unknown[]) => {
+      stdout.push(args.map(String).join(" "));
+    };
+    console.error = (...args: unknown[]) => {
+      stderr.push(args.map(String).join(" "));
+    };
+    let exitCode: number;
+    try {
+      exitCode = await run(["ci", "--staged", "--github", "--json", "--local"], { cwd: tempDir });
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+      if (previousSummary === undefined) delete process.env.GITHUB_STEP_SUMMARY;
+      else process.env.GITHUB_STEP_SUMMARY = previousSummary;
+    }
+
+    expect(exitCode).toBe(1);
+    const envelope = JSON.parse(stdout.join("\n")) as { readonly ok: boolean; readonly data: { readonly github: { readonly annotations: readonly string[] } } };
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data.github.annotations).toContainEqual(expect.stringContaining("file=src/uncovered.ts"));
+    expect(stderr.join("\n")).toContain("::error file=src/uncovered.ts");
+    expect(await readFile(summaryPath, "utf8")).toContain("## Ledger CI: failed");
   });
 
   it("escapes workflow command data", () => {

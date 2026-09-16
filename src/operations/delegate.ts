@@ -1,7 +1,5 @@
-import path from "node:path";
 import process from "node:process";
-import { createLedgerClient } from "../client.js";
-import { probeEngine, readDaemonRecord } from "../daemon.js";
+import { connectLedgerClient } from "../client.js";
 import type { LedgerMachineResult } from "../machine.js";
 import type { LedgerOperationName } from "./registry.js";
 import { findProjectRoot } from "../workspace.js";
@@ -51,16 +49,11 @@ export async function delegateOperation(
   } catch {
     return undefined;
   }
-  const record = await readDaemonRecord(path.join(projectRoot, ".ledger"));
-  if (!record) return undefined;
-  const health = await probeEngine(record);
-  if (!health) return undefined;
-  if (path.resolve(health.projectRoot) !== path.resolve(projectRoot)) return undefined;
-
+  const client = await connectLedgerClient(projectRoot, { timeoutMs: options.timeoutMs ?? defaultOperationTimeoutMs });
+  if (!client) return undefined;
   try {
-    const client = createLedgerClient({ url: record.url, timeoutMs: options.timeoutMs ?? defaultOperationTimeoutMs });
     const result = await client.run(operation.name as LedgerOperationName, input as never);
-    return { envelope: result.envelope, exitCode: result.exitCode, url: record.url };
+    return { envelope: result.envelope, exitCode: result.exitCode, url: client.url };
   } catch {
     return undefined;
   }

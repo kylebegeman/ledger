@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
@@ -80,6 +79,7 @@ const maxCommandOutputBytes = 4_000_000;
 /** Set in the environment of commands `verify --run` executes so a nested verify never runs commands again. */
 export const nestedVerifyEnvironmentVariable = "LEDGER_VERIFY_NESTED";
 const shellOperatorPattern = /[|&;<>`$(){}\n]/;
+const controlCharacterPattern = /[\u0000-\u001f\u007f]/;
 
 export function emptyEvidenceIndex(): LedgerEvidenceIndex {
   return { version: 1, generatedAt: new Date(0).toISOString(), entries: {} };
@@ -255,10 +255,6 @@ export async function runVerification(
   documents: readonly ParsedLedgerDocument[],
   options: VerifyOptions,
 ): Promise<LedgerVerifyReport> {
-  const { allow, maxAgeDays, timeoutMs, evidence: evidencePath } = workspace.config.verification;
-  const selected = await selectEntries(workspace, documents, options);
-  const evidence = await readEvidence(workspace);
-  const updated: Record<string, LedgerEvidenceEntry> = { ...evidence.entries };
   if (options.run && process.env[nestedVerifyEnvironmentVariable]) {
     throw new LedgerError(
       "invalid-argument",
@@ -266,6 +262,10 @@ export async function runVerification(
       { nested: true },
     );
   }
+  const { allow, maxAgeDays, timeoutMs, evidence: evidencePath } = workspace.config.verification;
+  const selected = await selectEntries(workspace, documents, options);
+  const evidence = await readEvidence(workspace);
+  const updated: Record<string, LedgerEvidenceEntry> = { ...evidence.entries };
   const commit = options.run ? await getHeadCommit(workspace.projectRoot) : undefined;
   const dirty = options.run ? await workingTreeDirty(workspace) : false;
   const records: LedgerVerifyRecord[] = [];
@@ -329,17 +329,13 @@ async function selectEntries(
   const entries = documents.filter((document) => document.kind === "change");
   const targets = (options.targets ?? []).map((target) => target.trim()).filter(Boolean);
   if (targets.length > 0) {
-    const wanted = new Set(targets.map(normalizePath));
-    const found = entries.filter(
-      (document) => wanted.has(normalizeDocument(document).id) || wanted.has(normalizePath(document.relativePath)),
-    );
-    const missing = targets.filter(
-      (target) => !found.some((document) => normalizeDocument(document).id === target || normalizePath(document.relativePath) === normalizePath(target)),
-    );
+    const matchesTarget = (document: ParsedLedgerDocument, target: string) =>
+      normalizeDocument(document).id === target || normalizePath(document.relativePath) === normalizePath(target);
+    const missing = targets.filter((target) => !entries.some((document) => matchesTarget(document, target)));
     if (missing.length > 0) {
       throw new LedgerError("record-not-found", `Change entry not found: ${missing.join(", ")}`, { targets: missing });
     }
-    return found;
+    return entries.filter((document) => targets.some((target) => matchesTarget(document, target)));
   }
   if (options.all) return entries;
   let changed: ReadonlySet<string>;
@@ -368,16 +364,20 @@ async function executeCommand(
   const [file, ...args] = command.argv;
   const startedAt = Date.now();
   const label = command.raw ?? command.argv.join(" ");
+  // Windows needs a shell to resolve npm.cmd and friends; the shell joins argv with spaces,
+  // so arguments that contain whitespace are quoted again. Operators were rejected at parse time.
+  const shell = process.platform === "win32";
+  const shellArgs = shell ? args.map((argument) => (/\s/.test(argument) ? `"${argument}"` : argument)) : args;
   return await new Promise<LedgerEvidenceResult>((resolve) => {
     execFile(
       file!,
-      args,
+      shellArgs,
       {
         cwd: workspace.projectRoot,
         env: { ...process.env, ...command.env, [nestedVerifyEnvironmentVariable]: "1" },
         timeout: timeoutMs,
         maxBuffer: maxCommandOutputBytes,
-        shell: process.platform === "win32",
+        shell,
       },
       (error) => {
         const durationMs = Date.now() - startedAt;
@@ -436,7 +436,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isBoundedText(value: unknown, maxLength: number): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= maxLength && !/[ -]/.test(value);
+  return typeof value === "string" && value.length > 0 && value.length <= maxLength && !controlCharacterPattern.test(value);
 }
 
 function isCode(error: unknown, code: string): boolean {
@@ -444,6 +444,3 @@ function isCode(error: unknown, code: string): boolean {
     (error as { readonly code?: unknown }).code === code;
 }
 
-export function evidencePathFor(workspace: LedgerWorkspace): string {
-  return normalizePath(path.join(workspace.config.verification.evidence));
-}
