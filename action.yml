@@ -59,6 +59,10 @@ runs:
         else
           echo "ok=false" >> "$GITHUB_OUTPUT"
         fi
+        # GITHUB_STEP_SUMMARY is a different file in every step, so keep a copy for the comment step.
+        if [[ -s "$GITHUB_STEP_SUMMARY" ]]; then
+          cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/ledger-ci-summary.md"
+        fi
         exit $code
 
     - name: Comment on the pull request
@@ -69,9 +73,10 @@ runs:
         GH_REPO: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
-        if [[ ! -s "$GITHUB_STEP_SUMMARY" ]]; then
+        summary="$RUNNER_TEMP/ledger-ci-summary.md"
+        if [[ ! -s "$summary" ]]; then
           echo "No Ledger summary to post."
           exit 0
         fi
-        body="$(cat "$GITHUB_STEP_SUMMARY")"
+        body="$(cat "$summary")"
         gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" -f body="$body" >/dev/null

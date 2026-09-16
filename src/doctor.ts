@@ -108,7 +108,8 @@ async function symbolsCheck(): Promise<LedgerDoctorCheck> {
   const statuses = await symbolExtractorStatus();
   const typescript = statuses.find((status) => status.name === "typescript");
   if (typescript?.available) {
-    return { name: "symbols", level: "pass", message: `typescript ${typescript.version ?? ""} parser available for anchors`.replace("  ", " ") };
+    const parser = typescript.version ? `typescript ${typescript.version}` : "typescript";
+    return { name: "symbols", level: "pass", message: `${parser} parser available for anchors` };
   }
   return {
     name: "symbols",

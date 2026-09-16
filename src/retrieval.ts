@@ -1,3 +1,4 @@
+import { defaultConfig } from "./config.js";
 import { coveragePatternMatches, isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { extractBullets, getSectionBody } from "./query.js";
@@ -178,7 +179,7 @@ function evidenceFields(
 ): Pick<LedgerRetrievalRecord, "verificationStatus" | "verifiedAt" | "verifiedCommit"> {
   if (!options.evidence || kind !== "change") return {};
   const entry = options.evidence.entries[id];
-  const verificationStatus = evidenceFreshness(entry, options.maxEvidenceAgeDays ?? 30);
+  const verificationStatus = evidenceFreshness(entry, options.maxEvidenceAgeDays ?? defaultConfig.verification.maxAgeDays);
   return {
     verificationStatus,
     ...(entry ? { verifiedAt: entry.ranAt, verifiedCommit: entry.commit } : {}),

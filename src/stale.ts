@@ -4,6 +4,7 @@ import { readUtf8FileLimited } from "./boundedFile.js";
 import { isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
+import { LedgerError } from "./machine.js";
 import { extractBullets, getSectionBody } from "./query.js";
 import { extractAnchoredBlocks, type LedgerAnchor } from "./retrieval.js";
 import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
@@ -47,6 +48,8 @@ export async function detectStaleKnowledge(
   const issues: LedgerStaleIssue[] = [];
   const today = new Date().toISOString().slice(0, 10);
   const evidence = await readEvidence(workspace);
+  // Many records reference the same source files; read each file once per run.
+  const sources = new ReferencedFileCache(workspace);
 
   for (const issue of validation.issues) {
     if (issue.code !== "missing-reference" || !issue.path) continue;
@@ -126,7 +129,7 @@ export async function detectStaleKnowledge(
     const staleTargets = new Set<string>();
 
     if (document.symbols.length > 0 && document.files.length > 0) {
-      const missingSymbols = await symbolsMissingFromFiles(workspace, document.files, document.symbols);
+      const missingSymbols = await symbolsMissingFromFiles(sources, document.files, document.symbols);
       for (const symbol of missingSymbols) {
         if (acknowledged.has(symbol) || acknowledged.has(`symbols:${symbol}`)) continue;
         staleTargets.add(symbol);
@@ -143,7 +146,7 @@ export async function detectStaleKnowledge(
       for (const block of extractAnchoredBlocks(getSectionBody(parsed, "Changed Files"), document.files)) {
         const checkable = block.anchors.filter((anchor) => isCheckableAnchor(anchor, block.files)).map((anchor) => anchor.text);
         if (checkable.length === 0 || block.files.length === 0) continue;
-        const missing = await anchorsMissingFromFiles(workspace, block.files, checkable);
+        const missing = await anchorsMissingFromFiles(sources, block.files, checkable);
         for (const anchor of missing) {
           if (acknowledged.has(anchor) || acknowledged.has(`anchors:${anchor}`)) continue;
           staleTargets.add(anchor);
@@ -233,13 +236,13 @@ function relationshipFields(
 }
 
 async function symbolsMissingFromFiles(
-  workspace: LedgerWorkspace,
+  sources: ReferencedFileCache,
   files: readonly string[],
   symbols: readonly string[],
 ): Promise<readonly string[]> {
   const checkableSymbols = symbols.filter(isCheckableSymbol);
   if (checkableSymbols.length === 0) return [];
-  const combined = await readReferencedFiles(workspace, files);
+  const combined = await sources.read(files);
   if (combined === undefined) return [];
   return checkableSymbols.filter((symbol) => !combined.includes(symbol));
 }
@@ -268,11 +271,11 @@ const dottedKeyPattern = /^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)+$/;
  * segment appears, because YAML and JSON spell nested keys across lines.
  */
 async function anchorsMissingFromFiles(
-  workspace: LedgerWorkspace,
+  sources: ReferencedFileCache,
   files: readonly string[],
   anchors: readonly string[],
 ): Promise<readonly string[]> {
-  const combined = await readReferencedFiles(workspace, files);
+  const combined = await sources.read(files);
   if (combined === undefined) return [];
   return anchors.filter((anchor) => {
     if (combined.includes(anchor)) return false;
@@ -282,35 +285,63 @@ async function anchorsMissingFromFiles(
 }
 
 /**
- * Concatenated contents of the exact, existing files in a reference list, or
- * undefined when nothing could be read (patterns only, or every file missing).
+ * Reads the exact, existing files a record references and remembers each
+ * file's content for the rest of a stale run. Every combined read is bounded
+ * by `limits.maxTotalDocumentBytes`, as a single read was before.
  */
-async function readReferencedFiles(
-  workspace: LedgerWorkspace,
-  files: readonly string[],
-): Promise<string | undefined> {
-  const exactFiles = files
-    .map(normalizePath)
-    .filter((filePath) => !isCoveragePattern(filePath) && isSafeProjectRelativePath(filePath));
-  if (exactFiles.length === 0) return undefined;
-  const contents: string[] = [];
-  let remainingBytes = workspace.config.limits.maxTotalDocumentBytes;
-  for (const filePath of exactFiles) {
-    const absolutePath = resolveProjectPath(workspace.projectRoot, filePath, "files reference");
-    let regular: boolean;
+class ReferencedFileCache {
+  private readonly contents = new Map<string, Promise<string | undefined>>();
+
+  constructor(private readonly workspace: LedgerWorkspace) {}
+
+  /**
+   * Concatenated contents of the exact, existing files in a reference list,
+   * or undefined when nothing could be read (patterns only, or every file missing).
+   */
+  async read(files: readonly string[]): Promise<string | undefined> {
+    const exactFiles = [...new Set(files.map(normalizePath))].filter(
+      (filePath) => !isCoveragePattern(filePath) && isSafeProjectRelativePath(filePath),
+    );
+    if (exactFiles.length === 0) return undefined;
+    const limit = this.workspace.config.limits.maxTotalDocumentBytes;
+    const contents: string[] = [];
+    let totalBytes = 0;
+    for (const filePath of exactFiles) {
+      const content = await this.readOne(filePath);
+      if (content === undefined) continue;
+      totalBytes += Buffer.byteLength(content, "utf8");
+      if (totalBytes > limit) {
+        throw new LedgerError("resource-limit-exceeded", `${filePath}: referenced files exceed ${limit} bytes`, {
+          path: filePath,
+          limit,
+        });
+      }
+      contents.push(content);
+    }
+    if (contents.length === 0) return undefined;
+    return contents.join("\n");
+  }
+
+  /** One file's content, or undefined when it is missing or not a regular file. */
+  private readOne(filePath: string): Promise<string | undefined> {
+    let pending = this.contents.get(filePath);
+    if (!pending) {
+      pending = this.load(filePath);
+      this.contents.set(filePath, pending);
+    }
+    return pending;
+  }
+
+  private async load(filePath: string): Promise<string | undefined> {
+    const absolutePath = resolveProjectPath(this.workspace.projectRoot, filePath, "files reference");
     try {
-      regular = (await stat(absolutePath)).isFile();
+      if (!(await stat(absolutePath)).isFile()) return undefined;
     } catch (error) {
-      if (isCode(error, "ENOENT")) continue;
+      if (isCode(error, "ENOENT")) return undefined;
       throw error;
     }
-    if (!regular) continue;
-    const content = await readUtf8FileLimited(absolutePath, remainingBytes, "symbol source");
-    contents.push(content);
-    remainingBytes -= Buffer.byteLength(content, "utf8");
+    return await readUtf8FileLimited(absolutePath, this.workspace.config.limits.maxTotalDocumentBytes, "symbol source");
   }
-  if (contents.length === 0) return undefined;
-  return contents.join("\n");
 }
 
 function clip(value: string): string {

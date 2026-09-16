@@ -45,8 +45,14 @@ describe("repository automation", () => {
     expect(Object.keys(action.inputs).sort()).toEqual(["base", "command", "comment", "head", "node-version"]);
     expect(action.inputs.command?.default).toContain("@kylebegeman/ledger");
     expect(action.inputs.comment?.default).toBe("false");
-    expect(action.runs.steps.some((step) => step.run?.includes("ci --github"))).toBe(true);
-    expect(action.runs.steps.some((step) => step.run?.includes("issues/$PR_NUMBER/comments"))).toBe(true);
+    const ledgerStep = action.runs.steps.find((step) => step.run?.includes("ci --github"));
+    const commentStep = action.runs.steps.find((step) => step.run?.includes("issues/$PR_NUMBER/comments"));
+    expect(ledgerStep).toBeDefined();
+    expect(commentStep).toBeDefined();
+    // GITHUB_STEP_SUMMARY is a different file in every step, so the summary is handed over through RUNNER_TEMP.
+    expect(ledgerStep?.run).toContain('cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/ledger-ci-summary.md"');
+    expect(commentStep?.run).toContain("$RUNNER_TEMP/ledger-ci-summary.md");
+    expect(commentStep?.run).not.toContain('cat "$GITHUB_STEP_SUMMARY"');
     expectActionsPinned(source);
   });
 
