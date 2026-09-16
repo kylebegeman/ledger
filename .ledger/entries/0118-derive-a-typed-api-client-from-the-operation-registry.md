@@ -59,6 +59,7 @@ decisions:
 related:
   - "0099"
   - "0100"
+release: "v0.7.0"
 ---
 
 # 0118: Derive A Typed API Client From The Operation Registry

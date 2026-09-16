@@ -41,6 +41,7 @@ decisions:
 related:
   - "0112"
   - "0113"
+release: "v0.7.0"
 ---
 
 # 0117: Ship A GitHub Action With Annotations And A Job Summary

@@ -42,6 +42,7 @@ decisions:
   - "D005"
 related:
   - "0113"
+release: "v0.7.0"
 ---
 
 # 0114: Report Which Symbol Extractor Ran And Make Typescript An Optional Peer

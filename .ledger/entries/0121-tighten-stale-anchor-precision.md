@@ -36,6 +36,7 @@ decisions:
   - "D005"
 related:
   - "0116"
+release: "v0.7.0"
 ---
 
 # 0121: Tighten Stale Anchor Precision

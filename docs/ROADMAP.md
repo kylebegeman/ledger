@@ -270,8 +270,12 @@ API, event stream, live reload, MCP over Streamable HTTP with resources and
 prompts, CLI delegation, shared search scoring), and capture in 0.6.0
 (authoring commands, expiring session records, the `ready` gate, host hooks
 for Claude Code, Codex, and Cursor, the shipped skill, and the managed
-`AGENTS.md` block); trust next. Direction accepted in decision D005 on
-2026-09-15.
+`AGENTS.md` block), and trust in 0.7.0 (current-change coverage, per-file docs
+impact, `verify --run` with evidence, anchor freshness, the GitHub Action, the
+typed API client, the typed and browser-tested reader runtime, symbol extractor
+provenance, sharded search, chunked artifacts, and full-text search). The
+Dossier visual system (backlog B009) and Kore adoption are next. Direction
+accepted in decision D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
 `docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are

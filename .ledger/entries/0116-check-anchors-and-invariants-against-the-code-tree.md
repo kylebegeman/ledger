@@ -40,6 +40,7 @@ decisions:
   - "D005"
 related:
   - "0115"
+release: "v0.7.0"
 ---
 
 # 0116: Check Anchors And Invariants Against The Code Tree
