@@ -111,6 +111,13 @@ describe("Ledger MCP", () => {
     expect(payload.summary).toEqual({
       target: "src/cli.ts",
       matches: 1,
+      related: 0,
+      missing: 0,
+    });
+    expect(payload.records[0]).toMatchObject({
+      id: "0001",
+      matches: [{ file: "src/cli.ts", kind: "exact" }],
+      conflictRules: ["Keep MCP command behavior stable."],
     });
     expect(payload.matches[0].id).toBe("0001");
   });

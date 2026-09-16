@@ -75,6 +75,7 @@ symbols: ["run"]
 docs: ["docs/ARCHITECTURE.md"]
 decisions: ["D001"]
 backlog: ["B001"]
+supersedes: ["0000"]
 `,
         body: `
 ## Invariants
@@ -110,6 +111,7 @@ backlog: ["B001"]
         { source: "record:0001", target: "doc:docs/ARCHITECTURE.md", type: "doc" },
         { source: "record:0001", target: "file:src/cli.ts", type: "file" },
         { source: "record:0001", target: "invariant:0001:1", type: "invariant" },
+        { source: "record:0001", target: "record:0000", type: "supersedes" },
         { source: "record:0001", target: "record:B001", type: "backlog" },
         { source: "record:0001", target: "record:D001", type: "decision" },
         { source: "record:0001", target: "release:v1.0.0", type: "release" },

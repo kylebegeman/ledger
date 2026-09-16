@@ -152,7 +152,7 @@ describe("registry-driven CLI", () => {
     const explain = await captureRun(["explain", "src/nothing.ts", "--json"], tempDir);
     expect(JSON.parse(explain.stdout)).toMatchObject({
       command: "explain",
-      data: { target: "src/nothing.ts", matches: [], context: [] },
+      data: { target: "src/nothing.ts", matches: [], records: [], related: [], missing: [] },
     });
   });
 

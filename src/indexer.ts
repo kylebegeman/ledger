@@ -1,7 +1,7 @@
 import path from "node:path";
-import { coveragePatternMatches } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
+import { retrieveByPath } from "./retrieval.js";
 import type {
   LedgerIndexes,
   LedgerManifest,
@@ -52,22 +52,13 @@ export async function writeIndexes(
   ]);
 }
 
+/** Records whose file references match a path, in catalog order. Uses the shared retrieval matcher. */
 export function explainFile(
   documents: readonly ParsedLedgerDocument[],
   filePath: string,
 ): readonly NormalizedLedgerDocument[] {
-  const normalizedPath = normalizePath(filePath);
-  return documents
-    .map(normalizeDocument)
-    .filter((document) =>
-      document.files.some(
-        (candidate) =>
-          coveragePatternMatches(normalizedPath, candidate) ||
-          candidate === normalizedPath ||
-          candidate.endsWith(`/${normalizedPath}`) ||
-          normalizedPath.endsWith(`/${candidate}`),
-      ),
-    );
+  const matched = new Set(retrieveByPath(documents, filePath).records.map((record) => record.id));
+  return documents.map(normalizeDocument).filter((document) => matched.has(document.id));
 }
 
 function groupByMany(

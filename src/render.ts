@@ -134,6 +134,7 @@ export interface LedgerGraphEdge {
     | "decision"
     | "backlog"
     | "related"
+    | "supersedes"
     | "invariant"
     | "verification";
 }
@@ -484,6 +485,7 @@ export function buildRelationshipGraph(
     for (const decision of document.decisions) addEdge(recordId, `record:${decision}`, "decision");
     for (const backlog of document.backlog) addEdge(recordId, `record:${backlog}`, "backlog");
     for (const related of document.related) addEdge(recordId, `record:${related}`, "related");
+    for (const superseded of document.supersedes) addEdge(recordId, `record:${superseded}`, "supersedes");
   }
 
   return {

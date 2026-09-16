@@ -25,6 +25,7 @@ export * from "./performance.js";
 export * from "./query.js";
 export * from "./release.js";
 export * from "./render.js";
+export * from "./retrieval.js";
 export * from "./renderAssets.js";
 export * from "./search.js";
 export * from "./serve.js";

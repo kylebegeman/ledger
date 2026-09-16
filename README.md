@@ -290,7 +290,7 @@ full local verification and publishing checklist.
 | `ledger docs impact --check` | Fails when working-tree or explicit `--base`/`--head` source changes lack docs impact. |
 | `ledger docs reconcile` | Regenerates the docs routing manifest and `START_HERE.md` from the docs audit. |
 | `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
-| `ledger explain <path>` | Shows records related to a file. |
+| `ledger explain <path>` | Shows records that mention a file plus the decisions, backlog items, and superseding records one hop away. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
 | `ledger search <query> --limit 5` | Runs weighted fuzzy search over the same fields used by the static reader. |
 | `ledger search-packet <query> --budget 1600 --limit 5` | Builds a token-budgeted agent packet from weighted search results when the exact file path is unknown. |

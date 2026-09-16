@@ -171,10 +171,21 @@ CLI query output has two audiences. Human output should be short and scannable.
 compact context by showing the exact entries, invariants, and verification
 commands most relevant to the target.
 
-Conflict guidance is a focused query mode for merge resolution. It scans entries
-that mention the target path, extracts `On conflict` notes from `## Changed
-Files`, and includes the related invariants and verification checks so an agent
-can preserve the historical contract while resolving a file-level conflict.
+File-oriented retrieval shares one contract. `retrieveByPath` in
+`src/retrieval.ts` matches a target against every record's file references
+with one matcher (exact path, then coverage patterns such as `src/features/**`
+or `prefix:`, then a directory suffix), and returns for each match the record
+metadata, the matched references and how they matched, the `On conflict` rules
+from the relevant `## Changed Files` blocks, invariants, verification, and the
+records that supersede it. It then resolves one relationship hop (decisions,
+backlog items, related records, supersession in both directions) into a
+`related` list and reports references that do not resolve as `missing`.
+`explain`, `conflict`, `packet`, the MCP tools, and the library all project
+from that result, so a record found by one surface is found by every surface.
+Conflict guidance is the projection used for merge resolution; agent packets add
+budgeting on top and carry the related records so an agent can jump from a file
+to the decision that shaped it. The relationship graph emits `supersedes` edges
+from the same data.
 
 ### Git Inspector
 
