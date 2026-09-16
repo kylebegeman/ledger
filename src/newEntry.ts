@@ -310,7 +310,7 @@ function renderChangedFiles(
         "",
         `- Status: ${file.status}`,
         `- What changed: TODO: ${draftChangePrompt(workspace, file)}`,
-        `- Anchor: ${anchors.length > 0 ? anchors.join(", ") : "TODO: name the important symbol, route, command, or section."}`,
+        `- Anchor: ${anchors.length > 0 ? anchors.map((anchor) => `\`${anchor}\``).join(", ") : "TODO: name the important symbol, route, command, or section."}`,
         "- On conflict: TODO: describe what must be preserved.",
         `- Docs impact: ${draftDocsImpact(workspace, file)}`,
       ].join("\n");

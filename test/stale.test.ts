@@ -89,6 +89,28 @@ describe("anchor and invariant freshness", () => {
     expect(report.issues.some((issue) => issue.target === "run")).toBe(false);
   });
 
+  it("skips descriptive and self-naming anchors and matches dotted key paths by segment", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-precision-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "assets"), { recursive: true });
+    await writeFile(path.join(tempDir, "assets", "logo.svg"), "<svg></svg>\n");
+    await writeFile(path.join(tempDir, "settings.yaml"), "git:\n  ignore:\n    - dist/**\n");
+    await writeFile(
+      path.join(tempDir, ".ledger", "entries", "0003-precision.md"),
+      anchoredEntry()
+        .replace('id: "0002"', 'id: "0003"')
+        .replace('files:\n  - "src/cli.ts"\n  - "src/other.ts"', 'files:\n  - "assets/logo.svg"\n  - "settings.yaml"')
+        .replace("### src/cli.ts\n\n- What changed: dispatch.\n- Anchor: \`run\`, \`oldDispatch\`", "### assets/logo.svg\n\n- What changed: icon.\n- Anchor: \`logo.svg\`, header image of the site")
+        .replace("### src/other.ts\n\n- What changed: constant.\n- Anchor: keep", "### settings.yaml\n\n- What changed: ignore list.\n- Anchor: \`git.ignore\`, \`git.missingKey\`")
+        .replace("- \`oldDispatch\` remains the only dispatch path.", "- Settings stay valid."),
+      "utf8",
+    );
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+    expect(report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target)).toEqual(["git.missingKey"]);
+  });
+
   it("honors anchor acknowledgements", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-ack-"));
     await initWorkspace(tempDir);

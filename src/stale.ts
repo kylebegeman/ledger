@@ -5,7 +5,7 @@ import { isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import { extractBullets, getSectionBody } from "./query.js";
-import { extractAnchoredBlocks } from "./retrieval.js";
+import { extractAnchoredBlocks, type LedgerAnchor } from "./retrieval.js";
 import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js";
 import { evidenceFreshness, readEvidence } from "./verify.js";
 import type {
@@ -141,8 +141,9 @@ export async function detectStaleKnowledge(
 
     if (parsed && document.kind === "change") {
       for (const block of extractAnchoredBlocks(getSectionBody(parsed, "Changed Files"), document.files)) {
-        if (block.anchors.length === 0 || block.files.length === 0) continue;
-        const missing = await anchorsMissingFromFiles(workspace, block.files, block.anchors);
+        const checkable = block.anchors.filter((anchor) => isCheckableAnchor(anchor, block.files)).map((anchor) => anchor.text);
+        if (checkable.length === 0 || block.files.length === 0) continue;
+        const missing = await anchorsMissingFromFiles(workspace, block.files, checkable);
         for (const anchor of missing) {
           if (acknowledged.has(anchor) || acknowledged.has(`anchors:${anchor}`)) continue;
           staleTargets.add(anchor);
@@ -243,7 +244,29 @@ async function symbolsMissingFromFiles(
   return checkableSymbols.filter((symbol) => !combined.includes(symbol));
 }
 
-/** Anchors from a Changed Files block that none of the block's existing files contain. */
+/**
+ * Whether an anchor names checkable text. Descriptions written without
+ * backticks that contain spaces are prose, and an anchor that is the block's
+ * own file path, file name, or directory names the file rather than its content.
+ */
+export function isCheckableAnchor(anchor: LedgerAnchor, files: readonly string[]): boolean {
+  if (!anchor.literal && /\s/.test(anchor.text)) return false;
+  const names = new Set<string>();
+  for (const file of files) {
+    const normalized = normalizePath(file);
+    names.add(normalized);
+    for (const segment of normalized.split("/")) if (segment) names.add(segment);
+  }
+  return !names.has(normalizePath(anchor.text));
+}
+
+const dottedKeyPattern = /^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)+$/;
+
+/**
+ * Anchors from a Changed Files block that none of the block's existing files
+ * contain. A dotted key path such as `git.ignore` counts as present when every
+ * segment appears, because YAML and JSON spell nested keys across lines.
+ */
 async function anchorsMissingFromFiles(
   workspace: LedgerWorkspace,
   files: readonly string[],
@@ -251,7 +274,11 @@ async function anchorsMissingFromFiles(
 ): Promise<readonly string[]> {
   const combined = await readReferencedFiles(workspace, files);
   if (combined === undefined) return [];
-  return anchors.filter((anchor) => !combined.includes(anchor));
+  return anchors.filter((anchor) => {
+    if (combined.includes(anchor)) return false;
+    if (dottedKeyPattern.test(anchor)) return !anchor.split(".").every((segment) => combined.includes(segment));
+    return true;
+  });
 }
 
 /**

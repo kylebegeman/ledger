@@ -65,8 +65,8 @@ describe("createChangeEntry", () => {
     expect(entry).toContain("- Status: modified");
     expect(entry).toContain("summarize the documentation update");
     expect(entry).toContain("summarize the implementation change");
-    expect(entry).toContain("- Anchor: Configuration, Runtime");
-    expect(entry).toContain("- Anchor: runFeature, value");
+    expect(entry).toContain("- Anchor: `Configuration`, `Runtime`");
+    expect(entry).toContain("- Anchor: `runFeature`, `value`");
     expect(entry).toContain("- Docs impact: This file is direct docs impact.");
     expect(entry).toContain("- Docs impact: TODO: name updated docs");
   });
