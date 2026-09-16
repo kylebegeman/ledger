@@ -315,7 +315,7 @@ full local verification and publishing checklist.
 | `ledger stale --check` | Finds stale knowledge signals such as missing relationships, stale symbols, and release verification gaps. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
-| `ledger docs impact --check` | Fails when working-tree or explicit `--base`/`--head` source changes lack docs impact. |
+| `ledger docs impact --check` | Fails when a changed source file has no docs impact evidence from a change entry in the same change set (a reviewed `docsImpact` declaration or referenced docs). |
 | `ledger docs reconcile` | Regenerates the docs routing manifest and `START_HERE.md` from the docs audit. |
 | `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
 | `ledger explain <path>` | Shows records that mention a file plus the decisions, backlog items, and superseding records one hop away. |

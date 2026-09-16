@@ -171,8 +171,11 @@ file would make entries less useful.
 
 ### Docs Impact Declaration
 
-Source changes can satisfy `ledger docs impact --check` by changing docs files,
-referencing docs through `docs`, or adding an explicit docs-impact declaration:
+`ledger docs impact --check` judges each changed source file on its own
+evidence: a change entry in the same change set must list the file and either
+reference docs through `docs` or `files` or carry an explicit docs-impact
+declaration. Editing a docs file elsewhere in the change set does not satisfy
+a source file by itself. The declaration looks like this:
 
 ```yaml
 docsImpact:

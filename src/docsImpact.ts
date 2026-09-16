@@ -1,9 +1,11 @@
 import path from "node:path";
-import { isCoverageRequired } from "./coverage.js";
+import { coveragePatternMatches, isCoverageRequired } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import type {
   LedgerDocsImpactDeclaration,
+  LedgerDocsImpactEvidence,
+  LedgerDocsImpactFile,
   LedgerDocsImpactStatus,
   LedgerDocsImpact,
   LedgerWorkspace,
@@ -35,10 +37,7 @@ export function buildDocsImpact(
     docsRoot,
   );
   const declarations = collectDocsImpactDeclarations(changedEntryDocuments, docsRoot);
-  const hasDocsImpact =
-    docsFiles.length > 0 ||
-    referencedDocs.length > 0 ||
-    declarations.length > 0;
+  const files = sourceFiles.map((filePath) => docsImpactFile(filePath, changedEntryDocuments, docsRoot));
 
   return {
     docsRoot,
@@ -49,8 +48,40 @@ export function buildDocsImpact(
     changedEntries,
     referencedDocs,
     declarations,
-    missingDocsImpact: sourceFiles.length > 0 && !hasDocsImpact ? sourceFiles : [],
+    files,
+    missingDocsImpact: files.filter((file) => !file.satisfied).map((file) => file.path),
   };
+}
+
+/**
+ * Evidence for one source file: every changed entry that lists the file
+ * contributes its reviewed docs-impact declaration or its docs references.
+ * A file with no evidence is missing docs impact, however many docs changed
+ * elsewhere in the set.
+ */
+function docsImpactFile(
+  filePath: string,
+  changedEntries: readonly ParsedLedgerDocument[],
+  docsRoot: string,
+): LedgerDocsImpactFile {
+  const entries: string[] = [];
+  const evidence: LedgerDocsImpactEvidence[] = [];
+  for (const document of changedEntries) {
+    const normalized = normalizeDocument(document);
+    if (document.kind !== "change") continue;
+    const listed = normalized.files.some((pattern) => coveragePatternMatches(filePath, pattern));
+    if (!listed) continue;
+    const entry = normalizePath(document.relativePath);
+    entries.push(entry);
+    const declaration = docsImpactDeclaration(document, docsRoot);
+    if (declaration) {
+      evidence.push({ entry, kind: "declaration", status: declaration.status, reason: declaration.reason, docs: declaration.docs });
+      continue;
+    }
+    const docs = [...new Set([...normalized.docs, ...normalized.files].map(normalizePath).filter((candidate) => isDocsPath(candidate, docsRoot)))].sort();
+    if (docs.length > 0) evidence.push({ entry, kind: "docs-reference", docs });
+  }
+  return { path: filePath, satisfied: evidence.length > 0, entries: entries.sort(), evidence };
 }
 
 export async function writeDocsImpactReport(
@@ -95,6 +126,10 @@ export function formatDocsImpactReport(impact: LedgerDocsImpact): string {
     "## Explicit Docs Impact",
     "",
     ...declarationLines(impact.declarations),
+    "",
+    "## Per-File Evidence",
+    "",
+    ...fileEvidenceLines(impact.files),
     "",
     "## Missing Docs Impact",
     "",
@@ -203,6 +238,28 @@ function declarationLines(
       ? ` Docs: ${declaration.docs.map((doc) => `\`${doc}\``).join(", ")}.`
       : "";
     return `- \`${declaration.entry}\`: ${declaration.status}${reason}.${docs}`;
+  });
+}
+
+function fileEvidenceLines(files: readonly LedgerDocsImpactFile[]): readonly string[] {
+  if (files.length === 0) return ["None."];
+  return files.flatMap((file) => {
+    const head = `- ${file.satisfied ? "satisfied" : "missing"}: \`${file.path}\``;
+    if (file.evidence.length === 0) {
+      return [
+        file.entries.length > 0
+          ? `${head} (listed by ${file.entries.map((entry) => `\`${entry}\``).join(", ")} without a reviewed docs impact)`
+          : `${head} (no changed entry lists it)`,
+      ];
+    }
+    return [
+      head,
+      ...file.evidence.map((item) => {
+        const docs = item.docs.length > 0 ? ` Docs: ${item.docs.map((doc) => `\`${doc}\``).join(", ")}.` : "";
+        const detail = item.kind === "declaration" ? `${item.status}${item.reason ? `: ${item.reason}` : ""}` : "references docs";
+        return `  - \`${item.entry}\`: ${detail}${docs}`;
+      }),
+    ];
   });
 }
 

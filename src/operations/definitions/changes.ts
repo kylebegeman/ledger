@@ -199,6 +199,7 @@ export const docsImpactOperation = defineOperation<DocsImpactInput, LedgerDocsIm
     docsFiles: z.array(z.string()),
     referencedDocs: z.array(z.string()),
     declarations: z.array(looseRecord({})),
+    files: z.array(looseRecord({ path: z.string(), satisfied: z.boolean() })),
     missingDocsImpact: z.array(z.string()),
   }),
   cli: {
@@ -210,8 +211,10 @@ export const docsImpactOperation = defineOperation<DocsImpactInput, LedgerDocsIm
     },
     json: true,
     defaults: { writeReport: true },
-    help: `Reports whether changed source files have an explicit docs impact. --base and
---head inspect their merge-base change range.`,
+    help: `Reports whether each changed source file has docs impact evidence: a changed
+change entry that lists the file and carries a reviewed docsImpact declaration
+or references docs. A docs edit elsewhere in the change set does not satisfy a
+file on its own. --base and --head inspect their merge-base change range.`,
   },
   mcp: {
     tool: "ledger_docs_impact",

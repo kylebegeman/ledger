@@ -548,6 +548,9 @@ relationship:
 - backlog items can link to product specs
 - routing config can point at an existing `docs/llm/START_HERE.md`
 - validation can warn when a source doc changed without a Ledger entry
+- docs impact evidence is per source file: a changed entry that lists the file
+  must reference docs or declare docs impact, so one docs touch cannot satisfy
+  a whole change set
 - docs impact can check whether source changes have an explicit docs touch or a
   changed Ledger entry that references docs
 
