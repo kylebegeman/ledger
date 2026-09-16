@@ -44,10 +44,12 @@ jobs:
 
       - name: Verify Ledger pull request range
         if: github.event_name == 'pull_request'
-        run: >-
-          node dist/cli.js ci
-          --base "${{ github.event.pull_request.base.sha }}"
-          --head "${{ github.event.pull_request.head.sha }}"
+        uses: ./
+        with:
+          command: node dist/cli.js
+          node-version: ""
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
 
   supply-chain:
     name: Supply chain and install smoke test

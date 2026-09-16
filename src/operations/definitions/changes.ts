@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { runCiChecks, type LedgerCiResult } from "../../ci.js";
+import { appendFile } from "node:fs/promises";
+import { formatCiAnnotations, formatCiSummaryMarkdown, runCiChecks, type LedgerCiResult } from "../../ci.js";
 import { checkCoverage } from "../../coverage.js";
 import { writeDocsAuditReport } from "../../docs.js";
 import { buildDocsImpact, writeDocsImpactReport } from "../../docsImpact.js";
@@ -115,9 +116,19 @@ merge-base change range.`,
 interface CiInput extends ChangeRangeInput, Record<string, unknown> {
   readonly currentOnly?: boolean;
   readonly noBaseline?: boolean;
+  readonly github?: boolean;
 }
 
-export const ciOperation = defineOperation<CiInput, LedgerCiResult>({
+interface CiOutput extends LedgerCiResult {
+  /** Present with --github: the annotations printed and the summary written. */
+  readonly github?: {
+    readonly annotations: readonly string[];
+    readonly summary: string;
+    readonly summaryPath?: string;
+  };
+}
+
+export const ciOperation = defineOperation<CiInput, CiOutput>({
   name: "ci",
   title: "Run Ledger CI checks",
   description: "Run validation, docs audit, coverage, and docs impact as one check.",
@@ -127,22 +138,28 @@ export const ciOperation = defineOperation<CiInput, LedgerCiResult>({
     ...changeRangeShape,
     currentOnly: z.boolean().optional().describe("Skip historical records."),
     noBaseline: z.boolean().optional().describe("Ignore the configured validation baseline."),
+    github: z.boolean().optional().describe("Print GitHub Actions annotations and append a job summary."),
   }),
   output: looseRecord({
     ok: z.boolean(),
     checks: z.array(looseRecord({ name: z.string(), ok: z.boolean(), errors: z.number(), warnings: z.number() })),
+    github: looseRecord({ annotations: z.array(z.string()), summary: z.string(), summaryPath: z.string().optional() }).optional(),
   }),
   cli: {
     path: ["ci"],
-    usage: "ledger ci [--staged | --base <revision> --head <revision>] [--current-only] [--no-baseline] [--json]",
+    usage: "ledger ci [--staged | --base <revision> --head <revision>] [--current-only] [--no-baseline] [--github] [--json]",
     flags: {
       ...changeRangeFlags,
       "current-only": { type: "boolean", description: "Skip historical records." },
       "no-baseline": { type: "boolean", description: "Ignore the configured validation baseline." },
+      github: { type: "boolean", description: "Print GitHub Actions annotations and append a job summary." },
     },
     json: true,
     help: `Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.
---base and --head inspect their merge-base change range.`,
+--base and --head inspect their merge-base change range. --github prints one
+workflow command per failing signal (::error with the file path) so GitHub
+annotates the pull request, and appends a Markdown summary to the file named
+by GITHUB_STEP_SUMMARY when it is set. The repository's action.yml wraps this.`,
   },
   mcp: {
     tool: "ledger_ci",
@@ -163,7 +180,13 @@ export const ciOperation = defineOperation<CiInput, LedgerCiResult>({
     await writeValidationReport(workspace, result.validation);
     await writeDocsAuditReport(workspace, result.docsAudit);
     await writeDocsImpactReport(workspace, result.docsImpact);
-    return { data: result, exitCode: result.ok ? 0 : 1 };
+    if (!input.github) return { data: result, exitCode: result.ok ? 0 : 1 };
+    const annotations = formatCiAnnotations(result);
+    const summary = formatCiSummaryMarkdown(result);
+    for (const line of annotations) context.log(line);
+    const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+    if (summaryPath) await appendFile(summaryPath, `${summary}\n`, "utf8");
+    return { data: { ...result, github: { annotations, summary, summaryPath } }, exitCode: result.ok ? 0 : 1 };
   },
   format(data) {
     const lines = [`Ledger CI: ${data.ok ? "passed" : "failed"}.`];

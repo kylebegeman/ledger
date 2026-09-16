@@ -507,6 +507,21 @@ Ledger compares the merge-base range. `--staged` and `--base`/`--head` are
 mutually exclusive, and Git inspection failures are reported as operational
 errors instead of being treated as zero changed files.
 
+On GitHub, use the repository's composite action instead of scripting the
+range yourself. It runs `ledger ci --github`, which annotates the pull request
+with one `::error` per missing receipt, historical coverage, docs impact gap,
+or validation error, and writes a job summary table:
+
+```yaml
+- uses: kylebegeman/ledger@v0.7.0
+  with:
+    comment: "true" # optional; needs pull-requests: write
+```
+
+The action installs the published package through `npx`; pass `command:
+node dist/cli.js` to run a checkout's own build, and `node-version: ""` to
+skip its Node setup.
+
 The entry should tell the next agent what changed, what must remain true, and
 how to verify the behavior.
 

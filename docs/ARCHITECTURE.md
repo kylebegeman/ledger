@@ -232,7 +232,13 @@ result. It does not replace the individual commands; it packages their current
 state for CI, local preflight checks, and agent automation. Human output is
 compact, while JSON output preserves the nested results for tools. In clean PR
 checkouts, `--base <revision> --head <revision>` supplies the committed range to
-coverage and docs impact.
+coverage and docs impact. `--github` adds GitHub Actions output: one
+workflow-command annotation per failing signal with the file path, and a
+Markdown job summary appended to `GITHUB_STEP_SUMMARY`. The repository's
+`action.yml` is a composite action that wraps the command for pull requests,
+optionally posting the summary as a comment; this repository's own CI runs it
+with `command: node dist/cli.js` so the action is exercised on every pull
+request.
 
 ### Integrity
 

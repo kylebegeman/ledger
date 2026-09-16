@@ -185,8 +185,9 @@ Deliverables:
 
 ## Phase 7: CI And GitHub
 
-Status: local and repository CI plus clean-checkout PR range checks shipped;
-reusable actions and richer PR annotations remain future work
+Status: shipped. Local and repository CI, clean-checkout PR range checks, and
+in 0.7 the composite `action.yml` with `ledger ci --github` annotations, a job
+summary, and an optional pull request comment
 
 Goals:
 

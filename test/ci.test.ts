@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import os from "node:os";
 import path from "node:path";
 import { defaultConfig } from "../src/config.js";
-import { runCiChecks } from "../src/ci.js";
+import { formatCiAnnotations, formatCiSummaryMarkdown, runCiChecks } from "../src/ci.js";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
 
@@ -57,6 +57,46 @@ describe("runCiChecks", () => {
     expect(result.coverage.changedFiles).toEqual(["src/range.ts"]);
     expect(result.coverage.missingFiles).toEqual(["src/range.ts"]);
     expect(result.docsImpact.missingDocsImpact).toEqual(["src/range.ts"]);
+  });
+});
+
+describe("GitHub output", () => {
+  it("annotates every failing signal and summarizes the checks", async () => {
+    const testWorkspace = await workspace();
+    await git("config", "user.email", "ledger@example.com");
+    await git("config", "user.name", "Ledger Test");
+    await git("commit", "--allow-empty", "-m", "base");
+    const base = await gitOutput("rev-parse", "HEAD");
+    await mkdir(path.join(testWorkspace.projectRoot, "src"), { recursive: true });
+    await writeFile(path.join(testWorkspace.projectRoot, "src", "range.ts"), "export {};\n");
+    await git("add", ".");
+    await git("commit", "-m", "head");
+    const head = await gitOutput("rev-parse", "HEAD");
+    const result = await runCiChecks(testWorkspace, [document({ title: "" })], { base, head });
+
+    const annotations = formatCiAnnotations(result);
+    expect(annotations).toContainEqual(expect.stringMatching(/^::error file=src\/range\.ts,title=Ledger coverage::no change entry/));
+    expect(annotations).toContainEqual(expect.stringMatching(/^::error file=src\/range\.ts,title=Ledger docs impact::/));
+    expect(annotations).toContainEqual(expect.stringMatching(/^::error file=\.ledger\/entries\/0001\.md,title=Ledger validation::/));
+    expect(annotations.every((line) => !line.includes("\n"))).toBe(true);
+
+    const summary = formatCiSummaryMarkdown(result);
+    expect(summary).toContain("## Ledger CI: failed");
+    expect(summary).toContain("| coverage | fail | 1 | 0 |");
+    expect(summary).toContain("- coverage: `src/range.ts` has no change entry in this change set");
+    expect(summary).toContain("- docs impact: `src/range.ts`");
+  });
+
+  it("escapes workflow command data", () => {
+    const result = {
+      ok: false,
+      checks: [],
+      validation: { issues: [], errors: [{ level: "error" as const, message: "bad: 100%\nline two", path: "a,b.md" }], warnings: [], suppressed: [] },
+      docsAudit: { docsRoot: "docs", adoption: "partial" as const, files: [], referencedDocs: [], missingReferences: [], unreferencedDocs: [], scratchDocs: [], generatedDocs: [], unknownDocs: [] },
+      coverage: { mode: "current" as const, changedFiles: [], requiredFiles: [], coveredFiles: [], missingFiles: [], historicalFiles: [], currentEntries: [], files: [] },
+      docsImpact: { docsRoot: "docs", changedFiles: [], sourceFiles: [], docsFiles: [], ledgerFiles: [], changedEntries: [], referencedDocs: [], declarations: [], files: [], missingDocsImpact: [] },
+    };
+    expect(formatCiAnnotations(result)).toEqual(["::error file=a%2Cb.md,title=Ledger validation::bad: 100%25%0Aline two"]);
   });
 });
 

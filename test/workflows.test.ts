@@ -26,10 +26,27 @@ describe("repository automation", () => {
     expect(workflow.jobs.test.strategy.matrix.node).toEqual([22, 24]);
     expect(source).toContain("fetch-depth: 0");
     expect(source).toContain("Verify Ledger pull request range");
+    expect(source).toContain("uses: ./");
+    expect(source).toContain("command: node dist/cli.js");
     expect(source).toContain("github.event.pull_request.base.sha");
     expect(source).toContain("github.event.pull_request.head.sha");
     expect(source).toContain("npm audit --omit=dev --audit-level=high");
     expect(source).toContain("npm install --ignore-scripts");
+    expectActionsPinned(source);
+  });
+
+  it("ships a composite action that runs ledger ci with annotations", async () => {
+    const source = await readFile("action.yml", "utf8");
+    const action = parse(source) as {
+      readonly inputs: Record<string, { readonly default?: string }>;
+      readonly runs: { readonly using: string; readonly steps: readonly { readonly run?: string; readonly uses?: string }[] };
+    };
+    expect(action.runs.using).toBe("composite");
+    expect(Object.keys(action.inputs).sort()).toEqual(["base", "command", "comment", "head", "node-version"]);
+    expect(action.inputs.command?.default).toContain("@kylebegeman/ledger");
+    expect(action.inputs.comment?.default).toBe("false");
+    expect(action.runs.steps.some((step) => step.run?.includes("ci --github"))).toBe(true);
+    expect(action.runs.steps.some((step) => step.run?.includes("issues/$PR_NUMBER/comments"))).toBe(true);
     expectActionsPinned(source);
   });
 
