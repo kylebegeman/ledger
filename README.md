@@ -706,7 +706,9 @@ npm run ci
 ```
 
 `npm run ci` runs typecheck, tests, build, Ledger's own CI checks, and an npm
-package dry run.
+package dry run. The reader's browser runtime and stylesheet are bundled from
+`src/reader/` with esbuild (`npm run build:reader`, run automatically by
+`build` and `test`) and tested in happy-dom.
 
 Tagged releases use `.github/workflows/release.yml`. Pushing `vX.Y.Z` runs the
 full verification, publishes the package to npm through trusted publishing with

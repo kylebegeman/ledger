@@ -444,6 +444,16 @@ documented Firefox floor. Icons ship as a single SVG symbol sprite
 referenced per use. Raw Markdown remains available to library consumers but
 is not embedded into the initial HTML payload.
 
+The browser code lives in `src/reader/runtime.ts`, a typed module compiled
+against the DOM library, and the stylesheet in `src/reader/styles.css`.
+esbuild bundles both into `dist/reader/` (`npm run build:reader`, part of
+`build` and run before `test`); `src/renderAssets.ts` reads the bundle and
+`renderHtml.ts` inlines it, so the artifact stays a single self-contained
+`index.html`. The runtime imports `fuzzyScore` and `scoreSearchFields` from
+`src/searchCore.ts`, the same module `ledger search` uses, and a happy-dom
+test mounts the rendered HTML, evaluates the bundle, and exercises search,
+filters, the record panel, the theme toggle, and the command palette.
+
 Browser behavior remains dependency-free and progressively enhanced. Search is
 available inline and through a native dialog opened with `/` or `Cmd/Ctrl+K`.
 Search input is debounced, ranked results label the top match and ordinal
