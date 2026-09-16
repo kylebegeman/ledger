@@ -5,11 +5,18 @@ source:
   backlog: .ledger/backlog
   decisions: .ledger/decisions
   releases: .ledger/releases
+  sessions: .ledger/sessions
 ids:
   entryPrefix: ""
   entryWidth: 4
   backlogPrefix: B
+  backlogWidth: 3
   decisionPrefix: D
+  decisionWidth: 3
+  sessionPrefix: S
+  sessionWidth: 4
+sessions:
+  expiresInDays: 7
 validation:
   profile: standard
   requireVerification: true
@@ -56,6 +63,10 @@ validation:
       - Impact
       - Recommendation
       - Follow-ups
+    session:
+      - Summary
+      - Learned
+      - Next
 schema:
   allowedFrontmatterFields: []
   extensions: {}

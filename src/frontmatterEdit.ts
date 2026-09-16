@@ -51,6 +51,31 @@ export function ensureFrontmatterArrays(
 }
 
 /**
+ * Replace a list-valued frontmatter field in place, or append it when missing.
+ * Handles inline `key: []` and block lists.
+ */
+export function setFrontmatterArray(
+  markdown: string,
+  key: string,
+  values: readonly string[],
+): string {
+  const match = frontmatterPattern.exec(markdown);
+  if (!match) {
+    throw new LedgerError("invalid-markdown", "Cannot update frontmatter: missing YAML frontmatter");
+  }
+  const frontmatter = match[1] ?? "";
+  const rendered = `${key}:${yamlStringArray(values)}`;
+  const pattern = new RegExp(
+    `^${escapeRegExp(key)}[ \\t]*:(?:[ \\t]*\\[[^\\]]*\\][ \\t]*|[ \\t]*(?:\\r?\\n[ \\t]+-[^\\n]*)*)$`,
+    "m",
+  );
+  const updated = pattern.test(frontmatter)
+    ? frontmatter.replace(pattern, rendered)
+    : `${frontmatter}\n${rendered}`;
+  return markdown.replace(match[0], `---\n${updated}\n---`);
+}
+
+/**
  * Replace the body of a level-two Markdown section. The section keeps its
  * heading; the new body is written with one blank line on each side. Returns
  * the input unchanged when the section does not exist.

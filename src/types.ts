@@ -4,7 +4,8 @@ export type LedgerDocumentKind =
   | "decision"
   | "release"
   | "product-note"
-  | "feedback";
+  | "feedback"
+  | "session";
 
 export type LedgerIssueLevel = "error" | "warning";
 
@@ -40,6 +41,7 @@ export interface LedgerConfig {
     readonly backlog: string;
     readonly decisions: string;
     readonly releases: string;
+    readonly sessions: string;
   };
   readonly ids: {
     readonly entryPrefix: string;
@@ -48,6 +50,12 @@ export interface LedgerConfig {
     readonly backlogWidth: number;
     readonly decisionPrefix: string;
     readonly decisionWidth: number;
+    readonly sessionPrefix: string;
+    readonly sessionWidth: number;
+  };
+  readonly sessions: {
+    /** Days an unpromoted session record stays fresh before it expires. */
+    readonly expiresInDays: number;
   };
   readonly validation: {
     readonly profile: LedgerValidationProfile;
@@ -142,6 +150,9 @@ export interface LedgerFrontmatter {
   readonly docsImpact?: unknown;
   readonly entries?: unknown;
   readonly staleRefs?: unknown;
+  readonly expires?: unknown;
+  readonly host?: unknown;
+  readonly hostSession?: unknown;
   readonly [key: string]: unknown;
 }
 
@@ -181,6 +192,12 @@ export interface NormalizedLedgerDocument {
   readonly supersedes: readonly string[];
   readonly related: readonly string[];
   readonly docs: readonly string[];
+  /** Expiry date for short-lived records such as sessions. */
+  readonly expires?: string;
+  /** Agent host that created a session record, for example claude-code. */
+  readonly host?: string;
+  /** Host-assigned session identifier used to find the active session record. */
+  readonly hostSession?: string;
   readonly extensions: Readonly<Record<string, unknown>>;
   readonly path: string;
   readonly sections: readonly string[];

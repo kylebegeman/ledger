@@ -560,12 +560,13 @@ export const staticReaderStyles = `    :root {
     .record-type[data-kind-tone="backlog"] { background: var(--warning-soft); color: var(--warning); }
     .record-type[data-kind-tone="release"] { background: var(--positive-soft); color: var(--positive); }
     .record-type[data-kind-tone="product-note"], .record-type[data-kind-tone="feedback"] { background: var(--accent-alt-soft); color: var(--accent-alt); }
+    .record-type[data-kind-tone="session"] { background: var(--surface-soft); color: var(--muted); }
     .record-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .status-dot { padding-left: 7px; background: transparent; }
     .status-dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
     .status-dot[data-status-tone="landed"]::before, .status-dot[data-status-tone="released"]::before, .status-dot[data-status-tone="accepted"]::before, .status-dot[data-status-tone="shipped"]::before { background: var(--positive); }
-    .status-dot[data-status-tone="draft"]::before, .status-dot[data-status-tone="planned"]::before, .status-dot[data-status-tone="proposed"]::before, .status-dot[data-status-tone="in-progress"]::before { background: var(--warning); }
-    .status-dot[data-status-tone="blocked"]::before, .status-dot[data-status-tone="rejected"]::before, .status-dot[data-status-tone="superseded"]::before, .status-dot[data-status-tone="deprecated"]::before { background: var(--danger); }
+    .status-dot[data-status-tone="draft"]::before, .status-dot[data-status-tone="planned"]::before, .status-dot[data-status-tone="proposed"]::before, .status-dot[data-status-tone="in-progress"]::before, .status-dot[data-status-tone="active"]::before { background: var(--warning); }
+    .status-dot[data-status-tone="blocked"]::before, .status-dot[data-status-tone="rejected"]::before, .status-dot[data-status-tone="superseded"]::before, .status-dot[data-status-tone="deprecated"]::before, .status-dot[data-status-tone="expired"]::before { background: var(--danger); }
     .record-date { color: var(--muted); font-size: 0.7rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
     .score-label { background: var(--accent-soft); color: var(--accent-strong); }
     .entry-summary {

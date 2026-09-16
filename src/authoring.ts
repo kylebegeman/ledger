@@ -2,7 +2,7 @@ import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
-import { ensureFrontmatterArrays, setFrontmatterScalars } from "./frontmatterEdit.js";
+import { ensureFrontmatterArrays, setFrontmatterArray, setFrontmatterScalars } from "./frontmatterEdit.js";
 import { LedgerError } from "./machine.js";
 import { draftChangeEntry, slugify, type DraftedRecord } from "./newEntry.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
@@ -14,7 +14,7 @@ import type {
   NormalizedLedgerDocument,
   ParsedLedgerDocument,
 } from "./types.js";
-import { backlogTemplate, decisionTemplate } from "./workspace.js";
+import { backlogTemplate, decisionTemplate, sessionTemplatePlaceholders } from "./workspace.js";
 
 /** Backlog status written when an item is promoted into a change entry. */
 export const promotedBacklogStatus = "in-progress";
@@ -159,10 +159,15 @@ export interface PromoteResult {
   readonly carriedChecks: readonly string[];
 }
 
+/** Session status written when a session is promoted into a change entry. */
+export const promotedSessionStatus = "promoted";
+
 /**
- * Turn a backlog item into a linked draft change entry. The entry carries the
- * item's areas, decisions, and acceptance checks; the item's status is updated
- * in the same transaction.
+ * Turn a backlog item or session record into a linked draft change entry.
+ * A backlog item contributes its areas, decisions, and acceptance checks
+ * (as Verification bullets) and becomes `in-progress`. A session contributes
+ * its touched files, areas, and Learned and Next bullets (as Notes) and
+ * becomes `promoted`. The source record is updated in the same transaction.
  */
 export async function promoteRecord(
   workspace: LedgerWorkspace,
@@ -175,34 +180,43 @@ export async function promoteRecord(
     throw new LedgerError("record-not-found", `Ledger record ${id} was not found`, { id });
   }
   const { parsed, normalized } = found;
-  if (normalized.kind !== "backlog") {
+  if (normalized.kind !== "backlog" && normalized.kind !== "session") {
     throw new LedgerError(
       "invalid-argument",
-      `Only backlog items can be promoted; ${id} is a ${normalized.kind} record`,
+      `Only backlog items and sessions can be promoted; ${id} is a ${normalized.kind} record`,
       { id, kind: normalized.kind },
     );
   }
+  const isSession = normalized.kind === "session";
 
-  const carriedChecks = extractBullets(getSectionBody(parsed, "Acceptance Checks"));
+  const carriedChecks = isSession ? [] : extractBullets(getSectionBody(parsed, "Acceptance Checks"));
+  const sessionNotes = isSession ? sessionNoteLines(parsed) : [];
+  const sectionBodies: Record<string, string> = {};
+  if (carriedChecks.length > 0) {
+    sectionBodies.Verification = carriedChecks.map((check) => `- ${check}`).join("\n");
+  }
+  if (sessionNotes.length > 0) sectionBodies.Notes = sessionNotes.join("\n");
   const draft = await draftChangeEntry(workspace, documents, {
     title: options.title ?? normalized.title,
     fromDiff: options.fromDiff,
     staged: options.staged,
     areas: options.areas && options.areas.length > 0 ? options.areas : normalized.areas,
     status: options.status,
-    backlog: [normalized.id],
+    files: isSession ? normalized.files : [],
+    backlog: isSession ? normalized.backlog : [normalized.id],
     decisions: normalized.decisions,
-    related: normalized.related,
-    sectionBodies: carriedChecks.length > 0
-      ? { Verification: carriedChecks.map((check) => `- ${check}`).join("\n") }
-      : {},
+    related: isSession ? [normalized.id, ...normalized.related] : normalized.related,
+    sectionBodies,
   });
 
-  const sourceStatus = options.sourceStatus ?? promotedBacklogStatus;
-  const updatedSource = setFrontmatterScalars(parsed.raw, {
+  const sourceStatus = options.sourceStatus ?? (isSession ? promotedSessionStatus : promotedBacklogStatus);
+  let updatedSource = setFrontmatterScalars(parsed.raw, {
     status: sourceStatus,
     updated: new Date().toISOString().slice(0, 10),
   });
+  if (isSession) {
+    updatedSource = setFrontmatterArray(updatedSource, "related", [...new Set([...normalized.related, draft.id])]);
+  }
   await applyFileTransaction(workspace, `promote ${normalized.id}`, [
     { path: draft.path, content: draft.content, expectedHash: null },
     {
@@ -252,6 +266,18 @@ export function readReleaseNotes(
     path: normalizePath(parsed.relativePath),
     notes: (getSectionBody(parsed, "Public Notes") ?? "").trim(),
   };
+}
+
+function sessionNoteLines(parsed: ParsedLedgerDocument): readonly string[] {
+  const lines: string[] = [];
+  for (const section of ["Learned", "Next"] as const) {
+    const bullets = extractBullets(getSectionBody(parsed, section)).filter(
+      (bullet) => !sessionTemplatePlaceholders.includes(bullet),
+    );
+    if (bullets.length === 0) continue;
+    lines.push(`${section}:`, ...bullets.map((bullet) => `- ${bullet}`), "");
+  }
+  return lines.length > 0 ? lines.slice(0, -1) : lines;
 }
 
 export function findRecordById(

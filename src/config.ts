@@ -16,6 +16,7 @@ const documentKinds: readonly LedgerDocumentKind[] = [
   "release",
   "product-note",
   "feedback",
+  "session",
 ];
 
 const requiredSections: Record<LedgerDocumentKind, readonly string[]> = {
@@ -39,6 +40,7 @@ const requiredSections: Record<LedgerDocumentKind, readonly string[]> = {
   release: ["Summary", "Public Notes", "Changes", "Verification", "Known Issues"],
   "product-note": ["Context", "Finding", "Impact", "Recommendation", "Follow-ups"],
   feedback: ["Context", "Finding", "Impact", "Recommendation", "Follow-ups"],
+  session: ["Summary", "Learned", "Next"],
 };
 
 export const currentConfigVersion = 1;
@@ -64,6 +66,7 @@ export const defaultConfig: LedgerConfig = {
     backlog: ".ledger/backlog",
     decisions: ".ledger/decisions",
     releases: ".ledger/releases",
+    sessions: ".ledger/sessions",
   },
   ids: {
     entryPrefix: "",
@@ -72,6 +75,11 @@ export const defaultConfig: LedgerConfig = {
     backlogWidth: 3,
     decisionPrefix: "D",
     decisionWidth: 3,
+    sessionPrefix: "S",
+    sessionWidth: 4,
+  },
+  sessions: {
+    expiresInDays: 7,
   },
   validation: {
     profile: "standard",
@@ -215,6 +223,7 @@ type PartialLedgerConfig = {
   readonly project?: string;
   readonly source?: Partial<LedgerConfig["source"]>;
   readonly ids?: Partial<LedgerConfig["ids"]>;
+  readonly sessions?: Partial<LedgerConfig["sessions"]>;
   readonly validation?: Partial<LedgerConfig["validation"]> & {
     readonly requiredSections?: Partial<Record<LedgerDocumentKind, readonly string[]>>;
   };
@@ -259,6 +268,7 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
     project: override.project ?? base.project,
     source: { ...base.source, ...override.source },
     ids: { ...base.ids, ...override.ids },
+    sessions: { ...base.sessions, ...override.sessions },
     validation: {
       ...base.validation,
       ...override.validation,
@@ -368,6 +378,7 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
     optionalString(source, "backlog", configPath, "source");
     optionalString(source, "decisions", configPath, "source");
     optionalString(source, "releases", configPath, "source");
+    optionalString(source, "sessions", configPath, "source");
   });
   optionalObject(config, "ids", configPath, (ids) => {
     optionalString(ids, "entryPrefix", configPath, "ids");
@@ -376,6 +387,11 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
     optionalNumber(ids, "backlogWidth", configPath, "ids");
     optionalString(ids, "decisionPrefix", configPath, "ids");
     optionalNumber(ids, "decisionWidth", configPath, "ids");
+    optionalString(ids, "sessionPrefix", configPath, "ids");
+    optionalNumber(ids, "sessionWidth", configPath, "ids");
+  });
+  optionalObject(config, "sessions", configPath, (sessions) => {
+    optionalNumber(sessions, "expiresInDays", configPath, "sessions");
   });
   optionalObject(config, "validation", configPath, (validation) => {
     optionalValidationProfile(validation, "profile", configPath, "validation");
@@ -462,6 +478,8 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
     ["ids.entryWidth", config.ids.entryWidth],
     ["ids.backlogWidth", config.ids.backlogWidth],
     ["ids.decisionWidth", config.ids.decisionWidth],
+    ["ids.sessionWidth", config.ids.sessionWidth],
+    ["sessions.expiresInDays", config.sessions.expiresInDays],
   ] as const) {
     if (!Number.isInteger(value) || value < 1) {
       fail(configPath, `${label} must be a positive integer`);
@@ -475,6 +493,7 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
     ["source.backlog", config.source.backlog],
     ["source.decisions", config.source.decisions],
     ["source.releases", config.source.releases],
+    ["source.sessions", config.source.sessions],
     ["indexes.output", config.indexes.output],
     ["reports.output", config.reports.output],
     ["render.output", config.render.output],

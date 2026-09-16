@@ -259,6 +259,7 @@ function filterBar(
             ["release", "Releases"],
             ["product-note", "Product notes"],
             ["feedback", "Feedback"],
+            ["session", "Sessions"],
           ])}
           ${selectControl("status", "Status", [["all", "All statuses"], ...statuses.map((value) => [value, value] as const)])}
           ${selectControl("area", "Area", [["all", "All areas"], ...areas.map((value) => [value, value] as const)])}
@@ -504,6 +505,7 @@ function kindIcon(kind: string): string {
   if (kind === "backlog") return icon("backlog");
   if (kind === "release") return icon("release");
   if (kind === "product-note" || kind === "feedback") return icon("spark");
+  if (kind === "session") return icon("clock");
   return icon("change");
 }
 
@@ -528,6 +530,7 @@ const iconPaths: Record<string, string> = {
   release:
     '<path d="M14 5c2.5-2 5-2 5-2s0 2.5-2 5l-5 5-4-4 6-4Z"/><path d="m8 9-3 1-2 3 5 1m4-1 1 5 3-2 1-4M7 17l-2 2"/>',
   change: '<path d="M4 7h12m0 0-3-3m3 3-3 3M20 17H8m0 0 3 3m-3-3 3-3"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 
 function iconSprite(): string {

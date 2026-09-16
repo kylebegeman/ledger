@@ -85,7 +85,8 @@ export function normalizeKindFilter(value: string | undefined): LedgerDocumentKi
     value === "decision" ||
     value === "release" ||
     value === "product-note" ||
-    value === "feedback"
+    value === "feedback" ||
+    value === "session"
   ) {
     return value;
   }

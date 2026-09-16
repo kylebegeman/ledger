@@ -32,6 +32,9 @@ const coreFrontmatterFields = new Set([
   "entries",
   "staleRefs",
   "stale_refs",
+  "expires",
+  "host",
+  "hostSession",
 ]);
 
 /**
@@ -128,6 +131,9 @@ export function normalizeDocument(document: ParsedLedgerDocument): NormalizedLed
     supersedes: stringArrayValue(frontmatter.supersedes),
     related: stringArrayValue(frontmatter.related),
     docs: stringArrayValue(frontmatter.docs).map(normalizePath),
+    expires: optionalStringValue(frontmatter.expires),
+    host: optionalStringValue(frontmatter.host),
+    hostSession: optionalStringValue(frontmatter.hostSession),
     extensions: extensionValues(frontmatter),
     path: document.relativePath,
     sections: document.sections.map((section) => section.title),
@@ -141,7 +147,8 @@ export function normalizeKind(value: unknown): LedgerDocumentKind | undefined {
     value === "decision" ||
     value === "release" ||
     value === "product-note" ||
-    value === "feedback"
+    value === "feedback" ||
+    value === "session"
   ) {
     return value;
   }
