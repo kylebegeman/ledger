@@ -4,7 +4,7 @@ kind: "backlog"
 title: "Capture: hooks, skills, authoring commands, readiness, and session records"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "in-progress"
+status: "landed"
 areas:
   - "agents"
   - "cli"
@@ -82,6 +82,13 @@ commands), 0107 (session records), 0108 (`ready`), 0109 (host hooks), and
 0110 (skill and `AGENTS.md` block). Kore adopted Ledger 0.7.0 on 2026-09-16
 with hooks for Claude Code and Codex, the skill, and the agents block
 (kylebegeman/forge#23, Kore receipt 0001); friction from that install is in
-product notes 0125, 0126, and 0127, recorded by 0128. The Kore check closes
-after a live Claude Code session there leaves a session record and a draft
-receipt. See `docs/HANDOFF.md` for sequencing and conventions.
+product notes 0125, 0126, and 0127, recorded by 0128.
+
+Acceptance, 2026-09-16: a live Claude Code session in Kore, given an ordinary
+task with no Ledger instructions, received Ledger context on start, recorded
+the file it edited on session S0001, and left draft receipt 0002 on stop, which
+the agent then finished to pass `ledger ready`. The `promote` and `ready` checks
+passed in this repository in 0.6. The no-friction check is not met: product
+note 0129 records that the agent was never told about the draft, and it moves
+to backlog B010 with the install friction from 0122, 0125, 0126, and 0127.
+Recorded by 0130. See `docs/HANDOFF.md` for sequencing and conventions.

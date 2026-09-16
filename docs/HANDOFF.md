@@ -11,8 +11,10 @@ milestone lands or a plan changes; retire sections that stop being true.
   publishing on 2026-09-16 from pull request #18. `@kylebegeman/dossier` 0.6.7
   publishes the same way from its own repo.
 - First outside adopter: Kore installed Ledger 0.7.0 with Claude Code and
-  Codex hooks on 2026-09-16 (kylebegeman/forge#23, Kore receipt 0001). The
-  live session check is still open; see the first next slice.
+  Codex hooks on 2026-09-16 (kylebegeman/forge#23, Kore receipt 0001). A live
+  Claude Code session there received context on start and left a draft receipt
+  on stop, but the agent was never told the draft existed; that friction and
+  the install friction are backlog B010, and B007 is landed.
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
@@ -91,27 +93,21 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Kore live session check** (B007's last acceptance check): Ledger is
-   installed in `/Users/kyle/Developer/active/kore` on branch
-   `kore/ledger-adoption` (kylebegeman/forge#23, stacked on #22, which finishes
-   the engine step of Corbelo milestone 19). Kyle opens a Claude Code session
-   there and works one real task. Pass means a session record under
-   `.ledger/sessions/`, a Ledger context message on start, touched paths on the
-   record, and a draft receipt under `.ledger/entries/` after the first stop
-   with edits. Codex needs its hooks approved once with `/hooks`. Kore runs
-   Ledger through `npx --yes @kylebegeman/ledger@0.7.0`; `ledger` on `PATH` is
-   the accounting tool. Record friction here with `ledger feedback`, then close
-   the check in B007.
-2. **Adoption and capture fixes** from product notes 0122, 0125, 0126, and
-   0127, most urgent first: guard `docs reconcile` against replacing routing
-   files Ledger did not generate; one configured Ledger command rendered into
-   the hooks, the agents block, the skill, and hook context; toolchain-aware
-   `adopt` defaults (coverage roots, `git.coverage: any`, ignores, a
-   `.gitignore` block, the verification allowlist, no empty docs folders);
-   drafts that take symbols only from changed code and skip Ledger's scaffold;
-   removing the unused `.ledger/policies/coverage.yaml`; excluding session
-   records from drafted `files`. After a release, bump Kore's pin in its two
-   hook files, `verification.allow`, and the `AGENTS.md` note together.
+1. **Kore follow-through**: the live session left an uncommitted rename in
+   Kore's `CONTRIBUTING.md` with finished receipt 0002 (still `draft`) and
+   active session S0001. After that Claude Code session exits, mark 0002
+   `landed` and commit it with the rename and the closed session record on
+   `kore/ledger-adoption`. Landing it earlier makes the next Stop draft a
+   second receipt (0129). Then Kyle merges kylebegeman/forge#22, forge#23, and
+   this repository's pull request for the adoption records.
+2. **Adoption and capture fixes** (backlog B010), most urgent first: the
+   `docs reconcile` guard (0126); one configured Ledger command rendered into
+   the hooks, agents block, skill, and hook context (0127); the draft receipt
+   lifecycle, starting with an agent-visible notice of the draft (0122, 0129);
+   toolchain-aware `adopt` defaults (0125); a rule for committing session
+   records. Acceptance includes a second live Kore session that finishes its
+   draft unprompted. After the release, bump Kore's pin in its two hook files,
+   `verification.allow`, and the `AGENTS.md` note together.
 3. **Dossier visual system** (backlog B009): unblocked, because the reader
    stylesheet is a real file at `src/reader/styles.css` and the runtime is
    typed and browser-tested.
