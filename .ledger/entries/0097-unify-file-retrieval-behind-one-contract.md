@@ -52,6 +52,7 @@ commits: []
 related:
   - "0095"
   - "0096"
+release: "v0.4.0"
 ---
 
 # 0097: Unify File Retrieval Behind One Contract

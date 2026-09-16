@@ -47,6 +47,7 @@ decisions:
 commits: []
 related:
   - "0095"
+release: "v0.4.0"
 ---
 
 # 0096: Add An Incremental Catalog Cache

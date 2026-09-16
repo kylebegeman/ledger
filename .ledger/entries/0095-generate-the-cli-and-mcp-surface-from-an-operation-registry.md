@@ -45,6 +45,7 @@ backlog:
 commits: []
 related:
   - "0093"
+release: "v0.4.0"
 ---
 
 # 0095: Generate The CLI And MCP Surface From An Operation Registry
