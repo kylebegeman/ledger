@@ -45,15 +45,16 @@
     ".ledger/templates/*.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/cli.js', 0o755)\"",
+    "build": "npm run build:reader && tsc -p tsconfig.build.json && node -e \"require('node:fs').chmodSync('dist/cli.js', 0o755)\"",
     "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --maxWorkers=4",
+    "test": "npm run build:reader && vitest run --maxWorkers=4",
     "check": "npm run typecheck && npm test",
     "ledger:ci": "node dist/cli.js ci",
     "pack:dry-run": "npm pack --dry-run",
     "release:build": "npm run build && npm run pack:dry-run",
-    "ci": "npm run check && npm run build && npm run ledger:ci && npm run pack:dry-run"
+    "ci": "npm run check && npm run build && npm run ledger:ci && npm run pack:dry-run",
+    "build:reader": "esbuild src/reader/runtime.ts --bundle --format=iife --platform=browser --target=es2022 --outfile=dist/reader/runtime.js --log-level=warning && esbuild src/reader/styles.css --outfile=dist/reader/styles.css --log-level=warning"
   },
   "engines": {
     "node": ">=22"
@@ -73,6 +74,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
+    "happy-dom": "^20.14.5",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"
   },

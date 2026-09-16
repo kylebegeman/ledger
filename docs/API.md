@@ -30,8 +30,10 @@ import {
 } from "@kylebegeman/ledger/unstable";
 ```
 
-The unstable entrypoint can change between minor versions while Ledger is
-pre-1.0. Promote a helper to the package root only when it is useful outside the
+`staticReaderRuntime` and `staticReaderStyles` are the bundled reader assets
+read from `dist/reader/`; run `npm run build:reader` in a source checkout
+before importing them. The unstable entrypoint can change between minor
+versions while Ledger is pre-1.0. Promote a helper to the package root only when it is useful outside the
 repo and has focused tests that describe the expected contract.
 
 ## Stable Surface

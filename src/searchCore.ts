@@ -1,8 +1,8 @@
 /**
- * Search scoring shared by Node and the browser. Everything in this file must
- * stay dependency-free and self-contained: the functions are serialized with
- * Function.prototype.toString() into the static reader runtime, so they may
- * only reference each other and `searchWeights`.
+ * Search scoring shared by Node and the browser. `ledger search` imports it
+ * directly and the reader runtime (src/reader/runtime.ts) imports it into the
+ * esbuild bundle, so both rank with one implementation. Keep this file free of
+ * Node-only dependencies.
  */
 
 export interface SearchableFields {
@@ -78,14 +78,3 @@ export function scoreSearchFields(document: SearchableDocument, query: string): 
   }
   return { score: Math.round(score * 100) / 100, matchedFields };
 }
-
-/**
- * The scoring functions as browser JavaScript. Embedded into the static reader
- * so the browser ranks exactly like `ledger search`.
- */
-export const sharedSearchRuntime = [
-  `const searchWeights = ${JSON.stringify(searchWeights)};`,
-  normalizeSearchText.toString(),
-  fuzzyScore.toString(),
-  scoreSearchFields.toString(),
-].join("\n");
