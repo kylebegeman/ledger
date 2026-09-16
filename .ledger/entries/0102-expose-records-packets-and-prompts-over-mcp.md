@@ -30,6 +30,7 @@ commits: []
 related:
   - "0095"
   - "0099"
+release: "v0.5.0"
 ---
 
 # 0102: Expose Records, Packets, And Prompts Over MCP

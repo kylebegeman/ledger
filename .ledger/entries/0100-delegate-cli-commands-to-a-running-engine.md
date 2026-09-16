@@ -41,6 +41,7 @@ decisions:
 commits: []
 related:
   - "0099"
+release: "v0.5.0"
 ---
 
 # 0100: Delegate CLI Commands To A Running Engine

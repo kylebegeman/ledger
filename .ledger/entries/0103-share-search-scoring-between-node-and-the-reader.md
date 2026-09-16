@@ -33,6 +33,7 @@ decisions:
 commits: []
 related:
   - "0095"
+release: "v0.5.0"
 ---
 
 # 0103: Share Search Scoring Between Node And The Reader
