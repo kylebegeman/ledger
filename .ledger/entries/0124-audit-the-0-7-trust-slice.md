@@ -24,6 +24,7 @@ files:
   - "src/commands/search.ts"
   - "test/ci.test.ts"
   - "test/workflows.test.ts"
+  - "test/newEntry.test.ts"
   - ".ledger/releases/v0.7.0.md"
 symbols:
   - "ReferencedFileCache"
@@ -113,7 +114,7 @@ keeps 0.7.0 honest about what the release notes claim.
 
 - Files: `src/coverage.ts`, `src/docsImpact.ts`, `src/doctor.ts`,
   `src/commands/search.ts`, `test/ci.test.ts`, `test/workflows.test.ts`,
-  `.ledger/releases/v0.7.0.md`
+  `test/newEntry.test.ts`, `.ledger/releases/v0.7.0.md`
 - Changed: one normalization per current entry; kind check before normalizing;
   the symbols message; the full-text fallback note; a CLI test for
   `ci --github --json`; the action test checks the summary handoff; this
