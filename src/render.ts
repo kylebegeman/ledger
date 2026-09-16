@@ -1,4 +1,4 @@
-import { readFile, stat as statFile } from "node:fs/promises";
+import { readFile, readdir, stat as statFile } from "node:fs/promises";
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { isCoveragePattern } from "./coverage.js";
@@ -11,7 +11,8 @@ import {
   type LedgerFileChange,
 } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
-import { renderStaticReaderHtml } from "./renderHtml.js";
+import { renderRecordDetails, renderStaticReaderHtml } from "./renderHtml.js";
+import { searchTermsFor } from "./searchCore.js";
 import { evidenceFreshness, type LedgerEvidenceIndex, type LedgerVerificationFreshness } from "./verify.js";
 import type {
   LedgerIssue,
@@ -157,14 +158,25 @@ export interface RenderStaticReaderResult {
   readonly budget: LedgerRenderBudgetResult;
 }
 
-export type LedgerRenderArtifactKind = "html" | "search-index" | "graph" | "sources";
+export type LedgerRenderArtifactKind = "html" | "search-index" | "graph" | "details" | "sources";
 
 export interface LedgerRenderArtifact {
   readonly kind: LedgerRenderArtifactKind;
   readonly path: string;
+  /** Total bytes across every file of this artifact. */
   readonly bytes: number;
+  /** Bytes of the largest single file; the per-artifact budget applies to it. */
+  readonly largestBytes: number;
+  /** Number of files that make up the artifact (shards or chunks). */
+  readonly files: number;
   readonly maxBytes: number;
   readonly ok: boolean;
+}
+
+/** The search-index stub written when the index is sharded. */
+export interface LedgerSearchIndexManifest {
+  readonly shards: readonly string[];
+  readonly documents: number;
 }
 
 export interface LedgerRenderBudgetResult {
@@ -276,14 +288,39 @@ export async function writeStaticReader(
   const outputPath = path.join(outputDirectory, "index.html");
   const searchIndexPath = path.join(outputDirectory, "search-index.json");
   const graphPath = path.join(outputDirectory, "graph.json");
-  const html = renderStaticReaderHtml(model, { iconSvg: await readIconSvg() });
-  const searchIndex = `${JSON.stringify(serializedSearchIndex(model), null, 2)}\n`;
-  const graph = `${JSON.stringify(model.graph, null, 2)}\n`;
+  const iconSvg = await readIconSvg();
+  const budgets = workspace.config.render.budgets;
+  let html = renderStaticReaderHtml(model, { iconSvg });
+  let detailFiles: readonly { readonly href: string; readonly content: string }[] = [];
+  if (model.profile === "internal" && Buffer.byteLength(html, "utf8") > budgets.maxHtmlBytes) {
+    const chunked = chunkRecordDetails(renderRecordDetails(model), Math.min(detailChunkTargetBytes, budgets.maxHtmlBytes));
+    html = renderStaticReaderHtml(model, { iconSvg, detailChunks: chunked.hrefById });
+    detailFiles = chunked.files;
+  }
+  const search = shardSearchIndex(serializedSearchIndex(model), budgets.maxSearchIndexBytes);
+  const chunks = chunkRelationshipGraph(model.graph);
+  const graph = `${JSON.stringify(chunks.records, null, 2)}\n`;
+  // The public profile strips invariants and verification, so it has no contracts chunk.
+  const contracts = model.profile === "internal" ? `${JSON.stringify(chunks.contracts, null, 2)}\n` : undefined;
   const sources = await sourceSidecars(workspace, model, outputDirectory);
+  const staleShards = await staleChunkFiles(outputDirectory, searchShardDirectory, search.files.map((file) => file.href));
+  const staleDetails = await staleChunkFiles(outputDirectory, detailChunkDirectory, detailFiles.map((file) => file.href));
   await applyFileTransaction(workspace, `render ${model.profile} reader`, [
     { path: normalizeOutputPath(workspace, outputPath), content: html },
-    { path: normalizeOutputPath(workspace, searchIndexPath), content: searchIndex },
+    ...search.files.map((file) => ({
+      path: normalizeOutputPath(workspace, path.join(outputDirectory, file.href)),
+      content: file.content,
+    })),
+    ...staleShards.map((href) => ({ path: normalizeOutputPath(workspace, path.join(outputDirectory, href)), delete: true as const })),
+    ...detailFiles.map((file) => ({
+      path: normalizeOutputPath(workspace, path.join(outputDirectory, file.href)),
+      content: file.content,
+    })),
+    ...staleDetails.map((href) => ({ path: normalizeOutputPath(workspace, path.join(outputDirectory, href)), delete: true as const })),
     { path: normalizeOutputPath(workspace, graphPath), content: graph },
+    ...(contracts === undefined
+      ? []
+      : [{ path: normalizeOutputPath(workspace, path.join(outputDirectory, graphContractsHref)), content: contracts }]),
     ...sources,
   ]);
   const writeMs = Date.now() - startedAt;
@@ -301,8 +338,15 @@ export async function writeStaticReader(
   };
 }
 
+/**
+ * The search index as written to disk. `terms` is omitted because Node and
+ * the browser both derive it from `fields` with `searchTermsFor`, which keeps
+ * the artifact about 40% smaller with identical ranking.
+ */
 function serializedSearchIndex(model: LedgerStaticReaderModel): readonly unknown[] {
-  if (model.profile === "internal") return model.searchIndex;
+  if (model.profile === "internal") {
+    return model.searchIndex.map(({ terms: _terms, ...document }) => document);
+  }
   return model.documents.map((document) => {
     const metadata = [document.kind, document.status].join(" ");
     const context = document.publicNotes.join(" ");
@@ -318,9 +362,104 @@ function serializedSearchIndex(model: LedgerStaticReaderModel): readonly unknown
         metadata,
         context,
       },
-      terms: [document.id, document.title, metadata, context].join(" "),
     };
   });
+}
+
+const searchShardDirectory = "search";
+const detailChunkDirectory = "details";
+const graphContractsHref = "graph/contracts.json";
+/** Target size of one detail chunk; small enough to fetch quickly when a record opens. */
+const detailChunkTargetBytes = 250_000;
+
+/**
+ * Group record detail HTML into JSON chunk files (`details/NNN.json`, each an
+ * object of record id to HTML) no larger than the target, in reader order.
+ */
+export function chunkRecordDetails(
+  details: ReadonlyMap<string, string>,
+  targetBytes: number,
+): { readonly files: readonly { readonly href: string; readonly content: string }[]; readonly hrefById: ReadonlyMap<string, string> } {
+  const groups: [string, string][][] = [];
+  let current: [string, string][] = [];
+  let currentBytes = 2;
+  for (const [id, html] of details) {
+    const bytes = Buffer.byteLength(JSON.stringify(id), "utf8") + Buffer.byteLength(JSON.stringify(html), "utf8") + 2;
+    if (current.length > 0 && currentBytes + bytes > targetBytes) {
+      groups.push(current);
+      current = [];
+      currentBytes = 2;
+    }
+    current.push([id, html]);
+    currentBytes += bytes;
+  }
+  if (current.length > 0) groups.push(current);
+  const hrefById = new Map<string, string>();
+  const files = groups.map((group, index) => {
+    const href = `${detailChunkDirectory}/${String(index).padStart(3, "0")}.json`;
+    for (const [id] of group) hrefById.set(id, href);
+    return { href, content: `${JSON.stringify(Object.fromEntries(group))}\n` };
+  });
+  return { files, hrefById };
+}
+
+/**
+ * Split the serialized search index into shard files no larger than the
+ * per-artifact budget. Returns a single `search-index.json` when it fits.
+ */
+export function shardSearchIndex(
+  documents: readonly unknown[],
+  maxBytes: number,
+): { readonly files: readonly { readonly href: string; readonly content: string }[]; readonly manifest?: LedgerSearchIndexManifest } {
+  const whole = `${JSON.stringify(documents, null, 2)}\n`;
+  if (Buffer.byteLength(whole, "utf8") <= maxBytes || documents.length <= 1) {
+    return { files: [{ href: "search-index.json", content: whole }] };
+  }
+  const shards: unknown[][] = [];
+  let current: unknown[] = [];
+  let currentBytes = 4;
+  for (const document of documents) {
+    const bytes = Buffer.byteLength(JSON.stringify(document, null, 2), "utf8") + 4;
+    if (current.length > 0 && currentBytes + bytes > maxBytes) {
+      shards.push(current);
+      current = [];
+      currentBytes = 4;
+    }
+    current.push(document);
+    currentBytes += bytes;
+  }
+  if (current.length > 0) shards.push(current);
+  const files = shards.map((shard, index) => ({
+    href: `${searchShardDirectory}/${String(index).padStart(3, "0")}.json`,
+    content: `${JSON.stringify(shard, null, 2)}\n`,
+  }));
+  const manifest: LedgerSearchIndexManifest = { shards: files.map((file) => file.href), documents: documents.length };
+  return {
+    files: [{ href: "search-index.json", content: `${JSON.stringify(manifest, null, 2)}\n` }, ...files],
+    manifest,
+  };
+}
+
+/**
+ * Split the relationship graph into the record graph (records, files, docs,
+ * symbols, areas, releases, and relationship edges) and the contracts chunk
+ * (invariant and verification nodes with their edges).
+ */
+export function chunkRelationshipGraph(graph: LedgerRelationshipGraph): {
+  readonly records: LedgerRelationshipGraph;
+  readonly contracts: LedgerRelationshipGraph;
+} {
+  const contractTypes = new Set(["invariant", "verification"]);
+  return {
+    records: {
+      nodes: graph.nodes.filter((node) => !contractTypes.has(node.type)),
+      edges: graph.edges.filter((edge) => !contractTypes.has(edge.type)),
+    },
+    contracts: {
+      nodes: graph.nodes.filter((node) => contractTypes.has(node.type)),
+      edges: graph.edges.filter((edge) => contractTypes.has(edge.type)),
+    },
+  };
 }
 
 export async function checkRenderBudgets(
@@ -332,14 +471,21 @@ export async function checkRenderBudgets(
   const budgets = workspace.config.render.budgets;
   const artifactChecks: Promise<LedgerRenderArtifact>[] = [
     renderArtifact(workspace, "html", path.join(outputDirectory, "index.html"), budgets.maxHtmlBytes),
-    renderArtifact(
+    renderSearchArtifact(workspace, outputDirectory, budgets.maxSearchIndexBytes),
+    renderChunkedArtifact(
       workspace,
-      "search-index",
-      path.join(outputDirectory, "search-index.json"),
-      budgets.maxSearchIndexBytes,
+      "graph",
+      outputDirectory,
+      profile === "internal" ? ["graph.json", graphContractsHref] : ["graph.json"],
+      budgets.maxGraphBytes,
     ),
-    renderArtifact(workspace, "graph", path.join(outputDirectory, "graph.json"), budgets.maxGraphBytes),
   ];
+  if (profile === "internal") {
+    const detailHrefs = await listChunkFiles(outputDirectory, detailChunkDirectory);
+    artifactChecks.push(
+      renderChunkedArtifact(workspace, "details", outputDirectory, detailHrefs, budgets.maxHtmlBytes, { optional: true }),
+    );
+  }
   if (profile === "internal") {
     artifactChecks.push(renderSourcesArtifact(workspace, outputDirectory, budgets.maxTotalBytes));
   }
@@ -363,7 +509,7 @@ export function buildSearchIndex(
 ): readonly LedgerSearchDocument[] {
   return documents.map((document) => {
     const fields = searchFields(document);
-    const terms = searchTerms(document);
+    const terms = searchTermsFor(fields);
     return {
       id: document.id,
       title: document.title,
@@ -414,31 +560,7 @@ function searchFields(document: LedgerRenderedDocument): LedgerSearchFields {
   };
 }
 
-function searchTerms(document: LedgerRenderedDocument): string {
-  return [
-    document.id,
-    document.title,
-    document.kind,
-    document.status,
-    document.release ?? "",
-    document.path,
-    ...document.areas,
-    ...document.tags,
-    ...document.files,
-    ...document.symbols,
-    ...document.docs,
-    ...document.decisions,
-    ...document.backlog,
-    ...document.supersedes,
-    ...document.related,
-    document.summary ?? "",
-    document.why ?? "",
-    ...document.publicNotes,
-    ...document.invariants,
-    ...document.verification,
-    ...document.issues.map((issue) => issue.message),
-  ].join(" ");
-}
+
 
 export function buildRelationshipGraph(
   documents: readonly LedgerRenderedDocument[],
@@ -537,9 +659,90 @@ async function renderArtifact(
     kind,
     path: normalizeOutputPath(workspace, filePath),
     bytes,
+    largestBytes: bytes,
+    files: bytes > 0 ? 1 : 0,
     maxBytes,
     ok: bytes > 0 && bytes <= maxBytes,
   };
+}
+
+/** Search index accounting: the stub plus every shard it lists, or the single file. */
+async function renderSearchArtifact(
+  workspace: LedgerWorkspace,
+  outputDirectory: string,
+  maxBytes: number,
+): Promise<LedgerRenderArtifact> {
+  const stubPath = path.join(outputDirectory, "search-index.json");
+  let hrefs: string[] = ["search-index.json"];
+  try {
+    const parsed: unknown = JSON.parse(
+      await readUtf8FileLimited(stubPath, workspace.config.limits.maxTotalDocumentBytes, "search index"),
+    );
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && Array.isArray((parsed as LedgerSearchIndexManifest).shards)) {
+      hrefs = ["search-index.json", ...(parsed as LedgerSearchIndexManifest).shards.filter((href) => typeof href === "string")];
+    }
+  } catch (error) {
+    if (!isCode(error, "ENOENT") && !(error instanceof SyntaxError)) throw error;
+  }
+  return renderChunkedArtifact(workspace, "search-index", outputDirectory, hrefs, maxBytes);
+}
+
+/** Accounting for an artifact made of several files: total bytes, largest file, per-file budget. */
+async function renderChunkedArtifact(
+  workspace: LedgerWorkspace,
+  kind: LedgerRenderArtifactKind,
+  outputDirectory: string,
+  hrefs: readonly string[],
+  maxBytes: number,
+  options: { readonly optional?: boolean } = {},
+): Promise<LedgerRenderArtifact> {
+  let bytes = 0;
+  let largestBytes = 0;
+  let files = 0;
+  for (const href of hrefs) {
+    try {
+      const size = (await statFile(path.join(outputDirectory, href))).size;
+      bytes += size;
+      largestBytes = Math.max(largestBytes, size);
+      files += 1;
+    } catch (error) {
+      if (!isCode(error, "ENOENT")) throw error;
+    }
+  }
+  return {
+    kind,
+    path: normalizeOutputPath(workspace, path.join(outputDirectory, hrefs[0] ?? kind)),
+    bytes,
+    largestBytes,
+    files,
+    maxBytes,
+    ok: (files > 0 || Boolean(options.optional)) && largestBytes <= maxBytes,
+  };
+}
+
+/** Numbered chunk files (`NNN.json`) currently in a chunk directory, as hrefs. */
+async function listChunkFiles(outputDirectory: string, chunkDirectory: string): Promise<readonly string[]> {
+  let names: string[];
+  try {
+    names = await readdir(path.join(outputDirectory, chunkDirectory));
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return [];
+    throw error;
+  }
+  return names
+    .filter((name) => /^\d{3}\.json$/.test(name))
+    .sort()
+    .map((name) => `${chunkDirectory}/${name}`);
+}
+
+/** Chunk files left over from an earlier render that the new render no longer writes. */
+async function staleChunkFiles(
+  outputDirectory: string,
+  chunkDirectory: string,
+  current: readonly string[],
+): Promise<readonly string[]> {
+  const keep = new Set(current);
+  return (await listChunkFiles(outputDirectory, chunkDirectory)).filter((href) => !keep.has(href));
 }
 
 function sourceHref(id: string, documentPath: string): string {
@@ -768,6 +971,8 @@ async function renderSourcesArtifact(
     kind: "sources",
     path: normalizeOutputPath(workspace, path.join(outputDirectory, "sources")),
     bytes,
+    largestBytes: bytes,
+    files: manifest.sources.length + 1,
     maxBytes,
     ok: complete && bytes <= maxBytes,
   };

@@ -58,7 +58,11 @@ Two backends implement one interface. The JSON backend writes
 `catalog.json` atomically (temp file plus rename) and needs nothing beyond
 Node 22. The sqlite backend stores one row per record in `catalog.sqlite`
 through `node:sqlite` and is selected automatically on Node 24.15 or newer,
-where the module is a release candidate and no longer warns on import.
+where the module is a release candidate and no longer warns on import. It also
+keeps an FTS5 table of each record's text, updated in the same transaction as
+the record rows, which `ledger search --full-text` uses to narrow candidates
+before the shared scorer ranks them. Default search always scans every record,
+so results never depend on which backend a Node version selects.
 `cache.backend` in `.ledger/config.yaml` accepts `auto`, `json`, `sqlite`,
 or `none`. The cache header carries a format version and a fingerprint of the
 source directories and limits, so a config change or a format bump makes the
@@ -390,7 +394,23 @@ The first `ledger render` implementation writes a hostable static reader under
 writes `index.html`, and emits sidecar JSON artifacts for lazy fuzzy search
 (`search-index.json`) and relationship traversal (`graph.json`). The HTML
 surfaces summaries, invariants, verification checks, agent packet digests, and
-Markdown source access for each record. Later renderers can consume generated
+Markdown source access for each record.
+
+Artifacts stay under their per-file budgets as a catalog grows. The search
+index omits each record's `terms` text, which Node and the browser derive from
+the weighted fields with `searchTermsFor`, and when it still exceeds
+`maxSearchIndexBytes` it is written as shards under `search/` with
+`search-index.json` becoming a manifest the runtime follows. The internal graph
+is split into `graph.json` (records, files, symbols, and relationships) and
+`graph/contracts.json` (invariant and verification nodes). The HTML is written
+with template indentation removed outside `pre`, `script`, and `style`; when the
+page would still exceed `maxHtmlBytes`, each record's detail panel moves into a
+JSON chunk under `details/` and the entry row carries `data-detail`, so the
+runtime fetches the chunk when the record opens. Opened from a `file:` URL,
+where browsers block that fetch, the panel shows the record title, a note to
+serve the reader over HTTP, and a link to the Markdown source. Small catalogs
+keep inline details and work fully offline. Budgets apply to the largest shard
+or chunk, and `maxTotalBytes` counts every file, including source sidecars. Later renderers can consume generated
 indexes or emit richer multi-page output without changing the source document
 model.
 

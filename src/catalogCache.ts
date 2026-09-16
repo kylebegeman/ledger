@@ -28,7 +28,7 @@ import type {
 } from "./types.js";
 
 /** Bump when the cached record shape changes so older caches are ignored. */
-export const ledgerCatalogCacheFormatVersion = 1 as const;
+export const ledgerCatalogCacheFormatVersion = 2 as const;
 
 export type LedgerCatalogCacheBackendKind = "json" | "sqlite";
 export type LedgerCatalogCacheSetting =
@@ -110,7 +110,50 @@ interface CatalogCacheBackend {
     upserts: readonly CachedDocumentRecord[],
     removals: readonly string[],
   ): Promise<void>;
+  /** Full-text candidate paths for a query, when the backend indexes text. */
+  search?(query: string, limit: number): readonly string[] | undefined;
   close(): Promise<void>;
+}
+
+export interface LedgerCatalogSearchCandidates {
+  readonly backend: "fts5";
+  readonly paths: readonly string[];
+}
+
+/**
+ * Full-text candidate paths from the sqlite cache's FTS5 table, or undefined
+ * when the workspace uses another backend, the cache is stale, or FTS5 is
+ * unavailable. Callers still score candidates with the shared search scoring.
+ */
+export async function searchLedgerCatalogCache(
+  workspace: LedgerWorkspace,
+  query: string,
+  limit = 50,
+): Promise<LedgerCatalogSearchCandidates | undefined> {
+  if (workspace.config.cache.backend === "none") return undefined;
+  const backend = await openBackend(workspace);
+  if (!backend || !backend.search) {
+    await backend?.close();
+    return undefined;
+  }
+  try {
+    if (!(await backend.open(cacheFingerprint(workspace)))) return undefined;
+    const paths = backend.search(query, limit);
+    return paths ? { backend: "fts5", paths } : undefined;
+  } finally {
+    await backend.close();
+  }
+}
+
+/** FTS5 MATCH expression: every alphanumeric token as a quoted prefix term. */
+export function ftsMatchExpression(query: string): string | undefined {
+  const tokens = query
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}_]+/u)
+    .filter((token) => token.length > 0)
+    .slice(0, 16);
+  if (tokens.length === 0) return undefined;
+  return tokens.map((token) => `"${token.replace(/"/g, "")}"*`).join(" OR ");
 }
 
 interface SourceFile {
@@ -559,6 +602,7 @@ class SqliteCacheBackend implements CatalogCacheBackend {
   private database: InstanceType<SqliteModule["DatabaseSync"]> | undefined;
   private loadedHeader: CacheHeader | undefined;
   private valid = false;
+  private fts = false;
 
   constructor(
     readonly cachePath: string,
@@ -572,6 +616,12 @@ class SqliteCacheBackend implements CatalogCacheBackend {
       "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);" +
         "CREATE TABLE IF NOT EXISTS documents (path TEXT PRIMARY KEY, size INTEGER NOT NULL, mtime REAL NOT NULL, hash TEXT NOT NULL, record TEXT NOT NULL);",
     );
+    try {
+      this.database.exec("CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5(path UNINDEXED, text)");
+      this.fts = true;
+    } catch {
+      this.fts = false;
+    }
     const row = this.database
       .prepare("SELECT value FROM meta WHERE key = 'header'")
       .get() as { readonly value: string } | undefined;
@@ -654,12 +704,18 @@ class SqliteCacheBackend implements CatalogCacheBackend {
     database.exec("BEGIN");
     try {
       if (!this.valid) database.exec("DELETE FROM documents");
+      if (!this.valid && this.fts) database.exec("DELETE FROM search");
       const remove = database.prepare("DELETE FROM documents WHERE path = ?");
-      for (const relativePath of removals) remove.run(relativePath);
+      const removeText = this.fts ? database.prepare("DELETE FROM search WHERE path = ?") : undefined;
+      for (const relativePath of removals) {
+        remove.run(relativePath);
+        removeText?.run(relativePath);
+      }
       const upsert = database.prepare(
         "INSERT INTO documents (path, size, mtime, hash, record) VALUES (?, ?, ?, ?, ?) " +
           "ON CONFLICT(path) DO UPDATE SET size = excluded.size, mtime = excluded.mtime, hash = excluded.hash, record = excluded.record",
       );
+      const insertText = this.fts ? database.prepare("INSERT INTO search (path, text) VALUES (?, ?)") : undefined;
       for (const record of upserts) {
         upsert.run(
           record.path,
@@ -668,6 +724,10 @@ class SqliteCacheBackend implements CatalogCacheBackend {
           record.hash,
           JSON.stringify(record.document),
         );
+        if (insertText) {
+          removeText?.run(record.path);
+          insertText.run(record.path, record.document.raw.toLowerCase());
+        }
       }
       database
         .prepare(
@@ -679,6 +739,20 @@ class SqliteCacheBackend implements CatalogCacheBackend {
     } catch (error) {
       database.exec("ROLLBACK");
       throw error;
+    }
+  }
+
+  search(query: string, limit: number): readonly string[] | undefined {
+    if (!this.database || !this.valid || !this.fts) return undefined;
+    const expression = ftsMatchExpression(query);
+    if (!expression) return [];
+    try {
+      const rows = this.database
+        .prepare("SELECT path FROM search WHERE search MATCH ? ORDER BY rank LIMIT ?")
+        .all(expression, Math.max(1, Math.min(limit, 1_000))) as unknown as readonly { readonly path: string }[];
+      return rows.map((row) => row.path);
+    } catch {
+      return undefined;
     }
   }
 

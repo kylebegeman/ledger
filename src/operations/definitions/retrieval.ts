@@ -266,11 +266,15 @@ export const queryOperation = defineOperation<QueryInput, QueryOutput>({
 export interface SearchInput extends Record<string, unknown> {
   readonly query: string;
   readonly limit?: number;
+  readonly fullText?: boolean;
 }
 
 export interface SearchOutput {
   readonly query: string;
   readonly matches: readonly LedgerSearchResult[];
+  /** How candidates were found: sqlite full-text search, or a scan of every record. */
+  readonly candidates: "fts5" | "scan";
+  readonly fullTextUnavailable?: boolean;
 }
 
 export const searchOperation = defineOperation<SearchInput, SearchOutput>({
@@ -282,21 +286,28 @@ export const searchOperation = defineOperation<SearchInput, SearchOutput>({
   input: z.strictObject({
     query: z.string().min(1).max(10_000).describe("Search query."),
     limit: positiveInt.max(100).optional().describe("Maximum matches to return."),
+    fullText: z.boolean().optional().describe("Narrow candidates with sqlite FTS5 before ranking."),
   }),
   output: looseRecord({
     query: z.string(),
     matches: z.array(looseRecord({ id: z.string(), title: z.string(), score: z.number() })),
+    candidates: z.enum(["fts5", "scan"]),
+    fullTextUnavailable: z.boolean().optional(),
   }),
   cli: {
     path: ["search"],
-    usage: "ledger search <query> [--limit <entries>] [--json]",
+    usage: "ledger search <query> [--limit <entries>] [--full-text] [--json]",
     positionals: { field: "query", min: 1, join: true },
     flags: {
       limit: { type: "number", description: "Maximum matches to return." },
+      "full-text": { type: "boolean", field: "fullText", description: "Narrow candidates with sqlite FTS5 first." },
     },
     json: true,
-    help: `Runs weighted fuzzy search over the same static reader search fields used by
-the browser UI.`,
+    help: `Runs weighted fuzzy search over every record using the same search fields and
+scoring as the browser reader, so results are identical on every cache backend.
+--full-text first narrows candidates to records containing the query words with
+sqlite FTS5 (cache.backend sqlite, or auto on Node 24.15 and newer), which is
+faster on large catalogs but can miss fuzzy-only matches such as abbreviations.`,
   },
   mcp: {
     tool: "ledger_search",
@@ -305,7 +316,7 @@ the browser UI.`,
   },
   async run(context, input) {
     const { workspace } = await loadDocuments(context);
-    return { data: await runLedgerSearchCommand(workspace, input.query, { limit: input.limit }) };
+    return { data: await runLedgerSearchCommand(workspace, input.query, { limit: input.limit, fullText: input.fullText }) };
   },
   format(data) {
     return formatLedgerSearchResult(data);

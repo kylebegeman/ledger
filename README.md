@@ -155,7 +155,8 @@ verification checks, relationships, source paths, and agent-ready retrieval
 commands without embedding every raw Markdown document into the initial page.
 
 `ledger render` also writes `.ledger/dist/search-index.json` and
-`.ledger/dist/graph.json`. The reader lazy-loads the compact search index for
+`.ledger/dist/graph.json`, sharding the index and moving record details into
+lazily loaded chunks when a large catalog would exceed its budgets. The reader lazy-loads the compact search index for
 weighted fuzzy search, ranking exact ID, title, path, symbol, and file matches
 above incidental summary or context matches. Relationship data is kept available
 as a static artifact that can be hosted anywhere static files are supported. The
@@ -325,7 +326,7 @@ full local verification and publishing checklist.
 | `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
 | `ledger explain <path>` | Shows records that mention a file plus the decisions, backlog items, and superseding records one hop away. |
 | `ledger explain <path> --agent` | Emits compact agent context for a file. |
-| `ledger search <query> --limit 5` | Runs weighted fuzzy search over the same fields used by the static reader. |
+| `ledger search <query> --limit 5` | Runs weighted fuzzy search over the same fields used by the static reader. `--full-text` narrows candidates with sqlite FTS5 on large catalogs. |
 | `ledger search-packet <query> --budget 1600 --limit 5` | Builds a token-budgeted agent packet from weighted search results when the exact file path is unknown. |
 | `ledger packet <path> --budget 1200 --write-report` | Builds a compact token-budgeted agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
 | `ledger mcp` | Starts a stdio MCP server exposing every registry operation with MCP metadata. |

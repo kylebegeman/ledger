@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
-import { buildStaticReaderModel, buildSearchIndex, type LedgerStaticReaderModel } from "../src/render.js";
+import { buildStaticReaderModel, buildSearchIndex, chunkRecordDetails, type LedgerStaticReaderModel } from "../src/render.js";
 import { staticReaderRuntime, staticReaderStyles } from "../src/renderAssets.js";
-import { renderStaticReaderHtml } from "../src/renderHtml.js";
+import { renderRecordDetails, renderStaticReaderHtml } from "../src/renderHtml.js";
 import { defaultConfig } from "../src/config.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
 
@@ -117,6 +117,62 @@ describe("reader runtime in a browser document", () => {
     const results = Array.from(document.querySelectorAll(".command-result")).map((button) => (button as HTMLElement).dataset.id);
     expect(results[0]).toBe("0003");
     expect(document.getElementById("command-status")?.textContent).toContain("for “cache”");
+  });
+});
+
+describe("reader runtime with chunked details", () => {
+  it("fetches a detail chunk when a record opens and falls back when it cannot", async () => {
+    const model = buildStaticReaderModel(workspace(), [
+      record("0001", "Static reader renderer", ["reader"], "landed"),
+      record("0002", "Retry policy for the CLI", ["cli"], "landed"),
+    ]);
+    const chunked = chunkRecordDetails(renderRecordDetails(model), 250_000);
+    const chunks = new Map(chunked.files.map((file) => [file.href, file.content]));
+    let failChunks = false;
+    const requested: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requested.push(url);
+      if (url.endsWith("search-index.json")) return new Response("[]", { headers: { "content-type": "application/json" } });
+      const chunk = [...chunks.entries()].find(([href]) => url.endsWith(href));
+      if (chunk && !failChunks) return new Response(chunk[1], { headers: { "content-type": "application/json" } });
+      throw new TypeError("Failed to fetch");
+    }) as typeof fetch;
+    const html = renderStaticReaderHtml(model, { iconSvg: "<svg></svg>", detailChunks: chunked.hrefById });
+    expect(html).not.toContain('<template class="entry-detail">');
+    mount(html);
+    await settle(50);
+
+    (document.querySelector('.entry[data-id="0002"] .entry-link') as HTMLElement).click();
+    await settle(50);
+    const body = document.getElementById("record-panel-body");
+    expect(document.getElementById("record-panel")?.classList.contains("open")).toBe(true);
+    expect(body?.querySelector(".record-panel-title")?.textContent).toBe("Retry policy for the CLI");
+    expect(body?.querySelector(".context-panel")).not.toBeNull();
+    expect(requested.filter((url) => url.endsWith("details/000.json"))).toHaveLength(1);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await settle(20);
+    (document.querySelector('.entry[data-id="0001"] .entry-link') as HTMLElement).click();
+    await settle(50);
+    expect(body?.querySelector(".record-panel-title")?.textContent).toBe("Static reader renderer");
+    expect(requested.filter((url) => url.endsWith("details/000.json"))).toHaveLength(1);
+  });
+
+  it("shows the row title, a served-over-HTTP note, and the source link when chunks cannot load", async () => {
+    const model = buildStaticReaderModel(workspace(), [record("0001", "Static reader renderer", ["reader"], "landed")]);
+    const chunked = chunkRecordDetails(renderRecordDetails(model), 250_000);
+    globalThis.fetch = (async () => {
+      throw new TypeError("Failed to fetch");
+    }) as typeof fetch;
+    mount(renderStaticReaderHtml(model, { iconSvg: "<svg></svg>", detailChunks: chunked.hrefById }));
+    await settle(50);
+    (document.querySelector('.entry[data-id="0001"] .entry-link') as HTMLElement).click();
+    await settle(50);
+    const body = document.getElementById("record-panel-body");
+    expect(body?.querySelector(".record-panel-title")?.textContent).toBe("Static reader renderer");
+    expect(body?.textContent).toContain("served over HTTP");
+    expect(body?.querySelector("a")?.getAttribute("href")).toMatch(/^sources\/0001-[a-f0-9]{16}\.md$/);
   });
 });
 

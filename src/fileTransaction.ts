@@ -87,7 +87,8 @@ interface LockOwner {
 const staleLockMs = 15 * 60 * 1000;
 const maxLockBytes = 16 * 1024;
 const maxOperationLength = 500;
-const generatedArtifactFiles = 4;
+/** index.html, the search index stub, graph.json, graph/contracts.json, and the sources manifest. */
+const generatedArtifactFiles = 5;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const sha256Pattern = /^[a-f0-9]{64}$/;
 
@@ -695,8 +696,14 @@ function invalidJournal(journalPath: string): LedgerError {
   );
 }
 
+/**
+ * Largest transaction a render may need: per document a source sidecar write
+ * and a stale sidecar delete, at most one search shard write and one stale
+ * shard delete, and at most one detail chunk write and one stale chunk delete,
+ * plus the fixed generated artifacts.
+ */
 function maxTransactionChanges(workspace: LedgerWorkspace): number {
-  return workspace.config.limits.maxDocuments * 2 + generatedArtifactFiles;
+  return workspace.config.limits.maxDocuments * 6 + generatedArtifactFiles;
 }
 
 function isCode(error: unknown, code: string): boolean {

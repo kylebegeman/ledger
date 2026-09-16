@@ -10,6 +10,41 @@ import type { LedgerIssue } from "./types.js";
 
 export interface RenderStaticReaderHtmlOptions {
   readonly iconSvg?: string;
+  /**
+   * Record id to detail chunk href. When set, entries reference their chunk
+   * with `data-detail` instead of embedding a detail template, and the runtime
+   * fetches the chunk when the record opens.
+   */
+  readonly detailChunks?: ReadonlyMap<string, string>;
+}
+
+/**
+ * Remove the indentation that template literals leave after newlines, outside
+ * `pre`, `textarea`, `script`, and `style` blocks. A newline remains, so inline
+ * spacing between elements renders exactly as before.
+ */
+export function compactHtml(html: string): string {
+  const preserved = /<(pre|textarea|script|style)\b[\s\S]*?<\/\1>/gi;
+  let output = "";
+  let last = 0;
+  for (const match of html.matchAll(preserved)) {
+    output += html.slice(last, match.index).replace(/\n[ \t]+/g, "\n");
+    output += match[0];
+    last = match.index + match[0].length;
+  }
+  return output + html.slice(last).replace(/\n[ \t]+/g, "\n");
+}
+
+/** Detail panel HTML for every internal record, keyed by record id, for chunked readers. */
+export function renderRecordDetails(model: LedgerStaticReaderModel): ReadonlyMap<string, string> {
+  const details = new Map<string, string>();
+  if (model.profile !== "internal") return details;
+  for (const document of model.documents) {
+    if (details.has(document.id)) continue;
+    const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
+    details.set(document.id, compactHtml(recordDetail(document, updatedDate)));
+  }
+  return details;
 }
 
 export function renderStaticReaderHtml(
@@ -25,7 +60,7 @@ export function renderStaticReaderHtml(
   const isPublic = model.profile === "public";
   const documents = model.documents;
 
-  return `<!doctype html>
+  return compactHtml(`<!doctype html>
 <html lang="en" data-theme="system">
 <head>
   <meta charset="utf-8">
@@ -116,6 +151,7 @@ ${staticReaderStyles}
                   document,
                   model.profile,
                   index === 0 || documents[index - 1].date.slice(0, 4) !== document.date.slice(0, 4),
+                  options.detailChunks?.get(document.id),
                 ),
               )
               .join("\n            ")}
@@ -151,7 +187,7 @@ ${staticReaderRuntime}
   </script>
 </body>
 </html>
-`;
+`);
 }
 
 function internalRail(model: LedgerStaticReaderModel): string {
@@ -170,11 +206,12 @@ function renderEntry(
   document: LedgerRenderedDocument,
   profile: LedgerStaticReaderModel["profile"],
   yearStart: boolean,
+  detailHref?: string,
 ): string {
   if (profile === "public") return renderPublicEntry(document, yearStart);
   const recordId = domId(document.id);
   const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
-  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-search="${escapeHtml(searchTerms(document))}">
+  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}"${detailHref ? ` data-detail="${escapeHtml(detailHref)}" data-source="${escapeHtml(document.sourceHref)}"` : ""} data-search="${escapeHtml(searchTerms(document))}">
               <div class="entry-row">
                 <div class="record-type" data-kind-tone="${escapeHtml(document.kind)}">${kindIcon(document.kind)}<span>${escapeHtml(labelForKind(document.kind))}</span></div>
                 <span class="record-id">${escapeHtml(document.id)}</span>
@@ -191,7 +228,7 @@ function renderEntry(
                 ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
                 ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
               </div>
-              <template class="entry-detail">${recordDetail(document, updatedDate)}</template>
+              ${detailHref ? "" : `<template class="entry-detail">${recordDetail(document, updatedDate)}</template>`}
             </article>`;
 }
 
