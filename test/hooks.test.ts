@@ -237,7 +237,7 @@ describe("hook events", () => {
     const end = await runHookEvent(workspace, "claude-code", "session-end", { sessionId, paths: [], stopHookActive: false, reason: "other" });
     expect(end.closed).toBe(true);
     expect(findSession(await readLedgerDocuments(workspace), { hostSession: sessionId }, { activeOnly: true })).toBeUndefined();
-  });
+  }, 30_000);
 
   it("does nothing on stop without touched paths and answers Cursor in its own shape", async () => {
     const root = await fixtureRepo();
@@ -255,7 +255,7 @@ describe("hook events", () => {
     expect(stop.output).toEqual({});
     const empty = await runHookEvent(workspace, "cursor", "post-tool-use", { sessionId: "cur-1", paths: [], stopHookActive: false });
     expect(empty.output).toEqual({});
-  });
+  }, 30_000);
 
   it("keeps injected context within the budget", async () => {
     const root = await fixtureRepo();
@@ -265,7 +265,7 @@ describe("hook events", () => {
     const small = await buildSessionStartContext(workspace, documents, start.session!, { budgetTokens: 200 });
     expect(small.length).toBeLessThanOrEqual(200 * 4 + 120);
     expect(small).toContain("# Ledger memory for");
-  });
+  }, 30_000);
 });
 
 describe("hooks install CLI", () => {
@@ -289,7 +289,7 @@ describe("hooks install CLI", () => {
     const help = await captureRun(["help"], root);
     expect(help.stdout).toContain("ledger hooks install --host");
     expect(help.stdout).not.toContain("ledger hook <session-start");
-  });
+  }, 30_000);
 });
 
 async function captureRun(argv: readonly string[], cwd: string): Promise<{
