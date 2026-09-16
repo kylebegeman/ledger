@@ -36,7 +36,10 @@ describe("Ledger engine", () => {
 
     const reader = await fetch(engine.url);
     expect(reader.status).toBe(200);
-    expect(await reader.text()).toContain("Engine fixture");
+    const html = await reader.text();
+    expect(html).toContain("Engine fixture");
+    expect(html).toContain('new EventSource("events")');
+    expect(html).toContain('addEventListener("rebuilt"');
 
     const description = await (await fetch(`${engine.url}api/v1`)).json();
     expect(description).toMatchObject({

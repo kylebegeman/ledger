@@ -478,6 +478,14 @@ falls back to running in-process, so a crashed engine never breaks a command.
 The daemon record never carries a token; in network mode the CLI sends
 `LEDGER_SERVE_TOKEN` from its own environment.
 
+The reader reloads itself when served by the engine. Its runtime opens an
+`EventSource` on `/events` whenever the page is served over HTTP, announces
+`rebuilt` in the live status region, and reloads 150 ms later so the URL state
+(filters, page, open record) survives. A `rebuild-failed` event leaves the last
+good render in place with a status message. Under a plain static server the
+stream answers 404 and the browser closes the source without retrying; from a
+`file:` URL the client is never created.
+
 ### Docs Bridge
 
 Ledger should be able to reference existing project docs without owning them.
