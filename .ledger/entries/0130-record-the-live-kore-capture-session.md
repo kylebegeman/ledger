@@ -98,4 +98,7 @@ uncommitted rename safely and then B010.
 
 Evidence came from the live session's report and a direct read of Kore's
 working tree: session S0001 active with `CONTRIBUTING.md`, receipt 0002
-finished and passing `ready`, and Kore's `ledger ci` passing.
+finished and passing `ready`, and Kore's `ledger ci` passing. The session ran
+in the Claude desktop app, whose `/exit` left the process running without
+firing SessionEnd; S0001 was closed by hand, 0002 was landed, and both were
+committed with the rename in Kore commit `c9b3ad5` on forge#23.

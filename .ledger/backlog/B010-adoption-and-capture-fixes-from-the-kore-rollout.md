@@ -47,7 +47,8 @@ Included, most urgent first:
   linked draft; instructions that prefer finishing the draft; the lifecycle
   documented in the skill; no re-draft after a linked receipt lands; no session
   paths or session headings in drafts; drafted titles and areas taken from the
-  change; template placeholders tightened.
+  change; template placeholders tightened; sessions that close without
+  SessionEnd, which the Claude desktop app did not fire on `/exit`.
 - Toolchain-aware `adopt` (0125): coverage roots from the tracked tree,
   `git.coverage: any`, generated-code ignores, a marked `.gitignore` block, a
   verification allowlist from the detected toolchain, no empty docs folders,
