@@ -331,6 +331,7 @@ full local verification and publishing checklist.
 | `ledger release notes v0.1.1` | Prints the Public Notes of a release record for GitHub Releases or changelogs. |
 | `ledger migrate changelog <dir> --rewrite-docs` | Migrates legacy Markdown changelog records into `.ledger/entries` and writes a receipt. |
 | `ledger agents --role reviewer` | Prints role-specific `AGENTS.md` instructions for the configured workflow. |
+| `ledger hooks install --host claude-code` | Installs Ledger lifecycle hooks into the host's project hook file (`.claude/settings.json`, `.codex/hooks.json`, or `.cursor/hooks.json`), preserving other hooks. Use `--dry-run` to print the merged file. |
 | `ledger ci` | Runs validation, docs audit, coverage, and docs impact together; accepts `--base` and `--head` for clean PR checkouts. |
 
 Every command has focused help:
@@ -518,6 +519,30 @@ full result. Records are also available as resources (`ledger://records/{id}`,
 `ledger_agent_instructions` and `ledger_handoff` prompts give agents role
 instructions and a pre-edit handoff for a file. The same server runs over HTTP
 at `/mcp` under `ledger serve --api`.
+
+### Host Hooks
+
+`ledger hooks install --host claude-code` (or `codex`, or `cursor`) writes
+lifecycle hooks into the host's project hook file so records get written by
+the workflow instead of by memory:
+
+- session start creates or resumes a session record and injects a budgeted
+  Ledger packet for the paths in play, or recent changes and open backlog when
+  the tree is clean
+- every file edit records the touched path on the session record
+- stop and session end draft a change entry from the touched paths and the
+  Git diff, linked to the session, and refresh it on later stops
+- pre-compaction records the working tree on the session and writes
+  `.ledger/reports/handoff.md`, so the post-compaction session start receives
+  the same memory
+
+The hooks run `ledger hook <event> --host <host>` with the host's JSON on
+stdin; pass `--command "npx ledger"` when Ledger is a project dependency
+rather than a global install, or `--command "node dist/cli.js"` in this
+repository, where another program owns the `ledger` name on PATH. Nothing
+auto-starts the engine. Codex asks you
+to trust the hook definitions once with `/hooks`; Claude Code reads
+`CLAUDE.md`, so import `AGENTS.md` from it.
 
 Use `ledger agents --role contributor`, `ledger agents --role reviewer`,
 `ledger agents --role release`, `ledger agents --role migration`, or

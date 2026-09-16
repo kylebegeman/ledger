@@ -73,9 +73,20 @@ export {
   setFrontmatterArray,
   setFrontmatterScalars,
 } from "./frontmatterEdit.js";
+export {
+  buildSessionStartContext,
+  hookEvents,
+  hookHosts,
+  hostHookFile,
+  installHostHooks,
+  normalizeHookPayload,
+  renderHostHooks,
+  runHookEvent,
+} from "./hooks.js";
 export { checkReadiness, formatReadinessReport } from "./ready.js";
 export {
   closeSession,
+  draftSessionReceipt,
   findSession,
   noteSession,
   pruneSessions,
@@ -147,6 +158,7 @@ export type * from "./coverage.js";
 export type * from "./docs.js";
 export type * from "./docsImpact.js";
 export type * from "./engine.js";
+export type * from "./hooks.js";
 export type * from "./daemon.js";
 export type * from "./operations/delegate.js";
 export type * from "./doctor.js";
