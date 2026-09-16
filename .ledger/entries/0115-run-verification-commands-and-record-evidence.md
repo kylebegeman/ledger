@@ -162,7 +162,7 @@ line; stale gains a signal after thirty days; packets and explain show
 ## Verification
 
 - `npm run typecheck`
-- `npx vitest run` (283 tests, including `test/verify.test.ts`)
+- `npx vitest run` (282 tests, including `test/verify.test.ts`)
 - `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts`
 - `node dist/cli.js verify 0115` lists this receipt's runnable commands; the evidence for it was recorded with `--run` from the shell, which a Verification bullet must never do itself
 - `npm run ci`

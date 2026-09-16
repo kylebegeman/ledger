@@ -317,7 +317,7 @@ full local verification and publishing checklist.
 | `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, symbol extractor availability, and stale signals. |
 | `ledger metrics` | Measures cold read, warm cached read, validate, index, render-model, and search latency against configured budgets. |
 | `ledger cache status` | Reports the catalog cache backend, size, and freshness. Use `cache warm` to prefill it and `cache clear` to delete it. |
-| `ledger stale --check` | Finds stale knowledge signals such as missing relationships, stale symbols, and release verification gaps. |
+| `ledger stale --check` | Finds stale knowledge signals: missing relationships, symbols and anchors that no longer exist in the referenced files, invariants that cite them, release verification gaps, expired sessions, and stale or failed verification evidence. |
 | `ledger docs audit` | Finds missing and unreferenced durable docs links. |
 | `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
 | `ledger docs impact --check` | Fails when a changed source file has no docs impact evidence from a change entry in the same change set (a reviewed `docsImpact` declaration or referenced docs). |

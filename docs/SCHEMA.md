@@ -145,6 +145,12 @@ Recommended shape:
   contract.
 ```
 
+`Anchor` names the symbol, route, command, or heading that matters in the
+file. `ledger stale` checks every anchor against the files its block names and
+reports `stale-anchor` when it no longer appears, and `stale-invariant` when
+an invariant cites a stale anchor or symbol in backticks. Acknowledge an
+intentionally historical anchor with `staleRefs: ["anchors:<name>"]`.
+
 For broad mechanical work:
 
 ```markdown

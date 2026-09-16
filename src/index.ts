@@ -127,7 +127,14 @@ export {
   writeAgentPacketReport,
 } from "./packet.js";
 export { extractBullets, getSectionBody, normalizeKindFilter, queryDocuments } from "./query.js";
-export { matchFilePath, relatedRecords, retrieveByPath, supersededByIndex } from "./retrieval.js";
+export {
+  extractAnchoredBlocks,
+  extractAnchors,
+  matchFilePath,
+  relatedRecords,
+  retrieveByPath,
+  supersededByIndex,
+} from "./retrieval.js";
 export {
   assignEntriesToRelease,
   buildReleaseDocument,
