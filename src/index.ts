@@ -10,6 +10,7 @@ export {
   runLedgerSearchPacketCommand,
   runLedgerSearchCommand,
 } from "./commands/index.js";
+export { formatCiAnnotations, formatCiSummaryMarkdown, runCiChecks } from "./ci.js";
 export {
   currentConfigVersion,
   defaultConfig,
@@ -184,6 +185,7 @@ export {
 } from "./validate.js";
 export { findProjectRoot, findWorkspace, initWorkspace } from "./workspace.js";
 export type * from "./authoring.js";
+export type * from "./ci.js";
 export type * from "./commands/index.js";
 export type * from "./config.js";
 export type * from "./coverage.js";
