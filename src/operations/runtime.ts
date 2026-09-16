@@ -402,6 +402,8 @@ export function generalHelp(registry: readonly AnyLedgerOperation[]): string {
     "Examples:",
     '  ledger new "Add provider retry policy" --from-diff --area server',
     '  ledger feedback "Dogfood finding" --area product --tag dogfood',
+    '  ledger backlog new "Sharded search" --area search',
+    "  ledger promote B001 --from-diff",
     "  ledger migrate changelog docs/changelog --rewrite-docs",
     "  ledger explain src/cli.ts --agent",
     "  ledger search renderer --limit 5",

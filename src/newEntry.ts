@@ -4,6 +4,7 @@ import { isIgnoredByGitConfig } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import { applyFileTransaction } from "./fileTransaction.js";
+import { ensureFrontmatterArrays, replaceSectionBody } from "./frontmatterEdit.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import { extractFileSymbols } from "./symbols.js";
 import { renderLedgerTemplate } from "./template.js";
@@ -18,6 +19,22 @@ export interface CreateEntryOptions {
   readonly staged: boolean;
   readonly areas: readonly string[];
   readonly status: string;
+  /** Explicit file references added to the Git-derived list. */
+  readonly files?: readonly string[];
+  /** Backlog ids the entry promotes. */
+  readonly backlog?: readonly string[];
+  /** Decision ids the entry realizes. */
+  readonly decisions?: readonly string[];
+  /** Other related record ids. */
+  readonly related?: readonly string[];
+  /** Section bodies that replace the template placeholders, keyed by heading. */
+  readonly sectionBodies?: Readonly<Record<string, string>>;
+}
+
+export interface DraftedRecord {
+  readonly id: string;
+  readonly path: string;
+  readonly content: string;
 }
 
 export async function createChangeEntry(
@@ -25,6 +42,19 @@ export async function createChangeEntry(
   documents: readonly ParsedLedgerDocument[],
   options: CreateEntryOptions,
 ): Promise<string> {
+  const draft = await draftChangeEntry(workspace, documents, options);
+  await applyFileTransaction(workspace, "create change entry", [
+    { path: draft.path, content: draft.content, expectedHash: null },
+  ]);
+  return draft.path;
+}
+
+/** Render the next change entry without writing it. */
+export async function draftChangeEntry(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  options: CreateEntryOptions,
+): Promise<DraftedRecord> {
   const id = nextEntryId(workspace, documents);
   const slug = slugify(options.title);
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
@@ -33,7 +63,12 @@ export async function createChangeEntry(
         (file) => !isIgnoredByGitConfig(workspace, file.path),
       )
     : [];
-  const files = coverageReferencesForChangedFiles(changedFiles);
+  const files = options.files && options.files.length > 0
+    ? uniqueSorted([
+        ...coverageReferencesForChangedFiles(changedFiles),
+        ...options.files.map(normalizePath),
+      ])
+    : coverageReferencesForChangedFiles(changedFiles);
   const symbols = options.fromDiff && changedFiles.length <= largeDiffFileThreshold
     ? await collectChangedSymbols(workspace, changedFiles)
     : { all: [], byFile: new Map<string, readonly string[]>() };
@@ -41,7 +76,10 @@ export async function createChangeEntry(
   const areas = options.areas.length > 0 ? options.areas : inferAreas(workspace, changedFiles);
   const date = new Date().toISOString().slice(0, 10);
   const template = await readTemplate(workspace);
-  const rendered = renderLedgerTemplate(template, {
+  const backlog = options.backlog ?? [];
+  const decisions = options.decisions ?? [];
+  const related = options.related ?? [];
+  let rendered = renderLedgerTemplate(template, {
     scalars: {
       id,
       title: options.title,
@@ -53,16 +91,24 @@ export async function createChangeEntry(
       files,
       symbols: symbols.all,
       docs,
+      backlog,
+      decisions,
+      related,
     },
     blocks: {
       changedFiles: renderChangedFiles(workspace, changedFiles, symbols.byFile),
     },
   });
+  rendered = ensureFrontmatterArrays(rendered, { backlog, decisions, related });
+  for (const [title, body] of Object.entries(options.sectionBodies ?? {})) {
+    rendered = replaceSectionBody(rendered, title, body);
+  }
 
-  await applyFileTransaction(workspace, "create change entry", [
-    { path: normalizePath(relativePath), content: rendered, expectedHash: null },
-  ]);
-  return relativePath.replace(/\\/g, "/");
+  return { id, path: normalizePath(relativePath), content: rendered };
+}
+
+function uniqueSorted(values: readonly string[]): readonly string[] {
+  return [...new Set(values)].sort();
 }
 
 export async function createProductNoteEntry(
@@ -121,7 +167,7 @@ function entrySequenceNumber(id: string, prefix: string): number | undefined {
   return Number.parseInt(value, 10);
 }
 
-function slugify(input: string): string {
+export function slugify(input: string): string {
   const slug = input
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

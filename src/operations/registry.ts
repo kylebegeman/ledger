@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { agentsOperation } from "./definitions/agents.js";
 import {
+  backlogNewOperation,
+  decisionNewOperation,
   feedbackOperation,
   migrateChangelogOperation,
   newEntryOperation,
+  promoteOperation,
+  releaseNotesOperation,
   releaseOperation,
   unreleasedOperation,
 } from "./definitions/authoring.js";
@@ -48,6 +52,9 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   adoptOperation,
   newEntryOperation,
   feedbackOperation,
+  backlogNewOperation,
+  decisionNewOperation,
+  promoteOperation,
   validateOperation,
   indexOperation,
   verifyIntegrityOperation,
@@ -70,6 +77,7 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   mcpOperation,
   unreleasedOperation,
   releaseOperation,
+  releaseNotesOperation,
   migrateChangelogOperation,
   agentsOperation,
   docsAuditOperation,

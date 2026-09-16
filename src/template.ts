@@ -4,6 +4,9 @@ export interface LedgerTemplateValues {
   readonly blocks?: Readonly<Record<string, string>>;
 }
 
+/** Template statuses that a caller-supplied status replaces. */
+const templateStatusPlaceholders = ["draft", "captured", "proposed", "active"] as const;
+
 export function renderLedgerTemplate(
   template: string,
   values: LedgerTemplateValues,
@@ -29,8 +32,9 @@ export function renderLedgerTemplate(
 
   const status = scalarValues.status;
   if (status) {
-    rendered = rendered.replace('status: "draft"', `status: "${escapeYamlString(status)}"`);
-    rendered = rendered.replace('status: "captured"', `status: "${escapeYamlString(status)}"`);
+    for (const placeholder of templateStatusPlaceholders) {
+      rendered = rendered.replace(`status: "${placeholder}"`, `status: "${escapeYamlString(status)}"`);
+    }
   }
   rendered = replaceDefaultBlock(rendered, "changedFiles", blockValues.changedFiles);
 

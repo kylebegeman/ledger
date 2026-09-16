@@ -43,7 +43,8 @@ The package root should stay focused on:
 - document reading and normalization
 - validation, CI, docs impact, stale checks, and doctor results
 - index, integrity, render, search, and graph model generation
-- release generation
+- release generation and release notes
+- record authoring: change entries, backlog items, decisions, and promotion
 - the retrieval contract (`retrieveByPath`, `matchFilePath`, `relatedRecords`)
 - agent packets, including file-first and search-first workflows
 - command result models for reusable CLI behavior

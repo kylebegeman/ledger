@@ -69,7 +69,9 @@ export const defaultConfig: LedgerConfig = {
     entryPrefix: "",
     entryWidth: 4,
     backlogPrefix: "B",
+    backlogWidth: 3,
     decisionPrefix: "D",
+    decisionWidth: 3,
   },
   validation: {
     profile: "standard",
@@ -371,7 +373,9 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
     optionalString(ids, "entryPrefix", configPath, "ids");
     optionalNumber(ids, "entryWidth", configPath, "ids");
     optionalString(ids, "backlogPrefix", configPath, "ids");
+    optionalNumber(ids, "backlogWidth", configPath, "ids");
     optionalString(ids, "decisionPrefix", configPath, "ids");
+    optionalNumber(ids, "decisionWidth", configPath, "ids");
   });
   optionalObject(config, "validation", configPath, (validation) => {
     optionalValidationProfile(validation, "profile", configPath, "validation");
@@ -454,8 +458,14 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
   if (!Number.isInteger(config.version) || config.version < 1) {
     fail(configPath, "version must be a positive integer");
   }
-  if (!Number.isInteger(config.ids.entryWidth) || config.ids.entryWidth < 1) {
-    fail(configPath, "ids.entryWidth must be a positive integer");
+  for (const [label, value] of [
+    ["ids.entryWidth", config.ids.entryWidth],
+    ["ids.backlogWidth", config.ids.backlogWidth],
+    ["ids.decisionWidth", config.ids.decisionWidth],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 1) {
+      fail(configPath, `${label} must be a positive integer`);
+    }
   }
   if (config.project.trim().length === 0) {
     fail(configPath, "project must be a non-empty string");
