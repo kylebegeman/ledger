@@ -200,7 +200,10 @@ automation-generated pull request.
 ### Coding Agents
 
 Agents use Ledger to understand project history before editing files. They can
-query by file, symbol, area, decision, release, or invariant.
+query by file, symbol, area, decision, release, or invariant. With host hooks
+installed (`ledger hooks install --host claude-code|codex|cursor`), a session
+starts with a budgeted packet, touched paths accumulate on a session record,
+and a draft receipt exists when the session stops, without prompt engineering.
 
 ### Reviewers
 

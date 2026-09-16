@@ -21,6 +21,7 @@ import {
   docsReconcileOperation,
 } from "./definitions/docs.js";
 import { doctorOperation, metricsOperation, staleOperation } from "./definitions/health.js";
+import { hookOperation, hooksInstallOperation } from "./definitions/hooks.js";
 import { readyOperation } from "./definitions/readiness.js";
 import {
   adoptOperation,
@@ -94,6 +95,8 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   releaseNotesOperation,
   migrateChangelogOperation,
   agentsOperation,
+  hooksInstallOperation,
+  hookOperation,
   docsAuditOperation,
   docsCheckOperation,
   docsClassifyOperation,

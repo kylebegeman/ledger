@@ -8,7 +8,7 @@ import {
   setFrontmatterScalars,
 } from "./frontmatterEdit.js";
 import { LedgerError } from "./machine.js";
-import { inferAreas, slugify } from "./newEntry.js";
+import { draftChangeEntry, inferAreas, slugify } from "./newEntry.js";
 import { nextRecordId } from "./authoring.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import { extractBullets, getSectionBody } from "./query.js";
@@ -263,6 +263,98 @@ export async function closeSession(
     { path: normalizePath(parsed.relativePath), content, expectedHash: hashFileContent(parsed.raw) },
   ]);
   return { session: { ...toSessionRecord(normalized), status: "closed" }, changed: true };
+}
+
+export interface SessionReceiptResult {
+  readonly session: SessionRecord;
+  readonly entry: { readonly id: string; readonly path: string; readonly created: boolean };
+}
+
+/**
+ * Draft the change entry for a session, or refresh the draft already linked
+ * to it. Returns undefined when the session has touched nothing. The session
+ * stays active so later touches keep flowing into the same draft.
+ */
+export async function draftSessionReceipt(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  selector: SessionSelector,
+  options: { readonly fromDiff: boolean },
+): Promise<SessionReceiptResult | undefined> {
+  const found = findSession(documents, selector, { activeOnly: true });
+  if (!found || found.normalized.files.length === 0) return undefined;
+  const { parsed, normalized } = found;
+  const today = isoDate(new Date());
+
+  const linkedDraft = documents
+    .map((document) => ({ parsed: document, normalized: normalizeDocument(document) }))
+    .find(
+      ({ parsed: candidate, normalized: entry }) =>
+        candidate.kind === "change" && entry.status === "draft" && normalized.related.includes(entry.id),
+    );
+  if (linkedDraft) {
+    const files = [...new Set([...linkedDraft.normalized.files, ...normalized.files])];
+    if (files.length === linkedDraft.normalized.files.length) {
+      return {
+        session: toSessionRecord(normalized),
+        entry: { id: linkedDraft.normalized.id, path: normalizePath(linkedDraft.parsed.relativePath), created: false },
+      };
+    }
+    let content = setFrontmatterArray(linkedDraft.parsed.raw, "files", files);
+    content = setFrontmatterScalars(content, { updated: today });
+    await applyFileTransaction(workspace, `refresh receipt for ${normalized.id}`, [
+      {
+        path: normalizePath(linkedDraft.parsed.relativePath),
+        content,
+        expectedHash: hashFileContent(linkedDraft.parsed.raw),
+      },
+    ]);
+    return {
+      session: toSessionRecord(normalized),
+      entry: { id: linkedDraft.normalized.id, path: normalizePath(linkedDraft.parsed.relativePath), created: false },
+    };
+  }
+
+  const notes = sessionNoteLines(parsed);
+  const sectionBodies: Record<string, string> = notes.length > 0 ? { Notes: notes.join("\n") } : {};
+  const entryOptions = {
+    title: normalized.title,
+    staged: false,
+    areas: normalized.areas,
+    status: "draft",
+    files: normalized.files,
+    related: [normalized.id],
+    sectionBodies,
+  };
+  let draft;
+  try {
+    draft = await draftChangeEntry(workspace, documents, { ...entryOptions, fromDiff: options.fromDiff });
+  } catch (error) {
+    if (!options.fromDiff) throw error;
+    draft = await draftChangeEntry(workspace, documents, { ...entryOptions, fromDiff: false });
+  }
+  let session = setFrontmatterArray(parsed.raw, "related", [...new Set([...normalized.related, draft.id])]);
+  session = setFrontmatterScalars(session, { updated: today });
+  await applyFileTransaction(workspace, `draft receipt for ${normalized.id}`, [
+    { path: draft.path, content: draft.content, expectedHash: null },
+    { path: normalizePath(parsed.relativePath), content: session, expectedHash: hashFileContent(parsed.raw) },
+  ]);
+  return {
+    session: { ...toSessionRecord(normalized), related: [...normalized.related, draft.id] },
+    entry: { id: draft.id, path: draft.path, created: true },
+  };
+}
+
+function sessionNoteLines(parsed: ParsedLedgerDocument): readonly string[] {
+  const lines: string[] = [];
+  for (const section of ["Learned", "Next"] as const) {
+    const bullets = extractBullets(getSectionBody(parsed, section)).filter(
+      (bullet) => !sessionPlaceholderLines.has(bullet),
+    );
+    if (bullets.length === 0) continue;
+    lines.push(`${section}:`, ...bullets.map((bullet) => `- ${bullet}`), "");
+  }
+  return lines.length > 0 ? lines.slice(0, -1) : lines;
 }
 
 export interface PruneSessionsResult {

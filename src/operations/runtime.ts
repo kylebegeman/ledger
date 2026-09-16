@@ -404,6 +404,7 @@ export function generalHelp(registry: readonly AnyLedgerOperation[]): string {
     '  ledger feedback "Dogfood finding" --area product --tag dogfood',
     '  ledger backlog new "Sharded search" --area search',
     "  ledger promote B001 --from-diff",
+    "  ledger hooks install --host claude-code",
     "  ledger migrate changelog docs/changelog --rewrite-docs",
     "  ledger explain src/cli.ts --agent",
     "  ledger search renderer --limit 5",

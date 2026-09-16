@@ -4594,6 +4594,217 @@
       }
     },
     {
+      "name": "hooks.install",
+      "title": "Install host hooks",
+      "description": "Install Ledger lifecycle hooks into an agent host's project hook file.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "hooks",
+          "install"
+        ],
+        "aliases": [],
+        "usage": "ledger hooks install --host <claude-code|codex|cursor> [--command <prefix>] [--dry-run] [--json]",
+        "json": true,
+        "flags": {
+          "host": {
+            "type": "string",
+            "field": "host",
+            "choices": [
+              "claude-code",
+              "codex",
+              "cursor"
+            ]
+          },
+          "command": {
+            "type": "string",
+            "field": "command"
+          },
+          "dry-run": {
+            "type": "boolean",
+            "field": "dryRun"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "codex",
+              "cursor"
+            ],
+            "description": "Agent host to install hooks for."
+          },
+          "command": {
+            "default": "ledger",
+            "description": "Command prefix that runs Ledger, for example npx ledger.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "dryRun": {
+            "description": "Print the merged hook file without writing it.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "host",
+          "command"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "nextSteps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "path",
+          "command",
+          "events",
+          "changed",
+          "dryRun",
+          "nextSteps"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "hook",
+      "title": "Run a host hook event",
+      "description": "Handle one agent host lifecycle event from JSON on stdin. Installed by ledger hooks install.",
+      "workspace": "optional",
+      "mutates": true,
+      "interactive": true,
+      "cli": {
+        "path": [
+          "hook"
+        ],
+        "aliases": [],
+        "usage": "ledger hook <session-start|post-tool-use|stop|session-end|pre-compact> [--host <host>] [--budget <tokens>]",
+        "json": false,
+        "positionals": {
+          "field": "event",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {
+          "host": {
+            "type": "string",
+            "field": "host",
+            "choices": [
+              "claude-code",
+              "codex",
+              "cursor"
+            ]
+          },
+          "budget": {
+            "type": "number",
+            "field": "budgetTokens"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "session-start",
+              "post-tool-use",
+              "stop",
+              "session-end",
+              "pre-compact"
+            ],
+            "description": "Lifecycle event name."
+          },
+          "host": {
+            "default": "claude-code",
+            "description": "Agent host that sent the event.",
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "codex",
+              "cursor"
+            ]
+          },
+          "budgetTokens": {
+            "description": "Token budget for injected context.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "event",
+          "host"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "handled": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "event",
+          "host",
+          "handled"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
       "name": "docs.audit",
       "title": "Audit docs references",
       "description": "Classify the docs root and report Ledger-to-doc references.",

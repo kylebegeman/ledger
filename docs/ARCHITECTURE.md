@@ -309,6 +309,32 @@ packet for a path in a message an agent can read before editing. Both
 transports, stdio and the engine's `/mcp`, register the same tools,
 resources, and prompts.
 
+### Capture Hooks
+
+`src/hooks.ts` turns host lifecycle events into Ledger writes. `ledger hooks
+install --host <host>` merges Ledger's entries into the host's project hook
+file (`.claude/settings.json`, `.codex/hooks.json`, `.cursor/hooks.json`),
+replacing earlier Ledger entries and preserving everything else. Each entry
+runs `ledger hook <event> --host <host>`, a hidden operation that reads the
+host's JSON from stdin, normalizes it to a host-neutral payload (session id,
+source, touched paths made project-relative, stop-hook flag), and dispatches:
+
+- `session-start` starts or resumes the session record for the host session
+  id and prints the SessionStart context object with a budgeted packet built
+  from the session's touched files, or the Git working tree, or recent changes
+  and open backlog
+- `post-tool-use` appends touched paths to the session record
+- `stop` and `session-end` draft a change entry from the touched paths and the
+  Git diff, link it to the session through `related`, and refresh its file
+  list on later stops; `session-end` also closes the session
+- `pre-compact` records the working tree on the session and writes
+  `.ledger/reports/handoff.md`
+
+The hook operation is interactive and workspace-optional so it never delegates
+to the engine, never appears on the HTTP API, and exits 0 with an empty JSON
+object when Ledger is not initialized or an error occurs; hosts must never be
+blocked by Ledger.
+
 ### Render And Export Adapters
 
 Ledger core should provide normalized exports, not own every presentation.
