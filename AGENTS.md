@@ -51,3 +51,18 @@ working in this repository.
   durable product and technical docs.
 - `docs/scratchpad/`: dated explorations; history, not plans.
 - `.ledger/`: entries, backlog, decisions, releases, and the dogfood catalog.
+
+<!-- ledger:agents:start -->
+# Ledger Workflow For Agents
+
+- Use Ledger for durable change memory in ledger.
+- Start with token-bounded context: `ledger packet <path> --budget 1200`.
+- Use `ledger search-packet <term> --budget 1600` when you know the topic but not the file path.
+- Use `ledger explain <path> --agent` when you need only invariants and verification.
+- Use `ledger search <term> --json` or `ledger query --text <term> --json` for bounded retrieval instead of reading the whole catalog.
+- Docs adoption mode is `partial`; do not assume Ledger owns all docs unless config says `managed`.
+- For implementation changes, create a receipt with `ledger new "<title>" --from-diff --area <area>`.
+- Fill in Summary, Why, Changed Files, Invariants, Verification, and Notes before handoff.
+- For dogfood findings, use `ledger feedback "<title>" --area <area> --tag dogfood`.
+- Before handoff, run `ledger ci` or the narrowest relevant Ledger command and record the result.
+<!-- ledger:agents:end -->

@@ -330,6 +330,12 @@ source, touched paths made project-relative, stop-hook flag), and dispatches:
 - `pre-compact` records the working tree on the session and writes
   `.ledger/reports/handoff.md`
 
+`src/skills.ts` renders `.agents/skills/ledger/SKILL.md` from the workspace
+config, links it into `.claude/skills/ledger` for Claude Code (copying when
+symlinks are unavailable), and maintains the fenced Ledger block that
+`ledger agents --write` keeps in `AGENTS.md`; the block text is the same
+`agentInstructions` the MCP prompt serves.
+
 The hook operation is interactive and workspace-optional so it never delegates
 to the engine, never appears on the HTTP API, and exits 0 with an empty JSON
 object when Ledger is not initialized or an error occurs; hosts must never be

@@ -23,6 +23,7 @@ import {
 import { doctorOperation, metricsOperation, staleOperation } from "./definitions/health.js";
 import { hookOperation, hooksInstallOperation } from "./definitions/hooks.js";
 import { readyOperation } from "./definitions/readiness.js";
+import { skillsInstallOperation } from "./definitions/skills.js";
 import {
   adoptOperation,
   indexOperation,
@@ -95,6 +96,7 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   releaseNotesOperation,
   migrateChangelogOperation,
   agentsOperation,
+  skillsInstallOperation,
   hooksInstallOperation,
   hookOperation,
   docsAuditOperation,

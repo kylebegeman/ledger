@@ -4516,17 +4516,17 @@
     },
     {
       "name": "agents",
-      "title": "Print agent instructions",
-      "description": "Print ready-to-paste AGENTS.md instructions for the configured Ledger workflow.",
+      "title": "Print or write agent instructions",
+      "description": "Print AGENTS.md instructions for the configured Ledger workflow, or maintain them as a fenced block in a file.",
       "workspace": "optional",
-      "mutates": false,
+      "mutates": true,
       "interactive": false,
       "cli": {
         "path": [
           "agents"
         ],
         "aliases": [],
-        "usage": "ledger agents [--role <contributor|reviewer|release|migration|conflict>] [--json]",
+        "usage": "ledger agents [--role <contributor|reviewer|release|migration|conflict>] [--write] [--file <path>] [--json]",
         "json": true,
         "flags": {
           "role": {
@@ -4539,6 +4539,14 @@
               "migration",
               "conflict"
             ]
+          },
+          "write": {
+            "type": "boolean",
+            "field": "write"
+          },
+          "file": {
+            "type": "string",
+            "field": "file"
           }
         }
       },
@@ -4556,8 +4564,22 @@
               "migration",
               "conflict"
             ]
+          },
+          "write": {
+            "description": "Maintain the fenced Ledger block in the target file.",
+            "type": "boolean"
+          },
+          "file": {
+            "default": "AGENTS.md",
+            "description": "Project-relative file to write the block into.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
           }
         },
+        "required": [
+          "file"
+        ],
         "additionalProperties": false
       },
       "output": {
@@ -4582,6 +4604,26 @@
           },
           "instructions": {
             "type": "string"
+          },
+          "written": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "changed": {
+                "type": "boolean"
+              },
+              "created": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "path",
+              "changed",
+              "created"
+            ],
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -4589,6 +4631,100 @@
           "docsMode",
           "role",
           "instructions"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "skills.install",
+      "title": "Install the Ledger skill",
+      "description": "Write the Ledger SKILL.md under .agents/skills/ledger and expose it to agent hosts.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "skills",
+          "install"
+        ],
+        "aliases": [],
+        "usage": "ledger skills install [--host <claude-code|codex|cursor|all>] [--json]",
+        "json": true,
+        "flags": {
+          "host": {
+            "type": "string[]",
+            "field": "hosts",
+            "choices": [
+              "claude-code",
+              "codex",
+              "cursor",
+              "all"
+            ]
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "hosts": {
+            "description": "Hosts to expose the skill to. Defaults to all.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "claude-code",
+                "codex",
+                "cursor",
+                "all"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "host": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                },
+                "changed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "host",
+                "path",
+                "mode",
+                "changed"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "path",
+          "changed",
+          "hosts"
         ],
         "additionalProperties": {}
       }

@@ -330,7 +330,8 @@ full local verification and publishing checklist.
 | `ledger release v0.1.1 --include-unreleased --assign --status released --write` | Assigns selected entries and writes a release record. |
 | `ledger release notes v0.1.1` | Prints the Public Notes of a release record for GitHub Releases or changelogs. |
 | `ledger migrate changelog <dir> --rewrite-docs` | Migrates legacy Markdown changelog records into `.ledger/entries` and writes a receipt. |
-| `ledger agents --role reviewer` | Prints role-specific `AGENTS.md` instructions for the configured workflow. |
+| `ledger agents --role reviewer` | Prints role-specific `AGENTS.md` instructions for the configured workflow. `--write` maintains them as a fenced block in `AGENTS.md` or `--file <path>`. |
+| `ledger skills install` | Writes `.agents/skills/ledger/SKILL.md` so skills-aware agents know when to call Ledger, with a `.claude/skills/ledger` link for Claude Code. |
 | `ledger hooks install --host claude-code` | Installs Ledger lifecycle hooks into the host's project hook file (`.claude/settings.json`, `.codex/hooks.json`, or `.cursor/hooks.json`), preserving other hooks. Use `--dry-run` to print the merged file. |
 | `ledger ci` | Runs validation, docs audit, coverage, and docs impact together; accepts `--base` and `--head` for clean PR checkouts. |
 
@@ -519,6 +520,17 @@ full result. Records are also available as resources (`ledger://records/{id}`,
 `ledger_agent_instructions` and `ledger_handoff` prompts give agents role
 instructions and a pre-edit handoff for a file. The same server runs over HTTP
 at `/mcp` under `ledger serve --api`.
+
+### Skill And Instructions
+
+`ledger skills install` writes `.agents/skills/ledger/SKILL.md`, the Agent
+Skills entry Codex and Cursor read natively; Claude Code gets a symlink at
+`.claude/skills/ledger` (a copy where symlinks are unavailable). The skill
+tells an agent when to call `packet`, `explain`, `search-packet`, `session
+note`, `new`, `promote`, and `ready`. `ledger agents --write` maintains the
+same workflow as a fenced block between `<!-- ledger:agents:start -->` and
+`<!-- ledger:agents:end -->` in `AGENTS.md`, preserving everything else in the
+file; Claude Code reads `CLAUDE.md`, so import `AGENTS.md` from it.
 
 ### Host Hooks
 
