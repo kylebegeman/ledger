@@ -578,6 +578,17 @@ auto-starts the engine. Codex asks you
 to trust the hook definitions once with `/hooks`; Claude Code reads
 `CLAUDE.md`, so import `AGENTS.md` from it.
 
+From TypeScript, talk to a running engine with the typed client:
+
+```ts
+import { connectLedgerClient } from "@kylebegeman/ledger";
+
+const client = await connectLedgerClient(process.cwd());
+const result = await client?.run("search", { query: "renderer", limit: 5 });
+```
+
+Operation names and inputs are checked at compile time against the registry.
+
 Use `ledger agents --role contributor`, `ledger agents --role reviewer`,
 `ledger agents --role release`, `ledger agents --role migration`, or
 `ledger agents --role conflict` to generate narrower operating instructions for

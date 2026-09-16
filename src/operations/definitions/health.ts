@@ -95,14 +95,14 @@ configured performance budgets.`,
   },
 });
 
-interface StaleInput extends Record<string, unknown> {
+export interface StaleInput extends Record<string, unknown> {
   readonly currentOnly?: boolean;
   readonly noBaseline?: boolean;
   readonly check?: boolean;
   readonly writeReport?: boolean;
 }
 
-interface StaleOutput extends LedgerStaleReport {
+export interface StaleOutput extends LedgerStaleReport {
   readonly reportPath?: string;
 }
 

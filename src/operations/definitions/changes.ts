@@ -23,7 +23,7 @@ const changeRangeFlags = {
   head: { type: "string", description: "Head revision for a merge-base range." },
 } as const;
 
-interface CoverageInput extends ChangeRangeInput, Record<string, unknown> {
+export interface CoverageInput extends ChangeRangeInput, Record<string, unknown> {
   readonly explain?: boolean;
   readonly mode?: "current" | "any";
 }
@@ -113,13 +113,13 @@ merge-base change range.`,
   },
 });
 
-interface CiInput extends ChangeRangeInput, Record<string, unknown> {
+export interface CiInput extends ChangeRangeInput, Record<string, unknown> {
   readonly currentOnly?: boolean;
   readonly noBaseline?: boolean;
   readonly github?: boolean;
 }
 
-interface CiOutput extends LedgerCiResult {
+export interface CiOutput extends LedgerCiResult {
   /** Present with --github: the annotations printed and the summary written. */
   readonly github?: {
     readonly annotations: readonly string[];
@@ -199,7 +199,7 @@ by GITHUB_STEP_SUMMARY when it is set. The repository's action.yml wraps this.`,
   },
 });
 
-interface DocsImpactInput extends ChangeRangeInput, Record<string, unknown> {
+export interface DocsImpactInput extends ChangeRangeInput, Record<string, unknown> {
   readonly check?: boolean;
   readonly changedFiles?: readonly string[];
   readonly writeReport?: boolean;

@@ -11,6 +11,7 @@ export {
   runLedgerSearchCommand,
 } from "./commands/index.js";
 export { formatCiAnnotations, formatCiSummaryMarkdown, runCiChecks } from "./ci.js";
+export { connectLedgerClient, createLedgerClient } from "./client.js";
 export {
   currentConfigVersion,
   defaultConfig,
@@ -55,6 +56,7 @@ export {
   buildOperationsContract,
   findOperation,
   findOperationByTool,
+  ledgerOperationTable,
   ledgerOperations,
   ledgerOperationsContractVersion,
 } from "./operations/registry.js";
@@ -186,6 +188,7 @@ export {
 export { findProjectRoot, findWorkspace, initWorkspace } from "./workspace.js";
 export type * from "./authoring.js";
 export type * from "./ci.js";
+export type * from "./client.js";
 export type * from "./commands/index.js";
 export type * from "./config.js";
 export type * from "./coverage.js";

@@ -30,12 +30,12 @@ import { defineOperation } from "../types.js";
 
 const documentKinds = ["change", "backlog", "decision", "release", "product-note", "feedback", "session"] as const;
 
-interface ExplainInput extends Record<string, unknown> {
+export interface ExplainInput extends Record<string, unknown> {
   readonly path: string;
   readonly agent?: boolean;
 }
 
-interface ExplainOutput {
+export interface ExplainOutput {
   readonly target: string;
   readonly matches: readonly NormalizedLedgerDocument[];
   readonly records: readonly LedgerRetrievalRecord[];
@@ -170,7 +170,7 @@ superseding records one relationship hop away. --agent prints compact context.`,
   },
 });
 
-interface QueryInput extends Record<string, unknown> {
+export interface QueryInput extends Record<string, unknown> {
   readonly kind?: LedgerDocumentKind;
   readonly status?: string;
   readonly area?: string;
@@ -186,7 +186,7 @@ interface QueryInput extends Record<string, unknown> {
   readonly limit?: number;
 }
 
-interface QueryOutput {
+export interface QueryOutput {
   readonly matches: readonly NormalizedLedgerDocument[];
   readonly total: number;
   readonly limited: boolean;
@@ -263,12 +263,12 @@ export const queryOperation = defineOperation<QueryInput, QueryOutput>({
   },
 });
 
-interface SearchInput extends Record<string, unknown> {
+export interface SearchInput extends Record<string, unknown> {
   readonly query: string;
   readonly limit?: number;
 }
 
-interface SearchOutput {
+export interface SearchOutput {
   readonly query: string;
   readonly matches: readonly LedgerSearchResult[];
 }
@@ -312,14 +312,14 @@ the browser UI.`,
   },
 });
 
-interface SearchPacketInput extends Record<string, unknown> {
+export interface SearchPacketInput extends Record<string, unknown> {
   readonly query: string;
   readonly limit?: number;
   readonly budgetTokens?: number;
   readonly writeReport?: boolean;
 }
 
-interface PacketOutput extends LedgerAgentPacket {
+export interface PacketOutput extends LedgerAgentPacket {
   readonly reportPath?: string;
 }
 
@@ -390,7 +390,7 @@ omits lower-priority matches to keep context bounded.
   },
 });
 
-interface PacketInput extends Record<string, unknown> {
+export interface PacketInput extends Record<string, unknown> {
   readonly path: string;
   readonly budgetTokens?: number;
   readonly maxEntries?: number;
@@ -440,12 +440,12 @@ omits lower-priority entries to keep context bounded.
   },
 });
 
-interface ConflictInput extends Record<string, unknown> {
+export interface ConflictInput extends Record<string, unknown> {
   readonly paths: readonly string[];
   readonly writeReport?: boolean;
 }
 
-interface ConflictOutput {
+export interface ConflictOutput {
   readonly targets: readonly LedgerConflictTarget[];
   readonly reportPath?: string;
 }

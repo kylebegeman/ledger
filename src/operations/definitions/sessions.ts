@@ -39,7 +39,7 @@ const selectorFlags = {
   "host-session": { type: "string", field: "hostSession", description: "Host session identifier." },
 } as const;
 
-interface SessionStartInput extends Record<string, unknown> {
+export interface SessionStartInput extends Record<string, unknown> {
   readonly title?: string;
   readonly host?: string;
   readonly hostSession?: string;
@@ -102,7 +102,7 @@ ledger scratch <title> is an alias for scratch notes without a host.`,
   },
 });
 
-interface SessionTouchInput extends Record<string, unknown> {
+export interface SessionTouchInput extends Record<string, unknown> {
   readonly paths: readonly string[];
   readonly host?: string;
   readonly hostSession?: string;
@@ -149,7 +149,7 @@ hook installed mid-session still captures paths.`,
   },
 });
 
-interface SessionNoteInput extends Record<string, unknown> {
+export interface SessionNoteInput extends Record<string, unknown> {
   readonly text: string;
   readonly section?: LedgerSessionNoteSection;
   readonly hostSession?: string;
@@ -200,7 +200,7 @@ follow-ups the next session should pick up.`,
   },
 });
 
-interface SessionCloseInput extends Record<string, unknown> {
+export interface SessionCloseInput extends Record<string, unknown> {
   readonly hostSession?: string;
   readonly id?: string;
 }
@@ -233,7 +233,7 @@ still be promoted with ledger promote <id>.`,
   },
 });
 
-interface SessionPruneInput extends Record<string, unknown> {
+export interface SessionPruneInput extends Record<string, unknown> {
   readonly write?: boolean;
 }
 

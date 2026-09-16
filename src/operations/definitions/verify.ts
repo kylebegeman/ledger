@@ -3,7 +3,7 @@ import { formatVerifyReport, runVerification, type LedgerVerifyReport } from "..
 import { loadDocuments, looseRecord, positiveInt, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
-interface VerifyInput extends Record<string, unknown> {
+export interface VerifyInput extends Record<string, unknown> {
   readonly targets?: readonly string[];
   readonly all?: boolean;
   readonly run?: boolean;

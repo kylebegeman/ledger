@@ -59,7 +59,7 @@ it holds, and whether it matches the current configuration.`,
   format: formatInspection,
 });
 
-interface CacheClearOutput {
+export interface CacheClearOutput {
   readonly removed: readonly string[];
 }
 
@@ -89,7 +89,7 @@ cache is a derived artifact; the next command rebuilds it from Markdown.`,
   },
 });
 
-interface CacheWarmOutput {
+export interface CacheWarmOutput {
   readonly documents: number;
   readonly hits: number;
   readonly misses: number;

@@ -5,13 +5,13 @@ import { defineOperation } from "../types.js";
 export const agentRoles = ["contributor", "reviewer", "release", "migration", "conflict"] as const;
 export type LedgerAgentRole = (typeof agentRoles)[number];
 
-interface AgentsInput extends Record<string, unknown> {
+export interface AgentsInput extends Record<string, unknown> {
   readonly role?: LedgerAgentRole;
   readonly write?: boolean;
   readonly file: string;
 }
 
-interface AgentsOutput {
+export interface AgentsOutput {
   readonly project: string;
   readonly docsMode: string;
   readonly role: LedgerAgentRole;

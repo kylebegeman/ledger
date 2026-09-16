@@ -11,7 +11,7 @@ import type { LedgerDocsAudit, LedgerDocsFile } from "../../types.js";
 import { loadDocuments, looseRecord, pathString } from "../shared.js";
 import { defineOperation, type LedgerOperationContext } from "../types.js";
 
-interface DocsAuditOutput extends LedgerDocsAudit {
+export interface DocsAuditOutput extends LedgerDocsAudit {
   readonly reportPath: string;
 }
 
@@ -94,11 +94,11 @@ export const docsCheckOperation = defineOperation<Record<string, never>, DocsAud
   format: formatDocsAudit,
 });
 
-interface DocsClassifyInput extends Record<string, unknown> {
+export interface DocsClassifyInput extends Record<string, unknown> {
   readonly paths?: readonly string[];
 }
 
-interface DocsClassifyOutput {
+export interface DocsClassifyOutput {
   readonly files: readonly LedgerDocsFile[];
 }
 
@@ -143,7 +143,7 @@ export const docsClassifyOperation = defineOperation<DocsClassifyInput, DocsClas
   },
 });
 
-interface DocsReconcileOutput {
+export interface DocsReconcileOutput {
   readonly routes: number;
   readonly manifestPath: string;
   readonly startHerePath: string;
@@ -178,7 +178,7 @@ docs audit.`,
   },
 });
 
-interface DocsMigrateOutput extends LedgerDocsAudit {
+export interface DocsMigrateOutput extends LedgerDocsAudit {
   readonly reportPath: string;
 }
 
