@@ -85,6 +85,13 @@ export {
 } from "./hooks.js";
 export { checkReadiness, formatReadinessReport } from "./ready.js";
 export {
+  installLedgerSkill,
+  ledgerSkillPath,
+  renderLedgerSkill,
+  replaceAgentsBlock,
+  writeAgentsBlock,
+} from "./skills.js";
+export {
   closeSession,
   draftSessionReceipt,
   findSession,
@@ -175,6 +182,7 @@ export type * from "./release.js";
 export type * from "./render.js";
 export type * from "./retrieval.js";
 export type * from "./search.js";
+export type * from "./skills.js";
 export type * from "./sessions.js";
 export type * from "./serve.js";
 export type * from "./stale.js";

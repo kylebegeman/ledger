@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { looseRecord } from "../shared.js";
+import { looseRecord, requireWorkspace, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
 export const agentRoles = ["contributor", "reviewer", "release", "migration", "conflict"] as const;
@@ -7,6 +7,8 @@ export type LedgerAgentRole = (typeof agentRoles)[number];
 
 interface AgentsInput extends Record<string, unknown> {
   readonly role?: LedgerAgentRole;
+  readonly write?: boolean;
+  readonly file: string;
 }
 
 interface AgentsOutput {
@@ -14,26 +16,31 @@ interface AgentsOutput {
   readonly docsMode: string;
   readonly role: LedgerAgentRole;
   readonly instructions: string;
+  /** Present when --write maintained the fenced block in a file. */
+  readonly written?: { readonly path: string; readonly changed: boolean; readonly created: boolean };
 }
 
 export const agentsOperation = defineOperation<AgentsInput, AgentsOutput>({
   name: "agents",
-  title: "Print agent instructions",
-  description: "Print ready-to-paste AGENTS.md instructions for the configured Ledger workflow.",
+  title: "Print or write agent instructions",
+  description: "Print AGENTS.md instructions for the configured Ledger workflow, or maintain them as a fenced block in a file.",
   workspace: "optional",
-  mutates: false,
+  mutates: true,
   input: z.strictObject({
     role: z.enum(agentRoles).optional().describe("Agent role to tailor the instructions for."),
+    write: z.boolean().optional().describe("Maintain the fenced Ledger block in the target file."),
+    file: shortString.default("AGENTS.md").describe("Project-relative file to write the block into."),
   }),
   output: looseRecord({
     project: z.string(),
     docsMode: z.string(),
     role: z.enum(agentRoles),
     instructions: z.string(),
+    written: looseRecord({ path: z.string(), changed: z.boolean(), created: z.boolean() }).optional(),
   }),
   cli: {
     path: ["agents"],
-    usage: "ledger agents [--role <contributor|reviewer|release|migration|conflict>] [--json]",
+    usage: "ledger agents [--role <contributor|reviewer|release|migration|conflict>] [--write] [--file <path>] [--json]",
     flags: {
       role: {
         type: "string",
@@ -41,18 +48,31 @@ export const agentsOperation = defineOperation<AgentsInput, AgentsOutput>({
         choices: [...agentRoles],
         choicesLabel: "agent role",
       },
+      write: { type: "boolean", description: "Maintain the fenced Ledger block in the target file." },
+      file: { type: "string", description: "Project-relative file to write the block into." },
     },
     json: true,
-    help: "Prints ready-to-paste AGENTS.md instructions for the configured Ledger workflow.",
+    help: `Prints ready-to-paste AGENTS.md instructions for the configured Ledger workflow.
+--write maintains them between <!-- ledger:agents:start --> and
+<!-- ledger:agents:end --> markers in AGENTS.md (or --file <path>), replacing
+the block in place, appending it when absent, and creating the file when
+missing. Claude Code reads CLAUDE.md, so import AGENTS.md from it or pass
+--file CLAUDE.md.`,
   },
   async run(context, input) {
     const project = context.workspace?.config.project ?? "this project";
     const docsMode = context.workspace?.config.docs.adoption ?? "partial";
     const role = input.role ?? "contributor";
-    return { data: { project, docsMode, role, instructions: agentInstructions(project, docsMode, role) } };
+    const instructions = agentInstructions(project, docsMode, role);
+    if (!input.write) return { data: { project, docsMode, role, instructions } };
+    const { writeAgentsBlock } = await import("../../skills.js");
+    const written = await writeAgentsBlock(requireWorkspace(context), { file: input.file, role });
+    return { data: { project, docsMode, role, instructions, written } };
   },
   format(data) {
-    return data.instructions;
+    if (!data.written) return data.instructions;
+    const { path, changed, created } = data.written;
+    return created ? `Created ${path} with the Ledger agents block.` : changed ? `Updated the Ledger agents block in ${path}.` : `${path} already has the current Ledger agents block.`;
   },
 });
 
