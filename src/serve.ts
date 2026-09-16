@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { createReadStream, watch, type FSWatcher } from "node:fs";
+import { createReadStream, realpathSync, watch, type FSWatcher } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import {
   createServer,
@@ -380,10 +380,21 @@ export function watchLedgerSources(
 
   for (const directory of directories) {
     try {
-      watchers.push(watch(path.join(workspace.projectRoot, directory), { recursive: true }, schedule));
+      // Watch the canonical long path: libuv asserts on Windows when a recursive
+      // watch root is an 8.3 short name such as C:\\Users\\RUNNER~1\\....
+      const target = canonicalDirectory(path.join(workspace.projectRoot, directory));
+      watchers.push(watch(target, { recursive: true }, schedule));
     } catch (error) {
       onError(directory, error instanceof Error ? error : new Error(String(error)));
     }
   }
   return watchers;
+}
+
+function canonicalDirectory(directory: string): string {
+  try {
+    return realpathSync.native(directory);
+  } catch {
+    return directory;
+  }
 }
