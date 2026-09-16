@@ -308,7 +308,7 @@ full local verification and publishing checklist.
 | `ledger render` | Builds the internal static reader. Use `--profile public` for released public notes only. |
 | `ledger serve --watch` | Serves the static reader on loopback and rebuilds it when Ledger records change. Use `--profile public` to preview only the isolated public output. |
 | `ledger serve --api` | Starts the engine: the reader plus a JSON API at `/api/v1`, an event stream at `/events`, MCP over Streamable HTTP at `/mcp`, and a daemon record for CLI delegation. |
-| `ledger coverage --explain` | Checks working-tree paths, or an explicit `--base`/`--head` range, and explains required, ignored, covered, and missing coverage. |
+| `ledger coverage --explain` | Checks working-tree paths, or an explicit `--base`/`--head` range, and explains required, ignored, covered, historical, and missing coverage. A required path must be listed by a change entry in the same change set unless `git.coverage` is `any`. |
 | `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, and stale signals. |
 | `ledger metrics` | Measures cold read, warm cached read, validate, index, render-model, and search latency against configured budgets. |
 | `ledger cache status` | Reports the catalog cache backend, size, and freshness. Use `cache warm` to prefill it and `cache clear` to delete it. |

@@ -516,10 +516,17 @@ git:
     - docs/llm/manifest.json
     - node_modules/**
     - dist/**
+  coverage: current
 ```
 
 `ledger coverage` uses this config to compare Git changed files against paths
-listed by Ledger entries.
+listed by Ledger entries. `git.coverage` selects what counts: under `current`
+(the default) a required changed path must be listed by a change entry that is
+itself part of the inspected change set, so a pull request carries its own
+receipt; a path listed only by older records is reported as `historical` and
+fails coverage. `any` accepts any record that lists the path, which is useful
+while adopting Ledger on a repository with history. `ledger coverage --mode`
+overrides the setting for one run.
 
 `ledger validate` also uses `git.ignore` when warning about missing `files` or
 `docs` references, so generated outputs can stay out of source-control and

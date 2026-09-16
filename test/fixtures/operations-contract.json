@@ -2184,7 +2184,7 @@
           "coverage"
         ],
         "aliases": [],
-        "usage": "ledger coverage [--staged | --base <revision> --head <revision>] [--explain] [--json]",
+        "usage": "ledger coverage [--staged | --base <revision> --head <revision>] [--explain] [--mode <current|any>] [--json]",
         "json": true,
         "flags": {
           "staged": {
@@ -2202,6 +2202,14 @@
           "explain": {
             "type": "boolean",
             "field": "explain"
+          },
+          "mode": {
+            "type": "string",
+            "field": "mode",
+            "choices": [
+              "current",
+              "any"
+            ]
           }
         }
       },
@@ -2228,6 +2236,14 @@
           "explain": {
             "description": "Explain each changed path's coverage status.",
             "type": "boolean"
+          },
+          "mode": {
+            "description": "Coverage mode override; defaults to git.coverage.",
+            "type": "string",
+            "enum": [
+              "current",
+              "any"
+            ]
           }
         },
         "additionalProperties": false
@@ -2236,6 +2252,9 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
+          "mode": {
+            "type": "string"
+          },
           "changedFiles": {
             "type": "array",
             "items": {
@@ -2255,6 +2274,18 @@
             }
           },
           "missingFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "historicalFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "currentEntries": {
             "type": "array",
             "items": {
               "type": "string"
@@ -2281,10 +2312,13 @@
           }
         },
         "required": [
+          "mode",
           "changedFiles",
           "requiredFiles",
           "coveredFiles",
           "missingFiles",
+          "historicalFiles",
+          "currentEntries",
           "files"
         ],
         "additionalProperties": {}
@@ -2320,6 +2354,14 @@
             "explain": {
               "description": "Explain each changed path's coverage status.",
               "type": "boolean"
+            },
+            "mode": {
+              "description": "Coverage mode override; defaults to git.coverage.",
+              "type": "string",
+              "enum": [
+                "current",
+                "any"
+              ]
             }
           },
           "additionalProperties": false

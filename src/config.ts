@@ -158,6 +158,7 @@ export const defaultConfig: LedgerConfig = {
       "generated/**",
       "**/generated/**",
     ],
+    coverage: "current",
   },
 };
 
@@ -347,6 +348,7 @@ function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
       baseline: normalizeConfigPath(config.validation.baseline),
     },
     git: {
+      ...config.git,
       requireEntryFor: config.git.requireEntryFor.map(normalizeConfigPath),
       ignore: config.git.ignore.map(normalizeConfigPath),
     },
@@ -467,6 +469,9 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
   optionalObject(config, "git", configPath, (git) => {
     optionalStringArray(git, "requireEntryFor", configPath, "git");
     optionalStringArray(git, "ignore", configPath, "git");
+    if (git.coverage !== undefined && git.coverage !== "current" && git.coverage !== "any") {
+      fail(configPath, "git.coverage must be current or any");
+    }
   });
 }
 

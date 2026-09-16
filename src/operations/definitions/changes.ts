@@ -24,6 +24,7 @@ const changeRangeFlags = {
 
 interface CoverageInput extends ChangeRangeInput, Record<string, unknown> {
   readonly explain?: boolean;
+  readonly mode?: "current" | "any";
 }
 
 export const coverageOperation = defineOperation<CoverageInput, LedgerCoverageResult>({
@@ -35,25 +36,39 @@ export const coverageOperation = defineOperation<CoverageInput, LedgerCoverageRe
   input: z.strictObject({
     ...changeRangeShape,
     explain: z.boolean().optional().describe("Explain each changed path's coverage status."),
+    mode: z.enum(["current", "any"]).optional().describe("Coverage mode override; defaults to git.coverage."),
   }),
   output: looseRecord({
+    mode: z.string(),
     changedFiles: z.array(z.string()),
     requiredFiles: z.array(z.string()),
     coveredFiles: z.array(z.string()),
     missingFiles: z.array(z.string()),
+    historicalFiles: z.array(z.string()),
+    currentEntries: z.array(z.string()),
     files: z.array(looseRecord({ path: z.string(), status: z.string() })),
   }),
   cli: {
     path: ["coverage"],
-    usage: "ledger coverage [--staged | --base <revision> --head <revision>] [--explain] [--json]",
+    usage: "ledger coverage [--staged | --base <revision> --head <revision>] [--explain] [--mode <current|any>] [--json]",
     flags: {
       ...changeRangeFlags,
       explain: { type: "boolean", description: "Explain each changed path's status." },
+      mode: {
+        type: "string",
+        description: "Coverage mode override.",
+        choices: ["current", "any"],
+        choicesLabel: "coverage mode",
+      },
     },
     json: true,
     help: `Checks changed files against git.requireEntryFor and Ledger file coverage.
---explain prints why each changed path is ignored, not required, covered, or
-missing coverage. --base and --head inspect their merge-base change range.`,
+Under the default current mode (git.coverage), a required path must be listed
+by a change entry that is itself part of the change set; a path listed only by
+older records is reported as historical and counts as missing. --mode any
+accepts any record. --explain prints why each changed path is ignored, not
+required, covered, historical, or missing. --base and --head inspect their
+merge-base change range.`,
   },
   mcp: {
     tool: "ledger_coverage",
@@ -67,23 +82,29 @@ missing coverage. --base and --head inspect their merge-base change range.`,
   async run(context, input) {
     const changes = resolveChangeOptions(input);
     const { workspace, documents } = await loadDocuments(context);
-    const result = await checkCoverage(workspace, documents, changes);
+    const result = await checkCoverage(workspace, documents, { ...changes, mode: input.mode });
     return { data: result, exitCode: result.missingFiles.length === 0 ? 0 : 1 };
   },
   format(data, input) {
     const lines = [
-      `Ledger coverage: ${data.requiredFiles.length} required file(s), ${data.missingFiles.length} missing coverage.`,
+      `Ledger coverage (${data.mode}): ${data.requiredFiles.length} required file(s), ${data.missingFiles.length} missing coverage.`,
     ];
     for (const file of data.files) {
       if (file.status === "missing") {
         lines.push(`- missing: ${file.path} (required by ${file.requiredBy ?? "configuration"})`);
+      } else if (file.status === "historical") {
+        lines.push(
+          `- historical: ${file.path} (listed only by records outside this change set: ${file.coveredBy.join(", ")}; add or update a change entry)`,
+        );
       } else if (input.explain) {
         const reason =
           file.status === "ignored"
             ? `ignored by ${file.ignoredBy}`
             : file.status === "not-required"
               ? "not required by git.requireEntryFor"
-              : `covered by ${file.coveredBy.join(", ")}`;
+              : data.mode === "current"
+                ? `covered by ${file.currentEntries.join(", ")} in this change set`
+                : `covered by ${file.coveredBy.join(", ")}`;
         lines.push(`- ${file.status}: ${file.path} (${reason})`);
       }
     }

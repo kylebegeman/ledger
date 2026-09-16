@@ -201,10 +201,14 @@ It should support:
 - `--from-diff` entry drafting
 - coverage checks that decide whether a Ledger entry is required
 
-The first coverage command is intentionally path based: files matching
-`git.requireEntryFor` must be referenced by a Ledger entry unless they match
-`git.ignore`. This gives CI a deterministic guard before semantic symbol
-coverage exists.
+Coverage is path based: files matching `git.requireEntryFor` must be
+referenced by a Ledger entry unless they match `git.ignore`. Since 0.7 the
+reference must also be current: under `git.coverage: current` the entry that
+lists a changed path must itself be part of the same change set (added or
+modified in the working tree, staged diff, or revision range), so a pull
+request cannot satisfy coverage with a record written for an earlier change.
+Paths listed only by older records are reported as `historical`. `git.coverage:
+any` restores the older behavior for adoption.
 
 Working-tree inspection, staged inspection, and committed range inspection are
 separate modes. Range-aware commands require both a base and head revision and
