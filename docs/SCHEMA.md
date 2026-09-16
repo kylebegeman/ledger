@@ -146,9 +146,14 @@ Recommended shape:
 ```
 
 `Anchor` names the symbol, route, command, or heading that matters in the
-file. `ledger stale` checks every anchor against the files its block names and
-reports `stale-anchor` when it no longer appears, and `stale-invariant` when
-an invariant cites a stale anchor or symbol in backticks. Acknowledge an
+file. Write anchors in backticks; each backticked span is a literal anchor, and
+`ledger new --from-diff` drafts them that way. `ledger stale` checks every
+literal anchor against the files its block names and reports `stale-anchor`
+when it no longer appears, and `stale-invariant` when an invariant cites a
+stale anchor or symbol in backticks. Anchors without backticks that contain
+spaces are descriptions and are not checked, an anchor that is the block's own
+file name or directory is not checked, and a dotted key path such as
+`git.ignore` counts as present when every segment appears. Acknowledge an
 intentionally historical anchor with `staleRefs: ["anchors:<name>"]`.
 
 For broad mechanical work:

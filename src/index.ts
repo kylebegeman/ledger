@@ -168,7 +168,7 @@ export {
   readDaemonRecord,
 } from "./daemon.js";
 export { delegateOperation, isDelegatable } from "./operations/delegate.js";
-export { detectStaleKnowledge, formatStaleReport, writeStaleReport } from "./stale.js";
+export { detectStaleKnowledge, formatStaleReport, isCheckableAnchor, writeStaleReport } from "./stale.js";
 export {
   extractCodeSymbols,
   extractCodeSymbolsDetailed,

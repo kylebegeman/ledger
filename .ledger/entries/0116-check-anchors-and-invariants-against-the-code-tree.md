@@ -70,8 +70,8 @@ an agent can receive before editing.
 ### Anchor parsing
 
 - File: `src/retrieval.ts`
-- Changed: `extractAnchors` parses anchor bullets, dropping TODO
-  placeholders; `extractAnchoredBlocks` pairs each block with the record
+- Changed: `extractAnchors` parses anchor bullets and drops
+  placeholder anchors that start with TODO; `extractAnchoredBlocks` pairs each block with the record
   files its title names.
 - Anchor: `extractAnchoredBlocks`
 - On conflict: Block titles resolve through the same matcher conflict rules

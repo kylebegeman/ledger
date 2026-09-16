@@ -294,31 +294,45 @@ export function extractConflictRules(markdown: string | undefined): readonly str
   return rules.filter((rule) => rule.length > 0);
 }
 
+/** One anchor from a Changed Files block. */
+export interface LedgerAnchor {
+  readonly text: string;
+  /** True when the anchor was written in backticks, so it names literal text in the file. */
+  readonly literal: boolean;
+}
+
 /**
- * Anchors declared in a Changed Files block body: `- Anchor:` bullets split
- * on commas with backticks removed. TODO placeholders are dropped.
+ * Anchors declared in a Changed Files block body. When an `- Anchor:` bullet
+ * contains backticked spans, each span is a literal anchor; otherwise the value
+ * is split on commas into descriptive anchors. TODO placeholders are dropped.
  */
-export function extractAnchors(markdown: string | undefined): readonly string[] {
+export function extractAnchors(markdown: string | undefined): readonly LedgerAnchor[] {
   if (!markdown) return [];
-  const anchors = new Set<string>();
+  const anchors = new Map<string, LedgerAnchor>();
+  const add = (text: string, literal: boolean) => {
+    if (!text || /^todo\b/i.test(text) || anchors.has(text)) return;
+    anchors.set(text, { text, literal });
+  };
   for (const line of markdown.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed.startsWith("- Anchor:")) continue;
     const value = trimmed.slice("- Anchor:".length).trim();
     if (!value || /^todo\b/i.test(value)) continue;
-    for (const part of value.split(",")) {
-      const anchor = part.replace(/`/g, "").trim();
-      if (anchor && !/^todo\b/i.test(anchor)) anchors.add(anchor);
+    const spans = [...value.matchAll(/`([^`]+)`/g)].map((match) => match[1]!.trim());
+    if (spans.length > 0) {
+      for (const span of spans) add(span, true);
+    } else {
+      for (const part of value.split(",")) add(part.trim(), false);
     }
   }
-  return [...anchors];
+  return [...anchors.values()];
 }
 
 /** Changed Files blocks with the record file references each block names and its anchors. */
 export function extractAnchoredBlocks(
   markdown: string | undefined,
   files: readonly string[],
-): readonly { readonly title: string; readonly files: readonly string[]; readonly anchors: readonly string[] }[] {
+): readonly { readonly title: string; readonly files: readonly string[]; readonly anchors: readonly LedgerAnchor[] }[] {
   return extractChangedFileBlocks(markdown).map((block) => {
     const matched = files.filter((filePath) => blockTitleMatchesPath(block.title, filePath));
     const candidates = titleCandidates(block.title).map(normalizePath).filter((candidate) => !candidate.includes("*"));
