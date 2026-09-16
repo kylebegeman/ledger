@@ -41,9 +41,9 @@ describe("initWorkspace", () => {
     expect(await readFile(path.join(tempDir, "docs/llm/START_HERE.md"), "utf8")).toMatch(
       /^<!-- ledger:docs:start-here -->/,
     );
-    expect(await readFile(path.join(tempDir, ".ledger/config.yaml"), "utf8")).toContain(
-      "    startHere: docs/llm/START_HERE.md",
-    );
+    const config = await readFile(path.join(tempDir, ".ledger/config.yaml"), "utf8");
+    expect(config).toContain("    startHere: docs/llm/START_HERE.md");
+    expect(config).toContain("sessions:\n  expiresInDays: 7\nagents:\n  command: ledger\nvalidation:\n");
   });
 
   it("points docs.routing at Ledger-owned paths when curated routing files exist", async () => {

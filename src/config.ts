@@ -1,4 +1,4 @@
-import { parse as parseYaml } from "yaml";
+import { parse as parseYaml, parseDocument } from "yaml";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { assertSafeProjectRelativePath, normalizeProjectRelativePath } from "./projectPaths.js";
 import { LedgerError } from "./machine.js";
@@ -80,6 +80,9 @@ export const defaultConfig: LedgerConfig = {
   },
   sessions: {
     expiresInDays: 7,
+  },
+  agents: {
+    command: "ledger",
   },
   validation: {
     profile: "standard",
@@ -200,6 +203,29 @@ export async function readLedgerConfig(configPath: string): Promise<LedgerConfig
   return parseLedgerConfig(parsed, configPath);
 }
 
+/**
+ * The raw config with `agents.command` set, preserving comments, quoting, and
+ * key order. Returns the input unchanged when the value already matches.
+ */
+export function renderConfigWithAgentsCommand(raw: string, command: string): string {
+  // parseDocument never expands aliases, so the alias limit applied by parse does not apply here.
+  const doc = parseDocument(raw);
+  if (doc.getIn(["agents", "command"]) === command) return raw;
+  doc.setIn(["agents", "command"], command);
+  const rendered = doc.toString({ lineWidth: 0 });
+  // The document renders with LF; keep CRLF when the file uses it.
+  return raw.includes("\r\n") ? rendered.replace(/\r?\n/g, "\r\n") : rendered;
+}
+
+/** The rule `agents.command` and `hooks install --command` must satisfy. */
+export const agentsCommandRule =
+  "must be a non-empty single-line command without backticks or surrounding whitespace";
+
+/** A command prefix agents can run and Markdown can quote in a code span. */
+export function isValidAgentsCommand(command: string): boolean {
+  return command.trim().length > 0 && command === command.trim() && !/[`\r\n]/.test(command);
+}
+
 export function parseLedgerConfig(parsed: unknown, configPath = "config.yaml"): LedgerConfig {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new LedgerError("invalid-config", `${configPath}: config must be a YAML object`, {
@@ -249,6 +275,7 @@ type PartialLedgerConfig = {
   readonly source?: Partial<LedgerConfig["source"]>;
   readonly ids?: Partial<LedgerConfig["ids"]>;
   readonly sessions?: Partial<LedgerConfig["sessions"]>;
+  readonly agents?: Partial<LedgerConfig["agents"]>;
   readonly validation?: Partial<LedgerConfig["validation"]> & {
     readonly requiredSections?: Partial<Record<LedgerDocumentKind, readonly string[]>>;
   };
@@ -295,6 +322,7 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
     source: { ...base.source, ...override.source },
     ids: { ...base.ids, ...override.ids },
     sessions: { ...base.sessions, ...override.sessions },
+    agents: { ...base.agents, ...override.agents },
     validation: {
       ...base.validation,
       ...override.validation,
@@ -425,6 +453,9 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
   optionalObject(config, "sessions", configPath, (sessions) => {
     optionalNumber(sessions, "expiresInDays", configPath, "sessions");
   });
+  optionalObject(config, "agents", configPath, (agents) => {
+    optionalString(agents, "command", configPath, "agents");
+  });
   optionalObject(config, "validation", configPath, (validation) => {
     optionalValidationProfile(validation, "profile", configPath, "validation");
     optionalBoolean(validation, "requireVerification", configPath, "validation");
@@ -530,6 +561,9 @@ function validateLedgerConfig(config: LedgerConfig, configPath: string): void {
   }
   if (config.project.trim().length === 0) {
     fail(configPath, "project must be a non-empty string");
+  }
+  if (!isValidAgentsCommand(config.agents.command)) {
+    fail(configPath, `agents.command ${agentsCommandRule}`);
   }
   for (const [label, value] of [
     ["source.entries", config.source.entries],

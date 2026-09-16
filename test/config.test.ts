@@ -2,11 +2,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import {
   currentConfigVersion,
   migrateLedgerConfigObject,
   parseLedgerConfig,
   readLedgerConfig,
+  renderConfigWithAgentsCommand,
 } from "../src/config.js";
 
 let tempDir: string | undefined;
@@ -16,6 +18,41 @@ afterEach(async () => {
     await rm(tempDir, { recursive: true, force: true });
     tempDir = undefined;
   }
+});
+
+describe("renderConfigWithAgentsCommand", () => {
+  const commented = `version: 1
+project: "kore" # display name
+sessions:
+  expiresInDays: 7
+# Commands verify --run may execute.
+verification:
+  allow:
+    - "npx --yes @kylebegeman/ledger@0.7.0 ci **"
+docs:
+  root: docs
+`;
+
+  it("appends the section while preserving comments, quoting, and key order", () => {
+    const rendered = renderConfigWithAgentsCommand(commented, "npx ledger");
+    expect(rendered).toBe(`${commented}agents:\n  command: npx ledger\n`);
+    expect(parseLedgerConfig(parseYaml(rendered)).agents.command).toBe("npx ledger");
+  });
+
+  it("updates an existing key in place and is a no-op when the value already matches", () => {
+    const scaffold = "sessions:\n  expiresInDays: 7\nagents:\n  command: ledger\nvalidation:\n  profile: standard\n";
+    expect(renderConfigWithAgentsCommand(scaffold, "node dist/cli.js")).toBe(
+      "sessions:\n  expiresInDays: 7\nagents:\n  command: node dist/cli.js\nvalidation:\n  profile: standard\n",
+    );
+    expect(renderConfigWithAgentsCommand(scaffold, "ledger")).toBe(scaffold);
+    const same = `${commented}agents:\n  command: npx ledger # pinned\n`;
+    expect(renderConfigWithAgentsCommand(same, "npx ledger")).toBe(same);
+  });
+
+  it("keeps CRLF line endings", () => {
+    const crlf = commented.replace(/\n/g, "\r\n");
+    expect(renderConfigWithAgentsCommand(crlf, "npx ledger")).toBe(`${crlf}agents:\r\n  command: npx ledger\r\n`);
+  });
 });
 
 describe("parseLedgerConfig", () => {
@@ -137,6 +174,23 @@ describe("parseLedgerConfig", () => {
         "fixture.yaml",
       ),
     ).toThrow("fixture.yaml: version 2 is newer than supported version 1");
+  });
+
+  it("defaults agents.command to ledger and round-trips a configured command", () => {
+    expect(parseLedgerConfig({}).agents.command).toBe("ledger");
+    const command = "npx --yes @kylebegeman/ledger@0.8.0";
+    expect(parseLedgerConfig({ agents: { command } }, "fixture.yaml").agents.command).toBe(command);
+  });
+
+  it("rejects malformed agents config", () => {
+    expect(() => parseLedgerConfig({ agents: "x" }, "fixture.yaml")).toThrow("fixture.yaml: agents must be an object");
+    expect(() => parseLedgerConfig({ agents: { command: 42 } }, "fixture.yaml")).toThrow(
+      "fixture.yaml: agents.command must be a string",
+    );
+    const rule = "fixture.yaml: agents.command must be a non-empty single-line command without backticks or surrounding whitespace";
+    for (const command of ["", "  ", " npx ledger", "npx ledger ", "a\nb", "a\r\nb", "a`b"]) {
+      expect(() => parseLedgerConfig({ agents: { command } }, "fixture.yaml")).toThrow(rule);
+    }
   });
 
   it("rejects malformed nested config", () => {

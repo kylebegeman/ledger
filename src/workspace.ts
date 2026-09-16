@@ -253,6 +253,8 @@ function serializeDefaultConfig(
     "  sessionWidth: 4",
     "sessions:",
     "  expiresInDays: 7",
+    "agents:",
+    "  command: ledger",
     "validation:",
     "  profile: standard",
     "  requireVerification: true",
