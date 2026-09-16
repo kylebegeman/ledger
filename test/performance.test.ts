@@ -26,6 +26,7 @@ describe("measureLedgerPerformance", () => {
     expect(result.documents).toBe((await readLedgerDocuments(workspace)).length);
     expect(result.steps.map((step) => step.name)).toEqual([
       "read",
+      "read-warm",
       "validate",
       "index",
       "render-model",

@@ -33,6 +33,7 @@ describe("doctor", () => {
       "validation",
       "docs",
       "indexes",
+      "cache",
       "render",
       "render-budget",
       "performance",

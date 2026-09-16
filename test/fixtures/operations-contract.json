@@ -1475,6 +1475,185 @@
       }
     },
     {
+      "name": "cache.status",
+      "title": "Show catalog cache status",
+      "description": "Report the catalog cache backend, size, and freshness.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "cache",
+          "status"
+        ],
+        "aliases": [],
+        "usage": "ledger cache status [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "setting": {
+            "type": "string"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "cachePath": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          },
+          "entries": {
+            "type": "number"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "writtenAt": {
+            "type": "string"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "setting",
+          "backend",
+          "exists",
+          "entries",
+          "bytes",
+          "current"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_cache_status",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "cache.warm",
+      "title": "Warm the catalog cache",
+      "description": "Read every source record so the catalog cache is current.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "cache",
+          "warm"
+        ],
+        "aliases": [],
+        "usage": "ledger cache warm [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": "number"
+          },
+          "hits": {
+            "type": "number"
+          },
+          "misses": {
+            "type": "number"
+          },
+          "removed": {
+            "type": "number"
+          },
+          "written": {
+            "type": "boolean"
+          },
+          "backend": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "documents",
+          "hits",
+          "misses",
+          "removed",
+          "written",
+          "backend"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "cache.clear",
+      "title": "Clear the catalog cache",
+      "description": "Delete the catalog cache; the next read rebuilds it from source records.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "cache",
+          "clear"
+        ],
+        "aliases": [],
+        "usage": "ledger cache clear [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
       "name": "conflict",
       "title": "Get conflict guidance",
       "description": "Return conflict rules, invariants, and verification for paths.",

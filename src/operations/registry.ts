@@ -7,6 +7,7 @@ import {
   releaseOperation,
   unreleasedOperation,
 } from "./definitions/authoring.js";
+import { cacheClearOperation, cacheStatusOperation, cacheWarmOperation } from "./definitions/cache.js";
 import { ciOperation, coverageOperation, docsImpactOperation } from "./definitions/changes.js";
 import {
   docsAuditOperation,
@@ -57,6 +58,9 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   doctorOperation,
   metricsOperation,
   staleOperation,
+  cacheStatusOperation,
+  cacheWarmOperation,
+  cacheClearOperation,
   conflictOperation,
   explainOperation,
   searchOperation,

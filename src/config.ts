@@ -116,6 +116,10 @@ export const defaultConfig: LedgerConfig = {
     maxTotalDocumentBytes: 64_000_000,
     maxDirectoryDepth: 12,
   },
+  cache: {
+    backend: "auto",
+    output: ".ledger/cache",
+  },
   docs: {
     root: "docs",
     managed: false,
@@ -131,6 +135,7 @@ export const defaultConfig: LedgerConfig = {
       ".ledger/indexes/**",
       ".ledger/reports/**",
       ".ledger/dist/**",
+    ".ledger/cache/**",
       "docs/llm/manifest.json",
       "docs/llm/START_HERE.md",
       "node_modules/**",
@@ -217,6 +222,7 @@ type PartialLedgerConfig = {
   readonly render?: Partial<LedgerConfig["render"]>;
   readonly performance?: Partial<LedgerConfig["performance"]>;
   readonly limits?: Partial<LedgerConfig["limits"]>;
+  readonly cache?: Partial<LedgerConfig["cache"]>;
   readonly docs?: Partial<LedgerConfig["docs"]> & {
     readonly routing?: Partial<LedgerConfig["docs"]["routing"]>;
   };
@@ -286,6 +292,7 @@ function mergeConfig(base: LedgerConfig, override: PartialLedgerConfig): LedgerC
       },
     },
     limits: { ...base.limits, ...override.limits },
+    cache: { ...base.cache, ...override.cache },
     docs: {
       ...base.docs,
       ...override.docs,
@@ -317,6 +324,7 @@ function normalizeConfigPaths(config: LedgerConfig): LedgerConfig {
       budgets: config.render.budgets,
     },
     performance: config.performance,
+    cache: { ...config.cache, output: normalizeConfigPath(config.cache.output) },
     docs: {
       ...config.docs,
       root: normalizeConfigPath(config.docs.root),
@@ -416,6 +424,10 @@ function validatePartialConfig(config: Record<string, unknown>, configPath: stri
       optionalNumber(budgets, "maxSearchMs", configPath, "performance.budgets");
       optionalNumber(budgets, "maxTotalMs", configPath, "performance.budgets");
     }, "performance");
+  });
+  optionalObject(config, "cache", configPath, (cache) => {
+    optionalCacheBackend(cache, "backend", configPath, "cache");
+    optionalString(cache, "output", configPath, "cache");
   });
   optionalObject(config, "limits", configPath, (limits) => {
     optionalNumber(limits, "maxDocuments", configPath, "limits");
@@ -561,6 +573,24 @@ function optionalBoolean(
   const value = source[key];
   if (value !== undefined && typeof value !== "boolean") {
     fail(configPath, `${fieldPath(key, prefix)} must be a boolean`);
+  }
+}
+
+function optionalCacheBackend(
+  source: Record<string, unknown>,
+  key: string,
+  configPath: string,
+  prefix?: string,
+): void {
+  const value = source[key];
+  if (
+    value !== undefined &&
+    value !== "auto" &&
+    value !== "json" &&
+    value !== "sqlite" &&
+    value !== "none"
+  ) {
+    fail(configPath, `${fieldPath(key, prefix)} must be auto, json, sqlite, or none`);
   }
 }
 

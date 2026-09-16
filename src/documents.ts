@@ -1,8 +1,6 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { readUtf8FileLimited } from "./boundedFile.js";
-import { parseMarkdownWithFrontmatter } from "./frontmatter.js";
-import { resolveSafeProjectPath } from "./projectPaths.js";
+import { readLedgerCatalog, type LedgerCatalogReadOptions } from "./catalogCache.js";
 import { LedgerError } from "./machine.js";
 import type {
   LedgerDocumentKind,
@@ -36,63 +34,17 @@ const coreFrontmatterFields = new Set([
   "stale_refs",
 ]);
 
+/**
+ * Read every Ledger source record. Unchanged files are served from the catalog
+ * cache when the workspace enables one; pass `{ cache: false }` to parse from
+ * disk. See `readLedgerCatalog` for cache statistics.
+ */
 export async function readLedgerDocuments(
   workspace: LedgerWorkspace,
+  options: LedgerCatalogReadOptions = {},
 ): Promise<readonly ParsedLedgerDocument[]> {
-  const sourceDirectories: Array<[LedgerDocumentKind, string]> = [
-    ["change", workspace.config.source.entries],
-    ["backlog", workspace.config.source.backlog],
-    ["decision", workspace.config.source.decisions],
-    ["release", workspace.config.source.releases],
-  ];
-
-  const documents: ParsedLedgerDocument[] = [];
-  let totalBytes = 0;
-
-  for (const [fallbackKind, relativeDirectory] of sourceDirectories) {
-    const absoluteDirectory = await resolveSafeProjectPath(
-      workspace.projectRoot,
-      relativeDirectory,
-      `source.${fallbackKind}`,
-    );
-    const files = await findMarkdownFiles(absoluteDirectory, {
-      maxDepth: workspace.config.limits.maxDirectoryDepth,
-      maxFiles: workspace.config.limits.maxDocuments - documents.length,
-    });
-    for (const absolutePath of files) {
-      if (documents.length >= workspace.config.limits.maxDocuments) {
-        throw resourceLimitError("documents", workspace.config.limits.maxDocuments);
-      }
-      const raw = await readUtf8FileLimited(
-        absolutePath,
-        workspace.config.limits.maxDocumentBytes,
-        "document",
-      );
-      const bytes = Buffer.byteLength(raw, "utf8");
-      totalBytes += bytes;
-      if (totalBytes > workspace.config.limits.maxTotalDocumentBytes) {
-        throw new LedgerError(
-          "resource-limit-exceeded",
-          `Ledger document bytes exceed ${workspace.config.limits.maxTotalDocumentBytes}`,
-          { limit: workspace.config.limits.maxTotalDocumentBytes, kind: "total-document-bytes" },
-        );
-      }
-      const relativePath = normalizePath(path.relative(workspace.projectRoot, absolutePath));
-      const parsed = parseMarkdownWithFrontmatter(raw, relativePath);
-      documents.push({
-        absolutePath,
-        relativePath,
-        raw,
-        frontmatterRaw: parsed.frontmatterRaw,
-        frontmatter: parsed.frontmatter,
-        body: parsed.body,
-        sections: parsed.sections,
-        kind: normalizeKind(parsed.frontmatter.kind) ?? fallbackKind,
-      });
-    }
-  }
-
-  return documents.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  const { documents } = await readLedgerCatalog(workspace, options);
+  return documents;
 }
 
 export interface FindMarkdownFilesOptions {

@@ -10,3 +10,4 @@ docs/llm/manifest.json
 docs/llm/START_HERE.md
 .DS_Store
 npm-debug.log*
+.ledger/cache/

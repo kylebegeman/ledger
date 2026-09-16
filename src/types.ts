@@ -92,6 +92,10 @@ export interface LedgerConfig {
     readonly maxTotalDocumentBytes: number;
     readonly maxDirectoryDepth: number;
   };
+  readonly cache: {
+    readonly backend: "auto" | "json" | "sqlite" | "none";
+    readonly output: string;
+  };
   readonly docs: {
     readonly root: string;
     readonly managed: boolean;
