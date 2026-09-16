@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, watch, type FSWatcher } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import {
   createServer,
@@ -143,10 +143,24 @@ async function handleRequest(
     response.end("Method not allowed\n");
     return;
   }
+  if (!guardRequest(mode, token, request, response)) return;
+  await serveStaticPath(root, request, response);
+}
+
+/**
+ * Apply the shared request guards: loopback Host validation in local mode,
+ * token authentication, and URI sanity. Returns false when a response was sent.
+ */
+export function guardRequest(
+  mode: LedgerServeMode,
+  token: string | undefined,
+  request: IncomingMessage,
+  response: ServerResponse,
+): boolean {
   if (mode === "local" && !isAllowedLocalHost(request.headers.host)) {
     response.writeHead(421, securityHeaders("text/plain; charset=utf-8"));
     response.end("Misdirected request\n");
-    return;
+    return false;
   }
   if (token && !isAuthorized(request.headers.authorization, token)) {
     response.writeHead(401, {
@@ -154,19 +168,27 @@ async function handleRequest(
       "www-authenticate": 'Basic realm="Ledger", charset="UTF-8"',
     });
     response.end("Authentication required\n");
-    return;
+    return false;
   }
   if ((request.url?.length ?? 0) > 2_048) {
     response.writeHead(414, securityHeaders("text/plain; charset=utf-8"));
     response.end("URI too long\n");
-    return;
+    return false;
   }
   if (!request.url?.startsWith("/") || request.url.startsWith("//")) {
     response.writeHead(400, securityHeaders("text/plain; charset=utf-8"));
     response.end("Invalid request target\n");
-    return;
+    return false;
   }
+  return true;
+}
 
+/** Serve a file from the render output for GET and HEAD requests. */
+export async function serveStaticPath(
+  root: string,
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
   const requestUrl = new URL(request.url ?? "/", "http://ledger.local");
   const filePath = await resolveRequestPath(root, requestUrl.pathname);
   if (!filePath) {
@@ -203,7 +225,7 @@ async function resolveRequestPath(root: string, pathname: string): Promise<strin
   }
 }
 
-function validateExposure(
+export function validateExposure(
   mode: LedgerServeMode,
   host: string,
   port: number,
@@ -280,7 +302,7 @@ function isAuthorized(header: string | undefined, expectedToken: string): boolea
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-function securityHeaders(contentTypeValue: string): Record<string, string> {
+export function securityHeaders(contentTypeValue: string): Record<string, string> {
   return {
     "content-type": contentTypeValue,
     "cache-control": "no-store",
@@ -310,6 +332,58 @@ function contentType(filePath: string): string {
   return "application/octet-stream";
 }
 
-function formatUrlHost(host: string): string {
+export function formatUrlHost(host: string): string {
   return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+}
+
+/**
+ * Watch the configured source directories and call `rebuild` after changes,
+ * debounced and single-flight so bursts of edits produce one rebuild.
+ */
+export function watchLedgerSources(
+  workspace: LedgerWorkspace,
+  rebuild: () => Promise<void>,
+  onError: (directory: string, error: Error) => void,
+): readonly FSWatcher[] {
+  const directories = [
+    workspace.config.source.entries,
+    workspace.config.source.backlog,
+    workspace.config.source.decisions,
+    workspace.config.source.releases,
+  ];
+  const watchers: FSWatcher[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let rebuilding = false;
+  let rebuildAgain = false;
+  const runRebuild = async () => {
+    if (rebuilding) {
+      rebuildAgain = true;
+      return;
+    }
+    rebuilding = true;
+    try {
+      do {
+        rebuildAgain = false;
+        await rebuild();
+      } while (rebuildAgain);
+    } finally {
+      rebuilding = false;
+    }
+  };
+  const schedule = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = undefined;
+      void runRebuild();
+    }, 150);
+  };
+
+  for (const directory of directories) {
+    try {
+      watchers.push(watch(path.join(workspace.projectRoot, directory), { recursive: true }, schedule));
+    } catch (error) {
+      onError(directory, error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+  return watchers;
 }

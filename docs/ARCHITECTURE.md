@@ -429,6 +429,41 @@ static-reader model construction, and weighted search scoring against
 `performance.budgets`; `ledger doctor` includes the same result as a
 warning-level health signal.
 
+### Engine Server
+
+`ledger serve --api` starts the engine in `src/engine.ts`: one hardened loopback
+HTTP server that hosts the static reader, a JSON API, an event stream, and MCP
+over Streamable HTTP. The same request guards as `ledger serve` apply: loopback
+Host validation in local mode, a required token with `--expose`, bounded
+headers and URIs, no-store and security headers.
+
+Routes:
+
+- `GET /api/v1` describes the API and lists the exposed operations.
+- `GET /api/v1/health` reports pid, version, uptime, connected clients, the
+  last render, and catalog cache statistics.
+- `GET /api/v1/operations` returns the operations contract (JSON Schema for
+  every input and output) for the exposed operations.
+- `POST /api/v1/operations/{name}` runs an operation with a JSON body as its
+  input and returns the machine envelope; the `Ledger-Exit-Code` header carries
+  the exit code the CLI would have returned. Invalid input is 400, an unknown
+  operation is 404, a validation-blocked render is 409, other failures are 500.
+- `GET /events` is a server-sent event stream: `ready` on connect, then
+  `records-changed` (cache hits, misses, removals), `rebuilt`, and
+  `rebuild-failed` as watched source records change, with heartbeats.
+- `POST /mcp` (and GET, DELETE) is the MCP server over Streamable HTTP in
+  stateless mode, the same tools as `ledger mcp`.
+- `GET /.well-known/mcp/server-card.json` describes the MCP endpoint and tools.
+- everything else serves the rendered reader.
+
+Operations exposed over the API are those that run inside a workspace and
+return: interactive commands (`serve`, `mcp`) and scaffolding commands
+(`init`, `adopt`) are excluded. The engine always watches the source
+directories; a change re-reads the catalog through the cache, broadcasts, and
+re-renders the reader. While it runs it writes `.ledger/daemon.json` (pid,
+url, port, profile, version) and removes it on shutdown; that file is ignored
+by Git and lets CLI commands find a warm server.
+
 ### Docs Bridge
 
 Ledger should be able to reference existing project docs without owning them.
@@ -526,7 +561,8 @@ Builds a local static reader under `.ledger/dist/index.html`.
 ### `ledger serve`
 
 Serves the generated static reader locally. With `--watch`, Ledger watches
-source record directories and regenerates the reader after edits.
+source record directories and regenerates the reader after edits. With
+`--api`, it starts the engine server described above.
 
 ### `ledger ci`
 
