@@ -1,0 +1,3505 @@
+{
+  "contractVersion": 1,
+  "operations": [
+    {
+      "name": "init",
+      "title": "Initialize Ledger",
+      "description": "Create .ledger/ and optional docs scaffolding in the current directory.",
+      "workspace": "none",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "init"
+        ],
+        "aliases": [],
+        "usage": "ledger init [--with-docs] [--migrate] [--managed-docs] [--json]",
+        "json": true,
+        "flags": {
+          "with-docs": {
+            "type": "boolean",
+            "field": "withDocs"
+          },
+          "migrate": {
+            "type": "boolean",
+            "field": "migrate"
+          },
+          "managed-docs": {
+            "type": "boolean",
+            "field": "managedDocs"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "withDocs": {
+            "type": "boolean"
+          },
+          "migrate": {
+            "type": "boolean"
+          },
+          "managedDocs": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "projectRoot": {
+            "type": "string"
+          },
+          "ledgerRoot": {
+            "type": "string"
+          },
+          "withDocs": {
+            "type": "boolean"
+          },
+          "adoption": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectRoot",
+          "ledgerRoot",
+          "withDocs",
+          "adoption"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "adopt",
+      "title": "Adopt Ledger",
+      "description": "Initialize Ledger for an established repository with partial docs adoption.",
+      "workspace": "none",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "adopt"
+        ],
+        "aliases": [],
+        "usage": "ledger adopt [--managed-docs] [--json]",
+        "json": true,
+        "flags": {
+          "managed-docs": {
+            "type": "boolean",
+            "field": "managedDocs"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "managedDocs": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "projectRoot": {
+            "type": "string"
+          },
+          "ledgerRoot": {
+            "type": "string"
+          },
+          "withDocs": {
+            "type": "boolean"
+          },
+          "adoption": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectRoot",
+          "ledgerRoot",
+          "withDocs",
+          "adoption"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "new",
+      "title": "Create a change entry",
+      "description": "Create the next numbered change entry from the template.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "new"
+        ],
+        "aliases": [],
+        "usage": "ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "title",
+          "min": 1,
+          "join": true
+        },
+        "flags": {
+          "from-diff": {
+            "type": "boolean",
+            "field": "fromDiff"
+          },
+          "staged": {
+            "type": "boolean",
+            "field": "staged"
+          },
+          "area": {
+            "type": "string[]",
+            "field": "areas"
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Entry title."
+          },
+          "fromDiff": {
+            "description": "Prefill files from Git changes.",
+            "type": "boolean"
+          },
+          "staged": {
+            "description": "Read the staged diff.",
+            "type": "boolean"
+          },
+          "areas": {
+            "description": "Area tags.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "status": {
+            "default": "draft",
+            "description": "Entry status.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "title",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "feedback",
+      "title": "Create a product note",
+      "description": "Create a product-note record for dogfood findings and product observations.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "feedback"
+        ],
+        "aliases": [
+          [
+            "product-note"
+          ]
+        ],
+        "usage": "ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "title",
+          "min": 1,
+          "join": true
+        },
+        "flags": {
+          "area": {
+            "type": "string[]",
+            "field": "areas"
+          },
+          "tag": {
+            "type": "string[]",
+            "field": "tags"
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Note title."
+          },
+          "areas": {
+            "description": "Area tags.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "tags": {
+            "description": "Tags.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "status": {
+            "default": "captured",
+            "description": "Note status.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "title",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "validate",
+      "title": "Validate Ledger records",
+      "description": "Validate Ledger source records and return errors and warnings.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "validate"
+        ],
+        "aliases": [],
+        "usage": "ledger validate [--current-only] [--update-baseline] [--no-baseline] [--json]",
+        "json": true,
+        "flags": {
+          "current-only": {
+            "type": "boolean",
+            "field": "currentOnly"
+          },
+          "update-baseline": {
+            "type": "boolean",
+            "field": "updateBaseline"
+          },
+          "no-baseline": {
+            "type": "boolean",
+            "field": "noBaseline"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "currentOnly": {
+            "description": "Skip historical records.",
+            "type": "boolean"
+          },
+          "updateBaseline": {
+            "description": "Record current warnings in the validation baseline.",
+            "type": "boolean"
+          },
+          "noBaseline": {
+            "description": "Ignore the configured validation baseline.",
+            "type": "boolean"
+          },
+          "writeReport": {
+            "description": "Write .ledger/reports/latest-validation.md.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "projectRoot": {
+            "type": "string"
+          },
+          "issueCount": {
+            "type": "number"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "suppressed": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "baselinePath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectRoot",
+          "issueCount",
+          "issues",
+          "errors",
+          "warnings",
+          "suppressed"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_validate",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "writeReport": {
+              "description": "Write .ledger/reports/latest-validation.md.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "index",
+      "title": "Write Ledger indexes",
+      "description": "Validate records and write JSON indexes under .ledger/indexes.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "index"
+        ],
+        "aliases": [],
+        "usage": "ledger index [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": "number"
+          },
+          "outputDir": {
+            "type": "string"
+          },
+          "written": {
+            "type": "boolean"
+          },
+          "validation": {
+            "type": "object",
+            "properties": {
+              "errors": {
+                "type": "number"
+              },
+              "warnings": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "errors",
+              "warnings"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "documents",
+          "outputDir",
+          "written",
+          "validation"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "verify-integrity",
+      "title": "Verify Ledger integrity",
+      "description": "Return source record hashes and a deterministic catalog hash.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "verify-integrity"
+        ],
+        "aliases": [],
+        "usage": "ledger verify-integrity [--check] [--json]",
+        "json": true,
+        "flags": {
+          "check": {
+            "type": "boolean",
+            "field": "check"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "check": {
+            "description": "Compare current records with the existing integrity baseline without replacing it.",
+            "type": "boolean"
+          },
+          "writeArtifacts": {
+            "description": "Write .ledger/indexes/integrity.json and .ledger/reports/integrity.md.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "catalogHash": {
+            "type": "string"
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "hash": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "hash"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "verification": {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ok"
+            ],
+            "additionalProperties": {}
+          },
+          "written": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "catalogHash",
+          "documents"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_verify_integrity",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "check": {
+              "description": "Compare current records with the existing integrity baseline without replacing it.",
+              "type": "boolean"
+            },
+            "writeArtifacts": {
+              "description": "Write .ledger/indexes/integrity.json and .ledger/reports/integrity.md.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "render",
+      "title": "Render the static reader",
+      "description": "Build the offline static reader plus search and graph JSON artifacts.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "render"
+        ],
+        "aliases": [],
+        "usage": "ledger render [--profile <internal|public>] [--json]",
+        "json": true,
+        "flags": {
+          "profile": {
+            "type": "string",
+            "field": "profile",
+            "choices": [
+              "internal",
+              "public"
+            ]
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "profile": {
+            "default": "internal",
+            "description": "Reader profile to render.",
+            "type": "string",
+            "enum": [
+              "internal",
+              "public"
+            ]
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string"
+          },
+          "outputPath": {
+            "type": "string"
+          },
+          "documents": {
+            "type": "number"
+          },
+          "totalBytes": {
+            "type": "number"
+          },
+          "writeMs": {
+            "type": "number"
+          },
+          "budget": {
+            "type": "object",
+            "properties": {
+              "ok": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ok"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "profile",
+          "outputPath",
+          "documents",
+          "totalBytes",
+          "writeMs",
+          "budget"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "serve",
+      "title": "Serve the static reader",
+      "description": "Render and serve the selected static reader profile on loopback.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": true,
+      "cli": {
+        "path": [
+          "serve"
+        ],
+        "aliases": [],
+        "usage": "ledger serve [--host <host>] [--port <port>] [--profile <internal|public>] [--watch] [--expose]",
+        "json": false,
+        "flags": {
+          "host": {
+            "type": "string",
+            "field": "host"
+          },
+          "port": {
+            "type": "number",
+            "field": "port"
+          },
+          "profile": {
+            "type": "string",
+            "field": "profile",
+            "choices": [
+              "internal",
+              "public"
+            ]
+          },
+          "watch": {
+            "type": "boolean",
+            "field": "watch"
+          },
+          "expose": {
+            "type": "boolean",
+            "field": "expose"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "host": {
+            "description": "Bind host.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "port": {
+            "default": 4173,
+            "description": "Bind port.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 65535
+          },
+          "profile": {
+            "default": "internal",
+            "description": "Reader profile to serve.",
+            "type": "string",
+            "enum": [
+              "internal",
+              "public"
+            ]
+          },
+          "watch": {
+            "description": "Rebuild when Ledger source records change.",
+            "type": "boolean"
+          },
+          "expose": {
+            "description": "Allow a non-loopback host with a required token.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "port",
+          "profile"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "local",
+              "network"
+            ]
+          },
+          "profile": {
+            "type": "string"
+          },
+          "watchedDirectories": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "root",
+          "url",
+          "mode",
+          "profile",
+          "watchedDirectories"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "coverage",
+      "title": "Check Ledger coverage",
+      "description": "Check changed files against git.requireEntryFor and Ledger file coverage.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "coverage"
+        ],
+        "aliases": [],
+        "usage": "ledger coverage [--staged | --base <revision> --head <revision>] [--explain] [--json]",
+        "json": true,
+        "flags": {
+          "staged": {
+            "type": "boolean",
+            "field": "staged"
+          },
+          "base": {
+            "type": "string",
+            "field": "base"
+          },
+          "head": {
+            "type": "string",
+            "field": "head"
+          },
+          "explain": {
+            "type": "boolean",
+            "field": "explain"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "staged": {
+            "description": "Inspect the staged Git diff.",
+            "type": "boolean"
+          },
+          "base": {
+            "description": "Base revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "head": {
+            "description": "Head revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "explain": {
+            "description": "Explain each changed path's coverage status.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "changedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "requiredFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "coveredFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "missingFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "status"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "changedFiles",
+          "requiredFiles",
+          "coveredFiles",
+          "missingFiles",
+          "files"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_coverage",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "staged": {
+              "description": "Inspect the staged Git diff.",
+              "type": "boolean"
+            },
+            "base": {
+              "description": "Base revision for a merge-base range.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "head": {
+              "description": "Head revision for a merge-base range.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "explain": {
+              "description": "Explain each changed path's coverage status.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "ci",
+      "title": "Run Ledger CI checks",
+      "description": "Run validation, docs audit, coverage, and docs impact as one check.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "ci"
+        ],
+        "aliases": [],
+        "usage": "ledger ci [--staged | --base <revision> --head <revision>] [--current-only] [--no-baseline] [--json]",
+        "json": true,
+        "flags": {
+          "staged": {
+            "type": "boolean",
+            "field": "staged"
+          },
+          "base": {
+            "type": "string",
+            "field": "base"
+          },
+          "head": {
+            "type": "string",
+            "field": "head"
+          },
+          "current-only": {
+            "type": "boolean",
+            "field": "currentOnly"
+          },
+          "no-baseline": {
+            "type": "boolean",
+            "field": "noBaseline"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "staged": {
+            "description": "Inspect the staged Git diff.",
+            "type": "boolean"
+          },
+          "base": {
+            "description": "Base revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "head": {
+            "description": "Head revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "currentOnly": {
+            "description": "Skip historical records.",
+            "type": "boolean"
+          },
+          "noBaseline": {
+            "description": "Ignore the configured validation baseline.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "errors": {
+                  "type": "number"
+                },
+                "warnings": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name",
+                "ok",
+                "errors",
+                "warnings"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "checks"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_ci",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "staged": {
+              "description": "Inspect the staged Git diff.",
+              "type": "boolean"
+            },
+            "base": {
+              "description": "Base revision for a merge-base range.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "head": {
+              "description": "Head revision for a merge-base range.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "currentOnly": {
+              "description": "Skip historical records.",
+              "type": "boolean"
+            },
+            "noBaseline": {
+              "description": "Ignore the configured validation baseline.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "doctor",
+      "title": "Check Ledger health",
+      "description": "Check workspace health, Git availability, validation, docs, indexes, render output, and stale signals.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "doctor"
+        ],
+        "aliases": [],
+        "usage": "ledger doctor [--no-baseline] [--json]",
+        "json": true,
+        "flags": {
+          "no-baseline": {
+            "type": "boolean",
+            "field": "noBaseline"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "noBaseline": {
+            "description": "Ignore the configured validation baseline.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "level": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "level",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "checks"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_doctor",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "noBaseline": {
+              "description": "Ignore the configured validation baseline.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "metrics",
+      "title": "Measure Ledger performance",
+      "description": "Measure read, validate, index, render-model, and search latency against budgets.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "metrics"
+        ],
+        "aliases": [],
+        "usage": "ledger metrics [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "totalMs": {
+            "type": "number"
+          },
+          "maxTotalMs": {
+            "type": "number"
+          },
+          "documents": {
+            "type": "number"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "ms": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "totalMs",
+          "maxTotalMs",
+          "documents",
+          "steps"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_metrics",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "stale",
+      "title": "Find stale knowledge",
+      "description": "Find stale knowledge signals such as missing references, stale symbols, and release verification gaps.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "stale"
+        ],
+        "aliases": [],
+        "usage": "ledger stale [--current-only] [--no-baseline] [--check] [--write-report] [--json]",
+        "json": true,
+        "flags": {
+          "current-only": {
+            "type": "boolean",
+            "field": "currentOnly"
+          },
+          "no-baseline": {
+            "type": "boolean",
+            "field": "noBaseline"
+          },
+          "check": {
+            "type": "boolean",
+            "field": "check"
+          },
+          "write-report": {
+            "type": "boolean",
+            "field": "writeReport"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "currentOnly": {
+            "description": "Skip historical records.",
+            "type": "boolean"
+          },
+          "noBaseline": {
+            "description": "Ignore the configured validation baseline.",
+            "type": "boolean"
+          },
+          "check": {
+            "description": "Exit non-zero when stale signals exist.",
+            "type": "boolean"
+          },
+          "writeReport": {
+            "description": "Write .ledger/reports/stale.md.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "reportPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "issues"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_stale",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "currentOnly": {
+              "description": "Skip historical records.",
+              "type": "boolean"
+            },
+            "noBaseline": {
+              "description": "Ignore the configured validation baseline.",
+              "type": "boolean"
+            },
+            "check": {
+              "description": "Exit non-zero when stale signals exist.",
+              "type": "boolean"
+            },
+            "writeReport": {
+              "description": "Write .ledger/reports/stale.md.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "conflict",
+      "title": "Get conflict guidance",
+      "description": "Return conflict rules, invariants, and verification for paths.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "conflict"
+        ],
+        "aliases": [],
+        "usage": "ledger conflict <path...> [--json] [--write-report]",
+        "json": true,
+        "positionals": {
+          "field": "paths",
+          "min": 1
+        },
+        "flags": {
+          "write-report": {
+            "type": "boolean",
+            "field": "writeReport"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "paths": {
+            "minItems": 1,
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "description": "File paths to inspect."
+          },
+          "writeReport": {
+            "description": "Write .ledger/reports/conflict.md.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "paths"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "target": {
+                  "type": "string"
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              },
+              "required": [
+                "target",
+                "entries"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "reportPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targets"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_conflict",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "paths": {
+              "minItems": 1,
+              "maxItems": 1000,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "description": "File paths to inspect."
+            },
+            "writeReport": {
+              "description": "Write .ledger/reports/conflict.md.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paths"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "explain",
+      "title": "Explain file history",
+      "description": "Return Ledger records that mention a file path.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "explain"
+        ],
+        "aliases": [],
+        "usage": "ledger explain <path> [--json] [--agent]",
+        "json": true,
+        "positionals": {
+          "field": "path",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {
+          "agent": {
+            "type": "boolean",
+            "field": "agent"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "description": "File path to explain."
+          },
+          "agent": {
+            "description": "Return compact agent context.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "context": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "invariants": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "verification": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "path",
+                "invariants",
+                "verification"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "target",
+          "matches",
+          "context"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_explain",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "description": "File path to explain."
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "search",
+      "title": "Search Ledger records",
+      "description": "Run weighted fuzzy search over the static reader search fields.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "search"
+        ],
+        "aliases": [],
+        "usage": "ledger search <query> [--limit <entries>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "query",
+          "min": 1,
+          "join": true
+        },
+        "flags": {
+          "limit": {
+            "type": "number",
+            "field": "limit"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000,
+            "description": "Search query."
+          },
+          "limit": {
+            "description": "Maximum matches to return.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "score": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "score"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "query",
+          "matches"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_search",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000,
+              "description": "Search query."
+            },
+            "limit": {
+              "description": "Maximum matches to return.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "search-packet",
+      "title": "Build search agent packet",
+      "description": "Return compact agent handoff context from weighted Ledger search results.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "search-packet"
+        ],
+        "aliases": [],
+        "usage": "ledger search-packet <query> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]",
+        "json": true,
+        "positionals": {
+          "field": "query",
+          "min": 1,
+          "join": true
+        },
+        "flags": {
+          "limit": {
+            "type": "number",
+            "field": "limit"
+          },
+          "budget": {
+            "type": "number",
+            "field": "budgetTokens"
+          },
+          "write-report": {
+            "type": "boolean",
+            "field": "writeReport"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000,
+            "description": "Search query to package for agent context."
+          },
+          "limit": {
+            "description": "Maximum search matches to include.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          },
+          "budgetTokens": {
+            "description": "Approximate token budget for the returned packet.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 10000
+          },
+          "writeReport": {
+            "description": "Write .ledger/reports/packet.md.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "estimatedTokens": {
+            "type": "number"
+          },
+          "budgetTokens": {
+            "type": "number"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "omittedEntries": {
+            "type": "number"
+          },
+          "reportPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "entries",
+          "estimatedTokens",
+          "truncated",
+          "omittedEntries"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_search_packet",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000,
+              "description": "Search query to package for agent context."
+            },
+            "limit": {
+              "description": "Maximum search matches to include.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            },
+            "budgetTokens": {
+              "description": "Approximate token budget for the returned packet.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 10000
+            },
+            "writeReport": {
+              "description": "Write .ledger/reports/packet.md.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "query",
+      "title": "Query Ledger records",
+      "description": "Filter Ledger records by metadata, relationships, paths, and text.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "query"
+        ],
+        "aliases": [],
+        "usage": "ledger query [--kind <kind>] [--status <status>] [--area <area>] [--tag <tag>] [--release <version>] [--decision <id>] [--backlog <id>] [--symbol <name>] [--file <path>] [--doc <path>] [--id <id>] [--text <text>] [--limit <entries>] [--json]",
+        "json": true,
+        "flags": {
+          "kind": {
+            "type": "string",
+            "field": "kind",
+            "choices": [
+              "change",
+              "backlog",
+              "decision",
+              "release",
+              "product-note",
+              "feedback"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          },
+          "area": {
+            "type": "string",
+            "field": "area"
+          },
+          "tag": {
+            "type": "string",
+            "field": "tag"
+          },
+          "release": {
+            "type": "string",
+            "field": "release"
+          },
+          "decision": {
+            "type": "string",
+            "field": "decision"
+          },
+          "backlog": {
+            "type": "string",
+            "field": "backlog"
+          },
+          "symbol": {
+            "type": "string",
+            "field": "symbol"
+          },
+          "file": {
+            "type": "string",
+            "field": "file"
+          },
+          "doc": {
+            "type": "string",
+            "field": "doc"
+          },
+          "id": {
+            "type": "string",
+            "field": "id"
+          },
+          "text": {
+            "type": "string",
+            "field": "text"
+          },
+          "limit": {
+            "type": "number",
+            "field": "limit"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "change",
+              "backlog",
+              "decision",
+              "release",
+              "product-note",
+              "feedback"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "area": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "tag": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "release": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "decision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "backlog": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "doc": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "limit": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "limited": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "matches",
+          "total",
+          "limited"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_query",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "change",
+                "backlog",
+                "decision",
+                "release",
+                "product-note",
+                "feedback"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "area": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "tag": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "decision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "backlog": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "symbol": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "file": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "doc": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10000
+            },
+            "limit": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "packet",
+      "title": "Build agent packet",
+      "description": "Return compact agent handoff context for a file path.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "packet"
+        ],
+        "aliases": [],
+        "usage": "ledger packet <path> [--json] [--write-report] [--budget <tokens>] [--limit <entries>]",
+        "json": true,
+        "positionals": {
+          "field": "path",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {
+          "limit": {
+            "type": "number",
+            "field": "maxEntries"
+          },
+          "budget": {
+            "type": "number",
+            "field": "budgetTokens"
+          },
+          "write-report": {
+            "type": "boolean",
+            "field": "writeReport"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "description": "File path to package for agent context."
+          },
+          "budgetTokens": {
+            "description": "Approximate token budget for the returned packet.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 10000
+          },
+          "maxEntries": {
+            "description": "Maximum records to include.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          },
+          "writeReport": {
+            "description": "Write .ledger/reports/packet.md.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "estimatedTokens": {
+            "type": "number"
+          },
+          "budgetTokens": {
+            "type": "number"
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "omittedEntries": {
+            "type": "number"
+          },
+          "reportPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "entries",
+          "estimatedTokens",
+          "truncated",
+          "omittedEntries"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_packet",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "description": "File path to package for agent context."
+            },
+            "budgetTokens": {
+              "description": "Approximate token budget for the returned packet.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 10000
+            },
+            "maxEntries": {
+              "description": "Maximum records to include.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100
+            },
+            "writeReport": {
+              "description": "Write .ledger/reports/packet.md.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "mcp",
+      "title": "Start the MCP server",
+      "description": "Start a stdio Model Context Protocol server exposing Ledger tools for agents.",
+      "workspace": "none",
+      "mutates": false,
+      "interactive": true,
+      "cli": {
+        "path": [
+          "mcp"
+        ],
+        "aliases": [],
+        "usage": "ledger mcp",
+        "json": false,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "transport": {
+            "type": "string",
+            "const": "stdio"
+          }
+        },
+        "required": [
+          "transport"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "unreleased",
+      "title": "List unreleased changes",
+      "description": "List landed or shipped change entries without a release assignment.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "unreleased"
+        ],
+        "aliases": [],
+        "usage": "ledger unreleased [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "title"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "matches"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_unreleased",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "release",
+      "title": "Build a release record",
+      "description": "Render a Ledger release record and optionally assign entries and write the file.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "release"
+        ],
+        "aliases": [],
+        "usage": "ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "version",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {
+          "include-unreleased": {
+            "type": "boolean",
+            "field": "includeUnreleased"
+          },
+          "assign": {
+            "type": "boolean",
+            "field": "assign"
+          },
+          "status": {
+            "type": "string",
+            "field": "status",
+            "choices": [
+              "planned",
+              "released"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "field": "date"
+          },
+          "write": {
+            "type": "boolean",
+            "field": "write"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Release version, for example v1.2.3."
+          },
+          "includeUnreleased": {
+            "description": "Select currently unreleased landed entries.",
+            "type": "boolean"
+          },
+          "assign": {
+            "description": "Write the release version back to selected entries.",
+            "type": "boolean"
+          },
+          "status": {
+            "default": "planned",
+            "type": "string",
+            "enum": [
+              "planned",
+              "released"
+            ]
+          },
+          "date": {
+            "description": "Release date as yyyy-mm-dd.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "write": {
+            "description": "Write .ledger/releases/<version>.md.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "version",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "assignment": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "updatedEntries": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "version",
+              "updatedEntries"
+            ],
+            "additionalProperties": {}
+          },
+          "writtenPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "status",
+          "entries",
+          "markdown"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "migrate.changelog",
+      "title": "Migrate a changelog",
+      "description": "Migrate legacy Markdown changelog records into .ledger/entries.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "migrate",
+          "changelog"
+        ],
+        "aliases": [],
+        "usage": "ledger migrate changelog <dir> [--dry-run] [--rewrite-docs] [--status <status>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "sourceDir",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {
+          "dry-run": {
+            "type": "boolean",
+            "field": "dryRun"
+          },
+          "rewrite-docs": {
+            "type": "boolean",
+            "field": "rewriteDocs"
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sourceDir": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "description": "Directory of legacy changelog records."
+          },
+          "dryRun": {
+            "description": "Report without writing.",
+            "type": "boolean"
+          },
+          "rewriteDocs": {
+            "description": "Rewrite docs references to new entry paths.",
+            "type": "boolean"
+          },
+          "status": {
+            "description": "Status to assign to migrated entries.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "sourceDir"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sourceDir": {
+            "type": "string"
+          },
+          "migrated": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
+            }
+          },
+          "duplicates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
+            }
+          },
+          "rewrittenDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "receiptPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceDir",
+          "migrated",
+          "duplicates",
+          "rewrittenDocs",
+          "receiptPath"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "agents",
+      "title": "Print agent instructions",
+      "description": "Print ready-to-paste AGENTS.md instructions for the configured Ledger workflow.",
+      "workspace": "optional",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "agents"
+        ],
+        "aliases": [],
+        "usage": "ledger agents [--role <contributor|reviewer|release|migration|conflict>] [--json]",
+        "json": true,
+        "flags": {
+          "role": {
+            "type": "string",
+            "field": "role",
+            "choices": [
+              "contributor",
+              "reviewer",
+              "release",
+              "migration",
+              "conflict"
+            ]
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "role": {
+            "description": "Agent role to tailor the instructions for.",
+            "type": "string",
+            "enum": [
+              "contributor",
+              "reviewer",
+              "release",
+              "migration",
+              "conflict"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "docsMode": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "contributor",
+              "reviewer",
+              "release",
+              "migration",
+              "conflict"
+            ]
+          },
+          "instructions": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "docsMode",
+          "role",
+          "instructions"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "docs.audit",
+      "title": "Audit docs references",
+      "description": "Classify the docs root and report Ledger-to-doc references.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "docs",
+          "audit"
+        ],
+        "aliases": [],
+        "usage": "ledger docs audit [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "docsRoot": {
+            "type": "string"
+          },
+          "adoption": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "classification": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "classification"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "missingReferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unreferencedDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scratchDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "generatedDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unknownDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reportPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "docsRoot",
+          "adoption",
+          "files",
+          "missingReferences",
+          "unreferencedDocs",
+          "scratchDocs",
+          "generatedDocs",
+          "unknownDocs",
+          "reportPath"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_docs_audit",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "docs.check",
+      "title": "Check docs references",
+      "description": "Audit docs references and fail when Ledger references docs that do not exist.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "docs",
+          "check"
+        ],
+        "aliases": [],
+        "usage": "ledger docs check [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "docsRoot": {
+            "type": "string"
+          },
+          "adoption": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "classification": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "classification"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "missingReferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unreferencedDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scratchDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "generatedDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unknownDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reportPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "docsRoot",
+          "adoption",
+          "files",
+          "missingReferences",
+          "unreferencedDocs",
+          "scratchDocs",
+          "generatedDocs",
+          "unknownDocs",
+          "reportPath"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "docs.classify",
+      "title": "Classify docs paths",
+      "description": "Classify docs paths as durable, routing, scratch, generated, or unknown.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "docs",
+          "classify"
+        ],
+        "aliases": [],
+        "usage": "ledger docs classify [path...] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "paths",
+          "min": 0
+        },
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "paths": {
+            "description": "Docs paths to classify. Classifies the docs root when omitted.",
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "classification": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "classification"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_docs_classify",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "paths": {
+              "description": "Docs paths to classify. Classifies the docs root when omitted.",
+              "maxItems": 10000,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "docs.impact",
+      "title": "Check docs impact",
+      "description": "Return docs impact for changed files or the current git diff.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "docs",
+          "impact"
+        ],
+        "aliases": [],
+        "usage": "ledger docs impact [--staged | --base <revision> --head <revision>] [--check] [--json]",
+        "json": true,
+        "flags": {
+          "staged": {
+            "type": "boolean",
+            "field": "staged"
+          },
+          "base": {
+            "type": "string",
+            "field": "base"
+          },
+          "head": {
+            "type": "string",
+            "field": "head"
+          },
+          "check": {
+            "type": "boolean",
+            "field": "check"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "staged": {
+            "description": "Inspect the staged Git diff.",
+            "type": "boolean"
+          },
+          "base": {
+            "description": "Base revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "head": {
+            "description": "Head revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "check": {
+            "description": "Exit non-zero when source files lack docs impact.",
+            "type": "boolean"
+          },
+          "changedFiles": {
+            "description": "Changed files to inspect. Uses git when omitted.",
+            "maxItems": 10000,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "writeReport": {
+            "description": "Write .ledger/reports/docs-impact.md.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "sourceFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "docsFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "referencedDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "declarations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {}
+            }
+          },
+          "missingDocsImpact": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "sourceFiles",
+          "docsFiles",
+          "referencedDocs",
+          "declarations",
+          "missingDocsImpact"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_docs_impact",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "changedFiles": {
+              "description": "Changed files to inspect. Uses git status when omitted.",
+              "maxItems": 10000,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "staged": {
+              "description": "Use staged git diff when changedFiles is omitted.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "name": "docs.reconcile",
+      "title": "Reconcile docs routing",
+      "description": "Regenerate the docs routing manifest and START_HERE file from the docs audit.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "docs",
+          "reconcile"
+        ],
+        "aliases": [],
+        "usage": "ledger docs reconcile [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "routes": {
+            "type": "number"
+          },
+          "manifestPath": {
+            "type": "string"
+          },
+          "startHerePath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "routes",
+          "manifestPath",
+          "startHerePath"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "docs.migrate",
+      "title": "Write docs migration report",
+      "description": "Write cleanup and organization guidance for the docs root.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "docs",
+          "migrate"
+        ],
+        "aliases": [],
+        "usage": "ledger docs migrate [--json]",
+        "json": true,
+        "flags": {}
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "docsRoot": {
+            "type": "string"
+          },
+          "adoption": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "classification": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "classification"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "missingReferences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unreferencedDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scratchDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "generatedDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unknownDocs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reportPath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "docsRoot",
+          "adoption",
+          "files",
+          "missingReferences",
+          "unreferencedDocs",
+          "scratchDocs",
+          "generatedDocs",
+          "unknownDocs",
+          "reportPath"
+        ],
+        "additionalProperties": {}
+      }
+    }
+  ]
+}

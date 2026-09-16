@@ -68,20 +68,21 @@ changed path lists.
 Avoid exporting low-level parser, git, template, runtime asset, and migration
 helpers from the root unless they become a deliberate integration point.
 
-## Command Result Models
+## Operation Registry
 
-New CLI behavior should prefer a reusable command result module under
-`src/commands/` when the behavior is also useful to tests, MCP, automation, or
-other library consumers. The CLI should parse arguments, call the command model,
-and format the result.
+Every CLI command and MCP tool is an operation from `ledgerOperations`
+(`src/operations/registry.ts`). Each definition carries the machine name, CLI
+path and flags, zod input and output schemas, the handler, the human formatter,
+and optional MCP metadata. `buildOperationsContract()` renders the registry as
+a JSON manifest with JSON Schema for every input and output, which is what the
+golden test in `test/operations.test.ts` pins and what generated docs read.
 
-Good candidates:
-
-- search, query, metrics, packets, release summaries, and diagnostics
-- anything that returns structured data or supports `--json`
-- behavior that an MCP tool may need later
-
-Small one-off commands can stay in `src/cli.ts` until reuse is clear.
+Library consumers can run an operation directly through `findOperation(name)`
+or `findOperationByTool(tool)`, or embed the whole CLI with `runLedgerCli`
+from the unstable entrypoint. New commands are new definitions under
+`src/operations/definitions/`; do not add parsing or formatting to `src/cli.ts`.
+Reusable result models under `src/commands/` remain the right home for logic
+shared by several operations.
 
 ## Machine Result Envelope
 

@@ -249,22 +249,16 @@ is intentionally read-oriented so agents can retrieve Ledger context without
 mutating source records unless a specific write flag is requested for generated
 reports.
 
-The first server exposes tools for:
-
-- validation
-- query
-- file explanation
-- conflict guidance
-- agent packets
-- search-result agent packets
-- docs impact
-- integrity verification
-
-Each tool returns a JSON text payload derived from the same core functions used
-by the CLI. Payloads include a top-level `summary` object with counts, status,
-and budget metadata before full detailed fields so agents can inspect compact
-signals first. The MCP layer should stay thin; command behavior belongs in the
-library modules so the CLI, tests, and MCP server remain consistent.
+The server registers every operation in the registry that carries `mcp`
+metadata: validate, query, search, explain, conflict, packet, search-packet,
+coverage, ci, doctor, metrics, stale, unreleased, docs audit, docs classify,
+docs impact, and integrity verification. Each tool takes the operation's input
+plus an optional `projectRoot`, declares an output schema, and returns the
+versioned machine envelope both as JSON text and as `structuredContent`.
+Payloads include a top-level `summary` object with counts, status, and budget
+metadata before full detailed fields so agents can inspect compact signals
+first. Tools that do not mutate are annotated read-only. The MCP layer contains
+no command logic; behavior lives in the operation definitions the CLI uses.
 
 ### Render And Export Adapters
 
@@ -420,6 +414,27 @@ scratch, generated, unknown, missing, and unreferenced docs without rewriting
 durable prose.
 
 ## Command Model
+
+Every command is an operation defined once in `src/operations/`. An operation
+declares its machine name, CLI path and flags, a zod input schema, a loose zod
+output schema, a workspace requirement, whether it mutates, a handler, a human
+formatter, and optional MCP metadata (tool name and a compact summary). The
+registry in `src/operations/registry.ts` lists operations in help order.
+
+From that one table Ledger derives:
+
+- CLI argument parsing, flag validation, positional rules, and `--json`
+  envelopes (`src/operations/runtime.ts`)
+- per-command and general help text
+- MCP tool registration with strict input schemas, output schemas, and
+  structured content (`src/mcp.ts`)
+- a deterministic contract manifest (`buildOperationsContract`) pinned by
+  `test/fixtures/operations-contract.json`; update it with
+  `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts`
+
+`src/cli.ts` only resolves the package version and hands argv to the runtime.
+Adding a command means adding one definition file and one registry entry; the
+parser, help, MCP surface, and contract test follow automatically.
 
 ### `ledger init`
 

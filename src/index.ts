@@ -46,9 +46,18 @@ export {
 } from "./machine.js";
 export {
   createLedgerMcpServer,
+  listLedgerMcpTools,
   runLedgerMcpTool,
   startLedgerMcpServer,
 } from "./mcp.js";
+export {
+  buildOperationsContract,
+  findOperation,
+  findOperationByTool,
+  ledgerOperations,
+  ledgerOperationsContractVersion,
+} from "./operations/registry.js";
+export { defineOperation } from "./operations/types.js";
 export { createChangeEntry, createProductNoteEntry, inferAreas, nextEntryId } from "./newEntry.js";
 export {
   buildAgentPacket,
@@ -99,6 +108,8 @@ export type * from "./docsImpact.js";
 export type * from "./doctor.js";
 export type * from "./integrity.js";
 export type * from "./mcp.js";
+export type * from "./operations/registry.js";
+export type * from "./operations/types.js";
 export type * from "./machine.js";
 export type * from "./packet.js";
 export type * from "./performance.js";
