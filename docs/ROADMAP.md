@@ -264,8 +264,10 @@ decision D006.
 ## Phase 11: Local Memory Engine
 
 Status: foundation shipped in 0.4.0 (operation registry, catalog cache, unified
-retrieval contract); engine server next. Direction accepted in decision D005
-on 2026-09-15.
+retrieval contract) and the engine server in 0.5.0 (`serve --api` with the JSON
+API, event stream, live reload, MCP over Streamable HTTP with resources and
+prompts, CLI delegation, shared search scoring); capture next. Direction
+accepted in decision D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
 `docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are

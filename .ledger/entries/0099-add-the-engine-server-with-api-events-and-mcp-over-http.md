@@ -41,6 +41,7 @@ commits: []
 related:
   - "0095"
   - "0096"
+release: "v0.5.0"
 ---
 
 # 0099: Add The Engine Server With API, Events, And MCP Over HTTP

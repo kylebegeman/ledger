@@ -27,6 +27,7 @@ decisions:
 commits: []
 related:
   - "0099"
+release: "v0.5.0"
 ---
 
 # 0101: Reload The Reader From The Engine Event Stream
