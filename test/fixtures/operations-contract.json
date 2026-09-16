@@ -709,6 +709,694 @@
       }
     },
     {
+      "name": "session.start",
+      "title": "Start a session record",
+      "description": "Start an expiring session record, or return the active one for the same host session.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "session",
+          "start"
+        ],
+        "aliases": [
+          [
+            "scratch"
+          ]
+        ],
+        "usage": "ledger session start [title] [--host <host>] [--host-session <id>] [--id <id>] [--area <area>] [--expires-in <days>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "title",
+          "min": 0,
+          "join": true
+        },
+        "flags": {
+          "host": {
+            "type": "string",
+            "field": "host"
+          },
+          "id": {
+            "type": "string",
+            "field": "id"
+          },
+          "host-session": {
+            "type": "string",
+            "field": "hostSession"
+          },
+          "area": {
+            "type": "string[]",
+            "field": "areas"
+          },
+          "expires-in": {
+            "type": "number",
+            "field": "expiresInDays"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "description": "Session title. Defaults to the host and date.",
+            "type": "string",
+            "maxLength": 500
+          },
+          "host": {
+            "description": "Agent host, for example claude-code.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "id": {
+            "description": "Session record id, for example S0001.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "hostSession": {
+            "description": "Host session identifier stored in the record.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "areas": {
+            "description": "Area tags.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "expiresInDays": {
+            "description": "Days until the record expires.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 3650
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "expires": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "hostSession": {
+                "type": "string"
+              },
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "path",
+              "title",
+              "status",
+              "areas",
+              "files",
+              "related"
+            ],
+            "additionalProperties": {}
+          },
+          "created": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session",
+          "created"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "session.touch",
+      "title": "Record touched paths",
+      "description": "Record touched paths on the active session record, starting one when none exists.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "session",
+          "touch"
+        ],
+        "aliases": [],
+        "usage": "ledger session touch <path...> [--host <host>] [--host-session <id>] [--id <id>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "paths",
+          "min": 1
+        },
+        "flags": {
+          "host": {
+            "type": "string",
+            "field": "host"
+          },
+          "id": {
+            "type": "string",
+            "field": "id"
+          },
+          "host-session": {
+            "type": "string",
+            "field": "hostSession"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "paths": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "description": "Project-relative paths that were touched."
+          },
+          "host": {
+            "description": "Agent host used when a session must be started.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "id": {
+            "description": "Session record id, for example S0001.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "hostSession": {
+            "description": "Host session identifier stored in the record.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "paths"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "expires": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "hostSession": {
+                "type": "string"
+              },
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "path",
+              "title",
+              "status",
+              "areas",
+              "files",
+              "related"
+            ],
+            "additionalProperties": {}
+          },
+          "added": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session",
+          "added",
+          "created"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "session.note",
+      "title": "Add a session note",
+      "description": "Append a bullet to the Learned, Next, or Summary section of the active session.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "session",
+          "note"
+        ],
+        "aliases": [],
+        "usage": "ledger session note <text> [--section <Summary|Learned|Next>] [--host-session <id>] [--id <id>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "text",
+          "min": 1,
+          "join": true
+        },
+        "flags": {
+          "section": {
+            "type": "string",
+            "field": "section",
+            "choices": [
+              "Summary",
+              "Learned",
+              "Next"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "field": "id"
+          },
+          "host-session": {
+            "type": "string",
+            "field": "hostSession"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000,
+            "description": "Note text."
+          },
+          "section": {
+            "description": "Section to append to. Defaults to Learned.",
+            "type": "string",
+            "enum": [
+              "Summary",
+              "Learned",
+              "Next"
+            ]
+          },
+          "id": {
+            "description": "Session record id, for example S0001.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "hostSession": {
+            "description": "Host session identifier stored in the record.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "expires": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "hostSession": {
+                "type": "string"
+              },
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "path",
+              "title",
+              "status",
+              "areas",
+              "files",
+              "related"
+            ],
+            "additionalProperties": {}
+          },
+          "section": {
+            "type": "string"
+          },
+          "bullets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "session",
+          "section",
+          "bullets"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "session.close",
+      "title": "Close a session record",
+      "description": "Mark the active session record closed.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "session",
+          "close"
+        ],
+        "aliases": [],
+        "usage": "ledger session close [--host-session <id>] [--id <id>] [--json]",
+        "json": true,
+        "flags": {
+          "id": {
+            "type": "string",
+            "field": "id"
+          },
+          "host-session": {
+            "type": "string",
+            "field": "hostSession"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Session record id, for example S0001.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "hostSession": {
+            "description": "Host session identifier stored in the record.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "expires": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "hostSession": {
+                "type": "string"
+              },
+              "areas": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "path",
+              "title",
+              "status",
+              "areas",
+              "files",
+              "related"
+            ],
+            "additionalProperties": {}
+          },
+          "changed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session",
+          "changed"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
+      "name": "session.prune",
+      "title": "Prune expired sessions",
+      "description": "List expired session records and delete them with --write.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "session",
+          "prune"
+        ],
+        "aliases": [],
+        "usage": "ledger session prune [--write] [--json]",
+        "json": true,
+        "flags": {
+          "write": {
+            "type": "boolean",
+            "field": "write"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "write": {
+            "description": "Delete the expired records.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "today": {
+            "type": "string"
+          },
+          "expired": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "expires": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "hostSession": {
+                  "type": "string"
+                },
+                "areas": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "related": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "path",
+                "title",
+                "status",
+                "areas",
+                "files",
+                "related"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "removed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "today",
+          "expired",
+          "removed"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    {
       "name": "validate",
       "title": "Validate Ledger records",
       "description": "Validate Ledger source records and return errors and warnings.",
@@ -2749,7 +3437,8 @@
               "decision",
               "release",
               "product-note",
-              "feedback"
+              "feedback",
+              "session"
             ]
           },
           "status": {
@@ -2814,7 +3503,8 @@
               "decision",
               "release",
               "product-note",
-              "feedback"
+              "feedback",
+              "session"
             ]
           },
           "status": {
@@ -2937,7 +3627,8 @@
                 "decision",
                 "release",
                 "product-note",
-                "feedback"
+                "feedback",
+                "session"
               ]
             },
             "status": {

@@ -64,6 +64,7 @@ export interface LedgerStaticReaderModel {
     readonly releases: number;
     readonly productNotes: number;
     readonly feedback: number;
+    readonly sessions: number;
   };
 }
 
@@ -254,6 +255,7 @@ export function buildStaticReaderModel(
       releases: renderedDocuments.filter((document) => document.kind === "release").length,
       productNotes: renderedDocuments.filter((document) => document.kind === "product-note").length,
       feedback: renderedDocuments.filter((document) => document.kind === "feedback").length,
+      sessions: renderedDocuments.filter((document) => document.kind === "session").length,
     },
   };
 }

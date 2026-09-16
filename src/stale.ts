@@ -8,6 +8,7 @@ import { isSafeProjectRelativePath, resolveProjectPath } from "./projectPaths.js
 import type {
   LedgerValidationResult,
   LedgerWorkspace,
+  NormalizedLedgerDocument,
   ParsedLedgerDocument,
 } from "./types.js";
 
@@ -17,7 +18,8 @@ export interface LedgerStaleIssue {
     | "missing-relationship"
     | "superseded-relationship"
     | "stale-symbol"
-    | "release-verification";
+    | "release-verification"
+    | "expired-session";
   readonly path: string;
   readonly message: string;
   readonly target?: string;
@@ -37,6 +39,7 @@ export async function detectStaleKnowledge(
   const byId = new Map(normalized.map((document) => [document.id, document]));
   const parsedByPath = new Map(documents.map((document) => [document.relativePath, document]));
   const issues: LedgerStaleIssue[] = [];
+  const today = new Date().toISOString().slice(0, 10);
 
   for (const issue of validation.issues) {
     if (issue.code !== "missing-reference" || !issue.path) continue;
@@ -83,6 +86,15 @@ export async function detectStaleKnowledge(
           message: `release ${document.id} has no verification bullets`,
         });
       }
+    }
+
+    if (document.kind === "session" && isExpiredSession(document, today)) {
+      issues.push({
+        kind: "expired-session",
+        path: document.path,
+        target: document.id,
+        message: `session ${document.id} expired on ${document.expires}; promote it or run ledger session prune --write`,
+      });
     }
 
     if (document.symbols.length > 0 && document.files.length > 0) {
@@ -142,6 +154,16 @@ export function formatStaleReport(report: LedgerStaleReport): string {
   }
   lines.push("");
   return `${lines.join("\n")}\n`;
+}
+
+/** Sessions that passed their expiry date without being promoted. */
+export function isExpiredSession(
+  document: Pick<NormalizedLedgerDocument, "kind" | "status" | "expires">,
+  today: string,
+): boolean {
+  if (document.kind !== "session" || !document.expires) return false;
+  if (document.status === "promoted") return false;
+  return document.expires < today;
 }
 
 function relationshipFields(

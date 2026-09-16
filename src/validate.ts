@@ -36,6 +36,9 @@ const knownFrontmatterFields = new Set([
   "entries",
   "staleRefs",
   "stale_refs",
+  "expires",
+  "host",
+  "hostSession",
 ]);
 
 export interface ValidateDocumentsOptions {
@@ -64,6 +67,7 @@ export function validateDocuments(
     requireString(issues, pathLabel, normalized.status, "status");
     validateDate(issues, pathLabel, normalized.date, "date");
     if (normalized.updated) validateDate(issues, pathLabel, normalized.updated, "updated");
+    if (normalized.expires) validateDate(issues, pathLabel, normalized.expires, "expires");
 
     if (
       document.frontmatter.kind !== undefined &&
@@ -438,7 +442,7 @@ function validateDate(
   issues: LedgerIssue[],
   pathLabel: string,
   value: string,
-  field: "date" | "updated",
+  field: "date" | "updated" | "expires",
 ): void {
   if (!value || isCalendarDate(value)) return;
   issues.push({

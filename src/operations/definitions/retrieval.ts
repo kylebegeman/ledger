@@ -27,7 +27,7 @@ import type { LedgerDocumentKind, NormalizedLedgerDocument } from "../../types.j
 import { loadDocuments, looseRecord, pathString, positiveInt, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
-const documentKinds = ["change", "backlog", "decision", "release", "product-note", "feedback"] as const;
+const documentKinds = ["change", "backlog", "decision", "release", "product-note", "feedback", "session"] as const;
 
 interface ExplainInput extends Record<string, unknown> {
   readonly path: string;

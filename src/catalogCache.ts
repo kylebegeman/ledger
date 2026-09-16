@@ -376,6 +376,7 @@ async function scanSourceFiles(
     ["backlog", workspace.config.source.backlog],
     ["decision", workspace.config.source.decisions],
     ["release", workspace.config.source.releases],
+    ["session", workspace.config.source.sessions],
   ];
   const files: SourceFile[] = [];
   for (const [fallbackKind, relativeDirectory] of sourceDirectories) {

@@ -76,6 +76,7 @@ export async function initWorkspace(
     path.join(ledgerRoot, "backlog"),
     path.join(ledgerRoot, "decisions"),
     path.join(ledgerRoot, "releases"),
+    path.join(ledgerRoot, "sessions"),
     path.join(ledgerRoot, "templates"),
     path.join(ledgerRoot, "policies"),
     path.join(ledgerRoot, "indexes"),
@@ -109,6 +110,7 @@ export async function initWorkspace(
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "backlog.md"), backlogTemplate());
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "decision.md"), decisionTemplate());
   await writeFileIfMissing(path.join(ledgerRoot, "templates", "release.md"), releaseTemplate());
+  await writeFileIfMissing(path.join(ledgerRoot, "templates", "session.md"), sessionTemplate());
   await writeFileIfMissing(
     path.join(ledgerRoot, "templates", "product-note.md"),
     productNoteTemplate(),
@@ -157,6 +159,7 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "  backlog: .ledger/backlog",
     "  decisions: .ledger/decisions",
     "  releases: .ledger/releases",
+    "  sessions: .ledger/sessions",
     "ids:",
     '  entryPrefix: ""',
     "  entryWidth: 4",
@@ -164,6 +167,10 @@ function serializeDefaultConfig(project: string, options: InitWorkspaceOptions):
     "  backlogWidth: 3",
     "  decisionPrefix: D",
     "  decisionWidth: 3",
+    "  sessionPrefix: S",
+    "  sessionWidth: 4",
+    "sessions:",
+    "  expiresInDays: 7",
     "validation:",
     "  profile: standard",
     "  requireVerification: true",
@@ -245,6 +252,7 @@ function initialLedgerReadme(): string {
     "- `backlog/`: future work",
     "- `decisions/`: durable decisions",
     "- `releases/`: release notes",
+    "- `sessions/`: short-lived agent session records that expire or get promoted",
     "- `indexes/`, `reports/`, and `dist/`: generated outputs",
     "",
   ].join("\n");
@@ -404,6 +412,44 @@ export function decisionTemplate(): string {
     "## Revisit Criteria",
     "",
     "When should this decision be reconsidered?",
+    "",
+  ].join("\n");
+}
+
+/** Placeholder lines in the session template; dropped when real notes replace them. */
+export const sessionTemplatePlaceholders: readonly string[] = [
+  "What this session set out to do.",
+  "Add facts worth keeping.",
+  "Add follow-ups for the next session.",
+];
+
+export function sessionTemplate(): string {
+  return [
+    "---",
+    'id: "{{id}}"',
+    'kind: "session"',
+    'title: "{{title}}"',
+    'date: "{{date}}"',
+    'updated: "{{date}}"',
+    'status: "active"',
+    'expires: "{{expires}}"',
+    "areas: []",
+    "files: []",
+    "---",
+    "",
+    "# {{id}}: {{title}}",
+    "",
+    "## Summary",
+    "",
+    "What this session set out to do.",
+    "",
+    "## Learned",
+    "",
+    "- Add facts worth keeping.",
+    "",
+    "## Next",
+    "",
+    "- Add follow-ups for the next session.",
     "",
   ].join("\n");
 }

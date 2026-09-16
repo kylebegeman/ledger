@@ -66,7 +66,20 @@ export {
   promoteRecord,
   readReleaseNotes,
 } from "./authoring.js";
-export { ensureFrontmatterArrays, replaceSectionBody, setFrontmatterScalars } from "./frontmatterEdit.js";
+export {
+  ensureFrontmatterArrays,
+  replaceSectionBody,
+  setFrontmatterArray,
+  setFrontmatterScalars,
+} from "./frontmatterEdit.js";
+export {
+  closeSession,
+  findSession,
+  noteSession,
+  pruneSessions,
+  startSession,
+  touchSession,
+} from "./sessions.js";
 export {
   createChangeEntry,
   createProductNoteEntry,
@@ -147,6 +160,7 @@ export type * from "./release.js";
 export type * from "./render.js";
 export type * from "./retrieval.js";
 export type * from "./search.js";
+export type * from "./sessions.js";
 export type * from "./serve.js";
 export type * from "./stale.js";
 export type * from "./symbols.js";

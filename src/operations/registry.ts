@@ -38,6 +38,13 @@ import {
   searchPacketOperation,
 } from "./definitions/retrieval.js";
 import { mcpOperation, serveOperation } from "./definitions/server.js";
+import {
+  sessionCloseOperation,
+  sessionNoteOperation,
+  sessionPruneOperation,
+  sessionStartOperation,
+  sessionTouchOperation,
+} from "./definitions/sessions.js";
 import { pathString } from "./shared.js";
 import type { AnyLedgerOperation } from "./types.js";
 
@@ -55,6 +62,11 @@ export const ledgerOperations: readonly AnyLedgerOperation[] = [
   backlogNewOperation,
   decisionNewOperation,
   promoteOperation,
+  sessionStartOperation,
+  sessionTouchOperation,
+  sessionNoteOperation,
+  sessionCloseOperation,
+  sessionPruneOperation,
   validateOperation,
   indexOperation,
   verifyIntegrityOperation,

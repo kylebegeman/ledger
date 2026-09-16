@@ -279,6 +279,7 @@ full local verification and publishing checklist.
 | `.ledger/backlog/` | Accepted or proposed future work. |
 | `.ledger/decisions/` | Durable project decisions. |
 | `.ledger/releases/` | Release records generated from entries or maintained by hand. |
+| `.ledger/sessions/` | Short-lived session records written by agent hooks or `ledger scratch`; they expire or get promoted. |
 | `.ledger/templates/` | Project-local templates for new records. |
 | `.ledger/policies/` | Policy files such as git coverage requirements. |
 | `.ledger/indexes/` | Generated JSON indexes. |
@@ -297,7 +298,9 @@ full local verification and publishing checklist.
 | `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
 | `ledger backlog new "Title" --area cli --decision D001` | Creates the next numbered backlog item from the template. |
 | `ledger decision new "Title" --area architecture` | Creates the next numbered decision record from the template. |
-| `ledger promote B001 --from-diff` | Creates a draft change entry linked to a backlog item, carrying its acceptance checks, and marks the item in-progress in one transaction. |
+| `ledger promote B001 --from-diff` | Creates a draft change entry linked to a backlog item or session, carrying acceptance checks or session notes, and updates the source record in one transaction. |
+| `ledger session start --host claude-code` | Starts an expiring session record; `session touch <path>` records touched files, `session note "<text>"` appends a Learned or Next bullet, `session close` ends it, and `session prune --write` deletes expired ones. |
+| `ledger scratch "Title"` | Starts a session record for scratch notes that expire unless promoted. |
 | `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
 | `ledger index` | Validates records and writes JSON indexes under `.ledger/indexes/`. |
 | `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. Use `--check` to compare without replacing the baseline. |

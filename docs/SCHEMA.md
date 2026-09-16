@@ -44,6 +44,9 @@ Shared fields:
 | `docs` | string array | no | Durable docs related to this record. |
 | `docsImpact` | object | no | Explicit docs-impact declaration for changed source work. |
 | `staleRefs` | string array | no | Historical path or symbol references that are intentionally stale. Use `path`, `files:path`, or `symbols:name`. |
+| `expires` | date string | no | Expiry date for short-lived records such as sessions. |
+| `host` | string | no | Agent host that created a session record, for example `claude-code`. |
+| `hostSession` | string | no | The host's own session identifier, used to find the active session record. |
 
 Projects can allow local strict metadata through `.ledger/config.yaml`:
 
@@ -403,6 +406,61 @@ Releases:
 - `planned`
 - `released`
 - `superseded`
+
+Sessions:
+
+- `active`
+- `closed`
+- `promoted`
+
+## Session
+
+File path:
+
+```txt
+.ledger/sessions/S0001-kebab-title.md
+```
+
+Frontmatter:
+
+```yaml
+id: "S0001"
+kind: "session"
+title: "Claude Code session 2026-09-16"
+date: "2026-09-16"
+updated: "2026-09-16"
+status: "active"
+expires: "2026-09-23"
+host: "claude-code"
+hostSession: "3f1c..."
+areas: ["cli"]
+files: ["src/cli.ts"]
+related: ["0107"]
+```
+
+Required sections:
+
+```markdown
+# S0001: Claude Code Session 2026-09-16
+
+## Summary
+
+## Learned
+
+## Next
+```
+
+Sessions are short-lived memory. `ledger session start` (or a host
+`SessionStart` hook) creates one with `expires` set `sessions.expiresInDays`
+days ahead (default 7); `session touch` appends touched paths to `files` and
+infers `areas`; `session note` appends bullets to `Learned`, `Next`, or
+`Summary`; `session close` sets `status: "closed"`. `ledger promote S0001`
+creates a change entry carrying the files and notes, links both records
+through `related`, and sets `status: "promoted"`. A session past `expires`
+that was not promoted is reported by `ledger stale` as `expired-session` and
+deleted by `ledger session prune --write`. `host` and `hostSession` identify
+the agent host and its own session id so hooks can find the active record.
+Ids use `ids.sessionPrefix` and `ids.sessionWidth` (defaults `S` and `4`).
 
 ## Normalized Manifest Shape
 
