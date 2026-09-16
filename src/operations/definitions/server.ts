@@ -11,7 +11,7 @@ import { defineOperation } from "../types.js";
 import { readEvidence } from "../../verify.js";
 import { renderProfileSchema } from "./records.js";
 
-interface ServeInput extends Record<string, unknown> {
+export interface ServeInput extends Record<string, unknown> {
   readonly host?: string;
   readonly port: number;
   readonly profile: LedgerRenderProfile;
@@ -20,7 +20,7 @@ interface ServeInput extends Record<string, unknown> {
   readonly api?: boolean;
 }
 
-interface ServeOutput {
+export interface ServeOutput {
   readonly root: string;
   readonly url: string;
   readonly mode: "local" | "network";

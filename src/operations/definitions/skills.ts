@@ -5,7 +5,7 @@ import { defineOperation } from "../types.js";
 
 const hostChoices = [...skillHosts, "all"] as const;
 
-interface SkillsInstallInput extends Record<string, unknown> {
+export interface SkillsInstallInput extends Record<string, unknown> {
   readonly hosts?: readonly (LedgerSkillHost | "all")[];
 }
 

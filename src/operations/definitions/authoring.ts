@@ -22,7 +22,7 @@ import { validateDocuments, writeValidationReport } from "../../validate.js";
 import { loadDocuments, looseRecord, plural, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
-interface NewEntryInput extends Record<string, unknown> {
+export interface NewEntryInput extends Record<string, unknown> {
   readonly title: string;
   readonly fromDiff?: boolean;
   readonly staged?: boolean;
@@ -30,11 +30,11 @@ interface NewEntryInput extends Record<string, unknown> {
   readonly status: string;
 }
 
-interface CreatedRecord {
+export interface CreatedRecord {
   readonly path: string;
 }
 
-interface CreatedEntry extends CreatedRecord {
+export interface CreatedEntry extends CreatedRecord {
   readonly symbolExtractors?: LedgerSymbolExtractorReport;
 }
 
@@ -96,7 +96,7 @@ are omitted, and very large diffs are grouped into coverage patterns.`,
   },
 });
 
-interface FeedbackInput extends Record<string, unknown> {
+export interface FeedbackInput extends Record<string, unknown> {
   readonly title: string;
   readonly areas?: readonly string[];
   readonly tags?: readonly string[];
@@ -146,7 +146,7 @@ other feedback that should not be mixed into normal change receipts.`,
   },
 });
 
-interface UnreleasedOutput {
+export interface UnreleasedOutput {
   readonly matches: readonly NormalizedLedgerDocument[];
 }
 
@@ -184,7 +184,7 @@ export const unreleasedOperation = defineOperation<Record<string, never>, Unrele
   },
 });
 
-interface ReleaseInput extends Record<string, unknown> {
+export interface ReleaseInput extends Record<string, unknown> {
   readonly version: string;
   readonly includeUnreleased?: boolean;
   readonly assign?: boolean;
@@ -193,7 +193,7 @@ interface ReleaseInput extends Record<string, unknown> {
   readonly write?: boolean;
 }
 
-interface ReleaseOutput extends LedgerReleaseDocument, ApplyReleaseResult {}
+export interface ReleaseOutput extends LedgerReleaseDocument, ApplyReleaseResult {}
 
 export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
   name: "release",
@@ -272,7 +272,7 @@ export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
   },
 });
 
-interface NewRecordInput extends Record<string, unknown> {
+export interface NewRecordInput extends Record<string, unknown> {
   readonly title: string;
   readonly areas?: readonly string[];
   readonly decisions?: readonly string[];
@@ -377,7 +377,7 @@ directory from .ledger/templates/decision.md.`,
   },
 });
 
-interface PromoteInput extends Record<string, unknown> {
+export interface PromoteInput extends Record<string, unknown> {
   readonly id: string;
   readonly title?: string;
   readonly areas?: readonly string[];
@@ -447,7 +447,7 @@ checks (as Verification bullets). The item's status becomes in-progress unless
   },
 });
 
-interface ReleaseNotesInput extends Record<string, unknown> {
+export interface ReleaseNotesInput extends Record<string, unknown> {
   readonly version: string;
 }
 
@@ -491,7 +491,7 @@ Use it to publish GitHub Releases or changelog entries from the release record.`
   },
 });
 
-interface MigrateChangelogInput extends Record<string, unknown> {
+export interface MigrateChangelogInput extends Record<string, unknown> {
   readonly sourceDir: string;
   readonly dryRun?: boolean;
   readonly rewriteDocs?: boolean;

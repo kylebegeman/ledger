@@ -28,13 +28,13 @@ import { loadDocuments, looseRecord, validationLine, validationResultShape } fro
 import { defineOperation } from "../types.js";
 import { readEvidence } from "../../verify.js";
 
-interface InitInput extends Record<string, unknown> {
+export interface InitInput extends Record<string, unknown> {
   readonly withDocs?: boolean;
   readonly migrate?: boolean;
   readonly managedDocs?: boolean;
 }
 
-interface InitOutput {
+export interface InitOutput {
   readonly projectRoot: string;
   readonly ledgerRoot: string;
   readonly withDocs: boolean;
@@ -115,14 +115,14 @@ adoption, updating routing docs and impact reports without owning all docs.`,
   },
 });
 
-interface ValidateInput extends Record<string, unknown> {
+export interface ValidateInput extends Record<string, unknown> {
   readonly currentOnly?: boolean;
   readonly updateBaseline?: boolean;
   readonly noBaseline?: boolean;
   readonly writeReport?: boolean;
 }
 
-interface ValidateOutput extends LedgerValidationResult {
+export interface ValidateOutput extends LedgerValidationResult {
   readonly projectRoot: string;
   readonly issueCount: number;
   readonly baselinePath?: string;
@@ -209,7 +209,7 @@ warnings in the configured validation baseline.`,
   },
 });
 
-interface IndexOutput {
+export interface IndexOutput {
   readonly documents: number;
   readonly outputDir: string;
   readonly written: boolean;
@@ -258,12 +258,12 @@ export const indexOperation = defineOperation<Record<string, never>, IndexOutput
   },
 });
 
-interface IntegrityInput extends Record<string, unknown> {
+export interface IntegrityInput extends Record<string, unknown> {
   readonly check?: boolean;
   readonly writeArtifacts?: boolean;
 }
 
-interface IntegrityOutput extends LedgerIntegrityReport {
+export interface IntegrityOutput extends LedgerIntegrityReport {
   readonly verification?: LedgerIntegrityVerification;
   readonly written?: WrittenIntegrityArtifacts;
 }

@@ -6,7 +6,7 @@ import { defineOperation } from "../types.js";
 
 const documentKinds = ["change", "backlog", "decision", "release", "product-note", "feedback", "session"] as const;
 
-interface ReadyInput extends Record<string, unknown> {
+export interface ReadyInput extends Record<string, unknown> {
   readonly targets?: readonly string[];
   readonly kind?: LedgerDocumentKind;
   readonly status?: string;

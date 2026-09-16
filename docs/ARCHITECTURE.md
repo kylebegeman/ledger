@@ -561,6 +561,11 @@ good render in place with a status message. Under a plain static server the
 stream answers 404 and the browser closes the source without retrying; from a
 `file:` URL the client is never created.
 
+The registry is exported as `ledgerOperationTable`, an object keyed by
+machine name, and `createLedgerClient` derives its `run(name, input)` types
+from it, so library callers get compile-time checks at the API boundary in the
+spirit of Kore's typed boundaries (decision D007) without a second schema.
+
 ### Docs Bridge
 
 Ledger should be able to reference existing project docs without owning them.

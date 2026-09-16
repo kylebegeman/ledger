@@ -15,7 +15,7 @@ import {
 import { looseRecord, positiveInt, requireWorkspace, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
-interface HooksInstallInput extends Record<string, unknown> {
+export interface HooksInstallInput extends Record<string, unknown> {
   readonly host: LedgerHookHost;
   readonly command: string;
   readonly dryRun?: boolean;
@@ -84,13 +84,13 @@ when Ledger is a project dependency. Nothing auto-starts the engine.`,
   },
 });
 
-interface HookInput extends Record<string, unknown> {
+export interface HookInput extends Record<string, unknown> {
   readonly event: LedgerHookEvent;
   readonly host: LedgerHookHost;
   readonly budgetTokens?: number;
 }
 
-interface HookOutput {
+export interface HookOutput {
   readonly event: LedgerHookEvent;
   readonly host: LedgerHookHost;
   readonly handled: boolean;

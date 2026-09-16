@@ -86,6 +86,31 @@ from the unstable entrypoint. New commands are new definitions under
 Reusable result models under `src/commands/` remain the right home for logic
 shared by several operations.
 
+## Typed API Client
+
+`createLedgerClient({ url })` returns a client for a running `ledger serve
+--api` engine whose `run(name, input)` is typed from the operation registry:
+`name` must be a registered operation and `input` must match that operation's
+declared input, so a call that would be rejected by the engine does not
+typecheck. The result carries the machine envelope typed with the operation's
+output, the process exit code from the `ledger-exit-code` header, and the HTTP
+status. `connectLedgerClient(projectRoot)` reads the workspace's daemon record
+and probes the engine, returning undefined when none serves that project; CLI
+delegation uses the same client.
+
+```ts
+import { connectLedgerClient } from "@kylebegeman/ledger";
+
+const client = await connectLedgerClient(process.cwd());
+const result = await client?.run("packet", { path: "src/cli.ts", budgetTokens: 1200 });
+if (result?.envelope.ok) console.log(result.envelope.data.entries.length);
+```
+
+The client's name union and input types are derived from
+`ledgerOperationTable`, the same object that `buildOperationsContract()`
+renders, so the golden contract test also pins the client surface. Consumers
+outside TypeScript read `GET /api/v1/operations` for the JSON Schemas.
+
 ## Machine Result Envelope
 
 CLI `--json` output and MCP JSON text payloads share this top-level contract:

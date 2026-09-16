@@ -55,59 +55,74 @@ import type { AnyLedgerOperation } from "./types.js";
 export const ledgerOperationsContractVersion = 1 as const;
 
 /**
- * Every Ledger operation in help order. CLI parsing, help text, MCP tools, and
- * the contract manifest derive from this list.
+ * Every Ledger operation keyed by machine name, in help order. CLI parsing,
+ * help text, MCP tools, the contract manifest, and the typed API client derive
+ * from this table.
  */
-export const ledgerOperations: readonly AnyLedgerOperation[] = [
-  initOperation,
-  adoptOperation,
-  newEntryOperation,
-  feedbackOperation,
-  backlogNewOperation,
-  decisionNewOperation,
-  promoteOperation,
-  sessionStartOperation,
-  sessionTouchOperation,
-  sessionNoteOperation,
-  sessionCloseOperation,
-  sessionPruneOperation,
-  validateOperation,
-  readyOperation,
-  verifyOperation,
-  indexOperation,
-  verifyIntegrityOperation,
-  renderOperation,
-  serveOperation,
-  coverageOperation,
-  ciOperation,
-  doctorOperation,
-  metricsOperation,
-  staleOperation,
-  cacheStatusOperation,
-  cacheWarmOperation,
-  cacheClearOperation,
-  conflictOperation,
-  explainOperation,
-  searchOperation,
-  searchPacketOperation,
-  queryOperation,
-  packetOperation,
-  mcpOperation,
-  unreleasedOperation,
-  releaseOperation,
-  releaseNotesOperation,
-  migrateChangelogOperation,
-  agentsOperation,
-  skillsInstallOperation,
-  hooksInstallOperation,
-  hookOperation,
-  docsAuditOperation,
-  docsCheckOperation,
-  docsClassifyOperation,
-  docsImpactOperation,
-  docsReconcileOperation,
-  docsMigrateOperation,
-];
+export const ledgerOperationTable = {
+  "init": initOperation,
+  "adopt": adoptOperation,
+  "new": newEntryOperation,
+  "feedback": feedbackOperation,
+  "backlog.new": backlogNewOperation,
+  "decision.new": decisionNewOperation,
+  "promote": promoteOperation,
+  "session.start": sessionStartOperation,
+  "session.touch": sessionTouchOperation,
+  "session.note": sessionNoteOperation,
+  "session.close": sessionCloseOperation,
+  "session.prune": sessionPruneOperation,
+  "validate": validateOperation,
+  "ready": readyOperation,
+  "verify": verifyOperation,
+  "index": indexOperation,
+  "verify-integrity": verifyIntegrityOperation,
+  "render": renderOperation,
+  "serve": serveOperation,
+  "coverage": coverageOperation,
+  "ci": ciOperation,
+  "doctor": doctorOperation,
+  "metrics": metricsOperation,
+  "stale": staleOperation,
+  "cache.status": cacheStatusOperation,
+  "cache.warm": cacheWarmOperation,
+  "cache.clear": cacheClearOperation,
+  "conflict": conflictOperation,
+  "explain": explainOperation,
+  "search": searchOperation,
+  "search-packet": searchPacketOperation,
+  "query": queryOperation,
+  "packet": packetOperation,
+  "mcp": mcpOperation,
+  "unreleased": unreleasedOperation,
+  "release": releaseOperation,
+  "release.notes": releaseNotesOperation,
+  "migrate.changelog": migrateChangelogOperation,
+  "agents": agentsOperation,
+  "skills.install": skillsInstallOperation,
+  "hooks.install": hooksInstallOperation,
+  "hook": hookOperation,
+  "docs.audit": docsAuditOperation,
+  "docs.check": docsCheckOperation,
+  "docs.classify": docsClassifyOperation,
+  "docs.impact": docsImpactOperation,
+  "docs.reconcile": docsReconcileOperation,
+  "docs.migrate": docsMigrateOperation,
+} as const satisfies Readonly<Record<string, AnyLedgerOperation>>;
+
+/** Machine names of every operation. */
+export type LedgerOperationName = keyof typeof ledgerOperationTable;
+
+/** Input type of an operation, as the registry declares it. */
+export type LedgerOperationInput<K extends LedgerOperationName> =
+  Parameters<(typeof ledgerOperationTable)[K]["run"]>[1];
+
+/** Output type of an operation, as the registry declares it. */
+export type LedgerOperationOutput<K extends LedgerOperationName> =
+  Awaited<ReturnType<(typeof ledgerOperationTable)[K]["run"]>>["data"];
+
+/** Every Ledger operation in help order. */
+export const ledgerOperations: readonly AnyLedgerOperation[] = Object.values(ledgerOperationTable);
 
 export function findOperation(name: string): AnyLedgerOperation | undefined {
   return ledgerOperations.find((operation) => operation.name === name);

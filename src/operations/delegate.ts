@@ -1,12 +1,9 @@
 import path from "node:path";
 import process from "node:process";
-import {
-  engineAuthHeaders,
-  ledgerExitCodeHeader,
-  probeEngine,
-  readDaemonRecord,
-} from "../daemon.js";
+import { createLedgerClient } from "../client.js";
+import { probeEngine, readDaemonRecord } from "../daemon.js";
 import type { LedgerMachineResult } from "../machine.js";
+import type { LedgerOperationName } from "./registry.js";
 import { findProjectRoot } from "../workspace.js";
 import type { AnyLedgerOperation } from "./types.js";
 
@@ -60,25 +57,11 @@ export async function delegateOperation(
   if (!health) return undefined;
   if (path.resolve(health.projectRoot) !== path.resolve(projectRoot)) return undefined;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? defaultOperationTimeoutMs);
   try {
-    const response = await fetch(`${record.url}api/v1/operations/${operation.name}`, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...engineAuthHeaders() },
-      body: JSON.stringify(input),
-      signal: controller.signal,
-    });
-    const envelope = (await response.json()) as LedgerMachineResult<unknown>;
-    if (typeof envelope !== "object" || envelope === null || !("schemaVersion" in envelope)) {
-      return undefined;
-    }
-    const header = response.headers.get(ledgerExitCodeHeader);
-    const exitCode = header && /^\d+$/.test(header) ? Number.parseInt(header, 10) : envelope.ok ? 0 : 2;
-    return { envelope, exitCode, url: record.url };
+    const client = createLedgerClient({ url: record.url, timeoutMs: options.timeoutMs ?? defaultOperationTimeoutMs });
+    const result = await client.run(operation.name as LedgerOperationName, input as never);
+    return { envelope: result.envelope, exitCode: result.exitCode, url: record.url };
   } catch {
     return undefined;
-  } finally {
-    clearTimeout(timer);
   }
 }
