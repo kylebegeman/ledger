@@ -91,7 +91,7 @@ describe("operation registry", () => {
     if (process.env.LEDGER_UPDATE_CONTRACT) {
       await writeFile(contractPath, serialized, "utf8");
     }
-    const committed = await readFile(contractPath, "utf8");
+    const committed = (await readFile(contractPath, "utf8")).replace(/\r\n/g, "\n");
     expect(serialized).toBe(committed);
   });
 });
