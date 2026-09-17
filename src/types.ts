@@ -300,6 +300,8 @@ export interface LedgerDocsRoutingManifest {
 }
 
 export interface LedgerDocsImpact {
+  /** The coverage mode the evidence was judged under. */
+  readonly mode: LedgerCoverageMode;
   readonly docsRoot: string;
   readonly changedFiles: readonly string[];
   readonly sourceFiles: readonly string[];
@@ -311,6 +313,8 @@ export interface LedgerDocsImpact {
   /** Per-source-file evidence; a file is satisfied only through an entry that lists it. */
   readonly files: readonly LedgerDocsImpactFile[];
   readonly missingDocsImpact: readonly string[];
+  /** Source files satisfied only by receipts outside the change set, which `git.coverage: any` accepts. */
+  readonly historicalFiles: readonly string[];
 }
 
 export interface LedgerDocsImpactEvidence {
@@ -324,9 +328,11 @@ export interface LedgerDocsImpactEvidence {
 export interface LedgerDocsImpactFile {
   readonly path: string;
   readonly satisfied: boolean;
-  /** Changed entries whose file references match this path. */
+  /** Changed entries whose file references match this path, plus the earlier ones that satisfied it. */
   readonly entries: readonly string[];
   readonly evidence: readonly LedgerDocsImpactEvidence[];
+  /** Present and true when only receipts outside the change set satisfied the file under `git.coverage: any`. */
+  readonly historical?: true;
 }
 
 export type LedgerDocsImpactStatus = "updated" | "not-needed" | "none";

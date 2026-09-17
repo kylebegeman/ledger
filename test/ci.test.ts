@@ -62,6 +62,39 @@ describe("runCiChecks", () => {
   });
 });
 
+describe("coverage modes in ci", () => {
+  it("judges coverage and docs impact for a file an earlier receipt covers under one mode", async () => {
+    const testWorkspace = await workspace();
+    await git("config", "user.email", "ledger@example.com");
+    await git("config", "user.name", "Ledger Test");
+    await git("commit", "--allow-empty", "-m", "base");
+    const base = await gitOutput("rev-parse", "HEAD");
+    await mkdir(path.join(testWorkspace.projectRoot, "src"), { recursive: true });
+    await writeFile(path.join(testWorkspace.projectRoot, "src", "cli.ts"), "export {};\n");
+    await git("add", ".");
+    await git("commit", "-m", "head");
+    const head = await gitOutput("rev-parse", "HEAD");
+    const earlier = document({ title: "Valid", docsImpact: true });
+
+    const strict = await runCiChecks(testWorkspace, [earlier], { base, head });
+    expect(strict.coverage.files[0]?.status).toBe("historical");
+    expect(strict.checks.filter((check) => !check.ok).map((check) => check.name)).toEqual(["coverage", "docs-impact"]);
+
+    const relaxedWorkspace: LedgerWorkspace = {
+      ...testWorkspace,
+      config: { ...testWorkspace.config, git: { ...testWorkspace.config.git, coverage: "any" } },
+    };
+    const relaxed = await runCiChecks(relaxedWorkspace, [earlier], { base, head });
+    expect(relaxed.ok).toBe(true);
+    expect(relaxed.docsImpact.mode).toBe("any");
+    expect(relaxed.docsImpact.historicalFiles).toEqual(["src/cli.ts"]);
+    expect(formatCiAnnotations(relaxed)).toEqual([]);
+
+    const unlisted = await runCiChecks(relaxedWorkspace, [document({ title: "Valid" })], { base, head });
+    expect(unlisted.checks.find((check) => check.name === "docs-impact")?.ok).toBe(false);
+  });
+});
+
 describe("GitHub output", () => {
   it("annotates every failing signal and summarizes the checks", async () => {
     const testWorkspace = await workspace();
@@ -134,7 +167,7 @@ describe("GitHub output", () => {
       validation: { issues: [], errors: [{ level: "error" as const, message: "bad: 100%\nline two", path: "a,b.md" }], warnings: [], suppressed: [] },
       docsAudit: { docsRoot: "docs", adoption: "partial" as const, files: [], referencedDocs: [], missingReferences: [], unreferencedDocs: [], scratchDocs: [], generatedDocs: [], unknownDocs: [] },
       coverage: { mode: "current" as const, changedFiles: [], requiredFiles: [], coveredFiles: [], missingFiles: [], historicalFiles: [], currentEntries: [], files: [] },
-      docsImpact: { docsRoot: "docs", changedFiles: [], sourceFiles: [], docsFiles: [], ledgerFiles: [], changedEntries: [], referencedDocs: [], declarations: [], files: [], missingDocsImpact: [] },
+      docsImpact: { mode: "current" as const, docsRoot: "docs", changedFiles: [], sourceFiles: [], docsFiles: [], ledgerFiles: [], changedEntries: [], referencedDocs: [], declarations: [], files: [], missingDocsImpact: [], historicalFiles: [] },
     };
     expect(formatCiAnnotations(result)).toEqual(["::error file=a%2Cb.md,title=Ledger validation::bad: 100%25%0Aline two"]);
   });
@@ -174,8 +207,9 @@ async function gitOutput(...args: readonly string[]): Promise<string> {
   });
 }
 
-function document(options: { readonly title: string }): ParsedLedgerDocument {
+function document(options: { readonly title: string; readonly docsImpact?: boolean }): ParsedLedgerDocument {
   const titleLine = options.title ? `title: "${options.title}"` : "title: null";
+  const docsImpactLines = options.docsImpact ? 'docsImpact:\n  status: "not-needed"\n  reason: "CLI plumbing only."\n' : "";
   const raw = `---
 id: "0001"
 kind: "change"
@@ -186,7 +220,7 @@ status: "landed"
 areas: ["cli"]
 files:
   - "src/cli.ts"
-symbols: []
+${docsImpactLines}symbols: []
 commits: []
 ---
 
