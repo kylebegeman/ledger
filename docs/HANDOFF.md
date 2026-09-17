@@ -14,10 +14,13 @@ milestone lands or a plan changes; retire sections that stop being true.
 - First outside adopter: Kore runs Ledger 0.8.1 with Claude Code and Codex
   hooks since kylebegeman/forge#26 (Kore receipt 0004), after 0.8.0 in
   kylebegeman/forge#25 and the 0.7.0 adoption in #22 and #24 (Ledger receipts
-  0128 and 0130). Its allowlist uses plain `ledger <command> **` patterns, so
-  the 0.8.1 bump changed only the 36 pinned version strings the installers
-  write. A second live Claude Code session there is B010's open acceptance
-  check; B007 is landed.
+  0128 and 0130). Kyle re-approved the Codex hooks for 0.8.1 with `/hooks`.
+  Its allowlist uses plain `ledger <command> **` patterns, so the 0.8.1 bump
+  changed only the 36 pinned version strings the installers write, and a
+  later bump is the three installers plus a Kore receipt. A second live
+  Claude Code session there passed B010's last acceptance check on
+  2026-09-17 (Kore receipt 0005 in kylebegeman/forge#27, Ledger receipt
+  0162), so B007 and B010 are landed.
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
@@ -98,10 +101,10 @@ D006 records what was retired; D007 records the runtime decision below.
   job). Kyle delegated the choice; the clock is shifted, not frozen, and
   lives in a script shim rather than in Ledger (receipt 0157).
 - Merges by the assistant: Kyle told the assistant to merge and tag on its
-  own in the 2026-09-17 session ("Stop waiting on me"), which it did for
-  #20, #21, the `v0.8.0` tag, and forge#25. The auto-mode permission check
-  refused the first merge attempt as a merge without review until that
-  instruction.
+  own in the 2026-09-17 session ("Stop waiting on me"), which it did for the
+  Ledger pull requests from #20 on, the `v0.8.0` and `v0.8.1` tags, and the
+  Kore pull requests from forge#25 on. The auto-mode permission check refused
+  the first merge attempt as a merge without review until that instruction.
 - The mark is an emerald ruled L with no background shape, and the reader's
   accent follows it (receipt 0137). B009 should keep both unless Kyle decides
   otherwise.
@@ -141,19 +144,15 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Finish B010 in Kore**: Kyle re-approves the Codex hooks with `/hooks`,
-   then runs a second live Claude Code session in Kore with an ordinary task
-   that edits several files in one turn, and checks that the session record
-   lists every edited file and that the agent finishes its hook draft to
-   `ledger ready` without being told and without a second receipt. In the
-   Claude desktop app, `/exit` does not fire SessionEnd; an expired session is
-   treated as inactive, and `ledger session close --id <id>` still closes it.
-   Close B010 when that check passes. A later pin bump in Kore is only the
-   three installers with the new version and a Kore receipt.
-3. **Dossier visual system** (backlog B009): unblocked, because the reader
+1. **Drafts that fit the change** (product notes 0160 and 0161), as a small
+   patch release: drafted symbols and anchors limited to the symbols whose
+   line ranges contain a changed line, and `coverage` and `docs-impact`
+   messages that name an active session's coming or existing draft instead
+   of leaving the agent to guess. Then move Kore's pin with the installers.
+2. **Dossier visual system** (backlog B009): unblocked, because the reader
    stylesheet is a real file at `src/reader/styles.css` and the runtime is
    typed and browser-tested.
-4. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
+3. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
    multi round-trip confirmation on write tools, the Tasks extension, and list
    caching TTLs. The installed SDK 1.29 speaks 2025-11-25.
 
@@ -214,9 +213,10 @@ D006 records what was retired; D007 records the runtime decision below.
   still open; `actions/checkout` and `actions/setup-node` v7 bumps would also
   silence the Node 20 deprecation warnings in the release workflow. The
   composite action pins `actions/setup-node` too.
-- `ledger new --from-diff` lists every Markdown heading of a changed file as a
-  symbol, not only headings in changed hunks; 0137's draft listed the whole
-  README.
+- `ledger new --from-diff` and hook drafts list a changed file's first
+  symbols, up to 12, not the symbols the change touched. 0137's draft listed
+  the whole README, and Kore receipt 0005's draft listed every
+  `CHANGELOG.md` heading for a one-line change (product note 0160).
 - `ledger release --assign` writes the version into entries even without
   `--write`, as its help says, so a preview with `--assign` is not read-only.
   Adding receipts to an existing release record takes that command without
@@ -229,9 +229,11 @@ D006 records what was retired; D007 records the runtime decision below.
   can hold.
 - Codex and Cursor hooks were verified by piping their payload shapes through
   `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
-  hooks installed but no live Codex session yet. Cursor's hooks have no
-  message channel, so a Cursor agent hears about its draft only at the next
-  session start.
+  hooks installed and approved but no live Codex session yet. Cursor's hooks
+  have no message channel, so a Cursor agent hears about its draft only at the
+  next session start. In the Claude desktop app, `/exit` does not fire
+  SessionEnd, so a session record stays active until it expires or
+  `ledger session close --id <id>` closes it.
 - Dossier still has a `next` branch and Node 18 through 22 CI; Ledger's branch
   model was not applied there.
 - The two dated reports under `docs/scratchpad/` from 2026-08-30 and the

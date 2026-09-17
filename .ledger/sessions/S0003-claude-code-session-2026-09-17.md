@@ -37,6 +37,7 @@ files:
   - "test/delegation.test.ts"
   - "scripts/readme-clock.mjs"
   - "vitest.config.ts"
+  - "docs/ROADMAP.md"
 host: "claude-code"
 hostSession: "71358ecc-08f4-4086-aa8b-4fbccb7ed699"
 related:
@@ -54,6 +55,10 @@ related:
   - "0156"
   - "0157"
   - "0158"
+  - "0159"
+  - "0160"
+  - "0161"
+  - "0162"
 ---
 
 # S0003: Claude Code session 2026-09-17
@@ -75,6 +80,13 @@ earlier receipts under `git.coverage: any` now count only for files they
 name (0156), and the README demo runs on a pinned clock with a CI check on
 the cards (0157). Published 0.8.1 from #22, whose README check passed on
 Linux on its first run, and moved Kore to it in kylebegeman/forge#26 (0158).
+The records-only #23 failed two tests on the Windows Node 24 runner on speed
+alone, so it also gave Windows test runs a 30 second default timeout (0159).
+Merged #23 and, once Kore's checks passed, forge#26. Kyle then ran the second
+live Kore session from a prompt written here, and it passed: Kore receipt
+0005, drafted by the hook and finished unprompted, is in
+kylebegeman/forge#27. B010 is landed (0162), and product notes 0160 and 0161
+record the draft problems the session exposed.
 
 ## Learned
 
