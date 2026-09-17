@@ -610,8 +610,12 @@ verification:
 A bullet runs only when it starts with a backticked command (an optional
 `KEY=value` prefix sets the environment), contains no shell operators, and
 matches an `allow` pattern: tokens match literally, `*` matches one token,
-and a trailing `**` matches the rest. Everything else is listed as skipped,
-never failed. The evidence sidecar records, per entry, the commands, exit
+and a trailing `**` matches the rest. When `agents.command` is not plain
+`ledger`, a command written with it is checked as the same `ledger` command,
+so `npx ledger validate` matches `ledger validate **`, and a bare `ledger`
+command runs through `agents.command` instead of whatever `ledger` is on the
+PATH. Everything else is listed as skipped, never failed. The evidence
+sidecar records, per entry, the commands, exit
 status, duration, the HEAD commit, whether the tree was dirty, and the run
 time. Passing evidence older than `maxAgeDays` is `stale`; a failed run is
 `failed`; `doctor`, `stale`, `explain`, `packet`, and the reader show the
@@ -646,8 +650,9 @@ for example `npx ledger` or `npx --yes @kylebegeman/ledger@0.8.0`.
 `ledger hooks install --command <prefix>` writes the value here, updating an
 existing key in place or appending the section, and preserves comments,
 quoting, key order, and CRLF line endings in the rest of the file. `verification.allow` stays a
-separate, literal list: it bounds what `ledger verify --run` may execute and
-is not derived from the command.
+separate list that bounds what `ledger verify --run` may execute and is not
+rewritten by the command; its `ledger` patterns also match commands written
+with `agents.command`.
 
 ## Render Budget Config
 

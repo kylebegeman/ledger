@@ -85,8 +85,25 @@ export function emptyEvidenceIndex(): LedgerEvidenceIndex {
   return { version: 1, generatedAt: new Date(0).toISOString(), entries: {} };
 }
 
-/** Parse a Verification bullet: the first backticked span, an optional `KEY=value` prefix, then argv. */
-export function parseVerificationBullet(bullet: string, allow: readonly string[]): LedgerVerificationCommand {
+export interface VerificationCommandOptions {
+  /**
+   * The repository's `agents.command`. Unless it is plain `ledger`, a command
+   * written with it is checked against the allowlist as the same `ledger`
+   * command, and a bare `ledger` command runs through it.
+   */
+  readonly ledgerCommand?: string;
+}
+
+/**
+ * Parse a Verification bullet: the first backticked span, an optional
+ * `KEY=value` prefix, then argv. `argv` is what runs, which differs from the
+ * written command only when a bare `ledger` command runs through `ledgerCommand`.
+ */
+export function parseVerificationBullet(
+  bullet: string,
+  allow: readonly string[],
+  options: VerificationCommandOptions = {},
+): LedgerVerificationCommand {
   const trimmed = bullet.trim();
   const match = /^`([^`]+)`/.exec(trimmed);
   if (!match) return { bullet: trimmed, env: {}, argv: [], allowed: false, skipReason: "not a command" };
@@ -105,12 +122,25 @@ export function parseVerificationBullet(bullet: string, allow: readonly string[]
     env[key!] = rest.join("=");
     index += 1;
   }
-  const argv = words.slice(index);
-  if (argv.length === 0) return { bullet: trimmed, raw, env, argv, allowed: false, skipReason: "no command after the environment" };
-  const allowed = isAllowedCommand(argv, allow);
+  const written = words.slice(index);
+  if (written.length === 0) {
+    return { bullet: trimmed, raw, env, argv: written, allowed: false, skipReason: "no command after the environment" };
+  }
+  const prefix = configuredLedgerPrefix(options.ledgerCommand);
+  const withPrefix = prefix !== undefined && prefix.length <= written.length && prefix.every((word, position) => written[position] === word);
+  const asLedger = withPrefix ? ["ledger", ...written.slice(prefix.length)] : undefined;
+  const allowed = isAllowedCommand(written, allow) || (asLedger !== undefined && isAllowedCommand(asLedger, allow));
+  const argv = prefix && !withPrefix && written[0] === "ledger" ? [...prefix, ...written.slice(1)] : written;
   return allowed
     ? { bullet: trimmed, raw, env, argv, allowed }
     : { bullet: trimmed, raw, env, argv, allowed, skipReason: "not on verification.allow" };
+}
+
+/** The words of a configured Ledger command, or undefined when it is plain `ledger` or unset. */
+function configuredLedgerPrefix(command: string | undefined): readonly string[] | undefined {
+  const words = command ? splitShellWords(command) : undefined;
+  if (!words || words.length === 0 || (words.length === 1 && words[0] === "ledger")) return undefined;
+  return words;
 }
 
 /** Split on whitespace honoring single and double quotes; undefined when quotes are unbalanced. */
@@ -273,7 +303,7 @@ export async function runVerification(
   for (const parsed of selected) {
     const normalized = normalizeDocument(parsed);
     const commands = extractBullets(getSectionBody(parsed, "Verification")).map((bullet) =>
-      parseVerificationBullet(bullet, allow),
+      parseVerificationBullet(bullet, allow, { ledgerCommand: workspace.config.agents.command }),
     );
     let entryEvidence = evidence.entries[normalized.id];
     let ran = false;

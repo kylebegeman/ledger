@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { run } from "../src/cli.js";
+import { renderConfigWithAgentsCommand } from "../src/config.js";
 import { readLedgerDocuments } from "../src/documents.js";
 import { runDoctor } from "../src/doctor.js";
 import { buildAgentPacket } from "../src/packet.js";
@@ -63,6 +64,35 @@ describe("verification command parsing", () => {
     expect(parseVerificationBullet("Browser pass in both themes", allow)).toMatchObject({ allowed: false, skipReason: "not a command" });
     expect(parseVerificationBullet("`npm run a && npm run b`", allow)).toMatchObject({ allowed: false, skipReason: "shell operators are not run" });
     expect(parseVerificationBullet("`npm publish`", allow)).toMatchObject({ argv: ["npm", "publish"], allowed: false, skipReason: "not on verification.allow" });
+  });
+
+  it("checks commands written with agents.command as Ledger commands and runs bare ledger through it", () => {
+    const ledgerAllow = ["ledger validate **", "ledger ready **"];
+    expect(parseVerificationBullet("`npx ledger validate`", ledgerAllow, { ledgerCommand: "npx ledger" })).toMatchObject({
+      argv: ["npx", "ledger", "validate"],
+      allowed: true,
+    });
+    const pinned = "npx --yes @kylebegeman/ledger@0.8.0";
+    expect(parseVerificationBullet(`\`${pinned} ready 0001\``, ledgerAllow, { ledgerCommand: pinned })).toMatchObject({
+      argv: ["npx", "--yes", "@kylebegeman/ledger@0.8.0", "ready", "0001"],
+      allowed: true,
+    });
+    expect(parseVerificationBullet("`ledger validate`", ledgerAllow, { ledgerCommand: "node dist/cli.js" })).toMatchObject({
+      raw: "ledger validate",
+      argv: ["node", "dist/cli.js", "validate"],
+      allowed: true,
+    });
+    expect(parseVerificationBullet("`ledger --local validate`", ["ledger validate **"], { ledgerCommand: "ledger --local" })).toMatchObject({
+      argv: ["ledger", "--local", "validate"],
+      allowed: true,
+    });
+    expect(parseVerificationBullet("`npx ledger validate`", ledgerAllow)).toMatchObject({ allowed: false, skipReason: "not on verification.allow" });
+    expect(parseVerificationBullet("`npx ledger validate`", ledgerAllow, { ledgerCommand: "ledger" })).toMatchObject({ allowed: false });
+    expect(parseVerificationBullet("`npx ledger publish`", ledgerAllow, { ledgerCommand: "npx ledger" })).toMatchObject({ allowed: false });
+    expect(parseVerificationBullet("`npx eslint .`", ledgerAllow, { ledgerCommand: "npx ledger" })).toMatchObject({
+      argv: ["npx", "eslint", "."],
+      allowed: false,
+    });
   });
 
   it("classifies evidence freshness", () => {
@@ -192,6 +222,32 @@ describe("ledger verify", () => {
     expect(rendered?.verifiedCommit).toBe(passing?.commit);
     expect(buildStaticReaderModel(workspace, documents).documents[0]?.verificationStatus).toBe("none");
   });
+
+  it("runs bare ledger bullets through agents.command and accepts bullets written with it", async () => {
+    const root = await fixtureRepo();
+    const configPath = path.join(root, ".ledger", "config.yaml");
+    const config = (await readFile(configPath, "utf8")).replace(
+      /verification:\n  allow:\n(?:    - .*\n)+/,
+      'verification:\n  allow:\n    - "ledger validate **"\n',
+    );
+    await writeFile(configPath, renderConfigWithAgentsCommand(config, "node fake-ledger.mjs"));
+    await writeFile(
+      path.join(root, "fake-ledger.mjs"),
+      'import { appendFileSync } from "node:fs";\nappendFileSync("calls.txt", process.argv.slice(2).join(" ") + "\\n");\n',
+    );
+    await writeFile(
+      path.join(root, ".ledger/entries/0001-pass.md"),
+      entry("0001", ["- `ledger validate`", "- `node fake-ledger.mjs validate --strict`", "- `ledger publish`"]),
+    );
+    const workspace = await findWorkspace(root);
+    const report = await runVerification(workspace, await readLedgerDocuments(workspace), { targets: ["0001"], run: true, timeoutMs: 60_000 });
+    expect(report.records[0]?.evidence?.results.map((result) => [result.command, result.ok, result.skipped ?? null])).toEqual([
+      ["ledger validate", true, null],
+      ["node fake-ledger.mjs validate --strict", true, null],
+      ["ledger publish", true, "not on verification.allow"],
+    ]);
+    expect(await readFile(path.join(root, "calls.txt"), "utf8")).toBe("validate\nvalidate --strict\n");
+  }, 30_000);
 
   it("ages evidence out and rejects a corrupt sidecar", async () => {
     const root = await fixtureRepo();
