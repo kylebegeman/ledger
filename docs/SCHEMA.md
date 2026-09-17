@@ -564,17 +564,22 @@ listed by Ledger entries. `git.coverage` selects what counts: under `current`
 (the default) a required changed path must be listed by a change entry that is
 itself part of the inspected change set, so a pull request carries its own
 receipt; a path listed only by older records is reported as `historical` and
-fails coverage. `any` accepts any change entry that lists the path, earlier
-ones included, which is useful while adopting Ledger on a repository with
-history; session records, backlog items, and decisions never cover a path,
-because sessions expire and the others describe intent rather than a change. `ledger coverage --mode`
-overrides the setting for one run. Docs impact follows the same setting: under
-`current` only change entries in the change set give a source file its docs
-impact evidence, and under `any` a file they do not satisfy may take it from
-an earlier receipt that lists the file and carries a reviewed `docsImpact`
-declaration or docs references. `ledger ci` judges both checks under one
-mode, so under `any` a pull request that changes a file an earlier receipt
-covers passes both; a file no receipt lists fails both.
+fails coverage. `any` also accepts an earlier change entry that names the
+path, which is useful while adopting Ledger on a repository with history. An
+earlier entry counts only for the files it names: a pattern such as `src/**`,
+`prefix:`, `glob:`, or a directory ending in `/` covers files only from an
+entry in the change set, so one old receipt never exempts a directory for
+good, and a path that only an earlier pattern matches is reported as
+`historical`. Session records, backlog items, and decisions never cover a
+path, because sessions expire and the others describe intent rather than a
+change. `ledger coverage --mode` overrides the setting for one run. Docs
+impact follows the same setting: under `current` only change entries in the
+change set give a source file its docs impact evidence, and under `any` a
+file they do not satisfy may take it from an earlier receipt that names the
+file and carries a reviewed `docsImpact` declaration or docs references.
+`ledger ci` judges both checks under one mode, so under `any` a pull request
+that changes a file an earlier receipt names passes both; a file no receipt
+names fails both.
 
 `ledger init` writes the defaults above. `ledger adopt` infers
 `requireEntryFor` and `ignore` from the tracked tree instead: each top-level

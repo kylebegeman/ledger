@@ -92,6 +92,13 @@ describe("coverage modes in ci", () => {
 
     const unlisted = await runCiChecks(relaxedWorkspace, [document({ title: "Valid" })], { base, head });
     expect(unlisted.checks.find((check) => check.name === "docs-impact")?.ok).toBe(false);
+
+    const broad = await runCiChecks(relaxedWorkspace, [document({ title: "Valid", docsImpact: true, files: ["src/**"] })], { base, head });
+    expect(broad.checks.filter((check) => !check.ok).map((check) => check.name)).toEqual(["coverage", "docs-impact"]);
+    expect(formatCiAnnotations(broad)).toContain(
+      "::error file=src/cli.ts,title=Ledger coverage::src/cli.ts is matched only by patterns in earlier receipts (src/**); name the file in a receipt",
+    );
+    expect(formatCiSummaryMarkdown(broad)).toContain("- coverage: `src/cli.ts` is matched only by patterns in earlier receipts (src/**)");
   });
 });
 
@@ -207,7 +214,7 @@ async function gitOutput(...args: readonly string[]): Promise<string> {
   });
 }
 
-function document(options: { readonly title: string; readonly docsImpact?: boolean }): ParsedLedgerDocument {
+function document(options: { readonly title: string; readonly docsImpact?: boolean; readonly files?: readonly string[] }): ParsedLedgerDocument {
   const titleLine = options.title ? `title: "${options.title}"` : "title: null";
   const docsImpactLines = options.docsImpact ? 'docsImpact:\n  status: "not-needed"\n  reason: "CLI plumbing only."\n' : "";
   const raw = `---
@@ -219,7 +226,7 @@ updated: "2026-06-29"
 status: "landed"
 areas: ["cli"]
 files:
-  - "src/cli.ts"
+${(options.files ?? ["src/cli.ts"]).map((filePath) => `  - "${filePath}"`).join("\n")}
 ${docsImpactLines}symbols: []
 commits: []
 ---

@@ -67,8 +67,9 @@ export const coverageOperation = defineOperation<CoverageInput, LedgerCoverageRe
 Under the default current mode (git.coverage), a required path must be listed
 by a change entry that is itself part of the change set; a path listed only by
 older records is reported as historical and counts as missing. --mode any
-accepts any change entry, including earlier ones; session records, backlog
-items, and decisions never cover a path. --explain prints why each changed path is ignored, not
+also accepts an earlier change entry that names the path; a pattern such as
+src/** counts only from an entry in the change set, and session records,
+backlog items, and decisions never cover a path. --explain prints why each changed path is ignored, not
 required, covered, historical, or missing. --base and --head inspect their
 merge-base change range.`,
   },
@@ -96,7 +97,9 @@ merge-base change range.`,
         lines.push(`- missing: ${file.path} (required by ${file.requiredBy ?? "configuration"})`);
       } else if (file.status === "historical") {
         lines.push(
-          `- historical: ${file.path} (listed only by records outside this change set: ${file.coveredBy.join(", ")}; add or update a change entry)`,
+          data.mode === "any"
+            ? `- historical: ${file.path} (matched only by patterns in earlier receipts: ${file.coveredBy.join(", ")}; name the file in a change entry)`
+            : `- historical: ${file.path} (listed only by records outside this change set: ${file.coveredBy.join(", ")}; add or update a change entry)`,
         );
       } else if (input.explain) {
         const reason =

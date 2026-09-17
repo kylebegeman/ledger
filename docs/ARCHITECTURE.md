@@ -212,7 +212,10 @@ lists a changed path must itself be part of the same change set (added or
 modified in the working tree, staged diff, or revision range), so a pull
 request cannot satisfy coverage with a record written for an earlier change.
 Paths listed only by older records are reported as `historical`. `git.coverage:
-any` restores the older behavior for adoption.
+any`, which `adopt` writes, also accepts an older change entry, but only one
+that names the path: patterns from older entries do not count, so a broad
+pattern in one old receipt cannot exempt a directory from every later change.
+Only change entries count in either mode.
 
 Working-tree inspection, staged inspection, and committed range inspection are
 separate modes. Range-aware commands require both a base and head revision and

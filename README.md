@@ -292,9 +292,10 @@ whose token cannot write, get a notice instead.
 
 Coverage defaults to `current`: a changed path under `git.requireEntryFor`
 needs a change entry in the same pull request. `adopt` writes `any`, which
-accepts a receipt from an earlier change for both coverage and docs impact, so
-history does not block the first pull requests. A file no receipt lists still
-fails.
+also accepts an earlier receipt that names the file, for both coverage and docs
+impact, so history does not block the first pull requests. A broad pattern such
+as `src/**` counts only in a receipt in the pull request, and a file no receipt
+names still fails.
 
 ## Records
 

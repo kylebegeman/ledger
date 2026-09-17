@@ -350,7 +350,10 @@ export interface LedgerCoverageResult {
   readonly requiredFiles: readonly string[];
   readonly coveredFiles: readonly string[];
   readonly missingFiles: readonly string[];
-  /** Required paths listed only by records outside the change set. */
+  /**
+   * Required paths that fail because only records outside the change set match
+   * them: any such record under `current`, only patterns under `any`.
+   */
   readonly historicalFiles: readonly string[];
   /** Change entries that are part of the inspected change set. */
   readonly currentEntries: readonly string[];
