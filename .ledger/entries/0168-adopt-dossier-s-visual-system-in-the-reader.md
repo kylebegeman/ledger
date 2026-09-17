@@ -54,6 +54,7 @@ related:
   - "0137"
   - "0146"
   - "0169"
+release: "v0.9.0"
 ---
 
 # 0168: Adopt Dossier's Visual System In The Reader

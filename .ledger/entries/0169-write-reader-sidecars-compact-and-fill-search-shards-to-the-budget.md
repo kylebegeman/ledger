@@ -26,6 +26,7 @@ commits: []
 related:
   - "0120"
   - "0168"
+release: "v0.9.0"
 ---
 
 # 0169: Write Reader Sidecars Compact And Fill Search Shards To The Budget

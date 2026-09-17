@@ -162,7 +162,8 @@ Deliverables:
 
 ## Phase 6: Static Reader
 
-Status: faceted reader and lazy search slice landed
+Status: faceted reader and lazy search slice landed; the reader and the public
+changelog follow Dossier's visual system since 0.9.0 (backlog B009)
 
 Goals:
 
@@ -281,8 +282,9 @@ toolchain-aware `adopt`), with the fixes from an audit of that slice in
 search parity, and tighter verification and coverage trust). A second live
 Kore session closed backlog B010 on 2026-09-17, and 0.8.2 fits drafts to the
 change (product notes 0160 and 0161), names the hooked session in mid-turn
-checks, and adds `release --update`. The Dossier visual system (backlog B009)
-is next, then MCP protocol 2026-07-28 on the v2 SDK. Direction accepted in
+checks, and adds `release --update`. 0.9.0 moves the reader and the public
+changelog to Dossier's visual system (backlog B009) and writes compact
+sidecars. MCP protocol 2026-07-28 on the v2 SDK is next. Direction accepted in
 decision D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
@@ -312,8 +314,8 @@ Pillars:
 
 Sequencing: hygiene, then registry and cache, then the engine server, then
 capture, then trust. Releases stay on the 0.x line without a contract freeze.
-Kore adopted Ledger with hooks on 0.7.0 (backlog B007) and moved to 0.8.0 and
-0.8.1. A second live Kore session then passed the last capture acceptance
+Kore adopted Ledger with hooks on 0.7.0 (backlog B007) and has moved to each
+release since. A second live Kore session passed the last capture acceptance
 check (backlog B010).
 
 ## Long-Term Product Direction
