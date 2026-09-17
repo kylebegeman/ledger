@@ -328,6 +328,20 @@ the next mutation. `ledger doctor` reports active locks and fails when pending
 transaction journals require recovery. Journals contain paths, hashes, and file
 modes, but never source contents or secret values.
 
+### Change Context
+
+`ledger context` (`src/context.ts`) is the review packet for one change set:
+the working tree, the staged diff, or a merge-base range. It composes existing
+results rather than computing new ones: `checkCoverage` and `buildDocsImpact`
+for the change, `retrieveByPath` for each changed file's records (receipts that
+name the file first, then pattern matches, newest first, five per file, session
+records left out), `checkReadiness` and the evidence sidecar for the receipts
+the change carries, and `relatedRecords` for the decisions and backlog items
+they link. The Markdown form drops per-file details from the last file
+backward until it fits the token budget (2,400 by default), and the JSON form
+marks those files with `detailsOmitted`. It is a CLI command, an API route,
+and a read-only MCP tool.
+
 ### MCP Server
 
 `ledger mcp` starts a local stdio Model Context Protocol server, built on the
@@ -339,7 +353,7 @@ connection, and the engine's `/mcp` uses `createMcpHandler`, which serves
 
 The server registers every operation in the registry that carries `mcp`
 metadata. The read tools are validate, ready, query, search, explain,
-conflict, packet, search-packet, coverage, ci, doctor, metrics, stale,
+conflict, packet, search-packet, context, coverage, ci, doctor, metrics, stale,
 unreleased, release notes, cache status, docs audit, docs classify, docs
 impact, and integrity verification. Some of them write generated reports, as
 their CLI commands do. Each tool takes the operation's input plus an optional

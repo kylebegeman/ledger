@@ -4296,6 +4296,365 @@
       }
     },
     {
+      "name": "context",
+      "title": "Review a change set",
+      "description": "Summarize a change set for review: each changed file's coverage, docs impact, history, invariants, and conflict rules, plus the change's receipts, linked records, and verification.",
+      "workspace": "required",
+      "mutates": false,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "context"
+        ],
+        "aliases": [],
+        "usage": "ledger context [--staged | --base <revision> --head <revision>] [--budget <tokens>] [--json]",
+        "json": true,
+        "flags": {
+          "staged": {
+            "type": "boolean",
+            "field": "staged"
+          },
+          "base": {
+            "type": "string",
+            "field": "base"
+          },
+          "head": {
+            "type": "string",
+            "field": "head"
+          },
+          "budget": {
+            "type": "number",
+            "field": "budget"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "staged": {
+            "description": "Inspect the staged Git diff.",
+            "type": "boolean"
+          },
+          "base": {
+            "description": "Base revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "head": {
+            "description": "Head revision for a merge-base range.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "budget": {
+            "description": "Approximate token budget, default 2400.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100000
+          }
+        },
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "change": {
+                  "type": "string"
+                },
+                "coverage": {
+                  "type": "string"
+                },
+                "receipts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "records": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "title",
+                      "status"
+                    ],
+                    "additionalProperties": {}
+                  }
+                },
+                "moreRecords": {
+                  "type": "number"
+                },
+                "invariants": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "record": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "record",
+                      "text"
+                    ],
+                    "additionalProperties": {}
+                  }
+                },
+                "conflictRules": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "record": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "record",
+                      "text"
+                    ],
+                    "additionalProperties": {}
+                  }
+                }
+              },
+              "required": [
+                "path",
+                "change",
+                "coverage",
+                "receipts",
+                "records",
+                "moreRecords",
+                "invariants",
+                "conflictRules"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "ready": {
+                  "type": "boolean"
+                },
+                "verification": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "ready",
+                "verification"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string"
+              },
+              "required": {
+                "type": "number"
+              },
+              "covered": {
+                "type": "number"
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "mode",
+              "required",
+              "covered",
+              "missing"
+            ],
+            "additionalProperties": {}
+          },
+          "docsImpact": {
+            "type": "object",
+            "properties": {
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "missing"
+            ],
+            "additionalProperties": {}
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "title",
+                "status"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "session",
+                "host",
+                "files",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "estimatedTokens": {
+            "type": "number"
+          },
+          "budgetTokens": {
+            "type": "number"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "range",
+          "files",
+          "receipts",
+          "coverage",
+          "docsImpact",
+          "related",
+          "sessions",
+          "estimatedTokens",
+          "budgetTokens",
+          "truncated"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_context",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "staged": {
+              "description": "Inspect the staged Git diff.",
+              "type": "boolean"
+            },
+            "base": {
+              "description": "Base revision for a merge-base range.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "head": {
+              "description": "Head revision for a merge-base range.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "budget": {
+              "description": "Approximate token budget, default 2400.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 100000
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    {
       "name": "doctor",
       "title": "Check Ledger health",
       "description": "Check workspace health, Git availability, validation, docs, indexes, render output, and stale signals.",
