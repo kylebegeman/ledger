@@ -329,6 +329,7 @@ function contentType(filePath: string): string {
   if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
   if (filePath.endsWith(".js")) return "text/javascript; charset=utf-8";
   if (filePath.endsWith(".svg")) return "image/svg+xml";
+  if (filePath.endsWith(".xml")) return "application/atom+xml; charset=utf-8";
   return "application/octet-stream";
 }
 

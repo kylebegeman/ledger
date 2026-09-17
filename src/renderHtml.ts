@@ -86,6 +86,7 @@ export function renderStaticReaderHtml(
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="light dark">
   <title>${escapeHtml(model.project)} Ledger</title>
+  ${pageMetadata(model, options.iconSvg)}
   <script>try{const t=localStorage.getItem("ledger-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}</script>
   <style>
 ${staticReaderStyles}
@@ -158,7 +159,7 @@ ${staticReaderStyles}
               ${visitNote(isPublic)}
             </div>
             <div class="view-controls">
-              ${isPublic ? "" : densityToggle()}
+              ${isPublic ? '<a class="text-button" href="feed.xml">Atom feed</a>' : densityToggle()}
               ${perPageControl()}
             </div>
           </div>
@@ -207,6 +208,35 @@ ${staticReaderRuntime}
 </body>
 </html>
 `);
+}
+
+/**
+ * Description, Open Graph, and icon tags, plus the canonical link when the
+ * site URL is known and, for the public changelog, its Atom feed.
+ */
+function pageMetadata(model: LedgerStaticReaderModel, iconSvg: string | undefined): string {
+  const isPublic = model.profile === "public";
+  const title = isPublic ? `${model.project} releases` : `${model.project} Ledger`;
+  const description = isPublic
+    ? `Release notes for ${model.project}, written for the people who use it.`
+    : `Decisions, changes, verification, and operating knowledge for ${model.project}.`;
+  const tags = [
+    `<meta name="description" content="${escapeHtml(description)}">`,
+    '<meta property="og:type" content="website">',
+    `<meta property="og:title" content="${escapeHtml(title)}">`,
+    `<meta property="og:description" content="${escapeHtml(description)}">`,
+    `<meta property="og:site_name" content="${escapeHtml(model.project)}">`,
+  ];
+  if (model.siteUrl) {
+    tags.push(`<meta property="og:url" content="${escapeHtml(model.siteUrl)}">`, `<link rel="canonical" href="${escapeHtml(model.siteUrl)}">`);
+  }
+  if (isPublic) {
+    tags.push(`<link rel="alternate" type="application/atom+xml" title="${escapeHtml(title)}" href="feed.xml">`);
+  }
+  if (iconSvg) {
+    tags.push(`<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,${escapeHtml(encodeURIComponent(iconSvg.trim()))}">`);
+  }
+  return tags.join("\n  ");
 }
 
 function internalRail(model: LedgerStaticReaderModel): string {
@@ -323,10 +353,19 @@ function recordTags(
               </div>`;
 }
 
+/**
+ * The fragment a release's permalink uses: the release id itself when it is a
+ * plain token such as `v1.2.0`, so links read naturally and stay stable.
+ */
+export function releaseAnchor(id: string): string {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id) ? id : `release-${domId(id)}`;
+}
+
 function renderPublicEntry(document: LedgerRenderedDocument, yearStart: boolean): string {
-  return `<article class="entry release-entry${yearStart ? " year-start" : ""}" id="record-${domId(document.id)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-hash="${contentHash(document)}" data-year="${escapeHtml(document.date.slice(0, 4))}" data-search="${escapeHtml(searchTerms(document))}">
+  const anchor = releaseAnchor(document.id);
+  return `<article class="entry release-entry${yearStart ? " year-start" : ""}" id="${escapeHtml(anchor)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-hash="${contentHash(document)}" data-year="${escapeHtml(document.date.slice(0, 4))}" data-search="${escapeHtml(searchTerms(document))}">
               <div class="release-date">
-                <span class="version-badge">${escapeHtml(document.id)}</span>
+                <a class="version-badge" href="#${escapeHtml(anchor)}" title="Link to this release">${escapeHtml(document.id)}</a>
                 <time datetime="${escapeHtml(document.date)}">${escapeHtml(formatDate(document.date))}</time>
               </div>
               <div class="release-content">
@@ -752,7 +791,7 @@ export function plainProse(value: string): string {
 }
 
 /** Record prose as HTML: every segment is escaped, and code spans become inline code, so nothing in a record is markup. */
-function inlineCodeHtml(value: string): string {
+export function inlineCodeHtml(value: string): string {
   return value
     .split("\n")
     .map((line) =>

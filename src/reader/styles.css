@@ -821,6 +821,9 @@
       padding: 28px 8px;
     }
     .release-date { position: sticky; top: calc(var(--topbar) + 16px); display: grid; align-self: start; align-content: start; justify-items: end; gap: 4px; text-align: right; }
+    .entry { scroll-margin-top: calc(var(--topbar) + 12px); }
+    a.version-badge { text-decoration: none; }
+    a.version-badge:hover { text-decoration: underline; }
     .release-date .version-badge { color: var(--accent); font-family: var(--font-mono); font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
     .release-date time { color: var(--muted); font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
     .release-content h3 { margin-bottom: 4px; font-size: clamp(19px, 2vw, 23px); letter-spacing: -0.012em; line-height: 1.2; }

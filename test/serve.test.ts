@@ -39,6 +39,10 @@ describe("serveStaticReader", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await response.text()).toContain("Ledger fixture");
 
+    await writeFile(path.join(tempDir ?? "", defaultConfig.render.output, "feed.xml"), "<feed/>\n");
+    const feed = await fetch(`${served.url}feed.xml`);
+    expect(feed.headers.get("content-type")).toBe("application/atom+xml; charset=utf-8");
+
     const head = await fetch(served.url, { method: "HEAD" });
     expect(head.status).toBe(200);
     expect(await head.text()).toBe("");
