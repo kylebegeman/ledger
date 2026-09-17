@@ -239,8 +239,12 @@ checkouts, `--base <revision> --head <revision>` supplies the committed range to
 coverage and docs impact. `--github` adds GitHub Actions output: one
 workflow-command annotation per failing signal with the file path, and a
 Markdown job summary appended to `GITHUB_STEP_SUMMARY`. The repository's
-`action.yml` is a composite action that wraps the command for pull requests,
-optionally posting the summary as a comment; this repository's own CI runs it
+`action.yml` is a composite action that wraps the command for pull requests.
+With `comment: "true"` it keeps the summary in one pull request comment,
+found by a hidden `<!-- ledger-ci-summary -->` marker on a
+`github-actions[bot]` comment and updated in place; pull requests from forks,
+whose token is read-only, get a notice, and a failed API call is a warning,
+never a failed step. This repository's own CI runs it
 with `command: node dist/cli.js` so the action is exercised on every pull
 request.
 
