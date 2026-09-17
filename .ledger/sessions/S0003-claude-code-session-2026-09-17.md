@@ -7,6 +7,7 @@ updated: "2026-09-17"
 status: "active"
 expires: "2026-09-24"
 areas:
+  - "assets"
   - "catalogcache"
   - "ci"
   - "docs"
@@ -56,6 +57,10 @@ files:
   - "CONTRIBUTING.md"
   - ".github/dependabot.yml"
   - "src/catalogCache.ts"
+  - "src/reader/styles.css"
+  - "assets/readme/adopt.svg"
+  - "package-lock.json"
+  - "package.json"
 host: "claude-code"
 hostSession: "71358ecc-08f4-4086-aa8b-4fbccb7ed699"
 related:
@@ -82,6 +87,9 @@ related:
   - "0165"
   - "0166"
   - "0167"
+  - "0168"
+  - "0169"
+  - "0170"
 ---
 
 # S0003: Claude Code session 2026-09-17
@@ -121,6 +129,14 @@ TypeScript 7 or TypeScript 5.0 to 5.4, fixed with the Dependabot updates in
 checks in kylebegeman/forge#28 (merged), and another wrote the Dossier 0.7.2
 porting spec for B009.
 
+Merged #25 and published 0.8.2 after its first CI run failed on Node 22,
+where Vitest 5 tried to bundle `node:sqlite`. Moved Kore to 0.8.2 in
+kylebegeman/forge#29 (Kore receipt 0007). On branch `dossier-visual-0.9`,
+ported Dossier's visual system into the reader and the README visuals
+(0168), which lands B009. Made the reader's sidecars compact to fix a search
+shard overflow that `ledger doctor` caught (0169), and prepared v0.9.0
+(0170). Closed Dependabot pull requests #4 and #5 as superseded by #25.
+
 ## Learned
 
 - `serve` without `--watch` renders once at startup, so a capture server has
@@ -146,11 +162,22 @@ porting spec for B009.
 - Claude Code runs PostToolUse hooks for parallel tool calls at the same
   time; before 0151 the workspace lock made all but one of them drop their
   paths silently.
+- Vitest 5 leaves only the modules in `builtinModules` unbundled, and Node
+  22's list has no `node:sqlite`, so an import of it fails there.
+  `process.getBuiltinModule("node:sqlite")` bypasses the bundler.
+- Dependabot's scheduled run logs "No update needed" for actions that are
+  already current but leaves its open pull requests for them; it closes one
+  only when it refreshes that pull request.
+- Reader tests load the bundle in `dist/reader/`, so run
+  `npm run build:reader` before a focused `npx vitest run` after a runtime
+  change.
+- In zsh, a command stored in a variable does not split into words; Kore's
+  bump steps use a shell function for the pinned `npx` command.
 
 ## Next
 
-- Publish 0.8.2, then move Kore's pin to it with the installers.
-- Port Dossier 0.7.2's visual system into the reader for B009, from the spec
-  recorded in the B009 receipt.
-- Kyle deletes Dossier's merged `next` branch, and decides whether MCP
-  protocol 2026-07-28 may add the v2 SDK packages.
+- Publish 0.9.0, move Kore's pin to it with the installers, and record both
+  in the handoff.
+- Kyle approves Kore's changed Codex hooks with `/hooks`, deletes Dossier's
+  merged `next` branch, and decides whether MCP protocol 2026-07-28 may add
+  the v2 SDK packages.
