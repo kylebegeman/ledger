@@ -25,6 +25,7 @@ related:
   - "0158"
   - "0171"
   - "0174"
+release: "v0.9.2"
 ---
 
 # 0175: Record The V0.9.1 Publish And Kore's Move To It

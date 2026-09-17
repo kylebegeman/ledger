@@ -45,6 +45,7 @@ related:
   - "0119"
   - "0120"
   - "0146"
+release: "v0.9.2"
 ---
 
 # 0180: Navigate the reader by file, symbol, and link, and copy from records

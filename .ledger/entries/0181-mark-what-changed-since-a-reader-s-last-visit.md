@@ -36,6 +36,7 @@ decisions:
 related:
   - "0180"
   - "B002"
+release: "v0.9.2"
 ---
 
 # 0181: Mark what changed since a reader's last visit

@@ -32,6 +32,7 @@ decisions:
 related:
   - "0180"
   - "B009"
+release: "v0.9.2"
 ---
 
 # 0185: Script the README screenshots and the Dossier token check

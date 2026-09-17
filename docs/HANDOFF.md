@@ -10,9 +10,9 @@ milestone lands or a plan changes; retire sections that stop being true.
   created by `.github/workflows/release.yml` through npm trusted publishing on
   2026-09-17 from kylebegeman/ledger#29. 0.8.0 (#20 and #21), 0.8.1 (#22),
   0.8.2 (#25), and 0.9.0 (#26) shipped earlier that day. The GitHub Release
-  notes come from `ledger release notes`. Receipt 0175 is unreleased and goes
-  out with the next patch. `@kylebegeman/dossier` (0.7.2) publishes the same
-  way from its own repo.
+  notes come from `ledger release notes`. 0.9.2 is prepared on the
+  `release-0.9.2` branch with receipts 0175 to 0186; its tag publishes it.
+  `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
 - First outside adopter: Kore runs Ledger 0.9.1 with Claude Code and Codex
   hooks since kylebegeman/forge#31 (Kore receipt 0009). Before that it ran
   0.9.0 from kylebegeman/forge#30, 0.8.2 from #29, 0.8.1 from #26, 0.8.0
@@ -47,6 +47,7 @@ milestone lands or a plan changes; retire sections that stop being true.
 | 0.8.1 | Audit of 0.8.0: the write lock waits and hook writes retry so parallel tool calls keep every path; Git paths rebased onto a Ledger root inside a repository; every new draft announced and the notice store pruned; per-entry hook merge; every managed agents block replaced; capped draft titles, areas, and symbols; CRLF-preserving record edits; reader search ranked like the CLI, a palette that works from disk, modified clicks, a linear code-span scanner, and a visible light-theme chip; environment assignments matched by `verification.allow`; only change entries cover a path; reviewed docs impact reasons for every status; `adopt` ignoring vendored and nested build output and proposing only read-only checks; `docs reconcile` refusing unreadable paths; release notes from `ledger release notes`; earlier receipts under `git.coverage: any` counting only for files they name; a pinned README demo clock and a CI check on the cards | 0149 to 0157 |
 | 0.8.2 | Drafts that fit the change and upkeep: draft symbols and anchors from the lines a diff changed; `ledger ci` lists failing files and names an active hooked session and its draft; `release --update` for receipts that land after a release record; a TypeScript loader that reads 5.0 to 5.4, skips TypeScript 7 without crashing, and tries `@typescript/typescript6`; historical stale references acknowledged and resolved product notes marked; Vitest 5, Node 22 types, MCP SDK 1.30, v7 action pins, and Dependabot holds on TypeScript and Node type majors; B010 closed | 0158, 0159, 0162 to 0167 |
 | 0.9.0 | Dossier's visual system (B009): the reader and the public changelog take Dossier's neutrals, status tones, font stacks, radii, and motion and keep Ledger's emerald accent; a compact masthead, a left facet rail with group labels, and an Auto, Light, and Dark theme toggle with a visible label; contrast and tablet overflow fixes; README cards and screenshots in the same palette; compact JSON sidecars and search shards filled exactly to their budget | 0168 to 0170 |
+| 0.9.2 | Complete records and a navigable reader: section bodies from the CLI, API, and MCP, and `ledger update`; `ledger context` for reviewing a change set; `doctor --fix` and a hooks health check; Go, Rust, Python, and Swift symbols from declaration outlines; reader entity views, backlinks, copy actions, palette suggestions, and changed-since-last-visit markers; plain-prose summary excerpts; an Atom feed, release permalinks, page metadata, and `render --site-url` for the public changelog; a generated command reference; scripted README screenshots and a Dossier token check | 0175 to 0186 |
 | 0.9.1 | MCP on the v2 SDK (D008): `ledger mcp` and `/mcp` speak protocol 2026-07-28 and the 2025 revisions; confirmed MCP tools for new, feedback, backlog new, decision new, promote, and session start, note, and close; list cache hints and change notices on 2026-07-28; a production install of seven packages instead of the SDK's 94; the Codex installer names the app's Hooks page; product notes marked resolved; a 4.5 MB render budget here | 0171 to 0174 |
 
 Read the receipts for invariants and conflict rules before touching those
@@ -97,8 +98,9 @@ D006 records what was retired; D007 records the runtime decision below.
   `session prune --write` deletes an expired session only when it was not
   promoted and no record links it (receipt 0134).
 - The README shows one image per visual with no light and dark variants.
-  Terminal cards come from `scripts/readme-assets.mjs`; reader screenshots are
-  captured by hand with the settings in `CONTRIBUTING.md` (receipt 0137).
+  Terminal cards come from `scripts/readme-assets.mjs`, and reader
+  screenshots from `scripts/readme-screenshots.mjs` with a `--no-save`
+  Playwright install (receipts 0137 and 0185).
   Visuals are still images; an animation ships only if it can be recorded
   smoothly, never as a few frames swapped about once a second.
 - `git.coverage: any` relaxes docs impact as well as coverage: an earlier
@@ -150,6 +152,30 @@ D006 records what was retired; D007 records the runtime decision below.
   `graph/contracts.json`) are compact JSON, and shards fill by exact byte
   count. That fixed a shard overflow instead of raising this repository's
   render budget (receipt 0169).
+- Every authoring operation takes section bodies, and `ledger update` edits a
+  record in place. Its list flags replace the whole list, so pass every value
+  the record keeps (receipt 0176). The confirmed MCP tools check their input
+  with a dry run before asking the user.
+- `ledger doctor --fix` repairs only derived and runtime state. It never edits
+  records or hook files, and it reports a drifted hook instead of
+  reinstalling it (receipt 0178).
+- Go, Rust, Python, and Swift symbols come from Ledger's own declaration
+  outlines, not tree-sitter or a language toolchain, which D007's single
+  runtime rules out. Real parsers agreed with them on about 58,000
+  declarations in Kyle's projects (receipt 0179).
+- Reader entries carry their references inline, and the runtime builds the
+  panel's lists, backlinks, and entity views from them. Sidecars cannot load
+  from a `file:` URL, and rendering the lists into details doubled the chunks
+  (receipt 0180).
+- Changed-since-last-visit markers live only in the viewer's browser, a load
+  30 minutes after the last starts a new visit, and a first visit marks
+  nothing (receipt 0181).
+- The public changelog's site URL is a `render --site-url` flag, not a config
+  key, and feed ids come from the project and release so a moved site keeps
+  them. GitHub Pages is not enabled for this repository; `docs/PUBLISHING.md`
+  has the workflow (receipt 0183).
+- `docs/COMMANDS.md` is generated from the registry, and a test fails when it
+  is stale (receipt 0184).
 
 ## How capture and trust work in this repository
 
@@ -180,7 +206,8 @@ D006 records what was retired; D007 records the runtime decision below.
   nested run is refused.
 - The reader in `.ledger/dist/` now chunks record details because the page
   passed 1 MB; opened from disk it shows a fallback panel, so use
-  `node dist/cli.js serve --api` to browse details. This repository's
+  `node dist/cli.js serve --api` to browse details. The reference lists and
+  entity views still work from disk. This repository's
   `render.budgets.maxTotalBytes` was raised to 3.5 MB in 0120 and to 4.5 MB
   in 0171, when growth had brought the reader to 3.4 MB even after 0169's
   compact sidecars.
@@ -188,11 +215,15 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **New features**, when Kyle chooses them. Move Kore's pin after each
-   release with the three installers and a Kore receipt. Records created
-   over MCP are templates because the authoring operations take no body
-   text; accepting body sections would make MCP-only receipts complete
-   (D008 revisit criteria).
+1. **Publish 0.9.2 and move Kore.** After the merge, the `v0.9.2` tag
+   publishes. Kore then moves its pin with the three installers and a Kore
+   receipt, and Kyle trusts the changed hooks in the Codex app. With Kyle's
+   go-ahead, one short `codex exec` session in Kore exercises the Codex
+   hooks live.
+2. **New features**, when Kyle chooses them. MCP Tasks are deprecated in the
+   2026-07-28 revision, and MCP Apps, search shards by kind or year, in-place
+   live reload, and confirmed writes over 2025-era HTTP, the VS Code
+   extension, or a Kore plugin were left out of 0.9.2 on purpose.
 
 ## Conventions that were in force
 
@@ -255,14 +286,14 @@ D006 records what was retired; D007 records the runtime decision below.
   #25. Dependabot closes a pull request itself only when it refreshes that
   pull request.
 - The reader's token block is a copy. When Dossier changes
-  `core/internal/render/assets/tokens.css`, diff it against the block in
-  `src/reader/styles.css` and port what applies (receipt 0168).
-- The reader screenshots have no capture script because Playwright is not a
-  dependency; the 0.9.0 captures ran Playwright through an assistant tool with
-  the `CONTRIBUTING.md` settings and a small HTML page that adds the corners
-  and edge. `.claude/launch.json` serves the readers on
-  fixed ports 4173 and 4174, which a server left running by another session
-  can hold.
+  `core/internal/render/assets/tokens.css`, run
+  `node scripts/check-dossier-tokens.mjs` and port what applies (receipts 0168
+  and 0185).
+- `.claude/launch.json` serves the readers on fixed ports 4173 and 4174,
+  which a server left running by another session can hold. The screenshot
+  script picks free ports instead.
+- The public changelog's GitHub Pages workflow in `docs/PUBLISHING.md` is
+  ready but not enabled for this repository; enabling Pages is Kyle's call.
 - Codex and Cursor hooks were verified by piping their payload shapes through
   `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
   hooks installed and approved but no live Codex session yet. Cursor's hooks
@@ -292,7 +323,7 @@ D006 records what was retired; D007 records the runtime decision below.
 ## Quick verification of the current state
 
 ```sh
-node dist/cli.js version            # 0.9.1
+node dist/cli.js version            # 0.9.2
 node dist/cli.js doctor             # all checks pass; engine and verification may warn
 node dist/cli.js unreleased         # receipts landed since the last release
 node dist/cli.js coverage --explain # current mode

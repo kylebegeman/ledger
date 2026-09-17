@@ -774,21 +774,32 @@ function scanProseLine(line: string): ProseLine {
   return { segments, unpairedAt };
 }
 
+/** Marks a code span's place in `plainProse`; record text that already holds it is left as written. */
+const codePlaceholder = "\u0000";
+
 /**
  * Markdown prose as the plain text a one-line excerpt shows: list markers and
- * paired `**strong**` markers are dropped outside code spans, which keep their
- * backticks, so `src/**` inside a code span survives.
+ * paired `**strong**` markers are dropped, including strong text around a code
+ * span. Code spans keep their backticks and content, so `src/**` survives.
  */
 export function plainProse(value: string): string {
   return value
     .split("\n")
-    .map((line) =>
-      scanProseLine(line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""))
-        .segments.map((segment) => (segment.code ? segment.raw : segment.text.replace(/\*\*(?=\S)([^*]+?)(?<=\S)\*\*/g, "$1")))
-        .join(""),
-    )
+    .map((line) => {
+      const { segments } = scanProseLine(line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""));
+      // Code spans become placeholders while strong markers pair up, so a pair may enclose one.
+      if (line.includes(codePlaceholder)) return segments.map((segment) => segment.raw).join("");
+      const codes: string[] = [];
+      const masked = segments
+        .map((segment) => (segment.code ? `${codePlaceholder}${codes.push(segment.raw) - 1}${codePlaceholder}` : segment.text))
+        .join("");
+      return masked
+        .replace(/\*\*(?=\S)([^*]+?)(?<=\S)\*\*/g, "$1")
+        .replace(new RegExp(`${codePlaceholder}(\\d+)${codePlaceholder}`, "g"), (_, index: string) => codes[Number(index)] ?? "");
+    })
     .join("\n");
 }
+
 
 /** Record prose as HTML: every segment is escaped, and code spans become inline code, so nothing in a record is markup. */
 export function inlineCodeHtml(value: string): string {

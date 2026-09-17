@@ -681,7 +681,7 @@ agents:
 ```
 
 A project that runs Ledger as a dependency or a pinned release sets it once,
-for example `npx ledger` or `npx --yes @kylebegeman/ledger@0.9.1`.
+for example `npx ledger` or `npx --yes @kylebegeman/ledger@0.9.2`.
 `ledger hooks install --command <prefix>` writes the value here, updating an
 existing key in place or appending the section, and preserves comments,
 quoting, key order, and CRLF line endings in the rest of the file. `verification.allow` stays a

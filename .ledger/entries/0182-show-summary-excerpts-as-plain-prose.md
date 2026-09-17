@@ -26,17 +26,18 @@ commits: []
 related:
   - "0181"
   - "0146"
+release: "v0.9.2"
 ---
 
 # 0182: Show summary excerpts as plain prose
 
 ## Summary
 
-Summary excerpts in the reader read as plain prose. Outside code spans, a
-summary's list markers and paired `**strong**` markers are dropped, so a
-receipt that opens with bullets no longer shows `- **Go:**` in its row or
-panel. Code spans keep their backticks and their content, `src/**` included,
-and an unpaired `**` stays literal.
+Summary excerpts in the reader read as plain prose. A summary's list markers
+and paired `**strong**` markers are dropped, even when the strong text wraps a
+code span. As a result, a receipt that opens with bullets no longer shows
+`- **Go:**` in its row or panel. Code spans keep their backticks and their
+content, `src/**` included, and an unpaired `**` stays literal.
 
 ## Why
 
@@ -93,4 +94,6 @@ search index's summary field reads the same way.
 
 ## Notes
 
-This follows the note in 0181.
+This follows the note in 0181. The recaptured README hero showed `**` left
+around a code span in 0185's summary. `plainProse` now masks code spans while
+it pairs strong markers, and the test covers that case.
