@@ -4,7 +4,8 @@
      * plum-tinted neutrals, one accent, status tones, borders instead of shadows,
      * system font stacks, 6/10/14px radii, and one 160ms motion curve.
      * Ledger keeps its emerald accent from the mark (receipt 0137); its tints sit at
-     * Dossier's tint lightness. When Dossier's tokens.css changes, diff this block.
+     * Dossier's tint lightness. When Dossier's tokens.css changes, run
+     * scripts/check-dossier-tokens.mjs.
      */
     :root {
       color-scheme: light dark;

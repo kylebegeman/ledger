@@ -198,6 +198,35 @@ describe("reader runtime in a browser document", () => {
     expect(document.getElementById("command-status")?.textContent).toContain("for “cache”");
   });
 
+  it("keeps what was typed while the search index loads", async () => {
+    const index = buildSearchIndex(model.documents).map(({ terms: _terms, ...document }) => document);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    globalThis.fetch = (async () => {
+      await gate;
+      return new Response(JSON.stringify(index), { headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+    mount(renderStaticReaderHtml(model, { iconSvg: "<svg></svg>" }));
+    await settle(20);
+    const dialog = document.getElementById("command-palette") as HTMLDialogElement;
+    if (typeof dialog.showModal !== "function") {
+      dialog.showModal = () => dialog.setAttribute("open", "");
+      dialog.close = () => dialog.removeAttribute("open");
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "/", bubbles: true }));
+    const input = document.getElementById("command-search") as HTMLInputElement;
+    expect(document.activeElement).toBe(input);
+    input.value = "retry";
+    input.setSelectionRange(5, 5);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    release();
+    await settle(50);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([5, 5]);
+    expect((document.querySelector(".command-result[data-id]") as HTMLElement | null)?.dataset.id).toBe("0002");
+  });
+
   it("fills the command palette from the rendered rows when the search index cannot load", async () => {
     globalThis.fetch = (async () => {
       throw new TypeError("Failed to fetch");

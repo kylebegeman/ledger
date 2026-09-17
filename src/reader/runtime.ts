@@ -908,9 +908,10 @@ async function openPalette(): Promise<void> {
   paletteInput.setAttribute("aria-expanded", "true");
   paletteInput.value = searchInput.value;
   commandSelection = 0;
-  await renderCommandResults();
+  // Focus and select before the index loads, so text typed meanwhile is kept, not selected.
   paletteInput.focus();
   paletteInput.select();
+  await renderCommandResults();
 }
 
 let entityCatalog: ReadonlyMap<string, { readonly entity: EntityTarget; readonly value: string; readonly count: number }> | undefined;

@@ -4,6 +4,7 @@
 //   npm run build
 //   node scripts/readme-assets.mjs            # writes assets/readme/*.svg
 //   node scripts/readme-assets.mjs --keep     # also keeps the demo repositories and prints their paths
+//   node scripts/readme-assets.mjs --demos-only  # only builds and keeps the demos, for readme-screenshots.mjs
 //   npm run readme:check                      # regenerates and fails when a card differs from the commit
 //
 // The script builds two throwaway repositories with this checkout's dist/cli.js, a small TypeScript
@@ -12,7 +13,7 @@
 // LEDGER_README_VERSION sets the version shown in pinned npx commands (default: package.json).
 // LEDGER_README_NOW sets the instant the demo's Ledger processes start from, through
 // scripts/readme-clock.mjs, so session names and dates in the cards do not depend on the day.
-// The reader screenshots (hero, receipt, palette, changelog) are captured separately; see CONTRIBUTING.md.
+// The reader screenshots (hero, receipt, palette, changelog) come from scripts/readme-screenshots.mjs.
 
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -24,7 +25,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cli = path.join(root, "dist", "cli.js");
 const outDir = path.join(root, "assets", "readme");
 const version = process.env.LEDGER_README_VERSION ?? JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).version;
-const keep = process.argv.includes("--keep");
+const demosOnly = process.argv.includes("--demos-only");
+const keep = demosOnly || process.argv.includes("--keep");
 const demoNow = process.env.LEDGER_README_NOW ?? "2026-09-17T12:00:00Z";
 const clock = pathToFileURL(path.join(root, "scripts", "readme-clock.mjs")).href;
 if (!existsSync(cli)) {
@@ -605,13 +607,15 @@ const base = realpathSync(mkdtempSync(path.join(tmpdir(), "ledger-readme-")));
 try {
   const billing = buildBillingDemo(base);
   const go = buildGoDemo(base);
-  mkdirSync(outDir, { recursive: true });
-  for (const [name, spec] of Object.entries(cardSpecs(billing, go))) {
-    writeFileSync(path.join(outDir, `${name}.svg`), renderCard(spec));
-    console.log(`wrote assets/readme/${name}.svg`);
+  if (!demosOnly) {
+    mkdirSync(outDir, { recursive: true });
+    for (const [name, spec] of Object.entries(cardSpecs(billing, go))) {
+      writeFileSync(path.join(outDir, `${name}.svg`), renderCard(spec));
+      console.log(`wrote assets/readme/${name}.svg`);
+    }
+    writeFileSync(path.join(outDir, "loop.svg"), renderLoop());
+    console.log("wrote assets/readme/loop.svg");
   }
-  writeFileSync(path.join(outDir, "loop.svg"), renderLoop());
-  console.log("wrote assets/readme/loop.svg");
 } finally {
   if (keep) console.log(`demo repositories kept in ${base}`);
   else rmSync(base, { recursive: true, force: true });
