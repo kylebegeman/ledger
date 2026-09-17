@@ -262,7 +262,8 @@ light and dark themes. From a record, select a file, pattern, or symbol to list
 every record that names it, follow its relationships and the records that link
 back to it, or copy its link, source path, or `ledger packet` command. The
 command palette suggests matching files, symbols, and areas as well as
-records. Served over HTTP, from any static host or `ledger serve`, it ranks
+records. Both profiles mark what is new or changed since your last visit,
+remembered only in your browser. Served over HTTP, from any static host or `ledger serve`, it ranks
 search results with fuzzy matching. Opened from a `file:` URL, it falls back
 to plain text matching.
 

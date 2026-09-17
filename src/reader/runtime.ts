@@ -86,6 +86,8 @@ const entityLabels: Readonly<Record<EntityTarget, string>> = {
 const maxPaletteEntities = 3;
 const maxPaletteItems = 9;
 const copiedLabelMs = 1600;
+/** A reload within this gap continues the same visit, so its change markers stay. */
+const visitGapMs = 30 * 60 * 1000;
 
 let searchIndexPromise: Promise<readonly IndexDocument[]> | undefined;
 let filterRequest = 0;
@@ -97,6 +99,9 @@ let pendingResultsScroll = false;
 let openRecordId = "";
 let entityView: EntityView | undefined;
 let entityMatches = new Map<HTMLElement, EntityRelation>();
+/** Records new or changed since the viewer's last visit, by id. */
+let changedIds: ReadonlyMap<string, "new" | "updated"> = new Map();
+let changedOnly = false;
 
 function byId<T extends HTMLElement>(id: string): T | null {
   return document.getElementById(id) as T | null;
@@ -292,6 +297,7 @@ function matches(entry: HTMLElement, matchedScores: Map<string, number> | undefi
   const coverage = controlValue("coverage");
   const tag = controlValue("tag");
   if (entityView && !entityMatches.has(entry)) return false;
+  if (changedOnly && !changedIds.has(entry.dataset.id || "")) return false;
   if (kind !== "all" && entry.dataset.kind !== kind) return false;
   if (status !== "all" && entry.dataset.status !== status) return false;
   if (area !== "all" && !datasetList(entry, "areas").includes(area)) return false;
@@ -427,6 +433,7 @@ async function applyFilters(syncUrl = true): Promise<void> {
     markYearBreaks(pageList, Boolean(matchedScores));
     resultCount.textContent = search && matchedScores ? pluralize(total, "ranked match") : pluralize(total, resultNoun);
     renderEntityBar();
+    renderVisitNote();
     renderPagination(total, pageCount, per);
     empty.hidden = total !== 0;
     empty.dataset.emptyState = search || activeFilterCount() > 0 ? "filtered" : "bare";
@@ -519,7 +526,7 @@ function updateFacetButtons(): void {
 }
 
 function activeFilterCount(): number {
-  return filterKeys.filter((key) => controlValue(key) !== "all").length + (entityView ? 1 : 0);
+  return filterKeys.filter((key) => controlValue(key) !== "all").length + (entityView ? 1 : 0) + (changedOnly ? 1 : 0);
 }
 
 const entityBar = byId<HTMLElement>("entity-bar");
@@ -612,6 +619,8 @@ function writeUrlState(push = false): void {
     if (entityView?.type === type) url.searchParams.set(type, entityView.value);
     else url.searchParams.delete(type);
   }
+  if (changedOnly) url.searchParams.set("changed", "1");
+  else url.searchParams.delete("changed");
   if (push) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
 }
@@ -741,6 +750,7 @@ function readUrlState(): void {
   if (entityType !== entityView?.type || entityValueParam !== entityView?.value) {
     setEntityView(entityType ? { type: entityType, value: entityValueParam } : undefined);
   }
+  changedOnly = params.get("changed") === "1" && changedIds.size > 0;
   const record = params.get("record") || "";
   if (record !== openRecordId) {
     if (record) openPanel(record, false);
@@ -752,6 +762,7 @@ function resetFilters(): void {
   clearTimeout(searchDebounce);
   searchInput.value = "";
   setEntityView(undefined);
+  changedOnly = false;
   for (const key of filterKeys) {
     const control = controls[key];
     if (control) control.value = "all";
@@ -1308,10 +1319,113 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !palette.open && openRecordId) closePanel();
 });
 
+interface VisitState {
+  readonly v: 1;
+  readonly visitedAt: number;
+  /** Content hashes by record id as of the latest load. */
+  readonly current: Readonly<Record<string, string>>;
+  /** Content hashes as of the visit before this one; absent on a first visit. */
+  readonly previous?: Readonly<Record<string, string>>;
+}
+
+const visitNote = byId<HTMLElement>("visit-note");
+const changedToggle = byId<HTMLButtonElement>("changed-toggle");
+const visitKey = `ledger-visits:${document.body.dataset.readerKey || document.title}`;
+
+function isHashMap(value: unknown): value is Record<string, string> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) && Object.values(value).every((hash) => typeof hash === "string");
+}
+
+/** The stored visit, or nothing when storage is unavailable, empty, or unreadable. */
+function readVisitState(): VisitState | undefined {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(visitKey) || "null");
+    if (typeof parsed !== "object" || parsed === null) return undefined;
+    const state = parsed as Partial<VisitState>;
+    if (state.v !== 1 || typeof state.visitedAt !== "number" || !isHashMap(state.current)) return undefined;
+    if (state.previous !== undefined && !isHashMap(state.previous)) return undefined;
+    return state as VisitState;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeVisitState(state: VisitState): void {
+  try {
+    localStorage.setItem(visitKey, JSON.stringify(state));
+  } catch {
+    // Storage may be unavailable or full; change markers then last for this page load only.
+  }
+}
+
+function currentHashes(): Record<string, string> {
+  return Object.fromEntries(entries.map((entry) => [entry.dataset.id || "", entry.dataset.hash || ""]));
+}
+
+/**
+ * Compares this load with the viewer's previous visit. A first visit only
+ * records a baseline; a load after a gap of `visitGapMs` starts a new visit,
+ * and a reload within it keeps comparing with the same earlier visit.
+ */
+function trackVisit(): void {
+  const current = currentHashes();
+  const now = Date.now();
+  const stored = readVisitState();
+  const previous = !stored ? undefined : now - stored.visitedAt > visitGapMs ? stored.current : stored.previous;
+  writeVisitState({ v: 1, visitedAt: now, current, ...(previous ? { previous } : {}) });
+  const changes = new Map<string, "new" | "updated">();
+  if (previous) {
+    for (const [id, hash] of Object.entries(current)) {
+      if (!(id in previous)) changes.set(id, "new");
+      else if (previous[id] !== hash) changes.set(id, "updated");
+    }
+  }
+  changedIds = changes;
+  markChangedEntries();
+}
+
+function markChangedEntries(): void {
+  for (const entry of entries) {
+    entry.querySelector(".change-chip")?.remove();
+    const change = changedIds.get(entry.dataset.id || "");
+    if (!change) continue;
+    const chip = document.createElement("span");
+    chip.className = "tag change-chip";
+    chip.dataset.tone = "new";
+    chip.textContent = change === "new" ? "New" : "Updated";
+    entry.querySelector("[data-score-label]")?.after(chip);
+  }
+}
+
+function renderVisitNote(): void {
+  if (!visitNote || !changedToggle) return;
+  visitNote.hidden = changedIds.size === 0;
+  changedToggle.textContent = `${changedIds.size} changed since your last visit`;
+  changedToggle.setAttribute("aria-pressed", String(changedOnly));
+}
+
+changedToggle?.addEventListener("click", () => {
+  changedOnly = !changedOnly;
+  currentPage = 1;
+  void applyFilters(false).then(() => writeUrlState(true));
+});
+byId<HTMLElement>("mark-seen")?.addEventListener("click", () => {
+  const current = currentHashes();
+  writeVisitState({ v: 1, visitedAt: Date.now(), current, previous: current });
+  changedIds = new Map();
+  changedOnly = false;
+  markChangedEntries();
+  void applyFilters(false).then(() => {
+    writeUrlState();
+    resultCount.focus({ preventScroll: true });
+  });
+});
+
 window.addEventListener("popstate", () => {
   readUrlState();
   void applyFilters(false);
 });
+trackVisit();
 readUrlState();
 updateThemeLabel();
 void applyFilters(false);

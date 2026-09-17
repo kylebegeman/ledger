@@ -777,7 +777,10 @@
     .record-list button small, .entity-missing small { flex: none; color: var(--muted); font-size: 12px; }
     [data-open-record] code { flex: none; }
     .entity-value button { padding: 0; }
-    .copy-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+    .copy-actions, .visit-note { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+    .visit-note { margin: 6px 0 0; }
+    #changed-toggle[aria-pressed="true"] { color: var(--accent); font-weight: 600; }
+    .tag[data-tone="new"] { border-color: transparent; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
     .agent-packet > .text-button { margin: 0 12px 12px; }
     button.tag { cursor: pointer; }
     button.tag:hover { border-color: var(--control-line); color: var(--ink); }

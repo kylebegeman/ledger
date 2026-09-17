@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import { buildStaticReaderModel, buildSearchIndex, chunkRecordDetails, type LedgerStaticReaderModel } from "../src/render.js";
 import { staticReaderRuntime, staticReaderStyles } from "../src/renderAssets.js";
@@ -16,6 +16,8 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   document.documentElement.innerHTML = "";
   delete document.documentElement.dataset.theme;
+  vi.unstubAllGlobals();
+  localStorage.clear();
 });
 
 describe("reader runtime bundle", () => {
@@ -416,6 +418,100 @@ describe("reader entity views", () => {
   });
 });
 
+describe("changes since the last visit", () => {
+  const key = "ledger-visits:reader-runtime:internal";
+  const hour = 60 * 60 * 1000;
+  let html: string;
+  let hashes: Record<string, string>;
+
+  beforeEach(() => {
+    localStorage.clear();
+    window.history.replaceState(null, "", "/");
+    const model = buildStaticReaderModel(workspace(), [
+      record("0001", "Static reader renderer", ["reader"], "landed"),
+      record("0002", "Retry policy for the CLI", ["cli"], "landed"),
+      record("0003", "Cache warm command", ["cache"], "draft"),
+    ]);
+    globalThis.fetch = (async () => new Response("[]", { headers: { "content-type": "application/json" } })) as typeof fetch;
+    html = renderStaticReaderHtml(model, { iconSvg: "<svg></svg>" });
+    hashes = Object.fromEntries([...html.matchAll(/data-id="([^"]+)"[^>]*?data-hash="([^"]+)"/g)].map((match) => [match[1]!, match[2]!]));
+  });
+
+  const chips = () =>
+    Object.fromEntries(Array.from(document.querySelectorAll<HTMLElement>(".change-chip")).map((chip) => [chip.closest<HTMLElement>(".entry")?.dataset.id, chip.textContent]));
+  const stored = () => JSON.parse(localStorage.getItem(key) || "null") as { current: Record<string, string>; previous?: Record<string, string> };
+
+  it("records a baseline on a first visit and marks nothing", async () => {
+    expect(Object.keys(hashes)).toEqual(["0003", "0002", "0001"]);
+    mount(html);
+    await settle(50);
+    expect(chips()).toEqual({});
+    expect(document.getElementById("visit-note")?.hidden).toBe(true);
+    expect(stored()).toMatchObject({ current: hashes });
+    expect(stored().previous).toBeUndefined();
+  });
+
+  it("marks new and updated records after a gap, lists only them, and forgets them once seen", async () => {
+    localStorage.setItem(key, JSON.stringify({ v: 1, visitedAt: Date.now() - 2 * hour, current: { "0001": "0123456789ab", "0002": hashes["0002"] } }));
+    mount(html);
+    await settle(50);
+    expect(chips()).toEqual({ "0003": "New", "0001": "Updated" });
+    const toggle = document.getElementById("changed-toggle") as HTMLElement;
+    expect(document.getElementById("visit-note")?.hidden).toBe(false);
+    expect(toggle.textContent).toBe("2 changed since your last visit");
+
+    toggle.click();
+    await settle(50);
+    expect(visibleIds()).toEqual(["0003", "0001"]);
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(new URL(window.location.href).searchParams.get("changed")).toBe("1");
+    expect(document.getElementById("filter-status")?.textContent).toContain("1 active filter");
+
+    // A reload within the same visit keeps comparing with the earlier visit, and the URL keeps the filter.
+    mount(html);
+    await settle(50);
+    expect(chips()).toEqual({ "0003": "New", "0001": "Updated" });
+    expect(visibleIds()).toEqual(["0003", "0001"]);
+
+    (document.getElementById("mark-seen") as HTMLElement).click();
+    await settle(50);
+    expect(chips()).toEqual({});
+    expect(document.getElementById("visit-note")?.hidden).toBe(true);
+    expect(visibleIds()).toEqual(["0003", "0002", "0001"]);
+    expect(new URL(window.location.href).searchParams.get("changed")).toBeNull();
+    expect(stored().previous).toEqual(hashes);
+    expect(document.activeElement?.id).toBe("result-count");
+  });
+
+  it("starts a new visit after a gap, so changes seen last time are no longer marked", async () => {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ v: 1, visitedAt: Date.now() - 2 * hour, current: hashes, previous: { "0001": "0123456789ab" } }),
+    );
+    mount(html);
+    await settle(50);
+    expect(chips()).toEqual({});
+    expect(stored().previous).toEqual(hashes);
+  });
+
+  it("ignores unreadable state and keeps working without storage", async () => {
+    localStorage.setItem(key, "{not json");
+    mount(html);
+    await settle(50);
+    expect(chips()).toEqual({});
+    expect(stored().current).toEqual(hashes);
+
+    const denied = () => {
+      throw new DOMException("The operation is insecure.", "SecurityError");
+    };
+    vi.stubGlobal("localStorage", { getItem: denied, setItem: denied, removeItem: denied, clear: () => undefined });
+    mount(html);
+    await settle(50);
+    expect(visibleIds()).toEqual(["0003", "0002", "0001"]);
+    expect(document.getElementById("visit-note")?.hidden).toBe(true);
+  });
+});
+
 function openRecordLink(id: string): void {
   (document.querySelector(`.entry[data-id="${id}"] .entry-link`) as HTMLElement).click();
 }
@@ -502,8 +598,11 @@ function mount(html: string): void {
   const withoutScripts = html.replace(/<script>[\s\S]*?<\/script>/g, "");
   const bodyStart = withoutScripts.indexOf("<body");
   const bodyEnd = withoutScripts.lastIndexOf("</body>");
-  const bodyInner = withoutScripts.slice(withoutScripts.indexOf(">", bodyStart) + 1, bodyEnd);
-  document.body.innerHTML = bodyInner;
+  const bodyTagEnd = withoutScripts.indexOf(">", bodyStart);
+  for (const attribute of withoutScripts.slice(bodyStart, bodyTagEnd).matchAll(/([\w-]+)="([^"]*)"/g)) {
+    document.body.setAttribute(attribute[1]!, attribute[2]!);
+  }
+  document.body.innerHTML = withoutScripts.slice(bodyTagEnd + 1, bodyEnd);
   new Function(staticReaderRuntime)();
 }
 
