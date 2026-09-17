@@ -74,14 +74,20 @@ export function normalizeHookPayload(
   const toolName = firstString(payload.tool_name);
   const candidates: string[] = [];
   if (event === "post-tool-use") {
-    // Codex puts the apply_patch body in tool_input.command. Only a patch body is parsed, so a shell
-    // command that merely contains patch-shaped text (a heredoc, for example) records no paths.
-    const command = firstString(toolInput.command);
-    const patchCommand = command !== undefined && (toolName === "apply_patch" || /^\s*\*\*\* Begin Patch\b/.test(command));
+    // Codex puts the apply_patch body in tool_input.command, as one string or as an argv array whose
+    // first word is apply_patch. Only a patch body is parsed, so a shell command that merely contains
+    // patch-shaped text (a heredoc, for example) records no paths.
+    const commandWords = Array.isArray(toolInput.command)
+      ? toolInput.command.filter((word): word is string => typeof word === "string")
+      : undefined;
+    const patchBody = firstString(toolInput.command) ?? commandWords?.find((word) => beginPatchPattern.test(word));
+    const patchCommand =
+      patchBody !== undefined &&
+      (toolName === "apply_patch" || commandWords?.[0] === "apply_patch" || beginPatchPattern.test(patchBody));
     candidates.push(
       ...stringsOf(toolInput.file_path, toolInput.notebook_path, toolInput.path, payload.file_path),
       ...patchPaths(firstString(toolInput.patch, toolInput.input)),
-      ...(patchCommand ? patchPaths(command) : []),
+      ...(patchCommand ? patchPaths(patchBody) : []),
     );
     if (Array.isArray(toolInput.edits)) {
       for (const edit of toolInput.edits) {
@@ -100,6 +106,8 @@ export function normalizeHookPayload(
     trigger: firstString(payload.trigger),
   };
 }
+
+const beginPatchPattern = /^\s*\*\*\* Begin Patch\b/;
 
 function patchPaths(patch: string | undefined): readonly string[] {
   if (!patch) return [];
@@ -272,7 +280,7 @@ function renderNestedHooks(
   const hooks: Record<string, unknown> = { ...existingHooks };
   for (const [name, spec] of Object.entries(events)) {
     const groups = Array.isArray(existingHooks[name]) ? (existingHooks[name] as unknown[]) : [];
-    const kept = groups.filter((group) => !isLedgerNestedGroup(group));
+    const kept = groups.flatMap((group) => withoutLedgerHooks(group));
     const group: NestedHookGroup = {
       ...(spec.matcher ? { matcher: spec.matcher } : {}),
       hooks: [{ type: "command", command: hookCommand(command, spec.event, host), timeout: spec.timeout }],
@@ -286,9 +294,12 @@ function renderNestedHooks(
   return result;
 }
 
-function isLedgerNestedGroup(group: unknown): boolean {
-  if (!isRecord(group) || !Array.isArray(group.hooks) || group.hooks.length === 0) return false;
-  return group.hooks.every((hook) => isRecord(hook) && isLedgerHookCommand(hook.command));
+/** The group without Ledger's own entries, or nothing when those were all it held, so a user's entry in Ledger's group survives a reinstall. */
+function withoutLedgerHooks(group: unknown): readonly unknown[] {
+  if (!isRecord(group) || !Array.isArray(group.hooks)) return [group];
+  const hooks = group.hooks.filter((hook) => !(isRecord(hook) && isLedgerHookCommand(hook.command)));
+  if (hooks.length === group.hooks.length) return [group];
+  return hooks.length === 0 ? [] : [{ ...group, hooks }];
 }
 
 function renderCursorHooks(current: Record<string, unknown>, command: string): Record<string, unknown> {
@@ -473,6 +484,8 @@ export interface HookEventResult {
   readonly entry?: { readonly id: string; readonly path: string; readonly created: boolean };
   readonly closed?: boolean;
   readonly handoffPath?: string;
+  /** Why the event did nothing, for the host's stderr. */
+  readonly note?: string;
   /** The JSON object written to stdout for the host. */
   readonly output: Readonly<Record<string, unknown>>;
 }
@@ -506,6 +519,8 @@ export async function runHookEvent(
   payload: LedgerHookPayload,
   options: RunHookOptions = {},
 ): Promise<HookEventResult> {
+  // Every supported host names its session; without an id a touch would land on whichever session is newest.
+  if (!payload.sessionId) return { host, event, note: "the payload carries no session id, so nothing was recorded", output: {} };
   const selector = { hostSession: payload.sessionId };
   switch (event) {
     case "session-start": {
@@ -542,6 +557,7 @@ export async function runHookEvent(
         draftSessionReceipt(workspace, documents, selector, { fromDiff: true }),
       );
       if (!drafted) return { host, event, output: {} };
+      if (drafted.entry.created) await forgetHookNotice(workspace, drafted.session.id, drafted.entry.id);
       return {
         host,
         event,
@@ -559,6 +575,7 @@ export async function runHookEvent(
       const drafted = await withFreshCatalog(workspace, (documents) =>
         draftSessionReceipt(workspace, documents, selector, { fromDiff: true }),
       );
+      if (drafted?.entry.created) await forgetHookNotice(workspace, drafted.session.id, drafted.entry.id);
       const current = await readLedgerDocuments(workspace);
       // A record that expired while its tab stayed open is still closed when SessionEnd finally arrives.
       const session =
@@ -681,18 +698,34 @@ async function announcePendingDrafts(workspace: LedgerWorkspace, hostSession: st
         `Ledger drafted ${entry.path} for this session (${session.normalized.id}). Finish that draft and run ${command} ready; do not create another receipt with ${command} new.`,
     )
     .join("\n");
-  const next: HookNotices = {
-    ...store.notices,
-    [session.normalized.id]: [...announced, ...pending.map((entry) => entry.id)],
-  };
+  // Sessions that no longer exist take their announcements with them, so the store stays small.
+  const liveSessions = new Set(
+    documents.filter((document) => document.kind === "session").map((document) => normalizeDocument(document).id),
+  );
+  const next: HookNotices = Object.fromEntries([
+    ...Object.entries(store.notices).filter(([id]) => id !== session.normalized.id && liveSessions.has(id)),
+    [session.normalized.id, [...announced, ...pending.map((entry) => entry.id)]],
+  ]);
+  await writeHookNotices(workspace, store.raw, next);
+  return context;
+}
+
+/** Drop a draft's id from the store so a draft created anew, even under an id a deleted draft used, is announced. */
+async function forgetHookNotice(workspace: LedgerWorkspace, sessionId: string, entryId: string): Promise<void> {
+  const store = await readHookNotices(workspace);
+  const announced = store.notices[sessionId];
+  if (!announced?.includes(entryId)) return;
+  await writeHookNotices(workspace, store.raw, { ...store.notices, [sessionId]: announced.filter((id) => id !== entryId) });
+}
+
+async function writeHookNotices(workspace: LedgerWorkspace, previous: string | undefined, next: HookNotices): Promise<void> {
   await applyFileTransaction(workspace, "record hook notices", [
     {
       path: hookNoticesPath(workspace),
       content: `${JSON.stringify(next, null, 2)}\n`,
-      expectedHash: store.raw === undefined ? null : hashFileContent(store.raw),
+      expectedHash: previous === undefined ? null : hashFileContent(previous),
     },
   ]);
-  return context;
 }
 
 /** Change entries whose id the session lists in `related`, in catalog order. */

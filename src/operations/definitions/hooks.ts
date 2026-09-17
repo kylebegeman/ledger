@@ -184,6 +184,7 @@ Installed by ledger hooks install.`,
       const result = await runHookEvent(workspace, input.host, input.event, payload, {
         budgetTokens: input.budgetTokens ?? defaultHookContextBudget,
       });
+      if (result.note) context.logError(`ledger hook ${input.event}: ${result.note}`);
       context.log(JSON.stringify(result.output));
       return { data: { event: input.event, host: input.host, handled: true, result } };
     } catch (error) {

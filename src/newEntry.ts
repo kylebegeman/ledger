@@ -12,6 +12,12 @@ import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 import { changeTemplate } from "./workspace.js";
 
 const largeDiffFileThreshold = 40;
+/** A default title names this many areas before it counts the rest. */
+const maxTitleAreas = 3;
+/** Areas inferred from a diff are trimmed to the most touched ones so a wide refactor stays readable. */
+const maxInferredAreas = 8;
+const maxSymbolsPerFile = 12;
+const maxDraftSymbols = 120;
 const largeDiffGroupThreshold = 5;
 
 export interface CreateEntryOptions {
@@ -151,8 +157,14 @@ export function isLedgerScaffoldPath(workspace: LedgerWorkspace, filePath: strin
  * flags a draft whose title still equals this value.
  */
 export function defaultDraftTitle(areas: readonly string[], files: readonly string[]): string {
-  if (areas.length > 0) return `Changes to ${areas.join(", ")}`;
+  if (areas.length > 0) return `Changes to ${draftTitleSubject(areas)}`;
   return `Changes to ${files[0] ?? "the working tree"}`;
+}
+
+/** The first few areas and a count of the rest, so a wide diff gets a short title and file name. */
+function draftTitleSubject(areas: readonly string[]): string {
+  if (areas.length <= maxTitleAreas) return areas.join(", ");
+  return `${areas.slice(0, maxTitleAreas).join(", ")}, and ${areas.length - maxTitleAreas} more`;
 }
 
 /**
@@ -165,7 +177,7 @@ export function isDefaultDraftTitle(title: string, areas: readonly string[], fil
   const match = /^Changes to (.+)$/.exec(title.trim());
   if (!match) return false;
   const subject = match[1]!;
-  return (areas.length > 0 && subject === areas.join(", ")) || files.includes(subject) || subject === "the working tree";
+  return (areas.length > 0 && subject === draftTitleSubject(areas)) || files.includes(subject) || subject === "the working tree";
 }
 
 export async function createProductNoteEntry(
@@ -281,30 +293,36 @@ export function inferAreas(
   workspace: LedgerWorkspace,
   files: readonly GitChangedFile[],
 ): readonly string[] {
-  const areas = new Set<string>();
+  // Files per area; the most touched areas win when a diff spans more than the cap.
+  const areas = new Map<string, number>();
   // Root-level file names (CONTRIBUTING.md) only become areas when no directory names one.
-  const rootFileAreas = new Set<string>();
+  const rootFileAreas = new Map<string, number>();
+  const count = (counts: Map<string, number>, area: string) => counts.set(area, (counts.get(area) ?? 0) + 1);
   const docsRoot = normalizePath(workspace.config.docs.root);
   for (const file of files) {
     const normalized = normalizePath(file.path);
     const first = normalized.split("/")[0] ?? "";
     if (isDocsPath(normalized, docsRoot)) {
-      areas.add("docs");
+      count(areas, "docs");
     } else if (normalized.startsWith("test/") || normalized.includes("/test/") || normalized.includes("/tests/")) {
-      areas.add("tests");
+      count(areas, "tests");
     } else if (normalized.startsWith("src/")) {
       const [, second] = normalized.split("/");
-      areas.add(second ? areaFromSegment(second) : "src");
+      count(areas, second ? areaFromSegment(second) : "src");
     } else if (normalized.includes("/")) {
-      areas.add(areaFromSegment(first));
+      count(areas, areaFromSegment(first));
     } else if (first) {
-      rootFileAreas.add(areaFromSegment(first));
+      count(rootFileAreas, areaFromSegment(first));
     }
   }
   // A dot directory such as .ledger has no area name once its extension is stripped.
-  const named = (values: ReadonlySet<string>) => [...values].filter((area) => area.length > 0);
+  const named = (counts: ReadonlyMap<string, number>) => [...counts.entries()].filter(([area]) => area.length > 0);
   const directoryAreas = named(areas);
-  return (directoryAreas.length > 0 ? directoryAreas : named(rootFileAreas)).sort();
+  return (directoryAreas.length > 0 ? directoryAreas : named(rootFileAreas))
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, maxInferredAreas)
+    .map(([area]) => area)
+    .sort();
 }
 
 interface ChangedSymbols {
@@ -330,8 +348,12 @@ async function collectChangedSymbols(
     }
     fallbackReason ??= extraction.fallbackReason;
     if (extraction.symbols.length === 0) continue;
-    byFile.set(file.path, extraction.symbols);
-    for (const symbol of extraction.symbols) all.add(symbol);
+    const symbols = extraction.symbols.slice(0, maxSymbolsPerFile);
+    byFile.set(file.path, symbols);
+    for (const symbol of symbols) {
+      if (all.size >= maxDraftSymbols) break;
+      all.add(symbol);
+    }
   }
 
   return {

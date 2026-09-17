@@ -1,4 +1,4 @@
-import { lstat, mkdir, readFile, readlink, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readlink, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import { normalizePath } from "./documents.js";
 import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
@@ -134,11 +134,13 @@ async function exposeSkillToHost(
     }
     await rm(linkPath, { force: true });
   } else if (state?.isDirectory()) {
-    const copyPath = path.join(linkPath, "SKILL.md");
-    const existing = await readOptional(copyPath);
-    if (existing === content) return { host, path: `${linkRelative}/SKILL.md`, mode: "copy", changed: false };
-    await writeFile(copyPath, content, "utf8");
-    return { host, path: `${linkRelative}/SKILL.md`, mode: "copy", changed: true };
+    const copyRelative = `${linkRelative}/SKILL.md`;
+    const existing = await readOptional(path.join(linkPath, "SKILL.md"));
+    if (existing === content) return { host, path: copyRelative, mode: "copy", changed: false };
+    await applyFileTransaction(workspace, "install skill copy", [
+      { path: copyRelative, content, expectedHash: existing === undefined ? null : hashFileContent(existing) },
+    ]);
+    return { host, path: copyRelative, mode: "copy", changed: true };
   } else if (state) {
     throw new LedgerError("filesystem-error", `${linkRelative} exists and is neither a symlink nor a directory`, {
       path: linkRelative,
@@ -150,7 +152,9 @@ async function exposeSkillToHost(
   } catch (error) {
     if (!isCode(error, "EPERM") && !isCode(error, "EACCES") && !isCode(error, "ENOTSUP")) throw error;
     await mkdir(linkPath, { recursive: true });
-    await writeFile(path.join(linkPath, "SKILL.md"), content, "utf8");
+    await applyFileTransaction(workspace, "install skill copy", [
+      { path: `${linkRelative}/SKILL.md`, content, expectedHash: null },
+    ]);
     return { host, path: `${linkRelative}/SKILL.md`, mode: "copy", changed: true };
   }
 }
@@ -198,19 +202,43 @@ export async function writeAgentsBlock(
   return { path: relativePath, changed, created: existing === undefined };
 }
 
+/**
+ * Replace the managed block in place. When a file carries more than one
+ * managed block, the first is replaced and the rest are removed, so an agent
+ * never reads two versions of the workflow.
+ */
 export function replaceAgentsBlock(existing: string, block: string, label = "AGENTS.md"): string {
-  const start = existing.indexOf(agentsBlockStart);
-  const end = existing.indexOf(agentsBlockEnd);
-  if (start >= 0 && end > start) {
-    return `${existing.slice(0, start)}${block}${existing.slice(end + agentsBlockEnd.length)}`;
+  const ranges = managedBlockRanges(existing, label);
+  if (ranges.length === 0) {
+    const trimmed = existing.replace(/\s+$/, "");
+    return trimmed.length === 0 ? `${block}\n` : `${trimmed}\n\n${block}\n`;
   }
-  if (start >= 0 || end >= 0) {
-    throw new LedgerError("invalid-markdown", `${label} has an unbalanced Ledger agents block; remove the stray marker`, {
-      path: label,
-    });
+  let result = "";
+  let cursor = 0;
+  ranges.forEach(([start, end], index) => {
+    const between = existing.slice(cursor, start);
+    result += index === 0 ? `${between}${block}` : between.replace(/\s+$/, "");
+    cursor = end;
+  });
+  return result + existing.slice(cursor);
+}
+
+/** Start and end offsets of every managed block, in order; throws when a marker has no partner. */
+function managedBlockRanges(existing: string, label: string): readonly (readonly [number, number])[] {
+  const ranges: (readonly [number, number])[] = [];
+  let from = 0;
+  for (;;) {
+    const start = existing.indexOf(agentsBlockStart, from);
+    const end = existing.indexOf(agentsBlockEnd, from);
+    if (start === -1 && end === -1) return ranges;
+    if (start === -1 || end === -1 || end < start) {
+      throw new LedgerError("invalid-markdown", `${label} has an unbalanced Ledger agents block; remove the stray marker`, {
+        path: label,
+      });
+    }
+    ranges.push([start, end + agentsBlockEnd.length]);
+    from = end + agentsBlockEnd.length;
   }
-  const trimmed = existing.replace(/\s+$/, "");
-  return trimmed.length === 0 ? `${block}\n` : `${trimmed}\n\n${block}\n`;
 }
 
 async function readOptional(absolutePath: string): Promise<string | undefined> {

@@ -141,6 +141,24 @@ describe("agents --write", () => {
     expect(data.instructions).toContain("`npx ledger unreleased --json`");
   });
 
+  it("replaces every managed block and keeps one", () => {
+    const block = "<!-- ledger:agents:start -->\nnew\n<!-- ledger:agents:end -->";
+    const twice = [
+      "# Rules",
+      "",
+      "<!-- ledger:agents:start -->\nold one\n<!-- ledger:agents:end -->",
+      "",
+      "Middle note.",
+      "",
+      "<!-- ledger:agents:start -->\nold two\n<!-- ledger:agents:end -->",
+      "",
+    ].join("\n");
+    const replaced = replaceAgentsBlock(twice, block);
+    expect(replaced).toBe(`# Rules\n\n${block}\n\nMiddle note.\n`);
+    expect(replaced.split("<!-- ledger:agents:start -->")).toHaveLength(2);
+    expect(() => replaceAgentsBlock(`${block}\n<!-- ledger:agents:end -->\n`, block)).toThrow(/unbalanced/);
+  });
+
   it("rejects unbalanced markers and supports --file from the CLI", async () => {
     const root = await fixtureWorkspace();
     expect(() => replaceAgentsBlock("<!-- ledger:agents:start -->\nlost", "block")).toThrow(/unbalanced/);

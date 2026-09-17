@@ -94,6 +94,13 @@ describe("renderHostHooks", () => {
     ]);
     const again = renderHostHooks("claude-code", "npx ledger", JSON.stringify(rendered));
     expect(JSON.parse(again)).toEqual(rendered);
+
+    // A command a user adds to Ledger's own group survives a reinstall without duplicating Ledger's entry.
+    rendered.hooks.SessionStart[0].hooks.push({ type: "command", command: "echo my own thing" });
+    const merged = JSON.parse(renderHostHooks("claude-code", "npx ledger", JSON.stringify(rendered)));
+    expect(merged.hooks.SessionStart).toHaveLength(2);
+    expect(merged.hooks.SessionStart[0].hooks.map((hook: { command: string }) => hook.command)).toEqual(["echo my own thing"]);
+    expect(merged.hooks.SessionStart[1].hooks[0].command).toBe("npx ledger hook session-start --host claude-code");
   });
 
   it("adds the UserPromptSubmit group once to a file installed with the five-event layout", () => {
@@ -233,6 +240,17 @@ describe("normalizeHookPayload", () => {
       root,
     );
     expect(aliased.paths).toEqual(["src/added.ts"]);
+    const argv = normalizeHookPayload(
+      "codex",
+      "post-tool-use",
+      {
+        session_id: "c2",
+        tool_name: "shell",
+        tool_input: { command: ["apply_patch", "*** Begin Patch\n*** Update File: src/argv.ts\n@@\n-a\n+b\n*** End Patch"] },
+      },
+      root,
+    );
+    expect(argv.paths).toEqual(["src/argv.ts"]);
   });
 
   it("reads Codex apply_patch paths and Cursor afterFileEdit payloads", () => {
@@ -477,6 +495,37 @@ describe("hook events", () => {
     });
     expect((await runHookEvent(workspace, "codex", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false })).output).toEqual({});
   }, 30_000);
+
+  it("announces a draft created anew after the first one was deleted", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const sessionId = "again-1";
+    await runHookEvent(workspace, "claude-code", "session-start", { sessionId, paths: [], stopHookActive: false });
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 3;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, toolName: "Edit", paths: ["src/feature.ts"], stopHookActive: false });
+    const first = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(first.entry).toMatchObject({ id: "0001", created: true });
+    const firstPrompt = await runHookEvent(workspace, "claude-code", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false });
+    expect(firstPrompt.context).toContain(first.entry!.path);
+
+    await rm(path.join(root, first.entry!.path));
+    await writeFile(path.join(root, "src", "other.ts"), "export const other = 1;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, toolName: "Edit", paths: ["src/other.ts"], stopHookActive: false });
+    const second = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(second.entry).toMatchObject({ id: "0001", created: true });
+    expect(second.entry!.path).not.toBe(first.entry!.path);
+    const secondPrompt = await runHookEvent(workspace, "claude-code", "user-prompt-submit", { sessionId, paths: [], stopHookActive: false });
+    expect(secondPrompt.context).toContain(second.entry!.path);
+  }, 30_000);
+
+  it("records nothing for a payload without a session id and says so", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const touch = await runHookEvent(workspace, "cursor", "post-tool-use", { paths: ["src/feature.ts"], stopHookActive: false });
+    expect(touch.output).toEqual({});
+    expect(touch.note).toContain("no session id");
+    expect((await readLedgerDocuments(workspace)).filter((document) => document.kind === "session")).toHaveLength(0);
+  });
 
   it("never re-drafts a landed linked receipt and drafts again only for an uncovered path", async () => {
     const root = await fixtureRepo();
