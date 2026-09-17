@@ -223,8 +223,9 @@ use Git's merge-base diff. Git command failures are typed operational errors;
 they never collapse into an apparently clean change set.
 
 Drafting from Git diffs stays conservative. Ledger can infer areas from changed
-paths, extract Markdown headings and parser-backed TypeScript or JavaScript
-top-level anchors, and add docs-impact prompts. `typescript` is an optional
+paths, extract Markdown headings, parser-backed TypeScript or JavaScript
+top-level anchors, and Go, Rust, Python, and Swift declaration outlines, and
+add docs-impact prompts. `typescript` is an optional
 peer dependency: when it is installed the parser runs, otherwise a regex
 extractor runs and the draft says so (`ledger new` prints the extractor
 counts and the fallback reason, and `ledger doctor` has a `symbols` check).
@@ -234,11 +235,27 @@ TypeScript 7.0 ships no JavaScript API, so Ledger treats it as unavailable
 unless `@typescript/typescript6`, the official side-by-side package, is also
 installed; that package is tried next.
 Callers that need parser quality pass `parser: "typescript"` and get an error
-instead of silent regex output. Each extractor also reports where every
+instead of silent regex output.
+
+The outline extractors in `src/symbolOutlines.ts` need no toolchain. They
+blank comment and string contents first, keeping every line break, so the
+declaration patterns and the brace, bracket, and indentation scans only see
+code. Go yields functions, methods as `Type.Method`, and types, constants,
+and variables, grouped or not. Rust yields items, with the members of `impl`
+blocks, traits, and inline modules as `Type::name`. Python yields functions,
+classes, and module or class assignments and annotations by logical line,
+with class members as `Class.name`. Swift yields types, functions,
+properties, type aliases, and enum cases, with the members of types and
+extensions as `Type.name`. A declaration starts at the doc comments,
+attributes, or decorators above it, including a multi-line attribute or a
+block doc comment, and ends at its closing brace, statement end, or dedent.
+Members sit one level below their container, and nothing inside a function
+body is listed. `ledger stale` treats a member name as present when each of
+its segments appears in the file. Each extractor also reports where every
 symbol sits (`LedgerSymbolSpan`): a heading's section up to the next heading
 of the same or a higher level, with fenced code skipped; a parsed top-level
-declaration from its doc comment to its end; or, for the regex fallback, a
-declaration up to the next one. A draft reads the changed lines from
+declaration from its doc comment to its end; an outlined declaration as
+above; or, for the regex fallback, a declaration up to the next one. A draft reads the changed lines from
 `git diff --unified=0` (`getChangedLineRanges` in `src/git.ts`) and keeps a
 file's symbols only where a changed line falls in a span. A line inside a
 subsection counts only for the innermost heading (`symbolsTouchedByLines`),

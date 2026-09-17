@@ -65,7 +65,9 @@ describe("doctor", () => {
     const check = await symbolsCheckFor(tempDir);
     expect(check.level).toBe("pass");
     expect(check.message).toContain("no TypeScript or JavaScript under coverage");
-    expect(check.message).toContain("so Go anchors are not extracted or checked");
+    expect(check.message).toBe(
+      "no TypeScript or JavaScript under coverage, so the TypeScript parser is not needed; Go symbols come from Ledger's declaration outlines",
+    );
   }, 30_000);
 
   it("keeps the TypeScript parser check when TypeScript is under coverage", async () => {

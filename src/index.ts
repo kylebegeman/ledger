@@ -184,6 +184,7 @@ export {
   symbolExtractorStatus,
   symbolsTouchedByLines,
 } from "./symbols.js";
+export { outlineLanguageExtensions, outlineSymbolSpans } from "./symbolOutlines.js";
 export { renderLedgerTemplate, yamlStringArray } from "./template.js";
 export {
   issueKey,
@@ -224,6 +225,7 @@ export type * from "./skills.js";
 export type * from "./sessions.js";
 export type * from "./serve.js";
 export type * from "./stale.js";
+export type * from "./symbolOutlines.js";
 export type * from "./symbols.js";
 export type * from "./template.js";
 export type * from "./types.js";

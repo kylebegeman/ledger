@@ -271,6 +271,11 @@ function relationshipFields(
   ];
 }
 
+/**
+ * Symbols none of the files contain. A member name such as `Server.Handle` or
+ * `Parser::parse` counts as present when every segment appears, because code
+ * spells the container and the member apart.
+ */
 async function symbolsMissingFromFiles(
   sources: ReferencedFileCache,
   files: readonly string[],
@@ -280,7 +285,11 @@ async function symbolsMissingFromFiles(
   if (checkableSymbols.length === 0) return [];
   const combined = await sources.read(files);
   if (combined === undefined) return [];
-  return checkableSymbols.filter((symbol) => !combined.includes(symbol));
+  return checkableSymbols.filter((symbol) => {
+    if (combined.includes(symbol)) return false;
+    const segments = symbol.split(/::|\./).filter((segment) => segment.length > 0);
+    return segments.length < 2 || !segments.every((segment) => combined.includes(segment));
+  });
 }
 
 /**
@@ -299,12 +308,14 @@ export function isCheckableAnchor(anchor: LedgerAnchor, files: readonly string[]
   return !names.has(normalizePath(anchor.text));
 }
 
-const dottedKeyPattern = /^[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)+$/;
+const segmentedNamePattern = /^[A-Za-z_$][\w$-]*(?:(?:\.|::)[A-Za-z_$][\w$-]*)+$/;
 
 /**
  * Anchors from a Changed Files block that none of the block's existing files
- * contain. A dotted key path such as `git.ignore` counts as present when every
- * segment appears, because YAML and JSON spell nested keys across lines.
+ * contain. A dotted key path such as `git.ignore`, or a member name such as
+ * `Invoice.Charge` or `Parser::parse`, counts as present when every segment
+ * appears, because YAML and JSON spell nested keys across lines and code
+ * spells the container and the member apart.
  */
 async function anchorsMissingFromFiles(
   sources: ReferencedFileCache,
@@ -315,7 +326,7 @@ async function anchorsMissingFromFiles(
   if (combined === undefined) return [];
   return anchors.filter((anchor) => {
     if (combined.includes(anchor)) return false;
-    if (dottedKeyPattern.test(anchor)) return !anchor.split(".").every((segment) => combined.includes(segment));
+    if (segmentedNamePattern.test(anchor)) return !anchor.split(/::|\./).every((segment) => combined.includes(segment));
     return true;
   });
 }
@@ -396,5 +407,5 @@ function isCode(error: unknown, code: string): boolean {
 }
 
 function isCheckableSymbol(symbol: string): boolean {
-  return /^[A-Za-z_$][\w$.-]*$/.test(symbol);
+  return /^[A-Za-z_$][\w$.-]*(?:::[A-Za-z_$][\w$]*)*$/.test(symbol);
 }

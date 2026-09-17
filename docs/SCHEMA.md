@@ -35,7 +35,7 @@ Shared fields:
 | `prs` | string array | no | Pull requests associated with the document. |
 | `release` | string | no | Release version that carried the work. |
 | `files` | string array | no | Touched or relevant paths. |
-| `symbols` | string array | no | Functions, components, schemas, or anchors. |
+| `symbols` | string array | no | Functions, components, schemas, or anchors. Members are `Type.member`, or `Type::member` in Rust. |
 | `tags` | string array | no | Lightweight facets for filtering records, for example `dogfood` or `migration`. |
 | `decisions` | string array | no | Decision IDs this document realizes or depends on. |
 | `backlog` | string array | no | Backlog item IDs this document promotes or relates to. |
@@ -153,7 +153,8 @@ when it no longer appears, and `stale-invariant` when an invariant cites a
 stale anchor or symbol in backticks. Anchors without backticks that contain
 spaces are descriptions and are not checked, an anchor that is the block's own
 file name or directory is not checked, and a dotted key path such as
-`git.ignore` counts as present when every segment appears. Acknowledge an
+`git.ignore`, or a member name such as `Invoice.Charge` or `Parser::parse`,
+counts as present when every segment appears. Acknowledge an
 intentionally historical anchor with `staleRefs: ["anchors:<name>"]`. Listed
 files that are not UTF-8 text, such as screenshots, are skipped by the anchor
 and symbol checks, so a block that names only images is not checked.

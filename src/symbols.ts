@@ -2,12 +2,13 @@ import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { LedgerError } from "./machine.js";
 import { resolveProjectPath } from "./projectPaths.js";
+import { outlineLanguageExtensions, outlineSymbolSpans, type LedgerOutlineLanguage } from "./symbolOutlines.js";
 import type { LedgerWorkspace } from "./types.js";
 
 type TypeScriptModule = typeof import("typescript");
 
-/** Extractors Ledger can run, in preference order for code files. */
-export type LedgerSymbolExtractor = "typescript" | "regex" | "markdown" | "none";
+/** Extractors Ledger can run: the TypeScript parser or its regex fallback, Markdown headings, or a language outline. */
+export type LedgerSymbolExtractor = "typescript" | "regex" | "markdown" | LedgerOutlineLanguage | "none";
 
 export interface ExtractSymbolsOptions {
   /** `auto` prefers the TypeScript parser and falls back to regex; `typescript` fails when the parser is unavailable. */
@@ -29,8 +30,9 @@ export interface LedgerSymbolExtraction {
 /**
  * One occurrence of a symbol and the 1-based lines it spans: a Markdown
  * heading's section up to the next heading of the same or a higher level, or
- * a top-level declaration with its doc comment. `depth` is the heading level,
- * and 0 for code, whose spans never nest.
+ * a declaration with its doc comment. `depth` is the heading level for
+ * Markdown; for code it is 0 at the top level and 1 for a member of a type,
+ * trait, impl, or module, whose span sits inside its container's.
  */
 export interface LedgerSymbolSpan {
   readonly name: string;
@@ -46,7 +48,7 @@ export interface LedgerLineRange {
 }
 
 export interface LedgerSymbolExtractorStatus {
-  readonly name: "typescript" | "regex" | "markdown";
+  readonly name: Exclude<LedgerSymbolExtractor, "none">;
   readonly available: boolean;
   readonly version?: string;
   readonly reason?: string;
@@ -55,12 +57,16 @@ export interface LedgerSymbolExtractorStatus {
 /** Extensions the TypeScript parser or regex fallback extracts code symbols from. */
 export const codeExtensions: readonly string[] = [".ts", ".tsx", ".js", ".jsx"];
 
+/** Language names for the outline extractors. */
+const outlineLanguageNames: Readonly<Record<LedgerOutlineLanguage, string>> = {
+  go: "Go",
+  rust: "Rust",
+  python: "Python",
+  swift: "Swift",
+};
+
 /** Languages Ledger recognizes but has no symbol extractor for, by extension. */
 const otherLanguageExtensions: ReadonlyMap<string, string> = new Map([
-  [".go", "Go"],
-  [".rs", "Rust"],
-  [".py", "Python"],
-  [".swift", "Swift"],
   [".java", "Java"],
   [".kt", "Kotlin"],
   [".rb", "Ruby"],
@@ -73,6 +79,8 @@ const otherLanguageExtensions: ReadonlyMap<string, string> = new Map([
 export interface LedgerSymbolLanguageSummary {
   /** True when any file has a TypeScript or JavaScript extension. */
   readonly extractable: boolean;
+  /** Languages Ledger outlines without a parser (Go, Rust, Python, Swift), sorted. */
+  readonly outlinedLanguages: readonly string[];
   /** Recognized languages without a symbol extractor, sorted. */
   readonly otherLanguages: readonly string[];
 }
@@ -80,14 +88,17 @@ export interface LedgerSymbolLanguageSummary {
 /** Whether code symbols can be extracted from these paths, and which other languages appear. */
 export function summarizeSymbolLanguages(files: readonly string[]): LedgerSymbolLanguageSummary {
   let extractable = false;
+  const outlinedLanguages = new Set<string>();
   const otherLanguages = new Set<string>();
   for (const file of files) {
     const extension = path.posix.extname(file).toLowerCase();
     if (codeExtensions.includes(extension)) extractable = true;
+    const outlined = outlineLanguageExtensions.get(extension);
+    if (outlined) outlinedLanguages.add(outlineLanguageNames[outlined]);
     const language = otherLanguageExtensions.get(extension);
     if (language) otherLanguages.add(language);
   }
-  return { extractable, otherLanguages: [...otherLanguages].sort() };
+  return { extractable, outlinedLanguages: [...outlinedLanguages].sort(), otherLanguages: [...otherLanguages].sort() };
 }
 const markdownExtensions = [".md", ".mdx"];
 
@@ -110,7 +121,8 @@ export async function extractFileSymbolsDetailed(
   options: ExtractSymbolsOptions = {},
 ): Promise<LedgerSymbolExtraction> {
   const extension = path.extname(filePath).toLowerCase();
-  if (![...codeExtensions, ...markdownExtensions].includes(extension)) {
+  const outlineLanguage = outlineLanguageExtensions.get(extension);
+  if (![...codeExtensions, ...markdownExtensions].includes(extension) && !outlineLanguage) {
     return { symbols: [], spans: [], extractor: "none" };
   }
 
@@ -129,6 +141,10 @@ export async function extractFileSymbolsDetailed(
   if (markdownExtensions.includes(extension)) {
     const spans = extractMarkdownSymbolSpans(raw);
     return { symbols: spanNames(spans), spans, extractor: "markdown" };
+  }
+  if (outlineLanguage) {
+    const spans = outlineSymbolSpans(outlineLanguage, raw);
+    return { symbols: spanNames(spans), spans, extractor: outlineLanguage };
   }
   return await extractCodeSymbolsDetailed(raw, filePath, options);
 }
@@ -211,6 +227,7 @@ export async function symbolExtractorStatus(): Promise<readonly LedgerSymbolExtr
       : { name: "typescript", available: false, reason: typeScriptFailure ?? "typescript parser unavailable" },
     { name: "regex", available: true },
     { name: "markdown", available: true },
+    ...(Object.keys(outlineLanguageNames) as LedgerOutlineLanguage[]).map((name) => ({ name, available: true })),
   ];
 }
 
