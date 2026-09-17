@@ -101,7 +101,27 @@ function loadSearchIndex(): Promise<readonly IndexDocument[]> {
 
 function scoreSearchDocument(query: string, document: IndexDocument): number {
   if (!document.fields) return fuzzyScore(query, document.terms || "");
-  return scoreSearchFields({ terms: document.terms || "", fields: document.fields }, query).score;
+  // The sidecar omits `terms`; leaving it undefined lets the shared scorer derive it as `ledger search` does.
+  return scoreSearchFields({ terms: document.terms, fields: document.fields }, query).score;
+}
+
+/** Palette entries built from the rendered rows, for readers whose search sidecar cannot load, such as a file: URL. */
+function fallbackCommandItems(query: string): readonly CommandItem[] {
+  const tokens = query.split(/\s+/).filter((token) => token.length > 0);
+  return entries
+    .filter((entry) => {
+      const blob = fallbackBlobs.get(entry) || "";
+      return tokens.every((token) => blob.includes(token));
+    })
+    .map((entry) => ({
+      document: {
+        id: entry.dataset.id || "",
+        title: entry.querySelector("h3")?.textContent || entry.dataset.id || "",
+        kind: entry.dataset.kind,
+        status: entry.dataset.status,
+      },
+      score: 0,
+    }));
 }
 
 async function searchMatches(query: string): Promise<Map<string, number> | undefined> {
@@ -224,6 +244,11 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/** Counts started transitions so an earlier one's cleanup leaves the names a later one has just set. */
+let transitionGeneration = 0;
+/** Entries the latest transition named; a newer transition clears the ones it does not name itself. */
+let namedEntries: readonly HTMLElement[] = [];
+
 function runTransition(update: () => void, candidates: readonly HTMLElement[]): void {
   if (prefersReducedMotion()) {
     update();
@@ -243,9 +268,17 @@ function runTransition(update: () => void, candidates: readonly HTMLElement[]): 
     entry.style.viewTransitionName = name;
     named.push(entry);
   }
+  for (const entry of namedEntries) if (!named.includes(entry)) entry.style.viewTransitionName = "";
+  namedEntries = named;
+  const generation = (transitionGeneration += 1);
+  const clearNames = () => {
+    if (generation !== transitionGeneration) return;
+    for (const entry of named) entry.style.viewTransitionName = "";
+    namedEntries = [];
+  };
   const transition = startViewTransition(update);
   if (!transition) {
-    for (const entry of named) entry.style.viewTransitionName = "";
+    clearNames();
     update();
     return;
   }
@@ -254,7 +287,7 @@ function runTransition(update: () => void, candidates: readonly HTMLElement[]): 
   const watchdog = setTimeout(() => transition.skipTransition(), transitionWatchdogMs);
   void transition.finished.finally(() => {
     clearTimeout(watchdog);
-    for (const entry of named) entry.style.viewTransitionName = "";
+    clearNames();
   });
 }
 
@@ -663,14 +696,15 @@ async function renderCommandResults(): Promise<void> {
   const index = await loadSearchIndex();
   const query = paletteInput.value.trim().toLowerCase();
   const source = Array.isArray(index) ? index : [];
-  commandItems = (
-    query
+  const ranked: readonly CommandItem[] = source.length === 0
+    ? fallbackCommandItems(query)
+    : query
       ? source
           .map((document) => ({ document, score: scoreSearchDocument(query, document) }))
           .filter((item) => item.score > 0)
           .sort((left, right) => right.score - left.score || left.document.id.localeCompare(right.document.id))
-      : source.slice(0, 8).map((document) => ({ document, score: 0 }))
-  ).slice(0, 9);
+      : source.slice(0, 8).map((document) => ({ document, score: 0 }));
+  commandItems = ranked.slice(0, 9);
   commandSelection = Math.min(commandSelection, Math.max(0, commandItems.length - 1));
   paletteResults.replaceChildren();
   if (commandItems.length === 0) {
@@ -809,6 +843,8 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", upd
 entriesContainer.addEventListener("click", (event) => {
   const link = event.target instanceof Element ? event.target.closest<HTMLElement>(".entry-link") : null;
   if (!link) return;
+  // A modified click keeps its browser meaning, such as opening the record link in a new tab.
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
   event.preventDefault();
   const entry = link.closest<HTMLElement>(".entry");
   if (entry && entry.dataset.id) openPanel(entry.dataset.id);
