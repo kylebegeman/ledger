@@ -209,8 +209,11 @@ Then start a Claude Code session and work as usual.
 - `hooks install` saves the command in `.ledger/config.yaml`, so the hooks,
   the `AGENTS.md` block, the skill, and the session context all use it.
   `--import-agents` makes Claude Code read `AGENTS.md`.
-- For Codex, install with `--host codex` and approve the hooks once with
-  `/hooks`. For Cursor, use `--host cursor`.
+- For Codex, install with `--host codex`, then trust the hooks with `/hooks`
+  in the Codex CLI or on the Hooks page of the Codex app's settings. Trust
+  them again whenever the hook commands change, such as a new pinned version,
+  because Codex skips a changed hook until then. For Cursor, use
+  `--host cursor`.
 
 ### In any other repository
 

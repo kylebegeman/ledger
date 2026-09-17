@@ -185,8 +185,8 @@ const hostHookFiles: Record<LedgerHookHost, Omit<HostHookFile, "host">> = {
     path: ".codex/hooks.json",
     events: ["SessionStart", "UserPromptSubmit", "PostToolUse", "Stop", "SessionEnd", "PreCompact"],
     nextSteps: [
-      "Codex requires trusting the project and approving the hook definitions once with /hooks.",
-      "Re-approve after editing the hook file; Codex pins a hash of each definition.",
+      "Codex requires trusting the project and approving the hook definitions once, with /hooks in the Codex CLI or on the Hooks page of the Codex app's settings.",
+      "Approve them again whenever the hook file changes, such as a new pinned version; Codex skips a changed hook until it is trusted again.",
     ],
   },
   cursor: {
