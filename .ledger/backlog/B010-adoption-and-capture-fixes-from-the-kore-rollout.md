@@ -91,7 +91,8 @@ configured Ledger command), 0133 (the drafted receipt notice and one draft
 per change), 0134 (session retention and committed session records), and 0135
 (toolchain-aware `adopt`). The first three acceptance checks are covered by
 tests in those receipts. Kore's pin moved to 0.8.0 in kylebegeman/forge#25
-on 2026-09-17, which meets the pin check; 0.8.1 fixes capture bugs an audit
-found (parallel hook writes losing paths, a nested Ledger root drafting
-nothing) and should reach Kore before the second live Kore session, the last
-open check. `docs/HANDOFF.md` lists the steps.
+and to 0.8.1 in kylebegeman/forge#26 on 2026-09-17, which meets the pin check.
+0.8.1 fixes capture bugs an audit found (parallel hook writes losing paths, a
+nested Ledger root drafting nothing, a recreated draft never announced). The
+second live Kore session is the last open check; `docs/HANDOFF.md` lists the
+steps.
