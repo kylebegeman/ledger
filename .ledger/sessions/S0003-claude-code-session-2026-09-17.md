@@ -7,6 +7,7 @@ updated: "2026-09-17"
 status: "active"
 expires: "2026-09-24"
 areas:
+  - "catalogcache"
   - "ci"
   - "docs"
   - "git"
@@ -54,6 +55,7 @@ files:
   - "test/release.test.ts"
   - "CONTRIBUTING.md"
   - ".github/dependabot.yml"
+  - "src/catalogCache.ts"
 host: "claude-code"
 hostSession: "71358ecc-08f4-4086-aa8b-4fbccb7ed699"
 related:
