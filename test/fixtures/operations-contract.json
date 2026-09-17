@@ -2685,6 +2685,36 @@
               ],
               "additionalProperties": {}
             }
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "session",
+                "host",
+                "files",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
           }
         },
         "required": [
@@ -2695,7 +2725,8 @@
           "missingFiles",
           "historicalFiles",
           "currentEntries",
-          "files"
+          "files",
+          "sessions"
         ],
         "additionalProperties": {}
       },
@@ -2854,6 +2885,36 @@
               "additionalProperties": {}
             }
           },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "session",
+                "host",
+                "files",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
           "github": {
             "type": "object",
             "properties": {
@@ -2879,7 +2940,8 @@
         },
         "required": [
           "ok",
-          "checks"
+          "checks",
+          "sessions"
         ],
         "additionalProperties": {}
       },
@@ -5914,6 +5976,36 @@
             "items": {
               "type": "string"
             }
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "files": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "session",
+                "host",
+                "files",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
           }
         },
         "required": [
@@ -5923,7 +6015,8 @@
           "declarations",
           "files",
           "missingDocsImpact",
-          "earlierEvidenceFiles"
+          "earlierEvidenceFiles",
+          "sessions"
         ],
         "additionalProperties": {}
       },

@@ -414,6 +414,69 @@ export async function draftSessionReceipt(
   };
 }
 
+/** An active hooked session that touched files a check reports as uncovered. */
+export interface SessionDraftHint {
+  readonly session: string;
+  readonly host: string;
+  /** The uncovered files the session touched. */
+  readonly files: readonly string[];
+  /** The draft receipt linked to the session, once a hook has written one. */
+  readonly draft?: { readonly id: string; readonly path: string };
+  /** What to do next, written with the configured Ledger command. */
+  readonly message: string;
+}
+
+/**
+ * Hints for uncovered files that an active hooked session touched. Hooks draft
+ * a session's receipt when a turn ends, so a check run earlier in the turn
+ * reports the turn's files as uncovered. The hint names the session and its
+ * draft so the agent finishes that draft instead of writing a second receipt.
+ */
+export function sessionDraftHints(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  files: readonly string[],
+): readonly SessionDraftHint[] {
+  const uncovered = new Set(files.map(normalizePath));
+  if (uncovered.size === 0) return [];
+  const today = isoDate(new Date());
+  const command = workspace.config.agents.command;
+  const records = documents
+    .filter((document) => document.kind === "session" || document.kind === "change")
+    .map((document) => normalizeDocument(document));
+  const hints: SessionDraftHint[] = [];
+  for (const session of records) {
+    if (session.kind !== "session" || session.status !== "active" || !session.host) continue;
+    if (isExpiredSession(session, today)) continue;
+    const touched = [...new Set(session.files.map(normalizePath))].filter((file) => uncovered.has(file)).sort();
+    if (touched.length === 0) continue;
+    const draft = records.find(
+      (entry) =>
+        entry.kind === "change" &&
+        entry.status === "draft" &&
+        (session.related.includes(entry.id) || entry.related.includes(session.id)),
+    );
+    const which = touched.length === 1 ? "1 of these files" : `${touched.length} of these files`;
+    const noSecond = `do not create another receipt with \`${command} new\`.`;
+    let message: string;
+    if (!draft) {
+      message = `${session.id} (${session.host}) touched ${which}; its hook drafts their receipt when the turn ends. Finish that draft on the next prompt; ${noSecond}`;
+    } else if (touched.every((file) => draft.files.some((pattern) => coveragePatternMatches(file, pattern)))) {
+      message = `${session.id} (${session.host}) touched ${which}, and draft receipt ${draft.id} lists them: finish ${draft.path} and run \`${command} ready\`; ${noSecond}`;
+    } else {
+      message = `${session.id} (${session.host}) touched ${which}; its hook adds them to draft receipt ${draft.id} (${draft.path}) when the turn ends. Finish that draft and run \`${command} ready\`; ${noSecond}`;
+    }
+    hints.push({
+      session: session.id,
+      host: session.host,
+      files: touched,
+      ...(draft ? { draft: { id: draft.id, path: draft.path } } : {}),
+      message,
+    });
+  }
+  return hints.sort((left, right) => left.session.localeCompare(right.session));
+}
+
 /** Files that differ from HEAD, untracked files included, or undefined when Git cannot answer. */
 async function pendingWorkingTreeChanges(workspace: LedgerWorkspace): Promise<readonly GitChangedFile[] | undefined> {
   try {

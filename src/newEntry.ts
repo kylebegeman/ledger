@@ -2,11 +2,11 @@ import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { coveragePatternMatches, isIgnoredByGitConfig, matchesGlob } from "./coverage.js";
 import { normalizePath } from "./documents.js";
-import { getChangedFileDetails, type GitChangedFile } from "./git.js";
+import { getChangedFileDetails, getChangedLineRanges, type GitChangedFile, type GitLineRange } from "./git.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import { ensureFrontmatterArrays, replaceSectionBody } from "./frontmatterEdit.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
-import { extractFileSymbolsDetailed, type LedgerSymbolExtractor } from "./symbols.js";
+import { extractFileSymbolsDetailed, symbolsTouchedByLines, type LedgerSymbolExtractor } from "./symbols.js";
 import { renderLedgerTemplate } from "./template.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 import { changeTemplate } from "./workspace.js";
@@ -100,7 +100,7 @@ export async function draftChangeEntry(
       ])
     : coverageReferencesForChangedFiles(changedFiles);
   const symbols = options.fromDiff && changedFiles.length <= largeDiffFileThreshold
-    ? await collectChangedSymbols(workspace, changedFiles)
+    ? await collectChangedSymbols(workspace, changedFiles, await changedLinesFor(workspace, changedFiles, options.staged))
     : { all: [], byFile: new Map<string, readonly string[]>(), extractors: { counts: {} } };
   const docs = files.filter((file) => isDocsPath(file, workspace.config.docs.root));
   const areas = options.areas.length > 0 ? options.areas : inferAreas(workspace, changedFiles);
@@ -331,9 +331,33 @@ interface ChangedSymbols {
   readonly extractors: LedgerSymbolExtractorReport;
 }
 
+/**
+ * The changed lines of the files a diff modified, or undefined when Git
+ * cannot say. Added, untracked, and deleted files need no lookup: every line
+ * of an added file counts, and a deleted one is not read.
+ */
+async function changedLinesFor(
+  workspace: LedgerWorkspace,
+  files: readonly GitChangedFile[],
+  staged: boolean,
+): Promise<ReadonlyMap<string, readonly GitLineRange[]> | undefined> {
+  const paths = files
+    .filter((file) => file.status !== "added" && file.status !== "untracked" && file.status !== "deleted")
+    .map((file) => file.path);
+  return await getChangedLineRanges(workspace.projectRoot, paths, { staged });
+}
+
+/**
+ * Symbols for the draft's frontmatter and anchors. When Git reports a file's
+ * changed lines, only the symbols holding one of them count, so a one-line
+ * edit is not anchored to every heading or export in the file; with no
+ * symbol there, the anchor stays a TODO. Files Git reports whole, and every
+ * file when Git cannot answer, keep all their symbols.
+ */
 async function collectChangedSymbols(
   workspace: LedgerWorkspace,
   files: readonly GitChangedFile[],
+  changedLines: ReadonlyMap<string, readonly GitLineRange[]> | undefined,
 ): Promise<ChangedSymbols> {
   const all = new Set<string>();
   const byFile = new Map<string, readonly string[]>();
@@ -347,8 +371,10 @@ async function collectChangedSymbols(
       counts[extraction.extractor] = (counts[extraction.extractor] ?? 0) + 1;
     }
     fallbackReason ??= extraction.fallbackReason;
-    if (extraction.symbols.length === 0) continue;
-    const symbols = extraction.symbols.slice(0, maxSymbolsPerFile);
+    const lines = changedLines?.get(normalizePath(file.path));
+    const touched = lines === undefined ? extraction.symbols : symbolsTouchedByLines(extraction.spans, lines);
+    if (touched.length === 0) continue;
+    const symbols = touched.slice(0, maxSymbolsPerFile);
     byFile.set(file.path, symbols);
     for (const symbol of symbols) {
       if (all.size >= maxDraftSymbols) break;

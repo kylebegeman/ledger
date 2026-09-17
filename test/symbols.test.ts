@@ -58,7 +58,11 @@ export function outer() {
   it("reports which extractor ran and why it fell back", async () => {
     const raw = "export function outer() {\n  function inner() {}\n}\n";
     const parsed = await extractCodeSymbolsDetailed(raw, "fixture.ts");
-    expect(parsed).toEqual({ symbols: ["outer"], extractor: "typescript" });
+    expect(parsed).toEqual({
+      symbols: ["outer"],
+      spans: [{ name: "outer", start: 1, end: 3, depth: 0 }],
+      extractor: "typescript",
+    });
 
     const unavailable = async () => undefined;
     const fallback = await extractCodeSymbolsDetailed(raw, "fixture.ts", { loadTypeScript: unavailable });
@@ -85,9 +89,13 @@ export function outer() {
       configPath: path.join(tempDir, ".ledger", "config.yaml"),
       config: defaultConfig,
     };
-    expect(await extractFileSymbolsDetailed(workspace, "notes.md")).toEqual({ symbols: ["Title"], extractor: "markdown" });
-    expect(await extractFileSymbolsDetailed(workspace, "data.json")).toEqual({ symbols: [], extractor: "none" });
-    expect(await extractFileSymbolsDetailed(workspace, "missing.ts")).toEqual({ symbols: [], extractor: "none" });
+    expect(await extractFileSymbolsDetailed(workspace, "notes.md")).toEqual({
+      symbols: ["Title"],
+      spans: [{ name: "Title", start: 1, end: 1, depth: 1 }],
+      extractor: "markdown",
+    });
+    expect(await extractFileSymbolsDetailed(workspace, "data.json")).toEqual({ symbols: [], spans: [], extractor: "none" });
+    expect(await extractFileSymbolsDetailed(workspace, "missing.ts")).toEqual({ symbols: [], spans: [], extractor: "none" });
   });
 
   it("extracts Markdown headings as document anchors", () => {
