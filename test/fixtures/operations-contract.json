@@ -1378,7 +1378,7 @@
         "type": "object",
         "properties": {
           "write": {
-            "description": "Delete the expired records.",
+            "description": "Delete unlinked expired sessions and close kept active ones.",
             "type": "boolean"
           }
         },
@@ -1448,6 +1448,83 @@
               "additionalProperties": {}
             }
           },
+          "kept": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "session": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "expires": {
+                      "type": "string"
+                    },
+                    "host": {
+                      "type": "string"
+                    },
+                    "hostSession": {
+                      "type": "string"
+                    },
+                    "areas": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "related": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "path",
+                    "title",
+                    "status",
+                    "areas",
+                    "files",
+                    "related"
+                  ],
+                  "additionalProperties": {}
+                },
+                "linkedBy": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "closed": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "session",
+                "linkedBy",
+                "closed"
+              ],
+              "additionalProperties": {}
+            }
+          },
           "removed": {
             "type": "array",
             "items": {
@@ -1458,6 +1535,7 @@
         "required": [
           "today",
           "expired",
+          "kept",
           "removed"
         ],
         "additionalProperties": {}

@@ -13,7 +13,7 @@ import { defaultDraftTitle, draftChangeEntry, inferAreas, slugify } from "./newE
 import { nextRecordId } from "./authoring.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import { extractBullets, getSectionBody } from "./query.js";
-import { isExpiredSession } from "./stale.js";
+import { expiredSessions, isExpiredSession } from "./stale.js";
 import { renderLedgerTemplate } from "./template.js";
 import type {
   LedgerWorkspace,
@@ -414,32 +414,73 @@ function sessionNoteLines(parsed: ParsedLedgerDocument): readonly string[] {
   return lines.length > 0 ? lines.slice(0, -1) : lines;
 }
 
+export interface KeptSession {
+  readonly session: SessionRecord;
+  /** Ids of the records that link this session through `related`. */
+  readonly linkedBy: readonly string[];
+  /** Whether prune closed this session because it was still active. */
+  readonly closed: boolean;
+}
+
 export interface PruneSessionsResult {
   readonly today: string;
+  /** Expired sessions no record links; `write` deletes them. */
   readonly expired: readonly SessionRecord[];
+  /** Expired sessions another record links, which are never deleted. */
+  readonly kept: readonly KeptSession[];
   /** Paths removed when `write` was set. */
   readonly removed: readonly string[];
 }
 
-/** List expired session records and delete them when asked. */
+/**
+ * List expired session records and, when asked, delete those no record links
+ * and close the linked ones that are still active, in one transaction.
+ */
 export async function pruneSessions(
   workspace: LedgerWorkspace,
   documents: readonly ParsedLedgerDocument[],
   options: { readonly write: boolean },
 ): Promise<PruneSessionsResult> {
   const today = isoDate(new Date());
-  const expired = documents
-    .map((parsed) => ({ parsed, normalized: normalizeDocument(parsed) }))
-    .filter(({ normalized }) => isExpiredSession(normalized, today));
+  const entries = documents.map((parsed) => ({ parsed, normalized: normalizeDocument(parsed) }));
+  const { prunable, retained } = expiredSessions(entries.map(({ normalized }) => normalized), today);
+  // Match by document, not id, so a record sharing an id with an expired one is never touched.
+  const prunableDocuments = new Set(prunable);
+  const expired = entries.filter(({ normalized }) => prunableDocuments.has(normalized));
+  const keptEntries = entries.filter(
+    ({ normalized }) => isExpiredSession(normalized, today) && retained.has(normalized.id),
+  );
   const records = expired.map(({ normalized }) => toSessionRecord(normalized));
-  if (!options.write || expired.length === 0) return { today, expired: records, removed: [] };
-  const changes: LedgerFileChange[] = expired.map(({ parsed }) => ({
-    path: normalizePath(parsed.relativePath),
-    delete: true,
-    expectedHash: hashFileContent(parsed.raw),
-  }));
+  const keptRecords = (closing: boolean): KeptSession[] =>
+    keptEntries.map(({ normalized }) => {
+      const closed = closing && normalized.status === "active";
+      const session = toSessionRecord(normalized);
+      return { session: closed ? { ...session, status: "closed" } : session, linkedBy: retained.get(normalized.id)!, closed };
+    });
+  const closable = keptEntries.filter(({ normalized }) => normalized.status === "active");
+  if (!options.write || (expired.length === 0 && closable.length === 0)) {
+    return { today, expired: records, kept: keptRecords(false), removed: [] };
+  }
+  const changes: LedgerFileChange[] = [
+    ...expired.map(({ parsed }): LedgerFileChange => ({
+      path: normalizePath(parsed.relativePath),
+      delete: true,
+      expectedHash: hashFileContent(parsed.raw),
+    })),
+    ...closable.map(({ parsed }) => ({
+      path: normalizePath(parsed.relativePath),
+      content: setFrontmatterScalars(parsed.raw, { status: "closed", updated: today }),
+      expectedHash: hashFileContent(parsed.raw),
+    })),
+  ];
   const result = await applyFileTransaction(workspace, "prune expired sessions", changes);
-  return { today, expired: records, removed: result.changedPaths };
+  const deleted = new Set(expired.map(({ parsed }) => normalizePath(parsed.relativePath)));
+  return {
+    today,
+    expired: records,
+    kept: keptRecords(true),
+    removed: result.changedPaths.filter((changed) => deleted.has(changed)),
+  };
 }
 
 export interface FoundSession {

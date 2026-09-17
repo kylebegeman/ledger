@@ -11,7 +11,7 @@ reports are derived from those files.
 - `backlog/`: proposed or accepted future work.
 - `decisions/`: durable product and architecture decisions.
 - `releases/`: release notes and release groupings.
-- `sessions/`: short-lived agent session records that expire or get promoted.
+- `sessions/`: agent session records, committed like other records; expired ones are pruned unless promoted or linked by another record.
 - `templates/`: source templates used by CLI commands.
 - `policies/`: validation and coverage policy configuration.
 - `indexes/`: generated JSON indexes.

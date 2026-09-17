@@ -346,7 +346,7 @@ function initialLedgerReadme(): string {
     "- `backlog/`: future work",
     "- `decisions/`: durable decisions",
     "- `releases/`: release notes",
-    "- `sessions/`: short-lived agent session records that expire or get promoted",
+    "- `sessions/`: agent session records, committed like other records; expired ones are pruned unless promoted or linked by another record",
     "- `indexes/`, `reports/`, and `dist/`: generated outputs",
     "",
   ].join("\n");
