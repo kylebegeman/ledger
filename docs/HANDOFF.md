@@ -207,7 +207,9 @@ D006 records what was retired; D007 records the runtime decision below.
 - README cards are regenerated with `node scripts/readme-assets.mjs` after
   `npm run build`; never edit the SVGs by hand, and `npm run readme:check`
   fails when they are stale. README copy has no em dashes.
-- Registry changes require regenerating `test/fixtures/operations-contract.json`
+- Registry changes require regenerating `docs/COMMANDS.md` with
+  `LEDGER_UPDATE_COMMANDS=1 npx vitest run test/commandReference.test.ts`, and
+  `test/fixtures/operations-contract.json`
   with `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts`;
   review the diff as a contract change and mention it in the receipt.
 - `npm run ci` is the gate; check its exit status explicitly. In one session a
