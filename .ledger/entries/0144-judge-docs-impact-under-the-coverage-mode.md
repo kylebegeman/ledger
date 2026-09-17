@@ -38,6 +38,7 @@ related:
   - "0113"
   - "0135"
   - "0138"
+release: "v0.8.0"
 ---
 
 # 0144: Judge Docs Impact Under The Coverage Mode

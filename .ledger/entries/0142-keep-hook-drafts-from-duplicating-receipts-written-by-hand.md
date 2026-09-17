@@ -31,6 +31,7 @@ related:
   - "0133"
   - "0137"
   - "0141"
+release: "v0.8.0"
 ---
 
 # 0142: Keep Hook Drafts From Duplicating Receipts Written By Hand
