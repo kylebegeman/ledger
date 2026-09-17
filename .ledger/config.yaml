@@ -76,6 +76,7 @@ verification:
     - "npm test **"
     - "npm ci"
     - "npx vitest **"
+    - "LEDGER_UPDATE_CONTRACT=1 npx vitest **"
     - "npx tsc **"
     - "node dist/cli.js ci **"
     - "node dist/cli.js doctor **"

@@ -211,9 +211,16 @@ function explainCoverageForPath(
   };
 }
 
+/**
+ * File references from every change entry. Only receipts count: session
+ * records expire and are pruned, and backlog items and decisions describe
+ * intent, so none of them can stand in for a receipt, and docs impact reads
+ * the same set.
+ */
 function collectCoveragePatterns(documents: readonly ParsedLedgerDocument[]): readonly string[] {
   const paths = new Set<string>();
   for (const document of documents) {
+    if (document.kind !== "change") continue;
     const normalized = normalizeDocument(document);
     for (const filePath of normalized.files) {
       paths.add(normalizePath(filePath));

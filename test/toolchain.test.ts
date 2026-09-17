@@ -108,12 +108,10 @@ describe("detectToolchain", () => {
       "ledger stale **",
       "ledger validate **",
       "make check",
-      "make fmt",
       "make lint",
       "make test",
     ]);
     expect(detection.toolchains).toEqual(["go", "make", "sqlc", "templ"]);
-    expect(detection.codeExtensions).toEqual([".go", ".json", ".md", ".mod", ".sum", ".templ", ".yaml", ".yml"]);
   });
 
   it("infers a TypeScript package with untracked build output", () => {
@@ -130,7 +128,7 @@ describe("detectToolchain", () => {
     expect(detection.ignore).toContain("dist/**");
     expect(detection.ignore).toContain("docs/llm/START_HERE.md");
     expect(detection.ignore).toContain("docs/llm/manifest.json");
-    expect(detection.ignore).not.toContain("vendor/**");
+    expect(detection.ignore).toContain("vendor/**");
     expect(detection.verificationAllow).toEqual([
       "ledger ci **",
       "ledger coverage **",
@@ -155,7 +153,6 @@ describe("detectToolchain", () => {
     expect(detection.ignore).toEqual(defaultConfig.git.ignore);
     expect(detection.verificationAllow).toEqual(defaultConfig.verification.allow);
     expect(detection.toolchains).toEqual([]);
-    expect(detection.codeExtensions).toEqual([]);
   });
 
   it("emits both forms for a root sqlc manifest and falls back only when sql.go files are tracked", () => {
@@ -217,13 +214,37 @@ describe("detectToolchain", () => {
     }
   });
 
-  it("renders the Ledger checks through the command option", () => {
-    const command = "npx --yes @kylebegeman/ledger@0.7.0";
-    const detection = detectToolchain(["cmd/main.go", "go.mod"], new Map(), { command });
+  it("ignores a committed vendor tree and never makes it a coverage root", () => {
+    const detection = detectToolchain(["go.mod", "cmd/main.go", "vendor/github.com/x/y/y.go", "vendor/modules.txt"], new Map());
+    expect(detection.coverageRoots).toEqual(["cmd/**", "go.mod"]);
+    for (const file of ["vendor/github.com/x/y/y.go", "tools/vendor/z/z.go"]) {
+      expect(detection.ignore.some((pattern) => matchesGlob(file, pattern))).toBe(true);
+    }
+  });
 
-    expect(detection.verificationAllow).toContain(`${command} ci **`);
-    expect(detection.verificationAllow).toContain(`${command} coverage **`);
-    expect(detection.verificationAllow).not.toContain("ledger ci **");
+  it("ignores build output inside packages unless the top-level directory is tracked", () => {
+    const monorepo = detectToolchain(["package.json", "packages/a/src/index.ts", "packages/a/dist/bundle.js"], new Map());
+    expect(monorepo.ignore.some((pattern) => matchesGlob("packages/a/dist/bundle.js", pattern))).toBe(true);
+    expect(monorepo.ignore).toEqual(expect.arrayContaining(["dist/**", "**/dist/**", "build/**", "**/build/**"]));
+    const trackedBuild = detectToolchain(["go.mod", "build/Containerfile"], new Map());
+    expect(trackedBuild.coverageRoots).toContain("build/**");
+    expect(trackedBuild.ignore.some((pattern) => pattern.includes("build/"))).toBe(false);
+  });
+
+  it("proposes only read-only checks and at most forty npm scripts", () => {
+    const scripts: Record<string, string> = {
+      test: "vitest", lint: "eslint .", "db:reset": "psql", "start:prod": "node .", dev: "vite", "db:migrate": "x",
+      "format:check": "prettier --check .", "lint:fix": "eslint --fix .", seed: "x", "release-notes": "x",
+    };
+    for (let index = 0; index < 60; index += 1) scripts[`check${String(index).padStart(2, "0")}`] = "x";
+    const detection = detectToolchain(["package.json", "src/index.ts"], new Map([["package.json", JSON.stringify({ scripts })]]));
+    const npmRuns = detection.verificationAllow.filter((command) => command.startsWith("npm run "));
+    expect(npmRuns).toHaveLength(40);
+    expect(npmRuns).toContain("npm run check00");
+    for (const denied of ["db:reset", "start:prod", "dev", "db:migrate", "format:check", "lint:fix", "seed", "release-notes"]) {
+      expect(npmRuns).not.toContain(`npm run ${denied}`);
+    }
+    expect(parseMakeTargets("db-reset:\nserve:\nlint:\nfmt-check:\n")).toEqual(["lint"]);
   });
 
   it("is deterministic regardless of input order", () => {
@@ -236,7 +257,7 @@ describe("detectToolchain", () => {
 
 describe("parseMakeTargets", () => {
   it("keeps explicit targets and skips special, pattern, double-colon, assignment, and denied names", () => {
-    expect(parseMakeTargets(koreMakefile)).toEqual(["check", "fmt", "lint", "test"]);
+    expect(parseMakeTargets(koreMakefile)).toEqual(["check", "lint", "test"]);
   });
 
   it("sorts targets and the detector caps them at 40", () => {

@@ -129,7 +129,7 @@ export function isLedgerGeneratedManifest(content: string): boolean {
   );
 }
 
-export type LedgerDocsRoutingRefusalReason = "no-ledger-marker" | "not-ledger-manifest";
+export type LedgerDocsRoutingRefusalReason = "no-ledger-marker" | "not-ledger-manifest" | "unreadable";
 
 export interface LedgerDocsRoutingRefusal {
   readonly path: string;
@@ -140,6 +140,8 @@ export interface LedgerDocsRoutingFileState {
   readonly path: string;
   readonly exists: boolean;
   readonly ledgerGenerated: boolean;
+  /** True when the file exists but cannot be read as a regular UTF-8 file, such as a symlink. */
+  readonly unreadable?: true;
   /** Hash of the current content, or null when the file is missing. */
   readonly hash: string | null;
 }
@@ -200,6 +202,10 @@ async function inspectDocsRoutingFile(
     if (isCode(error, "ENOENT")) {
       return { path: relativePath, exists: false, ledgerGenerated: true, hash: null };
     }
+    // A symlink, a directory, or an oversized or non-UTF-8 file is never replaced, as adopt treats it.
+    if (["ELOOP", "EISDIR", "filesystem-error", "resource-limit-exceeded", "invalid-utf8"].some((code) => isCode(error, code))) {
+      return { path: relativePath, exists: true, ledgerGenerated: false, unreadable: true, hash: null };
+    }
     throw error;
   }
   return {
@@ -225,12 +231,14 @@ export async function writeDocsRoutingFiles(
   const startHerePath = state.startHere.path;
   const refused: LedgerDocsRoutingRefusal[] = [];
   if (state.manifest.exists && !state.manifest.ledgerGenerated) {
-    refused.push({ path: manifestPath, reason: "not-ledger-manifest" });
+    refused.push({ path: manifestPath, reason: state.manifest.unreadable ? "unreadable" : "not-ledger-manifest" });
   }
   if (state.startHere.exists && !state.startHere.ledgerGenerated) {
-    refused.push({ path: startHerePath, reason: "no-ledger-marker" });
+    refused.push({ path: startHerePath, reason: state.startHere.unreadable ? "unreadable" : "no-ledger-marker" });
   }
-  if (refused.length > 0 && !options.force) {
+  // --force replaces files Ledger can read; an unreadable path is never overwritten through.
+  const blocked = refused.filter((refusal) => !options.force || refusal.reason === "unreadable");
+  if (blocked.length > 0) {
     return { written: false, refused, manifestPath, startHerePath };
   }
   await applyFileTransaction(workspace, "reconcile docs routing", [

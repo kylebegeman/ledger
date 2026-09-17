@@ -50,9 +50,11 @@ export function formatCiAnnotations(result: LedgerCiResult): readonly string[] {
   for (const reference of result.docsAudit.missingReferences) {
     lines.push(annotation("error", "Ledger docs", `a record references a missing doc: ${reference}`));
   }
+  const anyMode = result.coverage.mode === "any";
   for (const file of result.coverage.files) {
     if (file.status === "missing") {
-      lines.push(annotation("error", "Ledger coverage", `no change entry in this change set lists ${file.path}; add or update a receipt`, file.path));
+      const where = anyMode ? "no change entry" : "no change entry in this change set";
+      lines.push(annotation("error", "Ledger coverage", `${where} lists ${file.path}; add or update a receipt`, file.path));
     } else if (file.status === "historical") {
       lines.push(annotation("error", "Ledger coverage", `${file.path} is listed only by records outside this change set (${file.coveredBy.join(", ")}); add or update a receipt`, file.path));
     }
@@ -61,7 +63,7 @@ export function formatCiAnnotations(result: LedgerCiResult): readonly string[] {
     if (file.satisfied) continue;
     const reason = file.entries.length > 0
       ? `${file.entries.join(", ")} lists ${file.path} without a reviewed docsImpact declaration`
-      : `no change entry in this change set ties ${file.path} to a docs decision`;
+      : `${docsImpactScope(result)} ties ${file.path} to a docs decision`;
     lines.push(annotation("error", "Ledger docs impact", reason, file.path));
   }
   return lines;
@@ -81,17 +83,27 @@ export function formatCiSummaryMarkdown(result: LedgerCiResult): string {
   for (const issue of result.validation.errors) details.push(`- validation: ${issue.path ? `\`${issue.path}\`: ` : ""}${issue.message}`);
   for (const reference of result.docsAudit.missingReferences) details.push(`- docs: missing reference \`${reference}\``);
   for (const file of result.coverage.files) {
-    if (file.status === "missing") details.push(`- coverage: \`${file.path}\` has no change entry in this change set`);
+    if (file.status === "missing") {
+      details.push(`- coverage: \`${file.path}\` has no change entry${result.coverage.mode === "any" ? "" : " in this change set"}`);
+    }
     if (file.status === "historical") details.push(`- coverage: \`${file.path}\` is listed only by ${file.coveredBy.join(", ")} outside this change set`);
   }
   for (const file of result.docsImpact.files) {
-    if (!file.satisfied) details.push(`- docs impact: \`${file.path}\` has no evidence from a change entry in this change set`);
+    if (!file.satisfied) {
+      const source = result.docsImpact.mode === "any" ? "a change entry" : "a change entry in this change set";
+      details.push(`- docs impact: \`${file.path}\` has no evidence from ${source}`);
+    }
   }
   if (details.length > 0) lines.push("### What to fix", "", ...details, "");
   if (result.coverage.currentEntries.length > 0) {
     lines.push(`Change entries in this change set: ${result.coverage.currentEntries.join(", ")}.`, "");
   }
   return lines.join("\n");
+}
+
+/** Where docs impact evidence may come from under the result's coverage mode. */
+function docsImpactScope(result: LedgerCiResult): string {
+  return result.docsImpact.mode === "any" ? "no change entry" : "no change entry in this change set";
 }
 
 function annotation(level: "error" | "warning", title: string, message: string, file?: string): string {

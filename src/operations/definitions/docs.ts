@@ -164,6 +164,7 @@ export interface DocsReconcileOutput {
 const reconcileRefusalText: Record<LedgerDocsRoutingRefusalReason, string> = {
   "no-ledger-marker": "no Ledger marker; Ledger did not generate it",
   "not-ledger-manifest": 'no generatedBy: "ledger"; Ledger did not generate it',
+  unreadable: "not a regular UTF-8 file (a symlink, a directory, or too large); Ledger never replaces it, even with --force",
 };
 
 export const docsReconcileOperation = defineOperation<DocsReconcileInput, DocsReconcileOutput>({

@@ -5909,7 +5909,7 @@
               "type": "string"
             }
           },
-          "historicalFiles": {
+          "earlierEvidenceFiles": {
             "type": "array",
             "items": {
               "type": "string"
@@ -5923,7 +5923,7 @@
           "declarations",
           "files",
           "missingDocsImpact",
-          "historicalFiles"
+          "earlierEvidenceFiles"
         ],
         "additionalProperties": {}
       },

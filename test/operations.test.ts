@@ -214,6 +214,24 @@ describe("registry-driven CLI", () => {
     expect((await readFile(startHerePath, "utf8")).startsWith(docsStartHereMarker)).toBe(true);
   }, 30_000);
 
+  it("refuses an unreadable routing file even when forced", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-operations-")));
+    expect((await captureRun(["init", "--with-docs"], tempDir)).exitCode).toBe(0);
+    const startHerePath = path.join(tempDir, "docs", "llm", "START_HERE.md");
+    await rm(startHerePath);
+    await mkdir(startHerePath);
+
+    for (const argv of [["docs", "reconcile", "--json"], ["docs", "reconcile", "--force", "--json"]]) {
+      const result = await captureRun(argv, tempDir);
+      expect(result.exitCode).toBe(1);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        data: { written: false, refused: [{ path: "docs/llm/START_HERE.md", reason: "unreadable" }] },
+      });
+    }
+    const text = await captureRun(["docs", "reconcile"], tempDir);
+    expect(text.stdout).toContain("never replaces it, even with --force");
+  }, 30_000);
+
   it("points adopt at Ledger-owned routing paths when curated routing files exist", async () => {
     tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-operations-")));
     await mkdir(path.join(tempDir, "docs", "llm"), { recursive: true });

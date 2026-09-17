@@ -39,7 +39,7 @@ afterEach(async () => {
   }
 });
 
-const allow = ["npm run **", "node --version", "node *"];
+const allow = ["npm run **", "LEDGER_UPDATE_CONTRACT=1 npm run **", "node --version", "node *"];
 
 describe("verification command parsing", () => {
   it("splits shell words with quotes and rejects unbalanced quotes", () => {
@@ -61,6 +61,13 @@ describe("verification command parsing", () => {
   it("parses backticked commands, environment prefixes, prose, and operators", () => {
     const command = parseVerificationBullet("`LEDGER_UPDATE_CONTRACT=1 npm run test` (245 tests)", allow);
     expect(command).toMatchObject({ raw: "LEDGER_UPDATE_CONTRACT=1 npm run test", env: { LEDGER_UPDATE_CONTRACT: "1" }, argv: ["npm", "run", "test"], allowed: true });
+    // An environment assignment no pattern names keeps an otherwise allowed command from running.
+    expect(parseVerificationBullet("`NODE_OPTIONS=--require=./evil.js npm run test`", allow)).toMatchObject({
+      allowed: false,
+      skipReason: "not on verification.allow",
+    });
+    expect(parseVerificationBullet("`PATH=/tmp/evil npm run test`", allow)).toMatchObject({ allowed: false });
+    expect(parseVerificationBullet("`LEDGER_UPDATE_CONTRACT=2 npm run test`", allow)).toMatchObject({ allowed: false });
     expect(parseVerificationBullet("Browser pass in both themes", allow)).toMatchObject({ allowed: false, skipReason: "not a command" });
     expect(parseVerificationBullet("`npm run a && npm run b`", allow)).toMatchObject({ allowed: false, skipReason: "shell operators are not run" });
     expect(parseVerificationBullet("`npm publish`", allow)).toMatchObject({ argv: ["npm", "publish"], allowed: false, skipReason: "not on verification.allow" });
