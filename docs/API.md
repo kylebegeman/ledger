@@ -50,7 +50,7 @@ The package root should stay focused on:
 - the retrieval contract (`retrieveByPath`, `matchFilePath`, `relatedRecords`)
 - agent packets, including file-first and search-first workflows
 - command result models for reusable CLI behavior
-- MCP server construction and direct tool execution
+- MCP server construction, stdio and HTTP serving, and direct tool execution
 
 `serveStaticReader` defaults to local-only exposure. Library callers selecting
 `mode: "network"` must provide an access token of at least 24 characters and
@@ -87,6 +87,25 @@ from the unstable entrypoint. New commands are new definitions under
 `src/operations/definitions/`; do not add parsing or formatting to `src/cli.ts`.
 Reusable result models under `src/commands/` remain the right home for logic
 shared by several operations.
+
+## MCP Server
+
+`createLedgerMcpServer(options)` builds one `McpServer` with every tool,
+resource, and prompt. `serveLedgerMcpStdio(options)` serves it over stdio (or
+a `transport` you pass), and `createLedgerMcpHttpHandler(options)` returns
+the web-standard `{ fetch, close, notify, bus }` handler the engine mounts at
+`/mcp`; wrap it with `toNodeHandler` from `@modelcontextprotocol/node` for
+`node:http`. Both serve MCP 2026-07-28 and the 2025 revisions.
+
+Tools whose operation declares `mcp.confirm` write source records and ask the
+user to confirm through a form elicitation first; `listLedgerMcpTools()`
+reports them with `confirms: true`, and the operations contract marks their
+`mcp` entry the same way. Such a tool fails with `confirmation-declined` when
+the user declines, cancels, or leaves the box unchecked, and with
+`confirmation-unavailable` when the client cannot show the form. Pass
+`writeRoot` to keep writes in one project, and `writeTools: false` to leave
+them out. `runLedgerMcpTool(name, args)` runs any tool directly without
+asking; it is for programs, not for relaying a model's calls.
 
 ## Typed API Client
 

@@ -13,7 +13,7 @@ import {
   type StartSessionResult,
   type TouchSessionResult,
 } from "../../sessions.js";
-import { loadDocuments, looseRecord, pathString, plural, positiveInt, shortString } from "../shared.js";
+import { loadDocuments, looseRecord, pathString, plural, positiveInt, quoteForConfirmation, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
 const sessionRecordSchema = looseRecord({
@@ -85,6 +85,13 @@ started and inherits the related receipts of the most recent expired record
 for that host session. ledger scratch <title> is an alias
 for scratch notes without a host.`,
     prepare: (input) => (input.title === "" ? { ...input, title: undefined } : input),
+  },
+  mcp: {
+    tool: "ledger_session_start",
+    title: "Start a session record",
+    summary: (data) => ({ id: data.session.id, created: data.created }),
+    confirm: (input) =>
+      `Start a session record${input.title ? ` titled ${quoteForConfirmation(input.title)}` : ""}, or reuse the active one for the same host session.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -192,6 +199,13 @@ follow-ups the next session should pick up, and Summary for the intent of the
 work; the first Summary line becomes the title of the receipt the hooks
 draft. An active session past its expires date is not selected without --id.`,
   },
+  mcp: {
+    tool: "ledger_session_note",
+    title: "Add a session note",
+    summary: (data) => ({ id: data.session.id, section: data.section, bullets: data.bullets.length }),
+    confirm: (input) =>
+      `Add ${quoteForConfirmation(input.text)} to the ${input.section ?? "Learned"} section of ${input.id ?? "the active session record"}.`,
+  },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
     const result = await noteSession(workspace, documents, input.text, {
@@ -228,6 +242,12 @@ export const sessionCloseOperation = defineOperation<SessionCloseInput, CloseSes
 still be promoted with ledger promote <id>. An active session past its expires
 date is treated as inactive and is not selected without --id; pass --id to
 close it explicitly.`,
+  },
+  mcp: {
+    tool: "ledger_session_close",
+    title: "Close a session record",
+    summary: (data) => ({ id: data.session.id, changed: data.changed }),
+    confirm: (input) => `Close ${input.id ?? "the active session record"}.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);

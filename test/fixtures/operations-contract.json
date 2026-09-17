@@ -379,6 +379,57 @@
           "path"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_new",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Entry title."
+            },
+            "fromDiff": {
+              "description": "Prefill files from Git changes.",
+              "type": "boolean"
+            },
+            "staged": {
+              "description": "Read the staged diff.",
+              "type": "boolean"
+            },
+            "areas": {
+              "description": "Area tags.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "status": {
+              "default": "draft",
+              "description": "Entry status.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "title",
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {
@@ -473,6 +524,58 @@
           "path"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_feedback",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Note title."
+            },
+            "areas": {
+              "description": "Area tags.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "tags": {
+              "description": "Tags.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "status": {
+              "default": "captured",
+              "description": "Note status.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "title",
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {
@@ -590,6 +693,76 @@
           "path"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_backlog_new",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Backlog item title."
+            },
+            "areas": {
+              "description": "Area tags.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "decisions": {
+              "description": "Decision ids the item depends on.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "related": {
+              "description": "Related record ids.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "docs": {
+              "description": "Durable docs the item relates to.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "status": {
+              "default": "proposed",
+              "description": "Item status.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "title",
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {
@@ -707,6 +880,76 @@
           "path"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_decision_new",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Decision title."
+            },
+            "areas": {
+              "description": "Area tags.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "decisions": {
+              "description": "Decision ids this decision builds on.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "related": {
+              "description": "Related record ids.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "docs": {
+              "description": "Durable docs the decision affects.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "status": {
+              "default": "proposed",
+              "description": "Decision status.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "title",
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {
@@ -865,6 +1108,69 @@
           "carriedChecks"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_promote",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Backlog item id, for example B007."
+            },
+            "title": {
+              "description": "Entry title. Defaults to the item title.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "areas": {
+              "description": "Area tags. Defaults to the item areas.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "fromDiff": {
+              "description": "Prefill files from Git changes.",
+              "type": "boolean"
+            },
+            "staged": {
+              "description": "Read the staged diff.",
+              "type": "boolean"
+            },
+            "status": {
+              "default": "draft",
+              "description": "Entry status.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "sourceStatus": {
+              "description": "Status written to the promoted item. Defaults to in-progress.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "id",
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {
@@ -1026,6 +1332,61 @@
           "created"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_session_start",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "title": {
+              "description": "Session title. Defaults to the host and date.",
+              "type": "string",
+              "maxLength": 500
+            },
+            "host": {
+              "description": "Agent host, for example claude-code.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "id": {
+              "description": "Session record id, for example S0001.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "hostSession": {
+              "description": "Host session identifier stored in the record.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "areas": {
+              "description": "Area tags.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "expiresInDays": {
+              "description": "Days until the record expires.",
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 3650
+            }
+          },
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {
@@ -1327,6 +1688,53 @@
           "bullets"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_session_note",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "description": "Note text."
+            },
+            "section": {
+              "description": "Section to append to. Defaults to Learned.",
+              "type": "string",
+              "enum": [
+                "Summary",
+                "Learned",
+                "Next"
+              ]
+            },
+            "id": {
+              "description": "Session record id, for example S0001.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "hostSession": {
+              "description": "Host session identifier stored in the record.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {
@@ -1441,6 +1849,35 @@
           "changed"
         ],
         "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_session_close",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "id": {
+              "description": "Session record id, for example S0001.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "hostSession": {
+              "description": "Host session identifier stored in the record.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "additionalProperties": false
+        },
+        "confirms": true
       }
     },
     {

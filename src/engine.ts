@@ -6,7 +6,8 @@ import {
 } from "node:http";
 import path from "node:path";
 import process from "node:process";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import type { McpHttpHandler } from "@modelcontextprotocol/server";
 import { readLedgerCatalog, type LedgerCatalogCacheStats } from "./catalogCache.js";
 import {
   ledgerEngineApiVersion,
@@ -17,7 +18,7 @@ import {
 } from "./daemon.js";
 import { normalizePath } from "./documents.js";
 import { LedgerError, machineFailure, machineSuccess, normalizeLedgerError } from "./machine.js";
-import { createLedgerMcpServer, listLedgerMcpTools } from "./mcp.js";
+import { createLedgerMcpHttpHandler, ledgerMcpProtocolVersions, listLedgerMcpTools } from "./mcp.js";
 import { buildOperationsContract, findOperation, ledgerOperations } from "./operations/registry.js";
 import { buildContext, validateInput } from "./operations/runtime.js";
 import type { AnyLedgerOperation } from "./operations/types.js";
@@ -101,6 +102,9 @@ interface EngineState {
   staticRoot: string;
   lastRender?: RenderStaticReaderResult;
   lastCache?: LedgerCatalogCacheStats;
+  /** The MCP handler behind `/mcp`, one per engine so confirmations survive between requests. */
+  readonly mcp: McpHttpHandler;
+  readonly mcpNode: ReturnType<typeof toNodeHandler>;
 }
 
 const maxBodyBytes = 1_000_000;
@@ -124,9 +128,17 @@ export async function startLedgerEngine(
   const token = options.accessToken;
   validateExposure(mode, host, port, token);
 
+  const version = options.version ?? "0.0.0";
+  const logError = options.logError ?? ((line: string) => console.error(line));
+  const mcp = createLedgerMcpHttpHandler({
+    cwd: workspace.projectRoot,
+    version,
+    writeRoot: workspace.projectRoot,
+    onerror: (error) => logError(`MCP: ${error.message}`),
+  });
   const state: EngineState = {
     workspace,
-    version: options.version ?? "0.0.0",
+    version,
     profile,
     mode,
     token,
@@ -134,8 +146,10 @@ export async function startLedgerEngine(
     clients: new Set(),
     operationsServed: 0,
     log: options.log ?? ((line) => console.log(line)),
-    logError: options.logError ?? ((line) => console.error(line)),
+    logError,
     staticRoot: "",
+    mcp,
+    mcpNode: toNodeHandler(mcp, { onerror: (error) => logError(`MCP: ${error.message}`) }),
   };
 
   const initial = await renderReader(state);
@@ -198,6 +212,7 @@ export async function startLedgerEngine(
                 misses: read.cache.misses,
                 removed: read.cache.removed,
               });
+              state.mcp.notify.resourcesChanged();
               const rendered = await renderReader(state);
               if (rendered.ok) {
                 broadcast(state, "rebuilt", {
@@ -243,6 +258,7 @@ export async function startLedgerEngine(
     for (const watcher of watchers) watcher.close();
     for (const client of state.clients) client.end();
     state.clients.clear();
+    await state.mcp.close().catch(() => undefined);
     if (daemonPath) await removeDaemonRecord(workspace.ledgerRoot).catch(() => undefined);
     await closeStaticReader(
       { server, url, root: state.staticRoot, mode, authenticated: Boolean(token), profile },
@@ -387,17 +403,7 @@ async function handleMcp(
   response: ServerResponse,
 ): Promise<void> {
   if (!allowMethods(request, response, ["GET", "POST", "DELETE"])) return;
-  const server = createLedgerMcpServer({ cwd: state.workspace.projectRoot, version: state.version });
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
-  });
-  response.on("close", () => {
-    void transport.close().catch(() => undefined);
-    void server.close().catch(() => undefined);
-  });
-  await server.connect(transport);
-  await transport.handleRequest(request, response);
+  await state.mcpNode(request, response);
 }
 
 function openEventStream(state: EngineState, response: ServerResponse): void {
@@ -478,11 +484,13 @@ function serverCard(state: EngineState): Record<string, unknown> {
     version: state.version,
     description: "Repo-native change memory for humans and coding agents.",
     transport: { type: "streamable-http", url: "/mcp", stateless: true },
+    protocolVersions: [...ledgerMcpProtocolVersions],
     tools: listLedgerMcpTools().map((tool) => ({
       name: tool.name,
       title: tool.title,
       description: tool.description,
       readOnly: !tool.mutates,
+      ...(tool.confirms ? { confirms: true, protocolVersions: [ledgerMcpProtocolVersions[0]] } : {}),
     })),
   };
 }

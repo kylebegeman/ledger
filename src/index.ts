@@ -47,9 +47,11 @@ export {
   normalizeLedgerError,
 } from "./machine.js";
 export {
+  createLedgerMcpHttpHandler,
   createLedgerMcpServer,
   listLedgerMcpTools,
   runLedgerMcpTool,
+  serveLedgerMcpStdio,
   startLedgerMcpServer,
 } from "./mcp.js";
 export {

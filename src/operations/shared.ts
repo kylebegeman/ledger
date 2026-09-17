@@ -73,3 +73,12 @@ export function validationLine(errors: number, warnings: number): string {
 export function plural(count: number, singular: string, pluralForm: string): string {
   return count === 1 ? singular : pluralForm;
 }
+
+/** Longest quoted value a confirmation message shows before it is cut. */
+export const confirmationQuoteLimit = 200;
+
+/** Quote user text for a confirmation message, on one line and cut to a readable length. */
+export function quoteForConfirmation(text: string): string {
+  const line = text.replace(/\s+/g, " ").trim();
+  return `"${line.length > confirmationQuoteLimit ? `${line.slice(0, confirmationQuoteLimit - 1)}…` : line}"`;
+}

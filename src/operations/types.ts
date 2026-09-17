@@ -53,13 +53,19 @@ export interface LedgerOperationCli {
   readonly hidden?: boolean;
 }
 
-export interface LedgerOperationMcp<O> {
+export interface LedgerOperationMcp<I, O> {
   readonly tool: string;
   readonly title: string;
   /** Compact signal object placed before the detailed payload fields. */
   readonly summary: (data: O) => Readonly<Record<string, unknown>>;
   /** Input schema override when the MCP surface differs from the CLI surface. */
   readonly input?: z.ZodObject<z.ZodRawShape>;
+  /**
+   * The sentence the MCP server asks the user to confirm before the tool runs,
+   * for example `Create a change entry titled "X".` Every MCP tool that writes
+   * source records declares it; tools without it never ask.
+   */
+  readonly confirm?: (input: I) => string;
 }
 
 export interface LedgerOperationContext {
@@ -96,7 +102,7 @@ export interface LedgerOperation<I extends Record<string, unknown>, O> {
   /** Output contract describing O. Loose objects keep nested domain shapes in TypeScript. */
   readonly output: z.ZodObject<z.ZodRawShape, z.core.$loose>;
   readonly cli: LedgerOperationCli;
-  readonly mcp?: LedgerOperationMcp<O>;
+  readonly mcp?: LedgerOperationMcp<I, O>;
   readonly run: (context: LedgerOperationContext, input: I) => Promise<LedgerOperationOutcome<O>>;
   /** Human-readable rendering of the outcome. */
   readonly format: (data: O, input: I) => string;
