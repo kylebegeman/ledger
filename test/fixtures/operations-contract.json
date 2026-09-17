@@ -7032,7 +7032,7 @@
           "install"
         ],
         "aliases": [],
-        "usage": "ledger hooks install --host <claude-code|codex|cursor> [--command <prefix>] [--import-agents] [--dry-run] [--json]",
+        "usage": "ledger hooks install --host <claude-code|codex|cursor> [--command <prefix>] [--launcher] [--import-agents] [--dry-run] [--json]",
         "json": true,
         "flags": {
           "host": {
@@ -7047,6 +7047,10 @@
           "command": {
             "type": "string",
             "field": "command"
+          },
+          "launcher": {
+            "type": "boolean",
+            "field": "launcher"
           },
           "import-agents": {
             "type": "boolean",
@@ -7079,6 +7083,10 @@
           },
           "importAgents": {
             "description": "Add the @AGENTS.md import to CLAUDE.md when it is missing (claude-code only).",
+            "type": "boolean"
+          },
+          "launcher": {
+            "description": "Run Codex hooks through .ledger/bin/ledger.mjs (true) or the command itself (false); defaults to the form .codex/hooks.json already uses (codex only).",
             "type": "boolean"
           },
           "dryRun": {
@@ -7140,6 +7148,27 @@
               "present",
               "added",
               "created"
+            ],
+            "additionalProperties": {}
+          },
+          "launcher": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "current",
+                  "written",
+                  "removed"
+                ]
+              }
+            },
+            "required": [
+              "path",
+              "state"
             ],
             "additionalProperties": {}
           },

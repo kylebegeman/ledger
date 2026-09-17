@@ -8,7 +8,16 @@ import { normalizeDocument, normalizePath } from "./documents.js";
 import { isCoverageRequired } from "./coverage.js";
 import { inspectGit, listTrackedFiles } from "./git.js";
 import { inspectWorkspaceWriteState, recoverInterruptedTransactions } from "./fileTransaction.js";
-import { hookHosts, hostHookFile, ledgerHookCommandPrefix, type LedgerHookHost } from "./hooks.js";
+import {
+  hookHosts,
+  hookLauncherCommand,
+  hookLauncherPath,
+  hookLauncherTarget,
+  hostHookFile,
+  isCurrentHookLauncher,
+  ledgerHookPrefixes,
+  type LedgerHookHost,
+} from "./hooks.js";
 import { buildIndexes, writeIndexes } from "./indexer.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
 import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
@@ -131,28 +140,48 @@ async function symbolsCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorChe
   const covered = (await listTrackedFiles(workspace.projectRoot)).filter((file) =>
     isCoverageRequired(workspace, file),
   );
+  if (covered.length === 0) {
+    const roots = workspace.config.git.requireEntryFor;
+    return {
+      name: "symbols",
+      level: "pass",
+      message: roots.length > 0
+        ? `no tracked files match git.requireEntryFor (${listPatterns(roots)}), so the TypeScript parser is not needed; point those patterns at the code receipts should cover`
+        : "git.requireEntryFor is empty, so the TypeScript parser is not needed",
+    };
+  }
   const languages = summarizeSymbolLanguages(covered);
-  if (covered.length > 0 && !languages.extractable) {
-    const notes = ["no TypeScript or JavaScript under coverage, so the TypeScript parser is not needed"];
-    if (languages.outlinedLanguages.length > 0) {
-      notes.push(`${listNames(languages.outlinedLanguages)} symbols come from Ledger's declaration outlines`);
-    }
-    if (languages.otherLanguages.length > 0) {
-      notes.push(`${listNames(languages.otherLanguages)} anchors are not extracted or checked`);
-    }
-    return { name: "symbols", level: "pass", message: notes.join("; ") };
+  const notes: string[] = [];
+  if (languages.outlinedLanguages.length > 0) {
+    notes.push(`${listNames(languages.outlinedLanguages)} symbols come from Ledger's declaration outlines`);
+  }
+  if (languages.otherLanguages.length > 0) {
+    notes.push(`${listNames(languages.otherLanguages)} anchors are not extracted or checked`);
+  }
+  if (!languages.extractable) {
+    const message = ["no TypeScript or JavaScript under coverage, so the TypeScript parser is not needed", ...notes];
+    return { name: "symbols", level: "pass", message: message.join("; ") };
   }
   const statuses = await symbolExtractorStatus();
   const typescript = statuses.find((status) => status.name === "typescript");
   if (typescript?.available) {
     const parser = typescript.version ? `typescript ${typescript.version}` : "typescript";
-    return { name: "symbols", level: "pass", message: `${parser} parser available for anchors` };
+    return { name: "symbols", level: "pass", message: [`${parser} parser available for anchors`, ...notes].join("; ") };
   }
   return {
     name: "symbols",
     level: "warn",
-    message: `regex fallback for code anchors: ${typeScriptFallbackAdvice(typescript?.reason)}`,
+    message: [
+      `regex fallback for TypeScript and JavaScript anchors: ${typeScriptFallbackAdvice(typescript?.reason)}`,
+      ...notes,
+    ].join("; "),
   };
+}
+
+/** Coverage patterns for a message, at most five. */
+function listPatterns(patterns: readonly string[]): string {
+  const shown = patterns.slice(0, 5).join(", ");
+  return patterns.length > 5 ? `${shown}, and ${patterns.length - 5} more` : shown;
 }
 
 function listNames(names: readonly string[]): string {
@@ -334,14 +363,28 @@ async function hooksCheck(workspace: LedgerWorkspace, version: string | undefine
   if (installed.length === 0) return { name: "hooks", level: "pass", message: "no host hooks installed" };
   const command = workspace.config.agents.command;
   const hosts = installed.map((entry) => entry.host).join(", ");
-  const drifted = installed.filter((entry) => entry.prefixes.some((prefix) => prefix !== command));
+  // Hooks may run agents.command directly or through the launcher, which runs it for them.
+  const drifts = (prefix: string): boolean => prefix !== command && prefix !== hookLauncherCommand;
+  const drifted = installed.filter((entry) => entry.prefixes.some(drifts));
   if (drifted.length > 0) {
-    const shown = drifted.map((entry) => `${entry.path} runs \`${entry.prefixes.find((prefix) => prefix !== command)}\``);
+    const shown = drifted.map((entry) => `${entry.path} runs \`${entry.prefixes.find(drifts)}\``);
     return {
       name: "hooks",
       level: "warn",
       message: `${shown.join("; ")}, but agents.command is \`${command}\`; rerun ledger hooks install for ${drifted.map((entry) => entry.host).join(", ")}`,
     };
+  }
+  const launched = installed.filter((entry) => entry.prefixes.includes(hookLauncherCommand));
+  const launchedHosts = launched.map((entry) => entry.host).join(", ");
+  if (launched.length > 0) {
+    const problem = await launcherProblem(workspace, command);
+    if (problem) {
+      return {
+        name: "hooks",
+        level: "warn",
+        message: `${launched.map((entry) => entry.path).join(", ")} ${launched.length === 1 ? "runs" : "run"} ${hookLauncherPath}, ${problem}; rerun ledger hooks install for ${launchedHosts}`,
+      };
+    }
   }
   const argv = splitShellWords(command);
   if (!argv || argv.length === 0) {
@@ -370,7 +413,8 @@ async function hooksCheck(workspace: LedgerWorkspace, version: string | undefine
       message: `${hosts} hooks run Ledger ${reported} through \`${command}\`, but this is Ledger ${version}`,
     };
   }
-  return { name: "hooks", level: "pass", message: `${hosts} hooks run Ledger ${reported} through \`${command}\`` };
+  const via = launched.length > 0 ? `, which ${launchedHosts} hooks start with ${hookLauncherPath}` : "";
+  return { name: "hooks", level: "pass", message: `${hosts} hooks run Ledger ${reported} through \`${command}\`${via}` };
 }
 
 async function installedHookPrefixes(workspace: LedgerWorkspace, relativePath: string): Promise<readonly string[]> {
@@ -387,23 +431,23 @@ async function installedHookPrefixes(workspace: LedgerWorkspace, relativePath: s
   } catch {
     return [];
   }
-  const prefixes = new Set<string>();
-  const visit = (value: unknown): void => {
-    if (Array.isArray(value)) {
-      for (const item of value) visit(item);
-    } else if (value !== null && typeof value === "object") {
-      for (const [key, child] of Object.entries(value)) {
-        if (key === "command") {
-          const prefix = ledgerHookCommandPrefix(child);
-          if (prefix) prefixes.add(prefix);
-        } else {
-          visit(child);
-        }
-      }
-    }
-  };
-  visit(parsed);
-  return [...prefixes];
+  return ledgerHookPrefixes(parsed);
+}
+
+/** Why the launcher that hooks run cannot run `agents.command`, or undefined when it can. */
+async function launcherProblem(workspace: LedgerWorkspace, command: string): Promise<string | undefined> {
+  let script: string;
+  try {
+    script = await readFile(await resolveSafeProjectPath(workspace.projectRoot, hookLauncherPath, "hook launcher"), "utf8");
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return "which is missing";
+    throw error;
+  }
+  if (isCurrentHookLauncher(script, command)) return undefined;
+  const target = hookLauncherTarget(script);
+  return target !== undefined && target !== command
+    ? `which runs \`${target}\`, but agents.command is \`${command}\``
+    : "which is out of date";
 }
 
 function runCommand(

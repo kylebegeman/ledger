@@ -80,7 +80,22 @@ describe("doctor", () => {
 
     const check = await symbolsCheckFor(tempDir);
     expect(check.level).toBe("pass");
-    expect(check.message).toMatch(/parser available for anchors$/);
+    expect(check.message).toMatch(/parser available for anchors; Go symbols come from Ledger's declaration outlines$/);
+  }, 30_000);
+
+  it("names the coverage patterns instead of the parser when no tracked file is under coverage", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-doctor-uncovered-test-")));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "cmd"), { recursive: true });
+    await writeFile(path.join(tempDir, "cmd", "main.go"), "package main\n\nfunc main() {}\n");
+    await commitAll(tempDir);
+
+    expect(await symbolsCheckFor(tempDir)).toEqual({
+      name: "symbols",
+      level: "pass",
+      message:
+        "no tracked files match git.requireEntryFor (src/**, test/**, docs/**), so the TypeScript parser is not needed; point those patterns at the code receipts should cover",
+    });
   }, 30_000);
 });
 
@@ -148,6 +163,39 @@ describe("doctor hooks check", () => {
     expect(await hooksCheckFor(tempDir, "9.9.9")).toMatchObject({
       level: "warn",
       message: expect.stringContaining("did not print a Ledger version"),
+    });
+  });
+
+  it("accepts hooks that run the launcher and warns when the launcher is missing or stale", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-doctor-launcher-")));
+    await initWorkspace(tempDir);
+    const fake = path.join(tempDir, "fake-ledger.mjs");
+    await writeFile(fake, 'process.stdout.write(process.argv[2] === "version" ? "ledger 9.9.9\\n" : "");\n');
+    const command = `node ${fake}`;
+    await installHostHooks(await findWorkspace(tempDir), { host: "codex", command, launcher: true, dryRun: false });
+    await installHostHooks(await findWorkspace(tempDir), { host: "claude-code", dryRun: false });
+    expect(await hooksCheckFor(tempDir, "9.9.9")).toEqual({
+      name: "hooks",
+      level: "pass",
+      message: `claude-code, codex hooks run Ledger 9.9.9 through \`${command}\`, which codex hooks start with .ledger/bin/ledger.mjs`,
+    });
+
+    const launcher = path.join(tempDir, ".ledger", "bin", "ledger.mjs");
+    const script = await readFile(launcher, "utf8");
+    await writeFile(launcher, script.replace(JSON.stringify(command), JSON.stringify("ledger")));
+    expect(await hooksCheckFor(tempDir, "9.9.9")).toMatchObject({
+      level: "warn",
+      message: `.codex/hooks.json runs .ledger/bin/ledger.mjs, which runs \`ledger\`, but agents.command is \`${command}\`; rerun ledger hooks install for codex`,
+    });
+    await writeFile(launcher, `${script}// edited\n`);
+    expect(await hooksCheckFor(tempDir, "9.9.9")).toMatchObject({
+      level: "warn",
+      message: ".codex/hooks.json runs .ledger/bin/ledger.mjs, which is out of date; rerun ledger hooks install for codex",
+    });
+    await rm(launcher);
+    expect(await hooksCheckFor(tempDir, "9.9.9")).toMatchObject({
+      level: "warn",
+      message: ".codex/hooks.json runs .ledger/bin/ledger.mjs, which is missing; rerun ledger hooks install for codex",
     });
   });
 });

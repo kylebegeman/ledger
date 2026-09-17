@@ -1192,7 +1192,7 @@ Install Ledger lifecycle hooks into an agent host's project hook file.
 Ledger hooks install
 
 Usage:
-  ledger hooks install --host <claude-code|codex|cursor> [--command <prefix>] [--import-agents] [--dry-run] [--json]
+  ledger hooks install --host <claude-code|codex|cursor> [--command <prefix>] [--launcher] [--import-agents] [--dry-run] [--json]
 
 Writes Ledger's SessionStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd,
 and PreCompact hooks into the host's project hook file: .claude/settings.json
@@ -1205,12 +1205,22 @@ agents.command in .ledger/config.yaml and reused by hooks install, agents
 when Ledger is a project dependency. A dry run computes but never writes the
 config. --import-agents adds the @AGENTS.md import to CLAUDE.md so Claude Code
 reads the Ledger block. Nothing auto-starts the engine.
+
+Codex asks you to approve a hook again whenever its command changes, so a new
+pinned version in --command means approving all six again. With --launcher,
+the Codex hooks run "node .ledger/bin/ledger.mjs hook <event> --host codex"
+instead, and that generated script runs agents.command. A later install with
+a new --command rewrites only the script, so the approval carries over.
+Start Codex at the project root, where the hooks find the script. Later
+installs keep the form .codex/hooks.json already uses; --launcher=false
+returns to direct commands and removes the script.
 ```
 
 | Flag | Value | Description |
 | --- | --- | --- |
 | `--host` | `claude-code`, `codex`, `cursor` | Agent host to install hooks for. |
 | `--command` | text | Command prefix that runs Ledger; saved as agents.command in .ledger/config.yaml. |
+| `--launcher` | switch | Codex only: run the hooks through .ledger/bin/ledger.mjs, so a new version leaves .codex/hooks.json and Codex's approval unchanged; --launcher=false switches back. |
 | `--import-agents` | switch | Add the @AGENTS.md import to CLAUDE.md when it is missing (claude-code only). |
 | `--dry-run` | switch | Print the merged hook file without writing it. |
 

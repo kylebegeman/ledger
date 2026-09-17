@@ -4,7 +4,7 @@ kind: "product-note"
 title: "Doctor suggests the TypeScript parser where it cannot help"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "captured"
+status: "resolved"
 areas:
   - "doctor"
   - "symbols"
@@ -49,3 +49,5 @@ noise to a doctor run that is otherwise clean.
 ## Follow-ups
 
 - Fix both messages in the next release when work on Ledger resumes.
+- Resolved: 0190 names the coverage patterns when nothing is under coverage,
+  and names the outlined languages beside the TypeScript parser.
