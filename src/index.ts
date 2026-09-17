@@ -10,7 +10,7 @@ export {
   runLedgerSearchPacketCommand,
   runLedgerSearchCommand,
 } from "./commands/index.js";
-export { formatCiAnnotations, formatCiSummaryMarkdown, runCiChecks } from "./ci.js";
+export { formatCiAnnotations, formatCiSummaryMarkdown, formatCiText, runCiChecks } from "./ci.js";
 export { connectLedgerClient, createLedgerClient } from "./client.js";
 export {
   currentConfigVersion,
@@ -110,6 +110,7 @@ export {
   findSession,
   noteSession,
   pruneSessions,
+  sessionDraftHints,
   startSession,
   touchSession,
 } from "./sessions.js";
@@ -170,12 +171,15 @@ export {
 export { delegateOperation, isDelegatable } from "./operations/delegate.js";
 export { detectStaleKnowledge, formatStaleReport, isCheckableAnchor, writeStaleReport } from "./stale.js";
 export {
+  extractCodeSymbolSpansWithRegex,
   extractCodeSymbols,
   extractCodeSymbolsDetailed,
   extractFileSymbols,
   extractFileSymbolsDetailed,
+  extractMarkdownSymbolSpans,
   extractMarkdownSymbols,
   symbolExtractorStatus,
+  symbolsTouchedByLines,
 } from "./symbols.js";
 export { renderLedgerTemplate, yamlStringArray } from "./template.js";
 export {

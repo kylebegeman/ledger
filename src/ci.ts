@@ -1,6 +1,7 @@
 import { checkCoverage } from "./coverage.js";
 import { auditDocs } from "./docs.js";
 import { buildDocsImpact } from "./docsImpact.js";
+import { sessionDraftHints, type SessionDraftHint } from "./sessions.js";
 import type {
   LedgerCoverageResult,
   LedgerDocsAudit,
@@ -10,6 +11,9 @@ import type {
   ParsedLedgerDocument,
 } from "./types.js";
 import { validateDocuments } from "./validate.js";
+
+/** Issue lines the text output shows before pointing to `--json` for the rest. */
+const maxTextIssues = 20;
 
 export interface LedgerCiOptions {
   readonly staged?: boolean;
@@ -33,6 +37,44 @@ export interface LedgerCiResult {
   readonly docsAudit: LedgerDocsAudit;
   readonly coverage: LedgerCoverageResult;
   readonly docsImpact: LedgerDocsImpact;
+  /**
+   * Active hooked sessions that touched a file coverage or docs impact
+   * reports, and what to do about it. Only the local text output shows them;
+   * GitHub annotations and summaries leave them out.
+   */
+  readonly sessions: readonly SessionDraftHint[];
+}
+
+/**
+ * The text report: each check, then what failed and which hooked sessions
+ * will draft the missing receipts. With `issues: false`, as under `--github`
+ * where annotations already name every failure, only the checks are listed.
+ */
+export function formatCiText(result: LedgerCiResult, options: { readonly issues?: boolean } = {}): string {
+  const lines = [`Ledger CI: ${result.ok ? "passed" : "failed"}.`];
+  for (const check of result.checks) {
+    lines.push(`- ${check.ok ? "pass" : "fail"}: ${check.name} (${check.errors} error(s), ${check.warnings} warning(s))`);
+  }
+  if (options.issues === false) return lines.join("\n");
+  const issues: string[] = [];
+  for (const issue of result.validation.errors) issues.push(`validate: ${issue.path ? `${issue.path}: ` : ""}${issue.message}`);
+  for (const reference of result.docsAudit.missingReferences) issues.push(`docs: a record references a missing doc: ${reference}`);
+  const anyMode = result.coverage.mode === "any";
+  for (const file of result.coverage.files) {
+    if (file.status === "missing") issues.push(`coverage: ${file.path} has no change entry${anyMode ? "" : " in this change set"}`);
+    if (file.status === "historical") issues.push(`coverage: ${historicalCoverageMessage(file.path, file.coveredBy, anyMode)}`);
+  }
+  for (const file of result.docsImpact.files) {
+    if (!file.satisfied) issues.push(`docs-impact: ${docsImpactReason(result, file)}`);
+  }
+  if (issues.length > 0) {
+    lines.push("", "Issues:", ...issues.slice(0, maxTextIssues).map((issue) => `- ${issue}`));
+    if (issues.length > maxTextIssues) lines.push(`- and ${issues.length - maxTextIssues} more; run with --json for all of them`);
+  }
+  if (result.sessions.length > 0) {
+    lines.push("", "Hooked sessions:", ...result.sessions.map((hint) => `- ${hint.message}`));
+  }
+  return lines.join("\n");
 }
 
 /**
@@ -61,12 +103,16 @@ export function formatCiAnnotations(result: LedgerCiResult): readonly string[] {
   }
   for (const file of result.docsImpact.files) {
     if (file.satisfied) continue;
-    const reason = file.entries.length > 0
-      ? `${file.entries.join(", ")} lists ${file.path} without a reviewed docsImpact declaration`
-      : `${docsImpactScope(result)} ties ${file.path} to a docs decision`;
-    lines.push(annotation("error", "Ledger docs impact", reason, file.path));
+    lines.push(annotation("error", "Ledger docs impact", docsImpactReason(result, file), file.path));
   }
   return lines;
+}
+
+/** Why a source file lacks docs impact evidence. */
+function docsImpactReason(result: LedgerCiResult, file: LedgerDocsImpact["files"][number]): string {
+  return file.entries.length > 0
+    ? `${file.entries.join(", ")} lists ${file.path} without a reviewed docsImpact declaration`
+    : `${docsImpactScope(result)} ties ${file.path} to a docs decision`;
 }
 
 /** Markdown for the GitHub Actions job summary. */
@@ -180,5 +226,6 @@ export async function runCiChecks(
     docsAudit,
     coverage,
     docsImpact,
+    sessions: sessionDraftHints(workspace, documents, [...coverage.missingFiles, ...docsImpact.missingDocsImpact]),
   };
 }

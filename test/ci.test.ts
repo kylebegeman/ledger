@@ -175,6 +175,7 @@ describe("GitHub output", () => {
       docsAudit: { docsRoot: "docs", adoption: "partial" as const, files: [], referencedDocs: [], missingReferences: [], unreferencedDocs: [], scratchDocs: [], generatedDocs: [], unknownDocs: [] },
       coverage: { mode: "current" as const, changedFiles: [], requiredFiles: [], coveredFiles: [], missingFiles: [], historicalFiles: [], currentEntries: [], files: [] },
       docsImpact: { mode: "current" as const, docsRoot: "docs", changedFiles: [], sourceFiles: [], docsFiles: [], ledgerFiles: [], changedEntries: [], referencedDocs: [], declarations: [], files: [], missingDocsImpact: [], earlierEvidenceFiles: [] },
+      sessions: [],
     };
     expect(formatCiAnnotations(result)).toEqual(["::error file=a%2Cb.md,title=Ledger validation::bad: 100%25%0Aline two"]);
   });

@@ -30,7 +30,8 @@ Ledger keeps ledger's change memory as Markdown records under `.ledger/`: change
 
 ## Draft receipt lifecycle
 
-- Drafted: the Stop or SessionEnd hook creates one change entry from the paths the session touched and the Git diff, with `status: draft`, a neutral title, and `related` naming the session record.
+- Mid-turn: nothing is drafted yet, so `node dist/cli.js ci` reports the files this turn changed as uncovered and names the session whose hook will draft their receipt. Keep working; do not create a receipt for them.
+- Drafted: the Stop or SessionEnd hook creates one change entry from the paths the session touched and the Git diff, with `status: draft`, a neutral title, symbols from the changed lines, and `related` naming the session record.
 - Refreshed: later stops add newly touched paths to that draft instead of creating another; a new draft appears only for uncommitted paths that no linked receipt, and no receipt already in the working tree, covers.
 - Finished: you retitle it and fill it in, then `node dist/cli.js ready` gates it.
 - Landed: a person sets `status: landed` after the work merges; hooks never re-draft a landed receipt for the same paths.

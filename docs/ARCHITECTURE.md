@@ -229,20 +229,38 @@ peer dependency: when it is installed the parser runs, otherwise a regex
 extractor runs and the draft says so (`ledger new` prints the extractor
 counts and the fallback reason, and `ledger doctor` has a `symbols` check).
 Callers that need parser quality pass `parser: "typescript"` and get an error
-instead of silent regex output. Generated prose remains marked as TODO so
+instead of silent regex output. Each extractor also reports where every
+symbol sits (`LedgerSymbolSpan`): a heading's section up to the next heading
+of the same or a higher level, with fenced code skipped; a parsed top-level
+declaration from its doc comment to its end; or, for the regex fallback, a
+declaration up to the next one. A draft reads the changed lines from
+`git diff --unified=0` (`getChangedLineRanges` in `src/git.ts`) and keeps a
+file's symbols only where a changed line falls in a span. A line inside a
+subsection counts only for the innermost heading (`symbolsTouchedByLines`),
+and an edit outside every symbol leaves the anchor as a TODO. Added and
+untracked files, and every file when Git cannot report lines, keep all their
+symbols up to the per-file cap. Generated prose remains marked as TODO so
 agents must still verify and finish the entry before landing it.
 
 ### CI Summary
 
 `ledger ci` composes validation, docs audit, coverage, and docs impact into one
 result. It does not replace the individual commands; it packages their current
-state for CI, local preflight checks, and agent automation. Human output is
-compact, while JSON output preserves the nested results for tools. In clean PR
-checkouts, `--base <revision> --head <revision>` supplies the committed range to
-coverage and docs impact. `--github` adds GitHub Actions output: one
-workflow-command annotation per failing signal with the file path, and a
-Markdown job summary appended to `GITHUB_STEP_SUMMARY`. The repository's
-`action.yml` is a composite action that wraps the command for pull requests.
+state for CI, local preflight checks, and agent automation. Human output lists
+each check and then each failing file (`formatCiText`), and JSON output
+preserves the nested results for tools. Hooks draft a session's receipt only
+when a turn ends, so a run earlier in the turn finds the turn's files
+uncovered. `sessionDraftHints` in `src/sessions.ts` matches failing files to
+active sessions that have a host and names each session and its linked draft,
+so the agent finishes that draft rather than writing a second receipt.
+`ci`, `coverage`, and `docs impact` return these hints as `sessions` and print
+them, and GitHub output leaves them out. In clean PR checkouts,
+`--base <revision> --head <revision>` supplies the committed range to coverage
+and docs impact. `--github` adds GitHub Actions output: one workflow-command
+annotation per failing signal with the file path, and a Markdown job summary
+appended to `GITHUB_STEP_SUMMARY`; the text report then lists only the checks.
+The repository's `action.yml` is a composite action that wraps the command for
+pull requests.
 With `comment: "true"` it keeps the summary in one pull request comment,
 found by a hidden `<!-- ledger-ci-summary -->` marker on a
 `github-actions[bot]` comment and updated in place; pull requests from forks,
@@ -394,7 +412,8 @@ source, touched paths made project-relative, stop-hook flag), and dispatches:
   else `defaultDraftTitle` (`Changes to <areas>`, naming at most three areas
   and the count of the rest, or `Changes to <first path>`), which `ready`
   reports as a template placeholder until it is edited. A draft lists at most
-  eight inferred areas and caps the symbols it takes from the diff.
+  eight inferred areas and takes a capped list of symbols, only those on the
+  lines the diff changed.
 - `pre-compact` records the working tree on the session and writes
   `.ledger/reports/handoff.md`
 
@@ -820,7 +839,9 @@ source record directories and regenerates the reader after edits. With
 
 Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.
 Use `--base <revision> --head <revision>` in a clean checkout, or `--staged` for
-the staged index; the modes cannot be combined.
+the staged index; the modes cannot be combined. The text report lists each
+failing file, and names any active hooked session that touched one, with its
+draft receipt.
 
 ### `ledger doctor`
 

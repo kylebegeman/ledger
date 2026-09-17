@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { appendFile } from "node:fs/promises";
-import { formatCiAnnotations, formatCiSummaryMarkdown, runCiChecks, type LedgerCiResult } from "../../ci.js";
+import { formatCiAnnotations, formatCiSummaryMarkdown, formatCiText, runCiChecks, type LedgerCiResult } from "../../ci.js";
 import { checkCoverage } from "../../coverage.js";
 import { writeDocsAuditReport } from "../../docs.js";
 import { buildDocsImpact, writeDocsImpactReport } from "../../docsImpact.js";
 import { getChangedFiles } from "../../git.js";
+import { sessionDraftHints, type SessionDraftHint } from "../../sessions.js";
 import type { LedgerCoverageResult, LedgerDocsImpact } from "../../types.js";
 import { readValidationBaseline, writeValidationReport } from "../../validate.js";
 import {
@@ -23,12 +24,22 @@ const changeRangeFlags = {
   head: { type: "string", description: "Head revision for a merge-base range." },
 } as const;
 
+/** Output schema for the hooked-session hints `ci`, `coverage`, and `docs impact` attach. */
+const sessionHintsSchema = z.array(
+  looseRecord({ session: z.string(), host: z.string(), files: z.array(z.string()), message: z.string() }),
+);
+
 export interface CoverageInput extends ChangeRangeInput, Record<string, unknown> {
   readonly explain?: boolean;
   readonly mode?: "current" | "any";
 }
 
-export const coverageOperation = defineOperation<CoverageInput, LedgerCoverageResult>({
+export interface CoverageOutput extends LedgerCoverageResult {
+  /** Active hooked sessions that touched a missing file; their hook drafts the receipt when the turn ends. */
+  readonly sessions: readonly SessionDraftHint[];
+}
+
+export const coverageOperation = defineOperation<CoverageInput, CoverageOutput>({
   name: "coverage",
   title: "Check Ledger coverage",
   description: "Check changed files against git.requireEntryFor and Ledger file coverage.",
@@ -48,6 +59,7 @@ export const coverageOperation = defineOperation<CoverageInput, LedgerCoverageRe
     historicalFiles: z.array(z.string()),
     currentEntries: z.array(z.string()),
     files: z.array(looseRecord({ path: z.string(), status: z.string() })),
+    sessions: sessionHintsSchema,
   }),
   cli: {
     path: ["coverage"],
@@ -71,7 +83,8 @@ also accepts an earlier change entry that names the path; a pattern such as
 src/** counts only from an entry in the change set, and session records,
 backlog items, and decisions never cover a path. --explain prints why each changed path is ignored, not
 required, covered, historical, or missing. --base and --head inspect their
-merge-base change range.`,
+merge-base change range. A missing path that an active hooked session touched
+names the session, whose hook drafts the receipt when the turn ends.`,
   },
   mcp: {
     tool: "ledger_coverage",
@@ -86,7 +99,8 @@ merge-base change range.`,
     const changes = resolveChangeOptions(input);
     const { workspace, documents } = await loadDocuments(context);
     const result = await checkCoverage(workspace, documents, { ...changes, mode: input.mode });
-    return { data: result, exitCode: result.missingFiles.length === 0 ? 0 : 1 };
+    const sessions = sessionDraftHints(workspace, documents, result.missingFiles);
+    return { data: { ...result, sessions }, exitCode: result.missingFiles.length === 0 ? 0 : 1 };
   },
   format(data, input) {
     const lines = [
@@ -113,6 +127,7 @@ merge-base change range.`,
         lines.push(`- ${file.status}: ${file.path} (${reason})`);
       }
     }
+    for (const hint of data.sessions) lines.push(`- session: ${hint.message}`);
     return lines.join("\n");
   },
 });
@@ -147,6 +162,7 @@ export const ciOperation = defineOperation<CiInput, CiOutput>({
   output: looseRecord({
     ok: z.boolean(),
     checks: z.array(looseRecord({ name: z.string(), ok: z.boolean(), errors: z.number(), warnings: z.number() })),
+    sessions: sessionHintsSchema,
     github: looseRecord({ annotations: z.array(z.string()), summary: z.string(), summaryPath: z.string().optional() }).optional(),
   }),
   cli: {
@@ -160,10 +176,14 @@ export const ciOperation = defineOperation<CiInput, CiOutput>({
     },
     json: true,
     help: `Runs validation, docs audit, coverage, and docs impact as one CI-friendly check.
---base and --head inspect their merge-base change range. --github prints one
-workflow command per failing signal (::error with the file path) so GitHub
-annotates the pull request, and appends a Markdown summary to the file named
-by GITHUB_STEP_SUMMARY when it is set. The repository's action.yml wraps this.`,
+The text report lists each failing file. When an active hooked session touched
+one, the report names the session and its draft receipt: hooks draft the
+receipt when a turn ends, so a run earlier in the turn reports the turn's files
+until that draft is finished. --base and --head inspect their merge-base change
+range. --github prints one workflow command per failing signal (::error with
+the file path) so GitHub annotates the pull request, and appends a Markdown
+summary to the file named by GITHUB_STEP_SUMMARY when it is set. The
+repository's action.yml wraps this.`,
   },
   mcp: {
     tool: "ledger_ci",
@@ -193,13 +213,7 @@ by GITHUB_STEP_SUMMARY when it is set. The repository's action.yml wraps this.`,
     return { data: { ...result, github: { annotations, summary, summaryPath } }, exitCode: result.ok ? 0 : 1 };
   },
   format(data) {
-    const lines = [`Ledger CI: ${data.ok ? "passed" : "failed"}.`];
-    for (const check of data.checks) {
-      lines.push(
-        `- ${check.ok ? "pass" : "fail"}: ${check.name} (${check.errors} error(s), ${check.warnings} warning(s))`,
-      );
-    }
-    return lines.join("\n");
+    return formatCiText(data, { issues: data.github === undefined });
   },
 });
 
@@ -209,7 +223,12 @@ export interface DocsImpactInput extends ChangeRangeInput, Record<string, unknow
   readonly writeReport?: boolean;
 }
 
-export const docsImpactOperation = defineOperation<DocsImpactInput, LedgerDocsImpact>({
+export interface DocsImpactOutput extends LedgerDocsImpact {
+  /** Active hooked sessions that touched a file missing docs impact. */
+  readonly sessions: readonly SessionDraftHint[];
+}
+
+export const docsImpactOperation = defineOperation<DocsImpactInput, DocsImpactOutput>({
   name: "docs.impact",
   title: "Check docs impact",
   description: "Return docs impact for changed files or the current git diff.",
@@ -229,6 +248,7 @@ export const docsImpactOperation = defineOperation<DocsImpactInput, LedgerDocsIm
     files: z.array(looseRecord({ path: z.string(), satisfied: z.boolean() })),
     missingDocsImpact: z.array(z.string()),
     earlierEvidenceFiles: z.array(z.string()),
+    sessions: sessionHintsSchema,
   }),
   cli: {
     path: ["docs", "impact"],
@@ -267,7 +287,7 @@ and --head inspect their merge-base change range.`,
     const impact = buildDocsImpact(workspace, documents, changedFiles);
     if (input.writeReport) await writeDocsImpactReport(workspace, impact);
     return {
-      data: impact,
+      data: { ...impact, sessions: sessionDraftHints(workspace, documents, impact.missingDocsImpact) },
       exitCode: input.check && impact.missingDocsImpact.length > 0 ? 1 : 0,
     };
   },
@@ -277,6 +297,7 @@ and --head inspect their merge-base change range.`,
     ];
     for (const filePath of data.earlierEvidenceFiles) lines.push(`- satisfied by an earlier receipt (git.coverage any): ${filePath}`);
     for (const filePath of data.missingDocsImpact) lines.push(`- missing docs impact: ${filePath}`);
+    for (const hint of data.sessions) lines.push(`- session: ${hint.message}`);
     return lines.join("\n");
   },
 });

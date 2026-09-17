@@ -313,6 +313,117 @@ function compareChangedFiles(left: GitChangedFile, right: GitChangedFile): numbe
   return left.path.localeCompare(right.path);
 }
 
+/** An inclusive range of 1-based line numbers in the new version of a file. */
+export interface GitLineRange {
+  readonly start: number;
+  readonly end: number;
+}
+
+const lineRangesMaxBuffer = 32 * 1024 * 1024;
+
+/**
+ * The new-side lines each file's diff touches, keyed by the path relative to
+ * `cwd`: working-tree and staged edits against HEAD, or with `staged` only the
+ * staged ones. A deletion counts as a change to the line before it. A file the
+ * diff adds whole, an untracked file, and a file with no text hunks (binary or
+ * mode-only) are left out, because every line of them counts as changed.
+ * Returns undefined when Git cannot answer, such as before the first commit.
+ */
+export async function getChangedLineRanges(
+  cwd: string,
+  paths: readonly string[],
+  options: { readonly staged?: boolean } = {},
+): Promise<ReadonlyMap<string, readonly GitLineRange[]> | undefined> {
+  if (paths.length === 0) return new Map();
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync(
+      "git",
+      [
+        "--literal-pathspecs",
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-renames",
+        "--unified=0",
+        "--relative",
+        "--src-prefix=a/",
+        "--dst-prefix=b/",
+        ...(options.staged ? ["--cached"] : ["HEAD"]),
+        "--",
+        ...paths,
+      ],
+      { cwd, maxBuffer: lineRangesMaxBuffer },
+    ));
+  } catch {
+    return undefined;
+  }
+  return parseChangedLineRanges(stdout);
+}
+
+/** Hunk ranges from `git diff --unified=0` output with `a/` and `b/` prefixes. */
+export function parseChangedLineRanges(diff: string): ReadonlyMap<string, readonly GitLineRange[]> {
+  const ranges = new Map<string, GitLineRange[]>();
+  let inHeader = false;
+  let addedWhole = false;
+  let current: GitLineRange[] | undefined;
+  for (const line of diff.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      inHeader = true;
+      addedWhole = false;
+      current = undefined;
+      continue;
+    }
+    if (inHeader && !line.startsWith("@@")) {
+      if (line.startsWith("new file mode") || line === "--- /dev/null") addedWhole = true;
+      if (line.startsWith("+++ ")) {
+        // Git ends the line with a tab when the path holds a space.
+        const target = unquoteGitPath(line.slice(4).replace(/\t$/, ""));
+        if (target !== "/dev/null" && !addedWhole) {
+          current = [];
+          ranges.set(target.replace(/^b\//, ""), current);
+        }
+      }
+      continue;
+    }
+    inHeader = false;
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    if (!hunk || !current) continue;
+    const start = Number.parseInt(hunk[1]!, 10);
+    const count = hunk[2] === undefined ? 1 : Number.parseInt(hunk[2], 10);
+    const first = Math.max(start, 1);
+    current.push(count === 0 ? { start: first, end: first } : { start: first, end: start + count - 1 });
+  }
+  return ranges;
+}
+
+const gitPathEscapes: Readonly<Record<string, number>> = {
+  a: 7,
+  b: 8,
+  t: 9,
+  n: 10,
+  v: 11,
+  f: 12,
+  r: 13,
+  '"': 34,
+  "\\": 92,
+};
+
+/** Undo Git's C-style quoting of a path that holds quotes, backslashes, or control characters. */
+function unquoteGitPath(value: string): string {
+  if (value.length < 2 || !value.startsWith('"') || !value.endsWith('"')) return value;
+  const bytes: Buffer[] = [];
+  for (const match of value.slice(1, -1).matchAll(/\\([0-7]{3}|.)|[^\\]+/gs)) {
+    const escape = match[1];
+    if (escape === undefined) bytes.push(Buffer.from(match[0], "utf8"));
+    else if (/^[0-7]{3}$/.test(escape)) bytes.push(Buffer.from([Number.parseInt(escape, 8) & 0xff]));
+    else bytes.push(Buffer.from([gitPathEscapes[escape] ?? escape.charCodeAt(0)]));
+  }
+  return Buffer.concat(bytes).toString("utf8");
+}
+
 /** Upper bound on tracked paths returned by listTrackedFiles; larger trees are truncated. */
 export const maxTrackedFiles = 200_000;
 const trackedFilesMaxBuffer = 64 * 1024 * 1024;
