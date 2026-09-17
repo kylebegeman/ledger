@@ -6,16 +6,15 @@ milestone lands or a plan changes; retire sections that stop being true.
 
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.8.2 on npm and GitHub Release v0.8.2,
+- Published: `@kylebegeman/ledger` 0.9.0 on npm and GitHub Release v0.9.0,
   created by `.github/workflows/release.yml` through npm trusted publishing on
-  2026-09-17 from kylebegeman/ledger#25. 0.8.0 (#20 and #21) and 0.8.1 (#22)
-  shipped earlier that day. The GitHub Release notes come from
-  `ledger release notes`. 0.9.0 is prepared on branch `dossier-visual-0.9`
-  (receipts 0168 to 0170). `@kylebegeman/dossier` (0.7.2) publishes the same
-  way from its own repo.
-- First outside adopter: Kore runs Ledger 0.8.2 with Claude Code and Codex
-  hooks since kylebegeman/forge#29 (Kore receipt 0007). Before that it ran
-  0.8.1 from kylebegeman/forge#26, 0.8.0 from kylebegeman/forge#25, and the
+  2026-09-17 from kylebegeman/ledger#26. 0.8.0 (#20 and #21), 0.8.1 (#22),
+  and 0.8.2 (#25) shipped earlier that day. The GitHub Release notes come
+  from `ledger release notes`. `@kylebegeman/dossier` (0.7.2) publishes the
+  same way from its own repo.
+- First outside adopter: Kore runs Ledger 0.9.0 with Claude Code and Codex
+  hooks since kylebegeman/forge#30 (Kore receipt 0008). Before that it ran
+  0.8.2 from kylebegeman/forge#29, 0.8.1 from #26, 0.8.0 from #25, and the
   0.7.0 adoption from #22 and #24 (Ledger receipts 0128 and 0130). Its
   allowlist uses plain `ledger <command> **` patterns, so a version bump is
   the 36 pinned version strings the three installers write plus a Kore
@@ -134,6 +133,9 @@ D006 records what was retired; D007 records the runtime decision below.
   Ledger treats it as unavailable unless `@typescript/typescript6` is
   installed beside it, Dependabot skips TypeScript and `@types/node` majors,
   and `@types/node` follows the Node 22 engines floor (receipt 0166).
+- A product note whose follow-ups shipped has `status: "resolved"` and ends
+  with a `Resolved:` line naming the fixing receipts. All eleven notes are
+  resolved (receipts 0164 and 0171).
 - Reader sidecars (the search index and its shards, `graph.json`, and
   `graph/contracts.json`) are compact JSON, and shards fill by exact byte
   count. That fixed a shard overflow instead of raising this repository's
@@ -169,15 +171,14 @@ D006 records what was retired; D007 records the runtime decision below.
 - The reader in `.ledger/dist/` now chunks record details because the page
   passed 1 MB; opened from disk it shows a fallback panel, so use
   `node dist/cli.js serve --api` to browse details. This repository's
-  `render.budgets.maxTotalBytes` was raised to 3.5 MB in 0120, and compact
-  sidecars brought the reader to 3.3 MB in 0169.
+  `render.budgets.maxTotalBytes` was raised to 3.5 MB in 0120 and to 4.5 MB
+  in 0171, when growth had brought the reader to 3.4 MB even after 0169's
+  compact sidecars.
 - `ledger ready` gates drafts before they are marked `landed`.
 
 ## Next slices, in order
 
-1. **Publish 0.9.0** from `dossier-visual-0.9`, then move Kore's pin with the
-   installers and a Kore receipt, and record both here.
-2. **MCP protocol 2026-07-28**: the blocker is gone, but the work needs new
+1. **MCP protocol 2026-07-28**: the blocker is gone, but the work needs new
    production dependencies, so it waits for Kyle's approval. SDK 1.30.0 still
    speaks 2025-11-25, while the v2 packages (`@modelcontextprotocol/server`,
    `/node` with a `hono` peer, and the rest, stable since 2026-07-28)
@@ -185,12 +186,16 @@ D006 records what was retired; D007 records the runtime decision below.
    confirmation, `cacheHints` for list TTLs, and `createMcpHandler` and
    `serveStdio`, and it deprecates the 2025-11-25 Tasks vocabulary. A codemod
    moves imports. Write tools stay off MCP until that confirmation exists.
-3. **New features**, when Kyle chooses them.
+2. **New features**, when Kyle chooses them. Move Kore's pin after each
+   release with the three installers and a Kore receipt.
 
 ## Conventions that were in force
 
 - Milestone per commit, receipt per milestone, one PR per release-sized slice
   (0.5, 0.6, 0.7, and 0.8 as one PR each; 0.4 as four PRs).
+- Releases after 0.9.0 are patch releases (0.9.1, 0.9.2, and so on), even for
+  visible features, unless Kyle asks for a minor or major version. Kyle asked
+  for this on 2026-09-17, after 0.9.0 shipped as a minor release.
 - Kyle merges pull requests unless he authorizes merging in the conversation,
   and Kyle pushes release tags because a tag push publishes to npm. Everything
   up to the open PR with a green matrix can be done autonomously.
@@ -257,7 +262,9 @@ D006 records what was retired; D007 records the runtime decision below.
   have no message channel, so a Cursor agent hears about its draft only at the
   next session start. In the Claude desktop app, `/exit` does not fire
   SessionEnd, so a session record stays active until it expires or
-  `ledger session close --id <id>` closes it.
+  `ledger session close --id <id>` closes it. Kore's Codex hooks changed in
+  kylebegeman/forge#29 and #30, so Codex asks Kyle to approve them with
+  `/hooks` the next time it opens there.
 - Dossier's `next` branch is fully merged, with no commits of its own and no
   references. Deleting it (`git push origin --delete next` in the Dossier
   checkout) was refused by the assistant's permission check and is left for

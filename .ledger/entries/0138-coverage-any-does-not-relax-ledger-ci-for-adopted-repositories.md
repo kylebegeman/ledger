@@ -4,7 +4,7 @@ kind: "product-note"
 title: "coverage any does not relax ledger ci for adopted repositories"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "captured"
+status: "resolved"
 areas:
   - "ci"
 tags:

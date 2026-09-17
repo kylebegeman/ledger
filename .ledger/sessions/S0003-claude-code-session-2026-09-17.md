@@ -4,7 +4,7 @@ kind: "session"
 title: "Claude Code session 2026-09-17"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "active"
+status: "closed"
 expires: "2026-09-24"
 areas:
   - "assets"
@@ -90,6 +90,7 @@ related:
   - "0168"
   - "0169"
   - "0170"
+  - "0171"
 ---
 
 # S0003: Claude Code session 2026-09-17
@@ -136,6 +137,9 @@ ported Dossier's visual system into the reader and the README visuals
 (0168), which lands B009. Made the reader's sidecars compact to fix a search
 shard overflow that `ledger doctor` caught (0169), and prepared v0.9.0
 (0170). Closed Dependabot pull requests #4 and #5 as superseded by #25.
+Merged forge#29 and #26, published 0.9.0, and moved Kore to it in
+kylebegeman/forge#30 (Kore receipt 0008). Then recorded the publish and
+marked the eleven product notes `resolved` (0171).
 
 ## Learned
 
@@ -173,11 +177,16 @@ shard overflow that `ledger doctor` caught (0169), and prepared v0.9.0
   change.
 - In zsh, a command stored in a variable does not split into words; Kore's
   bump steps use a shell function for the pinned `npx` command.
+- GitHub's rebase merge rewrites the commits, so `git branch -d` removes the
+  local branch only while its remote branch still exists; delete the local
+  branch first.
+- The npm package ships every `docs/*.md` except the handoff, plus
+  `.ledger/README.md` and the templates, so schema edits reach npm with the
+  next release.
 
 ## Next
 
-- Publish 0.9.0, move Kore's pin to it with the installers, and record both
-  in the handoff.
 - Kyle approves Kore's changed Codex hooks with `/hooks`, deletes Dossier's
   merged `next` branch, and decides whether MCP protocol 2026-07-28 may add
   the v2 SDK packages.
+- New features when Kyle chooses them; move Kore's pin after each release.

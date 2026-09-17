@@ -4,7 +4,7 @@ kind: "product-note"
 title: "The CI action posts a new pull request comment on every run"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "captured"
+status: "resolved"
 areas:
   - "ci"
 tags:

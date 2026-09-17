@@ -4,7 +4,7 @@ kind: "product-note"
 title: "Hook-drafted receipts collide with hand-written receipt ids"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "captured"
+status: "resolved"
 areas:
   - "capture"
   - "hooks"

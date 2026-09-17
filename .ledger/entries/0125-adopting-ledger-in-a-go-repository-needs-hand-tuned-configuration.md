@@ -4,7 +4,7 @@ kind: "product-note"
 title: "Adopting Ledger in a Go repository needs hand-tuned configuration"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "captured"
+status: "resolved"
 areas:
   - "adoption"
   - "config"

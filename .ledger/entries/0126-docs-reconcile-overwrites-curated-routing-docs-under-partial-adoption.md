@@ -4,7 +4,7 @@ kind: "product-note"
 title: "Docs reconcile overwrites curated routing docs under partial adoption"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "captured"
+status: "resolved"
 areas:
   - "docs"
   - "adoption"
