@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
-import { isIgnoredByGitConfig, matchesGlob } from "./coverage.js";
+import { coveragePatternMatches, isIgnoredByGitConfig, matchesGlob } from "./coverage.js";
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import { applyFileTransaction } from "./fileTransaction.js";
@@ -30,6 +30,8 @@ export interface CreateEntryOptions {
   readonly related?: readonly string[];
   /** Section bodies that replace the template placeholders, keyed by heading. */
   readonly sectionBodies?: Readonly<Record<string, string>>;
+  /** Coverage patterns whose matching files stay out of the Git-derived list, such as files another receipt lists. */
+  readonly excludeFiles?: readonly string[];
 }
 
 export interface DraftedRecord {
@@ -77,7 +79,10 @@ export async function draftChangeEntry(
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
   const changedFiles = options.fromDiff
     ? (await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })).filter(
-        (file) => !isIgnoredByGitConfig(workspace, file.path) && !isLedgerScaffoldPath(workspace, file.path),
+        (file) =>
+          !isIgnoredByGitConfig(workspace, file.path) &&
+          !isLedgerScaffoldPath(workspace, file.path) &&
+          !(options.excludeFiles ?? []).some((pattern) => coveragePatternMatches(file.path, pattern)),
       )
     : [];
   const files = options.files && options.files.length > 0
