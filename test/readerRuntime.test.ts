@@ -6,6 +6,7 @@ import { parseMarkdownWithFrontmatter } from "../src/frontmatter.js";
 import { buildStaticReaderModel, buildSearchIndex, chunkRecordDetails, type LedgerStaticReaderModel } from "../src/render.js";
 import { staticReaderRuntime, staticReaderStyles } from "../src/renderAssets.js";
 import { renderRecordDetails, renderStaticReaderHtml } from "../src/renderHtml.js";
+import { scoreSearchDocument } from "../src/search.js";
 import { defaultConfig } from "../src/config.js";
 import type { LedgerWorkspace, ParsedLedgerDocument } from "../src/types.js";
 
@@ -40,13 +41,39 @@ describe("reader runtime in a browser document", () => {
       record("0002", "Retry policy for the CLI", ["cli"], "landed"),
       record("0003", "Cache warm command", ["cache"], "draft"),
     ]);
-    const index = buildSearchIndex(model.documents);
+    // The sidecar on disk omits `terms`; the browser derives it like `ledger search` does.
+    const index = buildSearchIndex(model.documents).map(({ terms: _terms, ...document }) => document);
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith("search-index.json")) return new Response(JSON.stringify(index), { headers: { "content-type": "application/json" } });
       return new Response("", { status: 404 });
     }) as typeof fetch;
     mount(renderStaticReaderHtml(model, { iconSvg: "<svg></svg>" }));
+  });
+
+  it("ranks search results exactly as ledger search does", async () => {
+    await settle(50);
+    for (const query of ["retry cli landed", "reader", "cache draft"]) {
+      const expected = buildSearchIndex(model.documents)
+        .map((document) => scoreSearchDocument(document, query))
+        .filter((result) => result.score > 0)
+        .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))
+        .map((result) => result.id);
+      expect(expected.length).toBeGreaterThan(0);
+      type("search", query);
+      await settle(250);
+      expect(visibleIds()).toEqual(expected);
+    }
+  });
+
+  it("keeps a modified click on a record link for the browser", async () => {
+    await settle(50);
+    const link = document.querySelector('.entry[data-id="0002"] .entry-link') as HTMLElement;
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, metaKey: true });
+    link.dispatchEvent(click);
+    await settle(20);
+    expect(click.defaultPrevented).toBe(false);
+    expect(document.getElementById("record-panel")?.classList.contains("open")).toBe(false);
   });
 
   it("filters records by search text and by kind, and reports counts", async () => {
@@ -147,6 +174,31 @@ describe("reader runtime in a browser document", () => {
     const results = Array.from(document.querySelectorAll(".command-result")).map((button) => (button as HTMLElement).dataset.id);
     expect(results[0]).toBe("0003");
     expect(document.getElementById("command-status")?.textContent).toContain("for “cache”");
+  });
+
+  it("fills the command palette from the rendered rows when the search index cannot load", async () => {
+    globalThis.fetch = (async () => {
+      throw new TypeError("Failed to fetch");
+    }) as typeof fetch;
+    mount(renderStaticReaderHtml(model, { iconSvg: "<svg></svg>" }));
+    await settle(50);
+    const dialog = document.getElementById("command-palette") as HTMLDialogElement;
+    if (typeof dialog.showModal !== "function") {
+      dialog.showModal = () => dialog.setAttribute("open", "");
+      dialog.close = () => dialog.removeAttribute("open");
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+    await settle(50);
+    const ids = () => Array.from(document.querySelectorAll(".command-result")).map((button) => (button as HTMLElement).dataset.id);
+    expect(ids()).toEqual(["0003", "0002", "0001"]);
+    expect(document.getElementById("command-status")?.textContent).toBe("Recent records");
+    const input = document.getElementById("command-search") as HTMLInputElement;
+    input.value = "cache draft";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle(50);
+    expect(ids()).toEqual(["0003"]);
+    expect(document.querySelector(".command-result strong")?.textContent).toBe("Cache warm command");
+    expect(document.getElementById("command-status")?.textContent).toContain("1 result for");
   });
 });
 
