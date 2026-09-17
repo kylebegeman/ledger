@@ -50,6 +50,7 @@ related:
   - "0058"
   - "0114"
   - "0163"
+release: "v0.9.2"
 ---
 
 # 0179: Extract Go, Rust, Python, and Swift symbols

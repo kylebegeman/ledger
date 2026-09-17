@@ -39,6 +39,7 @@ decisions:
 related:
   - "0176"
   - "0177"
+release: "v0.9.2"
 ---
 
 # 0178: Check hooks in doctor and repair derived state with doctor --fix

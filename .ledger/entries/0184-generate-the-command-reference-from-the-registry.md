@@ -36,6 +36,7 @@ decisions:
   - "D005"
 related:
   - "0183"
+release: "v0.9.2"
 ---
 
 # 0184: Generate the command reference from the registry

@@ -56,6 +56,7 @@ decisions:
   - "D008"
 related:
   - "0173"
+release: "v0.9.2"
 ---
 
 # 0176: Write record bodies from every surface and add ledger update

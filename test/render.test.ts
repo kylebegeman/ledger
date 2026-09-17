@@ -502,10 +502,11 @@ Drafts now read **four** languages:
 
 - **Go:** functions under \`src/**\`.
 1. Rust ** stays literal, as does a lone src/** path.
+- **\`scripts/x.mjs\`** captures **\`a**b\` and \`c\`** together.
 `;
     const model = buildStaticReaderModel(workspace(), [parsedChange(raw)]);
     expect(model.documents[0]?.summary).toBe(
-      "Drafts now read four languages: Go: functions under `src/**`. Rust ** stays literal, as does a lone src/** path.",
+      "Drafts now read four languages: Go: functions under `src/**`. Rust ** stays literal, as does a lone src/** path. `scripts/x.mjs` captures `a**b` and `c` together.",
     );
     expect(renderStaticReaderHtml(model)).toContain('Go: functions under <code class="inline-code">src/**</code>.');
   });

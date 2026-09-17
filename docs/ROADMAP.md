@@ -62,6 +62,7 @@ Deliverables:
 - `ledger new --from-diff --staged`
 - parser-backed symbol extraction for TypeScript/JavaScript with Markdown
   heading extraction and regex fallback
+- declaration outlines for Go, Rust, Python, and Swift symbols (0.9.2)
 - inferred areas and docs-impact prompts for drafts
 
 ## Phase 3: Explain And Query
@@ -163,7 +164,11 @@ Deliverables:
 ## Phase 6: Static Reader
 
 Status: faceted reader and lazy search slice landed; the reader and the public
-changelog follow Dossier's visual system since 0.9.0 (backlog B009)
+changelog follow Dossier's visual system since 0.9.0 (backlog B009). Since
+0.9.2, the reader browses by file, symbol, and linked record, copies record
+links and packet commands, and marks what changed since a viewer's last visit.
+The public changelog also has an Atom feed, release permalinks, and page
+metadata.
 
 Goals:
 
@@ -209,7 +214,9 @@ Deliverables:
 ## Phase 8: Agent Integrations
 
 Status: MCP server on the v2 TypeScript SDK since 0.9.1, speaking protocol
-2026-07-28 and the 2025 revisions, with confirmed tools for writing records
+2026-07-28 and the 2025 revisions, with confirmed tools for writing records.
+Since 0.9.2 those tools take section bodies, `ledger_update` edits a record,
+and `ledger_context` reviews a change set.
 
 Goals:
 
@@ -287,8 +294,11 @@ change (product notes 0160 and 0161), names the hooked session in mid-turn
 checks, and adds `release --update`. 0.9.0 moves the reader and the public
 changelog to Dossier's visual system (backlog B009) and writes compact
 sidecars. 0.9.1 moves MCP to the v2 SDK and protocol 2026-07-28 and adds
-confirmed write tools (decision D008). Direction accepted in decision D005 on
-2026-09-15.
+confirmed write tools (decision D008). 0.9.2 completes records from every
+surface, adds `ledger context`, `doctor --fix`, and symbols for Go, Rust,
+Python, and Swift, and finishes the reader and publishing pillar (entity
+navigation, copy actions, "since you last looked" markers, and a publishable
+changelog). Direction accepted in decision D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
 `docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are

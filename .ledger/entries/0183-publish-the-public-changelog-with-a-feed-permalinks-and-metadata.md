@@ -50,6 +50,7 @@ related:
   - "0180"
   - "0181"
   - "B002"
+release: "v0.9.2"
 ---
 
 # 0183: Publish the public changelog with a feed, permalinks, and metadata

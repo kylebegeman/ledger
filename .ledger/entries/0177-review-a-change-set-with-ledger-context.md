@@ -38,6 +38,7 @@ decisions:
   - "D006"
 related:
   - "0176"
+release: "v0.9.2"
 ---
 
 # 0177: Review a change set with ledger context
