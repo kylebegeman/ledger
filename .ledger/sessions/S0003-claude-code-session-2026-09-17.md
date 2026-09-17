@@ -24,6 +24,7 @@ files:
   - "src/render.ts"
   - "test/readerRuntime.test.ts"
   - "src/reader/runtime.ts"
+  - "test/sessions.test.ts"
 host: "claude-code"
 hostSession: "71358ecc-08f4-4086-aa8b-4fbccb7ed699"
 related:

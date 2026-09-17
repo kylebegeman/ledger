@@ -13,6 +13,7 @@ files:
   - "src/newEntry.ts"
   - "src/skills.ts"
   - "test/hooks.test.ts"
+  - "test/sessions.test.ts"
   - "docs/ARCHITECTURE.md"
   - ".agents/skills/ledger/SKILL.md"
 symbols:
@@ -74,15 +75,17 @@ agent to finish work that was already recorded.
 
 ### Tests, skill, and docs
 
-- Files: `test/hooks.test.ts`, `src/skills.ts`,
+- Files: `test/hooks.test.ts`, `test/sessions.test.ts`, `src/skills.ts`,
   `.agents/skills/ledger/SKILL.md`, `docs/ARCHITECTURE.md`
 - Changed: a regression test covers a hand-written working-tree receipt, a
   committed path, a mixed draft that lists only the uncovered file, and a
   committed receipt that names the session; three tests now change a file
   before touching it or commit the first session's work, because a touched
   path without a diff is no longer pending. The skill and the architecture
-  doc state the rule.
-- Anchor: `leaves committed paths and paths another receipt covers out of hook drafts`
+  doc state the rule. The session record tests carry a 30 second suite
+  timeout, because their chains of file transactions take 2 to 5 seconds
+  each on the Windows runners and two of them passed the 5 second default.
+- Anchor: `leaves committed paths and paths another receipt covers out of hook drafts`, `session records`
 - On conflict: Keep a test that fails when a covered or committed path is
   drafted again.
 

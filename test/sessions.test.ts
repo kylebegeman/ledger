@@ -50,7 +50,8 @@ describe("setFrontmatterArray", () => {
   });
 });
 
-describe("session records", () => {
+// Each test runs a series of file transactions, which take 2 to 5 seconds on the Windows runners.
+describe("session records", { timeout: 30_000 }, () => {
   it("starts, touches, notes, and closes a session through the library", async () => {
     const root = await fixtureWorkspace();
     const workspace = await findWorkspace(root);
