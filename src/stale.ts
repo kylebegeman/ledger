@@ -48,6 +48,7 @@ export async function detectStaleKnowledge(
   const issues: LedgerStaleIssue[] = [];
   const today = new Date().toISOString().slice(0, 10);
   const evidence = await readEvidence(workspace);
+  const prunableSessions: ReadonlySet<NormalizedLedgerDocument> = new Set(expiredSessions(normalized, today).prunable);
   // Many records reference the same source files; read each file once per run.
   const sources = new ReferencedFileCache(workspace);
 
@@ -112,7 +113,7 @@ export async function detectStaleKnowledge(
       }
     }
 
-    if (document.kind === "session" && isExpiredSession(document, today)) {
+    if (prunableSessions.has(document)) {
       issues.push({
         kind: "expired-session",
         path: document.path,
@@ -222,6 +223,41 @@ export function isExpiredSession(
   if (document.kind !== "session" || !document.expires) return false;
   if (document.status === "promoted") return false;
   return document.expires < today;
+}
+
+export interface ExpiredSessions {
+  /** Expired session documents no record links, which `session prune --write` deletes. */
+  readonly prunable: readonly NormalizedLedgerDocument[];
+  /** Expired sessions kept because a record links them, mapped to the sorted ids of those records. */
+  readonly retained: ReadonlyMap<string, readonly string[]>;
+}
+
+/**
+ * Split expired sessions into those prune may delete and those it must keep.
+ * A session is kept when an existing non-session record lists it in `related`,
+ * or when its own `related` names an existing record, so pruning never leaves
+ * a non-session record with a dangling session link. Another session listing
+ * the session id does not keep it.
+ */
+export function expiredSessions(catalog: readonly NormalizedLedgerDocument[], today: string): ExpiredSessions {
+  const ids = new Set(catalog.map((document) => document.id));
+  const expired = catalog.filter((document) => isExpiredSession(document, today));
+  const links = new Map<string, Set<string>>(expired.map((session) => [session.id, new Set<string>()]));
+  for (const document of catalog) {
+    const sessionLinks = document.kind === "session" ? links.get(document.id) : undefined;
+    for (const id of document.related) {
+      if (document.kind !== "session") links.get(id)?.add(document.id);
+      else if (sessionLinks && id !== document.id && ids.has(id)) sessionLinks.add(id);
+    }
+  }
+  const prunable: NormalizedLedgerDocument[] = [];
+  const retained = new Map<string, readonly string[]>();
+  for (const session of expired) {
+    const linkedBy = [...links.get(session.id)!].sort();
+    if (linkedBy.length === 0) prunable.push(session);
+    else retained.set(session.id, linkedBy);
+  }
+  return { prunable, retained };
 }
 
 function relationshipFields(

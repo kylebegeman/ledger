@@ -157,11 +157,93 @@ describe("session records", () => {
 
     const dryRun = await pruneSessions(workspace, documents, { write: false });
     expect(dryRun.expired.map((session) => session.id)).toEqual(["S0001"]);
+    expect(dryRun.kept).toEqual([]);
     expect(dryRun.removed).toEqual([]);
     const pruned = await pruneSessions(workspace, documents, { write: true });
     expect(pruned.removed).toEqual([".ledger/sessions/S0001-old.md"]);
     const remaining = await readLedgerDocuments(workspace);
     expect(remaining.map((document) => String(document.frontmatter.id))).toEqual(["S0002"]);
+  });
+
+  it("prunes and reports only the expired file when two sessions share an id", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    await startSession(workspace, await readLedgerDocuments(workspace), { title: "Old" });
+    await startSession(workspace, await readLedgerDocuments(workspace), { title: "New" });
+    const oldPath = path.join(root, ".ledger/sessions/S0001-old.md");
+    const newPath = path.join(root, ".ledger/sessions/S0002-new.md");
+    await writeFile(oldPath, (await readFile(oldPath, "utf8")).replace(/expires: "[^"]+"/, 'expires: "2000-01-01"'));
+    await writeFile(newPath, (await readFile(newPath, "utf8")).replace('id: "S0002"', 'id: "S0001"'));
+
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+    expect(report.issues.filter((issue) => issue.kind === "expired-session").map((issue) => issue.path)).toEqual([
+      ".ledger/sessions/S0001-old.md",
+    ]);
+    const pruned = await pruneSessions(workspace, documents, { write: true });
+    expect(pruned.expired.map((session) => session.path)).toEqual([".ledger/sessions/S0001-old.md"]);
+    expect(pruned.removed).toEqual([".ledger/sessions/S0001-old.md"]);
+    expect(await readFile(newPath, "utf8")).toContain('status: "active"');
+  });
+
+  it("keeps expired sessions that a record links, closes active ones, and never reissues a linked id", async () => {
+    const root = await fixtureWorkspace();
+    const workspace = await findWorkspace(root);
+    for (const title of ["Linked", "Self linked", "Unlinked", "Top"]) {
+      await startSession(workspace, await readLedgerDocuments(workspace), { title });
+    }
+    await writeFile(path.join(root, ".ledger/entries/0001-landed.md"), landedEntry("0001", ["S0001", "S0004"]));
+    await writeFile(path.join(root, ".ledger/entries/0002-other.md"), landedEntry("0002", []));
+    const sessionPath = (name: string) => path.join(root, ".ledger/sessions", name);
+    const expire = async (name: string, related?: readonly string[]) => {
+      let raw = (await readFile(sessionPath(name), "utf8")).replace(/expires: "[^"]+"/, 'expires: "2000-01-01"');
+      if (related) raw = setFrontmatterArray(raw, "related", related);
+      await writeFile(sessionPath(name), raw);
+    };
+    await expire("S0001-linked.md");
+    await expire("S0002-self-linked.md", ["0002"]);
+    await expire("S0003-unlinked.md");
+    await expire("S0004-top.md");
+    const selfLinked = await readFile(sessionPath("S0002-self-linked.md"), "utf8");
+    await writeFile(sessionPath("S0002-self-linked.md"), selfLinked.replace('status: "active"', 'status: "closed"'));
+
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+    expect(report.issues.filter((issue) => issue.kind === "expired-session").map((issue) => issue.target)).toEqual(["S0003"]);
+
+    const dryRun = await pruneSessions(workspace, documents, { write: false });
+    expect(dryRun.expired.map((session) => session.id)).toEqual(["S0003"]);
+    expect(dryRun.kept.map(({ session, linkedBy, closed }) => [session.id, linkedBy, closed])).toEqual([
+      ["S0001", ["0001"], false],
+      ["S0002", ["0002"], false],
+      ["S0004", ["0001"], false],
+    ]);
+    const cliDryRun = await captureRun(["session", "prune"], root);
+    expect(cliDryRun.stdout).toContain("- kept S0001 (linked by 0001)\n");
+    expect(cliDryRun.stdout).toContain("Run with --write to delete them.");
+
+    const pruned = await pruneSessions(workspace, documents, { write: true });
+    expect(pruned.removed).toEqual([".ledger/sessions/S0003-unlinked.md"]);
+    expect(pruned.kept.map(({ session, closed }) => [session.id, session.status, closed])).toEqual([
+      ["S0001", "closed", true],
+      ["S0002", "closed", false],
+      ["S0004", "closed", true],
+    ]);
+    const linkedRaw = await readFile(sessionPath("S0001-linked.md"), "utf8");
+    expect(linkedRaw).toContain('status: "closed"');
+    expect(await readFile(sessionPath("S0002-self-linked.md"), "utf8")).toContain('status: "closed"');
+    const remaining = await readLedgerDocuments(workspace);
+    expect(remaining.filter((document) => document.kind === "session").map((document) => String(document.frontmatter.id)))
+      .toEqual(["S0001", "S0002", "S0004"]);
+
+    const cli = await captureRun(["session", "prune"], root);
+    expect(cli.stdout).toBe(
+      "- kept S0001 (linked by 0001)\n- kept S0002 (linked by 0002)\n- kept S0004 (linked by 0001)\nNothing to delete.",
+    );
+
+    await rm(sessionPath("S0004-top.md"));
+    const next = await startSession(workspace, await readLedgerDocuments(workspace), { title: "Next" });
+    expect(next.session.id).toBe("S0005");
   });
 
   it("treats an expired active session as inactive and starts a replacement that keeps its links", async () => {
@@ -304,6 +386,26 @@ describe("session records", () => {
     expect(JSON.parse(missing.stdout).error.code).toBe("record-not-found");
   });
 });
+
+function landedEntry(id: string, related: readonly string[]): string {
+  const relatedLines = related.length > 0 ? `related:\n${related.map((value) => `  - "${value}"`).join("\n")}\n` : "related: []\n";
+  return `---
+id: "${id}"
+kind: "change"
+title: "Landed ${id}"
+date: "2026-09-16"
+status: "landed"
+areas: ["cli"]
+files: []
+${relatedLines}---
+
+# ${id}: Landed ${id}
+
+## Summary
+
+Fixture.
+`;
+}
 
 async function captureRun(argv: readonly string[], cwd: string): Promise<{
   readonly exitCode: number;

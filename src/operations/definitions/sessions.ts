@@ -252,22 +252,25 @@ export const sessionPruneOperation = defineOperation<SessionPruneInput, PruneSes
   workspace: "required",
   mutates: true,
   input: z.strictObject({
-    write: z.boolean().optional().describe("Delete the expired records."),
+    write: z.boolean().optional().describe("Delete unlinked expired sessions and close kept active ones."),
   }),
   output: looseRecord({
     today: z.string(),
     expired: z.array(sessionRecordSchema),
+    kept: z.array(looseRecord({ session: sessionRecordSchema, linkedBy: z.array(z.string()), closed: z.boolean() })),
     removed: z.array(z.string()),
   }),
   cli: {
     path: ["session", "prune"],
     usage: "ledger session prune [--write] [--json]",
     flags: {
-      write: { type: "boolean", description: "Delete the expired records." },
+      write: { type: "boolean", description: "Delete unlinked expired sessions and close kept active ones." },
     },
     json: true,
-    help: `Lists session records whose expires date has passed without promotion.
---write deletes them in one transaction. Promoted sessions are never pruned.`,
+    help: `Lists session records whose expires date has passed. --write deletes them in
+one transaction. Promoted sessions and sessions another record links through
+related are never deleted; an expired active session that is kept is closed
+instead. Session records are committed with the other records.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -275,12 +278,19 @@ export const sessionPruneOperation = defineOperation<SessionPruneInput, PruneSes
     return { data: result };
   },
   format(data) {
-    if (data.expired.length === 0) return "No expired sessions.";
-    const lines = [`${data.expired.length} expired ${plural(data.expired.length, "session", "sessions")} as of ${data.today}:`];
-    for (const session of data.expired) {
-      lines.push(`- ${session.id} ${session.title} (expired ${session.expires ?? "unknown"}) ${session.path}`);
+    if (data.expired.length === 0 && data.kept.length === 0) return "No expired sessions.";
+    const lines: string[] = [];
+    if (data.expired.length > 0) {
+      lines.push(`${data.expired.length} expired ${plural(data.expired.length, "session", "sessions")} as of ${data.today}:`);
+      for (const session of data.expired) {
+        lines.push(`- ${session.id} ${session.title} (expired ${session.expires ?? "unknown"}) ${session.path}`);
+      }
     }
-    lines.push(data.removed.length > 0 ? `Removed ${data.removed.length}.` : "Run with --write to delete them.");
+    for (const kept of data.kept) {
+      lines.push(`- kept ${kept.session.id} (linked by ${kept.linkedBy.join(", ")})${kept.closed ? " closed" : ""}`);
+    }
+    if (data.expired.length === 0) lines.push("Nothing to delete.");
+    else lines.push(data.removed.length > 0 ? `Removed ${data.removed.length}.` : "Run with --write to delete them.");
     return lines.join("\n");
   },
 });

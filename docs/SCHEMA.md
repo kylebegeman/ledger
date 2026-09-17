@@ -40,7 +40,7 @@ Shared fields:
 | `decisions` | string array | no | Decision IDs this document realizes or depends on. |
 | `backlog` | string array | no | Backlog item IDs this document promotes or relates to. |
 | `supersedes` | string array | no | Documents superseded by this one. |
-| `related` | string array | no | Other related Ledger document IDs. |
+| `related` | string array | no | Other related Ledger document IDs. Ids are expected to resolve; validation does not check them, and `ledger stale` reports an unresolved id as `missing-relationship`. |
 | `docs` | string array | no | Durable docs related to this record. |
 | `docsImpact` | object | no | Explicit docs-impact declaration for changed source work. |
 | `staleRefs` | string array | no | Historical path or symbol references that are intentionally stale. Use `path`, `files:path`, or `symbols:name`. |
@@ -473,20 +473,32 @@ days ahead (default 7); `session touch` appends touched paths to `files` and
 infers `areas`; `session note` appends bullets to `Learned`, `Next`, or
 `Summary`; `session close` sets `status: "closed"`. `ledger promote S0001`
 creates a change entry carrying the files and notes, links both records
-through `related`, and sets `status: "promoted"`. A session past `expires`
-that was not promoted is reported by `ledger stale` as `expired-session` and
-deleted by `ledger session prune --write`. An active session past `expires`
-is treated as inactive: hooks and `session note`, `touch`, and `close`
-without `--id` no longer select it, the next host session start or touch
-creates a fresh record that copies the `related` list of the most recent
-expired record for that host session, and a late SessionEnd still closes it;
-`--id` still reaches it. `host`
-and `hostSession` identify the agent host and its own session id so hooks can
-find the active record. `related` may name several change entries: the hook
-draft, receipts landed during the session, and a later draft for paths those
-receipts did not cover. No other field records hook notices; the once-only
-prompt notice lives in the derived `.ledger/cache/hook-notices.json`.
-Ids use `ids.sessionPrefix` and `ids.sessionWidth` (defaults `S` and `4`).
+through `related`, and sets `status: "promoted"`. Session records are
+committed with the rest of `.ledger/`; never gitignore `.ledger/sessions/`.
+`expires` is fixed at creation; touches and notes do not extend it. `ledger
+session prune --write` deletes a session only when it is past `expires`, is
+not promoted, and no record links it through `related` in either direction: a
+non-session record listing the session id, or the session listing an existing
+record. Another session listing the session id does not keep it. An expired
+session that a record links is kept, and prune closes it when it is still
+active, so a receipt never loses its session. `ledger stale` reports
+`expired-session` for exactly the sessions prune would delete. A record whose
+`related` names a missing session (for example one pruned by an older Ledger
+version) still validates and passes `ledger ready` and `ledger ci`; `ledger
+stale` reports it as `missing-relationship`, and `ledger doctor` counts it
+among its stale signals. A new session never reuses a session id that any
+record still names in `related`. An active session past `expires` is treated
+as inactive: hooks and `session note`, `touch`, and `close` without `--id` no
+longer select it, the next host session start or touch creates a fresh record
+that copies the `related` list of the most recent expired record for that host
+session, and a late SessionEnd still closes it; `--id` still reaches it.
+`host` and `hostSession` identify the agent host and its own session id so
+hooks can find the active record. `related` may name several change entries:
+the hook draft, receipts landed during the session, and a later draft for
+paths those receipts did not cover. No other field records hook notices; the
+once-only prompt notice lives in the derived
+`.ledger/cache/hook-notices.json`. Ids use `ids.sessionPrefix` and
+`ids.sessionWidth` (defaults `S` and `4`).
 
 ## Normalized Manifest Shape
 

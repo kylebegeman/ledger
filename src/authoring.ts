@@ -38,7 +38,8 @@ export interface CreateRecordOptions {
 
 /**
  * Next sequential id for a record kind that shares a prefix, for example
- * `B008` for backlog items. Only records of the same kind count.
+ * `B008` for backlog items. Only records of the same kind count, plus, for
+ * sessions, session-shaped ids that any record lists in `related`.
  */
 export function nextRecordId(
   documents: readonly ParsedLedgerDocument[],
@@ -46,9 +47,13 @@ export function nextRecordId(
   prefix: string,
   width: number,
 ): string {
-  const max = documents
-    .filter((document) => document.kind === kind)
-    .map((document) => sequenceNumber(String(document.frontmatter.id ?? ""), prefix))
+  const ids = documents.filter((document) => document.kind === kind).map((document) => String(document.frontmatter.id ?? ""));
+  // A session id still named in a related list is never reissued, even after its record was pruned.
+  if (kind === "session" && prefix) {
+    for (const document of documents) ids.push(...normalizeDocument(document).related);
+  }
+  const max = ids
+    .map((id) => sequenceNumber(id, prefix))
     .filter((value): value is number => value !== undefined)
     .reduce((current, candidate) => Math.max(current, candidate), 0);
   return `${prefix}${String(max + 1).padStart(width, "0")}`;

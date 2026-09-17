@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -43,6 +43,28 @@ describe("stale knowledge detection", () => {
       target: "oldRun",
     }));
     expect(formatStaleReport(report)).toContain("Ledger Stale Knowledge Report");
+  });
+
+  it("reports a link to a missing session only through stale and flags only unlinked expired sessions", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-stale-session-test-")));
+    await initWorkspace(tempDir);
+    await writeFile(path.join(tempDir, ".ledger", "entries", "0001-linked.md"), linkedEntry("0001", "S0009"), "utf8");
+    await writeFile(path.join(tempDir, ".ledger", "entries", "0002-linked.md"), linkedEntry("0002", "S0001"), "utf8");
+    await mkdir(path.join(tempDir, ".ledger", "sessions"), { recursive: true });
+    await writeFile(path.join(tempDir, ".ledger", "sessions", "S0001-kept.md"), expiredSession("S0001"), "utf8");
+    await writeFile(path.join(tempDir, ".ledger", "sessions", "S0002-unlinked.md"), expiredSession("S0002"), "utf8");
+
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const validation = validateDocuments(workspace, documents);
+    expect(validation.errors).toEqual([]);
+    expect(validation.issues.filter((issue) => issue.target === "S0009" || issue.message.includes("S0009"))).toEqual([]);
+    const report = await detectStaleKnowledge(workspace, documents, validation);
+
+    expect(report.issues.filter((issue) => issue.kind === "missing-relationship")).toEqual([
+      expect.objectContaining({ path: ".ledger/entries/0001-linked.md", target: "S0009" }),
+    ]);
+    expect(report.issues.filter((issue) => issue.kind === "expired-session").map((issue) => issue.target)).toEqual(["S0002"]);
   });
 
   it("honors explicit historical symbol acknowledgements", async () => {
@@ -229,5 +251,75 @@ None.
 ## Verification
 
 - npm test
+`;
+}
+
+function linkedEntry(id: string, session: string): string {
+  return `---
+id: "${id}"
+kind: "change"
+title: "Linked ${id}"
+date: "2026-09-16"
+status: "landed"
+areas: ["cli"]
+files: []
+related:
+  - "${session}"
+---
+
+# ${id}: Linked ${id}
+
+## Summary
+
+Fixture.
+
+## Why
+
+Test a link to a session record.
+
+## Changed Files
+
+None.
+
+## Behavior And UX Impact
+
+None.
+
+## Invariants
+
+- Keep behavior.
+
+## Verification
+
+- npm test
+`;
+}
+
+function expiredSession(id: string): string {
+  return `---
+id: "${id}"
+kind: "session"
+title: "Session ${id}"
+date: "2000-01-01"
+status: "active"
+expires: "2000-01-02"
+areas: []
+files: []
+related: []
+---
+
+# ${id}: Session ${id}
+
+## Summary
+
+Fixture.
+
+## Learned
+
+- Nothing yet.
+
+## Next
+
+- Nothing yet.
 `;
 }

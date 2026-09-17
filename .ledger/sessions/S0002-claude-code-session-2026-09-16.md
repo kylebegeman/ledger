@@ -3,7 +3,7 @@ id: "S0002"
 kind: "session"
 title: "Claude Code session 2026-09-16"
 date: "2026-09-16"
-updated: "2026-09-16"
+updated: "2026-09-17"
 status: "active"
 expires: "2026-09-23"
 areas:
@@ -26,6 +26,7 @@ files:
   - "src/types.ts"
   - "src/hooks.ts"
   - "src/sessions.ts"
+  - "test/sessions.test.ts"
 host: "claude-code"
 hostSession: "6cf5fed7-a387-4a27-bb1a-125e18d27bfd"
 related:

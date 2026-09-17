@@ -29,7 +29,7 @@ export function renderLedgerSkill(workspace: LedgerWorkspace): string {
     "",
     "# Ledger",
     "",
-    `Ledger keeps ${project}'s change memory as Markdown records under \`.ledger/\`: change entries with invariants and verification, backlog items, decisions, releases, and short-lived session records. Every command accepts \`--json\` and returns a machine envelope; the same operations exist as MCP tools when \`${command} mcp\` or \`${command} serve --api\` is running.`,
+    `Ledger keeps ${project}'s change memory as Markdown records under \`.ledger/\`: change entries with invariants and verification, backlog items, decisions, releases, and session records that are committed with the rest and pruned only when nothing links them. Every command accepts \`--json\` and returns a machine envelope; the same operations exist as MCP tools when \`${command} mcp\` or \`${command} serve --api\` is running.`,
     "",
     "## Before editing a file",
     "",

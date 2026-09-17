@@ -379,6 +379,9 @@ creates a new record for the host session and copies the `related` list of the
 most recent expired record (`findExpiredActiveSession`) so its receipts stay
 linked, the `session-end` hook falls back to that record so a late SessionEnd
 still closes it, and `session close --id` still reaches it.
+`pruneSessions` never deletes such a record once a receipt links it: it uses
+`expiredSessions` from `src/stale.ts`, the same split `ledger stale` reports,
+and closes a kept record that is still active.
 
 `draftChangeEntry` in `src/newEntry.ts` drops changed files under the
 configured `source.sessions` directory and `.ledger/templates/**` before it
