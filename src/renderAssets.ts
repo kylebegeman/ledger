@@ -12,8 +12,9 @@ import { fileURLToPath } from "node:url";
 function readReaderAsset(name: string): string {
   // Resolve with path operations rather than the URL constructor so browser-like
   // test environments that replace the URL global cannot break the lookup.
+  // The built asset comes first, so tests run from src/ embed exactly what ships.
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [path.join(here, "reader", name), path.join(here, "..", "dist", "reader", name)];
+  const candidates = [path.join(here, "..", "dist", "reader", name), path.join(here, "reader", name)];
   for (const candidate of candidates) {
     try {
       return readFileSync(candidate, "utf8");

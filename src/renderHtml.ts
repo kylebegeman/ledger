@@ -47,6 +47,22 @@ export function renderRecordDetails(model: LedgerStaticReaderModel): ReadonlyMap
   return details;
 }
 
+type RecordLinkType = "decision" | "backlog" | "supersedes" | "related";
+
+interface RecordLink {
+  readonly type: RecordLinkType;
+  readonly id: string;
+}
+
+function recordLinks(document: LedgerRenderedDocument): readonly RecordLink[] {
+  return [
+    ...document.decisions.map((id) => ({ type: "decision" as const, id })),
+    ...document.backlog.map((id) => ({ type: "backlog" as const, id })),
+    ...document.supersedes.map((id) => ({ type: "supersedes" as const, id })),
+    ...document.related.map((id) => ({ type: "related" as const, id })),
+  ];
+}
+
 export function renderStaticReaderHtml(
   model: LedgerStaticReaderModel,
   options: RenderStaticReaderHtmlOptions = {},
@@ -137,13 +153,14 @@ ${staticReaderStyles}
           <div class="library-toolbar">
             <div>
               <p class="eyebrow">${isPublic ? "Changelog" : "Knowledge library"}</p>
-              <h2 id="result-count" data-result-noun="${isPublic ? "release" : "record"}">${model.documents.length} ${isPublic ? "releases" : "records"}</h2>
+              <h2 id="result-count" tabindex="-1" data-result-noun="${isPublic ? "release" : "record"}">${model.documents.length} ${isPublic ? "releases" : "records"}</h2>
             </div>
             <div class="view-controls">
               ${isPublic ? "" : densityToggle()}
               ${perPageControl()}
             </div>
           </div>
+          ${isPublic ? "" : entityBar()}
           <div class="entries${isPublic ? " release-feed" : ""}" id="entries" role="feed" aria-busy="false">
             ${documents
               .map((document, index) =>
@@ -211,7 +228,7 @@ function renderEntry(
   if (profile === "public") return renderPublicEntry(document, yearStart);
   const recordId = domId(document.id);
   const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
-  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}"${detailHref ? ` data-detail="${escapeHtml(detailHref)}" data-source="${escapeHtml(document.sourceHref)}"` : ""} data-search="${escapeHtml(searchTerms(document))}">
+  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}"${referenceAttributes(document)}${detailHref ? ` data-detail="${escapeHtml(detailHref)}" data-source="${escapeHtml(document.sourceHref)}"` : ""} data-search="${escapeHtml(searchTerms(document))}">
               <div class="entry-row">
                 ${recordBadges(document)}
                 <h3 class="entry-title"><a class="entry-link" href="?record=${escapeHtml(encodeURIComponent(document.id))}">${escapeHtml(document.title)}</a></h3>
@@ -224,6 +241,27 @@ function renderEntry(
             </article>`;
 }
 
+/**
+ * The files, symbols, docs, and record links of an entry, one per line. The
+ * runtime builds the panel's lists and backlinks, entity views, palette
+ * suggestions, and offline search from them, so detail HTML never repeats
+ * them. Lines cost less than JSON, whose quotes are escaped. Empty lists are
+ * left out.
+ */
+function referenceAttributes(document: LedgerRenderedDocument): string {
+  const lists: readonly (readonly [string, readonly string[]])[] = [
+    ["files", document.files],
+    ["symbols", document.symbols],
+    ["docs", document.docs],
+    ["links", recordLinks(document).map((link) => `${link.type}:${link.id}`)],
+  ];
+  return lists
+    .map(([name, values]) => [name, values.filter((value) => value.length > 0 && !value.includes("\n"))] as const)
+    .filter(([, values]) => values.length > 0)
+    .map(([name, values]) => ` data-${name}="${escapeHtml(values.join("\n"))}"`)
+    .join("");
+}
+
 function recordDetail(document: LedgerRenderedDocument, updatedDate: string): string {
   return `<div class="record-panel-meta">
                 ${recordBadges(document)}
@@ -231,17 +269,16 @@ function recordDetail(document: LedgerRenderedDocument, updatedDate: string): st
               </div>
               <h2 class="record-panel-title">${escapeHtml(document.title)}</h2>
               ${recordSummary(document)}
-              ${recordTags(document)}
+              ${recordTags(document, undefined, true)}
               ${document.sourceHref ? `<div class="source-reference">${icon("file")}<span><small>Source record${document.date ? ` · Created ${escapeHtml(formatDate(document.date))}` : ""}${updatedDate ? ` · Updated ${escapeHtml(formatDate(updatedDate))}` : ""}</small><a href="${escapeHtml(document.sourceHref)}" download="${escapeHtml(sourceDownloadName(document.path))}" aria-label="Download Markdown source for ${escapeHtml(document.id)}"><code>${escapeHtml(document.path)}</code></a></span></div>` : ""}
               ${contextGrid(document)}
               ${issueList(document.issues)}
-              <div class="record-columns">
-                ${detailList("Files", document.files)}
-                ${detailList("Symbols", document.symbols)}
-                ${detailList("Documentation", document.docs)}
-                ${relationships(document)}
-              </div>
+              <div class="record-columns"></div>
               ${document.source ? agentPacketDigest(document) : ""}`;
+}
+
+function packetCommand(document: LedgerRenderedDocument): string {
+  return `ledger packet ${document.files[0] ?? document.docs[0] ?? document.path} --budget 1200`;
 }
 
 /** The kind badge and id that open a record row and the record panel. */
@@ -262,13 +299,22 @@ function recordSummary(document: LedgerRenderedDocument): string {
   return document.summary ? `<p class="entry-summary">${inlineCodeHtml(document.summary)}</p>` : "";
 }
 
-/** Release, area, tag, and issue chips; a row shows the first few areas and tags, the panel all of them. */
-function recordTags(document: LedgerRenderedDocument, limits?: { readonly areas: number; readonly tags: number }): string {
+/**
+ * Release, area, tag, and issue chips; a row shows the first few areas and
+ * tags, the panel all of them, with release and area chips that filter the list.
+ */
+function recordTags(
+  document: LedgerRenderedDocument,
+  limits?: { readonly areas: number; readonly tags: number },
+  filters = false,
+): string {
   const areas = limits ? document.areas.slice(0, limits.areas) : document.areas;
   const tags = limits ? document.tags.slice(0, limits.tags) : document.tags;
+  const chip = (field: "release" | "area", value: string) =>
+    filters ? `<button class="tag" type="button" data-entity="${field}">${escapeHtml(value)}</button>` : tag(value);
   return `<div class="entry-tags">
-                ${document.release ? tag(document.release) : ""}
-                ${areas.map((value) => tag(value)).join("")}
+                ${document.release ? chip("release", document.release) : ""}
+                ${areas.map((value) => chip("area", value)).join("")}
                 ${tags.map((value) => tag(`#${value}`)).join("")}
                 ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
                 ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
@@ -335,6 +381,16 @@ function densityToggle(): string {
                 <button type="button" data-density="compact" aria-pressed="false">Compact</button>
                 <button type="button" data-density="expanded" aria-pressed="true">Comfortable</button>
               </div>`;
+}
+
+/** The heading of an entity view, filled in by the runtime when one is active. */
+function entityBar(): string {
+  return `<div class="entity-bar" id="entity-bar" tabindex="-1" hidden>
+            <span class="entity-kind" id="entity-kind"></span>
+            <span class="entity-value" id="entity-value"></span>
+            <span class="entity-count" id="entity-count"></span>
+            <button class="text-button" type="button" id="entity-clear">Show all records</button>
+          </div>`;
 }
 
 function recordPanel(): string {
@@ -404,28 +460,9 @@ function contextBlock(label: string, description: string, values: readonly strin
           </section>`;
 }
 
-function detailList(label: string, values: readonly string[]): string {
-  if (values.length === 0) return "";
-  return `<details class="record-list">
-            <summary><span>${escapeHtml(label)} <small>${values.length}</small></span>${icon("chevron")}</summary>
-            <ul>${values.map((value) => `<li><code>${escapeHtml(value)}</code></li>`).join("")}</ul>
-          </details>`;
-}
-
-function relationships(document: LedgerRenderedDocument): string {
-  const values = [
-    ...document.decisions.map((value) => `Decision · ${value}`),
-    ...document.backlog.map((value) => `Backlog · ${value}`),
-    ...document.supersedes.map((value) => `Supersedes · ${value}`),
-    ...document.related.map((value) => `Related · ${value}`),
-  ];
-  return detailList("Relationships", values);
-}
-
 function agentPacketDigest(document: LedgerRenderedDocument): string {
-  const target = document.files[0] ?? document.docs[0] ?? document.path;
   const lines = [
-    `ledger packet ${target} --budget 1200`,
+    packetCommand(document),
     "",
     `${document.id}: ${document.title}`,
     document.invariants.length > 0 ? `Invariants: ${document.invariants.slice(0, 3).join(" | ")}` : "",
@@ -519,13 +556,6 @@ function searchTerms(document: LedgerRenderedDocument): string {
     document.path,
     ...document.areas,
     ...document.tags,
-    ...document.files,
-    ...document.symbols,
-    ...document.docs,
-    ...document.decisions,
-    ...document.backlog,
-    ...document.supersedes,
-    ...document.related,
     document.summary ?? "",
     document.why ?? "",
     ...document.publicNotes,

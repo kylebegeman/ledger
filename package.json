@@ -56,7 +56,7 @@
     "release:build": "npm run build && npm run pack:dry-run",
     "ci": "npm run check && npm run build && npm run ledger:ci && npm run pack:dry-run",
     "readme:check": "node scripts/readme-assets.mjs && git diff --exit-code -- assets/readme",
-    "build:reader": "esbuild src/reader/runtime.ts --bundle --format=iife --platform=browser --target=es2022 --outfile=dist/reader/runtime.js --log-level=warning && esbuild src/reader/styles.css --outfile=dist/reader/styles.css --log-level=warning"
+    "build:reader": "esbuild src/reader/runtime.ts --bundle --format=iife --platform=browser --target=es2022 --minify-whitespace --minify-syntax --outfile=dist/reader/runtime.js --log-level=warning && esbuild src/reader/styles.css --minify-whitespace --outfile=dist/reader/styles.css --log-level=warning"
   },
   "engines": {
     "node": ">=22"

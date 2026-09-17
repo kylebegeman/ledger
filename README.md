@@ -258,9 +258,13 @@ ledger ci
 
 `ledger render` builds a static reader from the same Markdown, with filters for
 kind, status, area, release, and tags, a detail panel for every record, and
-light and dark themes. Served over HTTP, from any static host or
-`ledger serve`, it ranks search results with fuzzy matching. Opened from a
-`file:` URL, it falls back to plain text matching.
+light and dark themes. From a record, select a file, pattern, or symbol to list
+every record that names it, follow its relationships and the records that link
+back to it, or copy its link, source path, or `ledger packet` command. The
+command palette suggests matching files, symbols, and areas as well as
+records. Served over HTTP, from any static host or `ledger serve`, it ranks
+search results with fuzzy matching. Opened from a `file:` URL, it falls back
+to plain text matching.
 
 <p align="center"><img alt="Searching this repository's receipts from the reader's command palette" src="./assets/readme/palette.png" width="720"></p>
 
