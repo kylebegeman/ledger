@@ -213,41 +213,25 @@ function renderEntry(
   const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
   return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}"${detailHref ? ` data-detail="${escapeHtml(detailHref)}" data-source="${escapeHtml(document.sourceHref)}"` : ""} data-search="${escapeHtml(searchTerms(document))}">
               <div class="entry-row">
-                <div class="record-type" data-kind-tone="${escapeHtml(document.kind)}">${kindIcon(document.kind)}<span>${escapeHtml(labelForKind(document.kind))}</span></div>
-                <span class="record-id">${escapeHtml(document.id)}</span>
+                ${recordBadges(document)}
                 <h3 class="entry-title"><a class="entry-link" href="?record=${escapeHtml(encodeURIComponent(document.id))}">${escapeHtml(document.title)}</a></h3>
                 <span class="score-label" data-score-label hidden></span>
-                <span class="status-dot" data-status-tone="${escapeHtml(document.status)}">${escapeHtml(document.status)}</span>
-                ${document.date ? `<time class="record-date" datetime="${escapeHtml(updatedDate || document.date)}"${updatedDate ? ` title="Created ${escapeHtml(formatDate(document.date))}"` : ""}>${escapeHtml(formatDate(updatedDate || document.date))}</time>` : ""}
+                ${recordStatus(document, updatedDate, true)}
               </div>
-              ${document.summary ? `<p class="entry-summary">${inlineCodeHtml(document.summary)}</p>` : ""}
-              <div class="entry-tags">
-                ${document.release ? tag(document.release) : ""}
-                ${document.areas.slice(0, 4).map((value) => tag(value)).join("")}
-                ${document.tags.slice(0, 3).map((value) => tag(`#${value}`)).join("")}
-                ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
-                ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
-              </div>
+              ${recordSummary(document)}
+              ${recordTags(document, { areas: 4, tags: 3 })}
               ${detailHref ? "" : `<template class="entry-detail">${recordDetail(document, updatedDate)}</template>`}
             </article>`;
 }
 
 function recordDetail(document: LedgerRenderedDocument, updatedDate: string): string {
   return `<div class="record-panel-meta">
-                <div class="record-type" data-kind-tone="${escapeHtml(document.kind)}">${kindIcon(document.kind)}<span>${escapeHtml(labelForKind(document.kind))}</span></div>
-                <span class="record-id">${escapeHtml(document.id)}</span>
-                <span class="status-dot" data-status-tone="${escapeHtml(document.status)}">${escapeHtml(document.status)}</span>
-                ${document.date ? `<time class="record-date" datetime="${escapeHtml(updatedDate || document.date)}">${escapeHtml(formatDate(updatedDate || document.date))}</time>` : ""}
+                ${recordBadges(document)}
+                ${recordStatus(document, updatedDate, false)}
               </div>
               <h2 class="record-panel-title">${escapeHtml(document.title)}</h2>
-              ${document.summary ? `<p class="entry-summary">${inlineCodeHtml(document.summary)}</p>` : ""}
-              <div class="entry-tags">
-                ${document.release ? tag(document.release) : ""}
-                ${document.areas.map((value) => tag(value)).join("")}
-                ${document.tags.map((value) => tag(`#${value}`)).join("")}
-                ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
-                ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
-              </div>
+              ${recordSummary(document)}
+              ${recordTags(document)}
               ${document.sourceHref ? `<div class="source-reference">${icon("file")}<span><small>Source record${document.date ? ` · Created ${escapeHtml(formatDate(document.date))}` : ""}${updatedDate ? ` · Updated ${escapeHtml(formatDate(updatedDate))}` : ""}</small><a href="${escapeHtml(document.sourceHref)}" download="${escapeHtml(sourceDownloadName(document.path))}" aria-label="Download Markdown source for ${escapeHtml(document.id)}"><code>${escapeHtml(document.path)}</code></a></span></div>` : ""}
               ${contextGrid(document)}
               ${issueList(document.issues)}
@@ -258,6 +242,37 @@ function recordDetail(document: LedgerRenderedDocument, updatedDate: string): st
                 ${relationships(document)}
               </div>
               ${document.source ? agentPacketDigest(document) : ""}`;
+}
+
+/** The kind badge and id that open a record row and the record panel. */
+function recordBadges(document: LedgerRenderedDocument): string {
+  return `<div class="record-type" data-kind-tone="${escapeHtml(document.kind)}">${kindIcon(document.kind)}<span>${escapeHtml(labelForKind(document.kind))}</span></div>
+                <span class="record-id">${escapeHtml(document.id)}</span>`;
+}
+
+/** The status dot and the date shown; a row names the creation date on hover when the record was updated later. */
+function recordStatus(document: LedgerRenderedDocument, updatedDate: string, createdOnHover: boolean): string {
+  const shown = updatedDate || document.date;
+  const hover = createdOnHover && updatedDate ? ` title="Created ${escapeHtml(formatDate(document.date))}"` : "";
+  return `<span class="status-dot" data-status-tone="${escapeHtml(document.status)}">${escapeHtml(document.status)}</span>
+                ${document.date ? `<time class="record-date" datetime="${escapeHtml(shown)}"${hover}>${escapeHtml(formatDate(shown))}</time>` : ""}`;
+}
+
+function recordSummary(document: LedgerRenderedDocument): string {
+  return document.summary ? `<p class="entry-summary">${inlineCodeHtml(document.summary)}</p>` : "";
+}
+
+/** Release, area, tag, and issue chips; a row shows the first few areas and tags, the panel all of them. */
+function recordTags(document: LedgerRenderedDocument, limits?: { readonly areas: number; readonly tags: number }): string {
+  const areas = limits ? document.areas.slice(0, limits.areas) : document.areas;
+  const tags = limits ? document.tags.slice(0, limits.tags) : document.tags;
+  return `<div class="entry-tags">
+                ${document.release ? tag(document.release) : ""}
+                ${areas.map((value) => tag(value)).join("")}
+                ${tags.map((value) => tag(`#${value}`)).join("")}
+                ${document.warningCount > 0 ? tag(`${document.warningCount} warning${document.warningCount === 1 ? "" : "s"}`, "warning") : ""}
+                ${document.errorCount > 0 ? tag(`${document.errorCount} error${document.errorCount === 1 ? "" : "s"}`, "danger") : ""}
+              </div>`;
 }
 
 function renderPublicEntry(document: LedgerRenderedDocument, yearStart: boolean): string {
@@ -595,30 +610,94 @@ function icon(name: string, attrs = ""): string {
   return `<svg class="ui-icon"${attrs ? ` ${attrs}` : ""} aria-hidden="true"><use href="#i-${name}"/></svg>`;
 }
 
-/** A Markdown code span on one line: a backtick run, the code, and a closing run of the same length. */
-const inlineCodePattern = /(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)/g;
-
-/**
- * Record prose as HTML: the text is escaped first, then each code span becomes
- * inline code, so nothing inside a code span is markup. As in Markdown, a span
- * closes only on a backtick run as long as the one that opened it, so
- * `` `ledger ready` `` shows its inner backticks, and one space of padding on
- * both sides is dropped. An unpaired backtick, such as one cut off by a
- * truncated summary, stays literal.
- */
-function inlineCodeHtml(value: string): string {
-  return escapeHtml(value).replace(inlineCodePattern, (_span, _run: string, code: string) => {
-    const padded = code.startsWith(" ") && code.endsWith(" ") && code.trim() !== "";
-    return `<code class="inline-code">${padded ? code.slice(1, -1) : code}</code>`;
-  });
+interface ProseSegment {
+  readonly text: string;
+  readonly code: boolean;
 }
 
-/** Text cut off inside a code span, such as a shortened summary, ends before that span instead of on a stray backtick. */
+interface ProseLine {
+  readonly segments: readonly ProseSegment[];
+  /** Offset of the first backtick run that opens no span, or -1. Everything from it on is literal. */
+  readonly unpairedAt: number;
+}
+
+/**
+ * Splits one line of prose into literal text and Markdown code spans in one
+ * pass over its backtick runs. A run opens a span that the next run of the
+ * same length closes, runs of other lengths in between are content, and a run
+ * with no closer stays literal, so `` `ledger ready` `` shows its inner
+ * backticks. One space of padding on both sides of a span is dropped.
+ */
+function scanProseLine(line: string): ProseLine {
+  const runs: { readonly start: number; readonly length: number }[] = [];
+  for (let index = 0; index < line.length; ) {
+    if (line[index] !== "`") {
+      index += 1;
+      continue;
+    }
+    let end = index + 1;
+    while (end < line.length && line[end] === "`") end += 1;
+    runs.push({ start: index, length: end - index });
+    index = end;
+  }
+  const closerOf = new Array<number>(runs.length).fill(-1);
+  const nextByLength = new Map<number, number>();
+  for (let index = runs.length - 1; index >= 0; index -= 1) {
+    const length = runs[index]!.length;
+    closerOf[index] = nextByLength.get(length) ?? -1;
+    nextByLength.set(length, index);
+  }
+  const segments: ProseSegment[] = [];
+  let unpairedAt = -1;
+  let cursor = 0;
+  for (let index = 0; index < runs.length; ) {
+    const open = runs[index]!;
+    const closer = closerOf[index]!;
+    if (closer === -1) {
+      if (unpairedAt === -1) unpairedAt = open.start;
+      index += 1;
+      continue;
+    }
+    const close = runs[closer]!;
+    if (open.start > cursor) segments.push({ text: line.slice(cursor, open.start), code: false });
+    const code = line.slice(open.start + open.length, close.start);
+    const padded = code.startsWith(" ") && code.endsWith(" ") && code.trim() !== "";
+    segments.push({ text: padded ? code.slice(1, -1) : code, code: true });
+    cursor = close.start + close.length;
+    index = closer + 1;
+  }
+  if (cursor < line.length) segments.push({ text: line.slice(cursor), code: false });
+  return { segments, unpairedAt };
+}
+
+/** Record prose as HTML: every segment is escaped, and code spans become inline code, so nothing in a record is markup. */
+function inlineCodeHtml(value: string): string {
+  return value
+    .split("\n")
+    .map((line) =>
+      scanProseLine(line)
+        .segments.map((segment) => (segment.code ? `<code class="inline-code">${escapeHtml(segment.text)}</code>` : escapeHtml(segment.text)))
+        .join(""),
+    )
+    .join("\n");
+}
+
+/**
+ * Text cut off inside a code span, such as a shortened summary, ends before
+ * that span instead of on a stray backtick. When the span is the whole text,
+ * the text is kept and the stray backtick renders literally.
+ */
 export function withoutOpenCodeSpan(value: string): string {
-  let closedEnd = 0;
-  for (const span of value.matchAll(inlineCodePattern)) closedEnd = span.index + span[0].length;
-  const open = value.indexOf("`", closedEnd);
-  return open === -1 ? value : value.slice(0, open);
+  let offset = 0;
+  for (const line of value.split("\n")) {
+    const { unpairedAt } = scanProseLine(line);
+    if (unpairedAt !== -1) {
+      const kept = value.slice(0, offset + unpairedAt);
+      return kept.trim() ? kept : value;
+    }
+    offset += line.length + 1;
+  }
+  return value;
 }
 
 function escapeHtml(value: string): string {

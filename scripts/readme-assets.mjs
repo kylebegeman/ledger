@@ -12,7 +12,7 @@
 // The reader screenshots (hero, receipt, palette, changelog) are captured separately; see CONTRIBUTING.md.
 
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,6 +22,10 @@ const cli = path.join(root, "dist", "cli.js");
 const outDir = path.join(root, "assets", "readme");
 const version = process.env.LEDGER_README_VERSION ?? JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).version;
 const keep = process.argv.includes("--keep");
+if (!existsSync(cli)) {
+  console.error("dist/cli.js is missing; run npm run build first.");
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------------------------
 // Demo repositories
@@ -289,6 +293,7 @@ const COLORS = {
 const FONT_SIZE = 13.5;
 const CHAR_WIDTH = 8.13; // approximate advance of the monospace stack at 13.5px
 const LINE_HEIGHT = 21;
+const CARD_WIDTH = 900; // the README renders cards at 880px, so the SVG scales down slightly
 const PAD_X = 22;
 const PAD_TOP = 18;
 const PAD_BOTTOM = 20;
@@ -386,7 +391,8 @@ function tspan(text, style) {
  * Render a card. Lines starting with "$ " are commands; "~ " marks an annotation added for the
  * README (leading spaces before "~" are kept); in markdown mode "#" lines are headings.
  */
-function renderCard({ title, alt, lines, mode = "shell", width = 900 }) {
+function renderCard({ title, alt, lines, mode = "shell" }) {
+  const width = CARD_WIDTH;
   const compiled = rules(mode);
   const limit = Math.floor((width - 2 * PAD_X) / CHAR_WIDTH);
   const rows = [];
@@ -598,7 +604,7 @@ try {
   }
   writeFileSync(path.join(outDir, "loop.svg"), renderLoop());
   console.log("wrote assets/readme/loop.svg");
-  if (keep) console.log(`demo repositories kept in ${base}`);
 } finally {
-  if (!keep) rmSync(base, { recursive: true, force: true });
+  if (keep) console.log(`demo repositories kept in ${base}`);
+  else rmSync(base, { recursive: true, force: true });
 }
