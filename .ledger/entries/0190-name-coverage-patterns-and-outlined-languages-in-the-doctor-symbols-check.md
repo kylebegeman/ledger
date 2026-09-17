@@ -28,6 +28,7 @@ related:
   - "0187"
   - "0163"
   - "S0006"
+release: "v0.9.3"
 ---
 
 # 0190: Name coverage patterns and outlined languages in the doctor symbols check

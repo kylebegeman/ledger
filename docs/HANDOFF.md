@@ -51,8 +51,9 @@ Nothing is in flight. "Next slices" lists where to pick up.
 | 0.8.1 | Audit of 0.8.0: the write lock waits and hook writes retry so parallel tool calls keep every path; Git paths rebased onto a Ledger root inside a repository; every new draft announced and the notice store pruned; per-entry hook merge; every managed agents block replaced; capped draft titles, areas, and symbols; CRLF-preserving record edits; reader search ranked like the CLI, a palette that works from disk, modified clicks, a linear code-span scanner, and a visible light-theme chip; environment assignments matched by `verification.allow`; only change entries cover a path; reviewed docs impact reasons for every status; `adopt` ignoring vendored and nested build output and proposing only read-only checks; `docs reconcile` refusing unreadable paths; release notes from `ledger release notes`; earlier receipts under `git.coverage: any` counting only for files they name; a pinned README demo clock and a CI check on the cards | 0149 to 0157 |
 | 0.8.2 | Drafts that fit the change and upkeep: draft symbols and anchors from the lines a diff changed; `ledger ci` lists failing files and names an active hooked session and its draft; `release --update` for receipts that land after a release record; a TypeScript loader that reads 5.0 to 5.4, skips TypeScript 7 without crashing, and tries `@typescript/typescript6`; historical stale references acknowledged and resolved product notes marked; Vitest 5, Node 22 types, MCP SDK 1.30, v7 action pins, and Dependabot holds on TypeScript and Node type majors; B010 closed | 0158, 0159, 0162 to 0167 |
 | 0.9.0 | Dossier's visual system (B009): the reader and the public changelog take Dossier's neutrals, status tones, font stacks, radii, and motion and keep Ledger's emerald accent; a compact masthead, a left facet rail with group labels, and an Auto, Light, and Dark theme toggle with a visible label; contrast and tablet overflow fixes; README cards and screenshots in the same palette; compact JSON sidecars and search shards filled exactly to their budget | 0168 to 0170 |
-| 0.9.2 | Complete records and a navigable reader: section bodies from the CLI, API, and MCP, and `ledger update`; `ledger context` for reviewing a change set; `doctor --fix` and a hooks health check; Go, Rust, Python, and Swift symbols from declaration outlines; reader entity views, backlinks, copy actions, palette suggestions, and changed-since-last-visit markers; plain-prose summary excerpts; an Atom feed, release permalinks, page metadata, and `render --site-url` for the public changelog; a generated command reference; scripted README screenshots and a Dossier token check | 0175 to 0186 |
 | 0.9.1 | MCP on the v2 SDK (D008): `ledger mcp` and `/mcp` speak protocol 2026-07-28 and the 2025 revisions; confirmed MCP tools for new, feedback, backlog new, decision new, promote, and session start, note, and close; list cache hints and change notices on 2026-07-28; a production install of seven packages instead of the SDK's 94; the Codex installer names the app's Hooks page; product notes marked resolved; a 4.5 MB render budget here | 0171 to 0174 |
+| 0.9.2 | Complete records and a navigable reader: section bodies from the CLI, API, and MCP, and `ledger update`; `ledger context` for reviewing a change set; `doctor --fix` and a hooks health check; Go, Rust, Python, and Swift symbols from declaration outlines; reader entity views, backlinks, copy actions, palette suggestions, and changed-since-last-visit markers; plain-prose summary excerpts; an Atom feed, release permalinks, page metadata, and `render --site-url` for the public changelog; a generated command reference; scripted README screenshots and a Dossier token check | 0175 to 0186 |
+| 0.9.3 | Codex approval that survives upgrades: `hooks install --host codex --launcher` makes the hooks run a generated `.ledger/bin/ledger.mjs`, so a new version rewrites only that script and `.codex/hooks.json` stays the same; installs keep the form a file uses; doctor checks the script; the doctor symbols check names the coverage patterns when nothing is covered and the outlined languages beside TypeScript (product note 0187) | 0188 to 0191 |
 
 Read the receipts for invariants and conflict rules before touching those
 areas. Decision D005 records the direction and the four supporting choices;
@@ -150,8 +151,8 @@ D006 records what was retired; D007 records the runtime decision below.
   installed beside it, Dependabot skips TypeScript and `@types/node` majors,
   and `@types/node` follows the Node 22 engines floor (receipt 0166).
 - A product note whose follow-ups shipped has `status: "resolved"` and ends
-  with a `Resolved:` line naming the fixing receipts. All eleven notes are
-  resolved (receipts 0164 and 0171).
+  with a `Resolved:` line naming the fixing receipts. All twelve notes are
+  resolved (receipts 0164, 0171, and 0190).
 - Reader sidecars (the search index and its shards, `graph.json`, and
   `graph/contracts.json`) are compact JSON, and shards fill by exact byte
   count. That fixed a shard overflow instead of raising this repository's
@@ -180,6 +181,14 @@ D006 records what was retired; D007 records the runtime decision below.
   has the workflow (receipt 0183).
 - `docs/COMMANDS.md` is generated from the registry, and a test fails when it
   is stale (receipt 0184).
+- Codex approves a hook by a hash of its definition, command included. With
+  `--launcher`, the Codex hooks run `.ledger/bin/ledger.mjs`, which holds
+  `agents.command`, so a version bump rewrites only that script and the
+  approval carries over. It is opt-in because the relative path needs Codex
+  started at the project root, and it is sticky so upgrades keep it. Kyle
+  chose to build it after trusting Kore's hooks by hand again. An unpinned
+  npx command, a frozen bootstrap version, a bootstrap package, managed
+  hooks, and a shell-specific root lookup were rejected (receipt 0189).
 
 ## How capture and trust work in this repository
 
@@ -221,15 +230,13 @@ D006 records what was retired; D007 records the runtime decision below.
 
 The project is paused. When work resumes:
 
-1. **Trust Kore's hooks.** Kyle trusts the six changed Ledger hooks on the
-   Hooks page of the Codex app's settings, if that is not done yet. A short
-   live `codex exec` session in Kore would then exercise the Codex hooks for
-   the first time; ask Kyle first, because it runs on his Codex account.
-2. **Product note 0187.** Doctor's symbols check suggests the TypeScript
-   parser when nothing is under coverage, and it does not name the outlined
-   languages beside TypeScript. Fix both messages, then release a patch and
-   move Kore.
-3. **New features**, when Kyle chooses them. Left out of 0.9.2 on purpose:
+1. **Trust Kore's hooks once more.** Moving Kore to the launcher changed
+   its six Codex hooks one last time, so Kyle trusts them on the Hooks page
+   of the Codex app's settings, if that is not done yet. Later bumps leave
+   them unchanged. A short live `codex exec` session in Kore would then
+   exercise the Codex hooks for the first time; ask Kyle first, because it
+   runs on his Codex account.
+2. **New features**, when Kyle chooses them. Left out of 0.9.2 on purpose:
    - MCP Tasks, which the 2026-07-28 revision deprecates
    - MCP Apps
    - search shards by kind or year
@@ -335,7 +342,7 @@ The project is paused. When work resumes:
 ## Quick verification of the current state
 
 ```sh
-node dist/cli.js version            # 0.9.2
+node dist/cli.js version            # 0.9.3
 node dist/cli.js doctor             # all checks pass; engine and verification may warn
 node dist/cli.js unreleased         # receipts landed since the last release
 node dist/cli.js coverage --explain # current mode
