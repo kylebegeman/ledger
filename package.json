@@ -36,6 +36,7 @@
   },
   "files": [
     "assets",
+    "!assets/readme",
     "dist",
     "README.md",
     "CONTRIBUTING.md",

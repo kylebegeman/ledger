@@ -1,813 +1,476 @@
-<p align="center">
-  <a href="https://github.com/kylebegeman/ledger">
-    <img src="./assets/ledger.svg" alt="Ledger logo" width="128" height="128">
-  </a>
-</p>
+<div align="center">
 
-<h1 align="center">Ledger</h1>
+<img src="./assets/ledger.svg" alt="" width="88" height="88">
 
-<p align="center">
-  <strong>Repo-native change memory for humans and coding agents.</strong>
-</p>
+# Ledger
 
-<p align="center">
-  Agents sign in, do the work, and leave a durable record for the next person
-  or agent who touches the codebase.
-</p>
+**Change memory that lives in your repository.**
 
-<p align="center">
-  <a href="https://github.com/kylebegeman/ledger/actions/workflows/ci.yml?query=branch%3Amaster">
-    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kylebegeman/ledger/ci.yml?branch=master&style=for-the-badge&label=CI">
-  </a>
-  <a href="https://github.com/kylebegeman/ledger/blob/master/package.json">
-    <img alt="Version" src="https://img.shields.io/github/package-json/v/kylebegeman/ledger?style=for-the-badge&label=version">
-  </a>
-  <a href="https://github.com/kylebegeman/ledger/blob/master/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/kylebegeman/ledger?style=for-the-badge">
-  </a>
-  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D22-43853D?style=for-the-badge&logo=node.js&logoColor=white">
-  <img alt="TypeScript" src="https://img.shields.io/badge/typescript-strict-3178C6?style=for-the-badge&logo=typescript&logoColor=white">
-  <img alt="Markdown source" src="https://img.shields.io/badge/source-markdown-111111?style=for-the-badge&logo=markdown&logoColor=white">
-</p>
+Every change leaves a receipt: what changed, why, what must stay true, and how it was verified.<br>
+Coding agents write receipts as they work and read them before they touch the code again.
 
+<a href="https://www.npmjs.com/package/@kylebegeman/ledger"><img alt="npm version" src="https://img.shields.io/npm/v/@kylebegeman/ledger?style=for-the-badge&color=047857&label=npm"></a>
+<a href="https://github.com/kylebegeman/ledger/actions/workflows/ci.yml?query=branch%3Amaster"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/kylebegeman/ledger/ci.yml?branch=master&style=for-the-badge&label=CI"></a>
+<img alt="Node 22 or newer" src="https://img.shields.io/badge/node-%3E%3D22-43853D?style=for-the-badge&logo=node.js&logoColor=white">
+<a href="./LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/kylebegeman/ledger?style=for-the-badge&color=555555"></a>
+
+[Quick start](#quick-start) · [How it works](#how-it-works) · [What agents see](#what-your-agent-sees) · [The reader](#the-reader) · [In CI](#in-ci) · [Commands](#commands) · [Docs](#docs)
+
+</div>
+
+<br>
+
+<img alt="The Ledger reader for this repository: a searchable library of receipts with one open beside it" src="./assets/readme/hero.png">
+
+## Why Ledger
+
+Git records what changed. It cannot tell the next person why the retry limit
+is five, which invariant a refactor has to keep, or how anyone knew the fix
+worked. Coding agents feel this most: every session starts from nothing, so
+constraints get rediscovered by breaking them.
+
+Ledger keeps that knowledge in the repository as Markdown under `.ledger/`,
+and wires it into the tools that change code.
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**Written while you work**
+
+Hooks for Claude Code, Codex, and Cursor record the files an agent edits and
+draft a receipt when its turn ends. In Claude Code and Codex, the next prompt
+tells the agent to finish it.
+
+</td>
+<td width="33%" valign="top">
+
+**Read before editing**
+
+`ledger packet <file>` hands an agent the invariants, conflict rules, and
+verification for the code it is about to change. `--budget` trims it to a
+token budget.
+
+</td>
+<td width="33%" valign="top">
+
+**Checked in pull requests**
+
+`ledger ci` fails a pull request whose changed source has no receipt, and
+with `--github` it annotates the pull request.
+
+</td>
+</tr>
+</table>
+
+Nothing is hosted. Receipts are plain Markdown with YAML frontmatter, reviewed
+in pull requests like the code they describe, and rendered into a static reader
+you can host anywhere or open from disk.
+
+## How it works
+
+<img alt="The capture loop: a session starts with the receipts for its files, edits are recorded, the turn ends with a draft receipt, the agent finishes it, the pull request is checked, and the next change reads the receipts first" src="./assets/readme/loop.svg">
+
+## What your agent sees
+
+These are real outputs from a small billing service with two receipts. When a
+Claude Code, Codex, or Cursor session starts while `src/billing/webhooks.ts`
+has uncommitted changes, the agent's context opens with the rules that file has
+to keep:
+
+<p align="center"><img alt="Ledger context added when an agent session starts: the session record, the commands to use, and the invariants and conflict rules of every receipt for the file in play" src="./assets/readme/agent-session-start.svg" width="880"></p>
+
+When the turn ends, the Stop hook drafts a receipt from the Git diff and the
+files the agent touched. The next prompt names that draft once, so the agent
+finishes it instead of starting another:
+
+<p align="center"><img alt="The Stop hook names the drafted receipt, and the next prompt tells the agent once to finish it" src="./assets/readme/agent-draft-notice.svg" width="880"></p>
+
+`ledger ready` fails on a draft until its placeholders and TODOs are replaced.
+`ledger ci` does not run it, so run it before marking a receipt landed:
+
+<p align="center"><img alt="ledger ready listing what a fresh draft is missing, then passing after the agent finishes it" src="./assets/readme/ready.svg" width="880"></p>
+
+Before editing a file, an agent pulls every receipt that touches it:
+
+<p align="center"><img alt="ledger packet returning the receipts, conflict rules, invariants, verification, and related decision for a file within a token budget" src="./assets/readme/packet.svg" width="880"></p>
+
+The full hook lifecycle, including compaction handoffs and sessions whose host
+never reported an exit, is in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+
+## A receipt
+
+A receipt is a change entry: a Markdown file whose frontmatter links it to
+files, symbols, docs, and decisions, and whose sections tell a future change
+what to preserve. This is the first receipt from the billing service, as the
+reader shows it:
+
+<p align="center"><img alt="A receipt open in the Ledger reader with its summary, source record, invariants, verification, files, and the decision it relates to" src="./assets/readme/receipt.png" width="600"></p>
+
+<details>
+<summary><strong>The Markdown behind it</strong></summary>
+
+```markdown
+---
+id: "0001"
+kind: "change"
+title: "Retry failed invoice webhooks with backoff"
+date: "2026-08-14"
+updated: "2026-08-14"
+status: "landed"
+areas:
+  - "billing"
+files:
+  - "src/billing/webhooks.ts"
+  - "test/webhooks.test.ts"
+symbols:
+  - "maxAttempts"
+  - "retryDelayMs"
+docs:
+  - "docs/billing.md"
+docsImpact:
+  status: "updated"
+  reason: "The billing doc explains webhook retries."
+  docs:
+    - "docs/billing.md"
+decisions:
+  - "D001"
 ---
 
-Ledger is an agent-first CLI and TypeScript library for keeping implementation
-history, backlog, durable decisions, release notes, verification records,
-invariants, docs impact, and merge-conflict guidance inside your repository.
+# 0001: Retry Failed Invoice Webhooks With Backoff
 
-The primary design target is coding agents: compact retrieval, MCP tools,
-conflict guidance, docs impact checks, and durable handoff records that survive
-between sessions. Human use is fully supported through the CLI and generated
-reader, but the structure is intentionally optimized so agents can read, query,
-and act on the history without guessing from Git alone.
+## Summary
 
-The source of truth is plain Markdown under `.ledger/`. Generated indexes,
-reports, release notes, and a static reader make those records useful for
-automation without making the project dependent on a hosted service.
+Failed invoice webhooks retry with exponential backoff, capped at one minute,
+and stop after five attempts.
 
-## At A Glance
+## Why
 
-| Question | Answer |
-| --- | --- |
-| What is it? | A structured change memory layer for software repos. |
-| Primary audience | Coding agents that need durable implementation memory. |
-| Human workflow | Fully available through the CLI, Markdown records, reports, and static reader. |
-| Source format | Markdown with YAML frontmatter. |
-| Default root | `.ledger/` |
-| Runtime | Node >=22, tested on maintained Node 22 and Node 24 LTS lines. |
-| Outputs | JSON indexes, validation reports, docs reports, release records, static HTML. |
-| Product boundary | Ledger stands alone. It can later export into Dossier or other renderers. |
+Customers missed invoice events when their endpoint restarted during a deploy.
 
-## Why Ledger Exists
+## Changed Files
 
-Traditional changelogs answer what shipped. Ledger answers what future
-maintainers and agents need before changing the code again:
+### src/billing/webhooks.ts
 
-- what changed
-- why the change exists
-- which files, symbols, docs, decisions, and backlog items are related
-- what invariants must survive future refactors
-- what verification proved the behavior
-- what to preserve if the same area conflicts during a merge
-- which release carried the work
+- What changed: `maxAttempts` and `retryDelayMs` schedule the retries.
+- Anchor: `retryDelayMs`
+- On conflict: Keep the one minute cap; the queue visibility timeout assumes it.
 
-Git history tells you what happened. Ledger tells you what matters.
+### test/webhooks.test.ts
 
-## Five Minute Start
+- What changed: pins the attempt limit and the cap.
+- Anchor: `caps retries`
+- On conflict: Update the test only with a receipt that changes the limit.
 
-### Work From This Repo Today
+## Behavior And UX Impact
 
-```bash
-git clone https://github.com/kylebegeman/ledger.git
-cd ledger
-npm ci
-npm run build
-npm link
+A receiving endpoint that is down for under four minutes still gets every event.
 
-ledger version
+## Invariants
+
+- Retries stop after `maxAttempts` (5).
+- A retry never waits longer than 60 seconds.
+
+## Verification
+
+- `npm test`
+
+## Notes
+
+The queue visibility timeout is 90 seconds.
 ```
 
-You can also run the CLI without linking:
+</details>
 
-```bash
-node dist/cli.js version
-```
+## Quick start
 
-### Initialize Ledger In A Project
+Ledger needs Node 22 or newer.
 
-```bash
-cd /path/to/your-project
-ledger init --with-docs
-```
-
-This creates:
-
-```txt
-.ledger/
-  config.yaml
-  entries/
-  backlog/
-  decisions/
-  releases/
-  templates/
-
-docs/
-  README.md
-  llm/
-
-.gitignore   (a marked Ledger block for derived state)
-```
-
-### Record A Change
-
-```bash
-git status --short
-ledger new "Add provider reconnect guard" --from-diff --area runtime
-```
-
-Ledger drafts a Markdown entry with changed files, detected TypeScript or
-Markdown symbols, inferred areas, docs impact prompts, and a per-file conflict
-checklist. Diffs over 40 files are grouped into path patterns and skip automatic
-symbol collection so the receipt remains bounded and reviewable.
-
-Code symbols come from the TypeScript parser when the optional `typescript`
-peer dependency is installed; otherwise a regex extractor runs and the draft
-says so. `ledger doctor` reports which one is available.
-
-Open the generated file, finish the narrative, then run:
-
-```bash
-ledger validate
-ledger ci
-```
-
-### Build The Local Reader
-
-```bash
-ledger index
-ledger render
-open .ledger/dist/index.html
-```
-
-The static reader is a self-contained offline bundle. It gives humans and agents
-a searchable, faceted view of entries, decisions, backlog, releases, invariants,
-verification checks, relationships, source paths, and agent-ready retrieval
-commands without embedding every raw Markdown document into the initial page.
-
-`ledger render` also writes `.ledger/dist/search-index.json` and
-`.ledger/dist/graph.json`, sharding the index and moving record details into
-lazily loaded chunks when a large catalog would exceed its budgets. The reader lazy-loads the compact search index for
-weighted fuzzy search, ranking exact ID, title, path, symbol, and file matches
-above incidental summary or context matches. Relationship data is kept available
-as a static artifact that can be hosted anywhere static files are supported. The
-reader offers a keyboard search palette, shareable filter URLs, light and dark
-themes, dropdown filter pills, pagination with a configurable page size,
-compact and expanded result densities, and ranked search results. The visual
-shell is a flat editorial layout: records read as a hairline-divided list,
-and the few remaining container surfaces use a thin stroke outline instead of
-fills, shadows, or ornamental edge strokes.
-
-Render output is checked against `render.budgets` in `.ledger/config.yaml`.
-`ledger render` prints artifact size and write-time status, while `ledger
-doctor` reports whether the generated reader is over budget.
-
-The same weighted search model is available from the terminal:
-
-```bash
-ledger search renderer --limit 5
-```
-
-Ledger keeps a derived catalog cache under `.ledger/cache/` so repeated
-commands and agent calls parse only the records that changed. The JSON backend
-works everywhere; on Node 24.15 or newer the built-in sqlite backend is chosen
-automatically. Set `cache.backend` in `.ledger/config.yaml` to `json`,
-`sqlite`, or `none` to override. Core read, validation, index, render-model,
-and search latency can be checked with:
-
-```bash
-ledger metrics
-```
-
-For local preview:
-
-```bash
-ledger serve --watch
-ledger serve --profile public --watch
-```
-
-For the engine, which adds a JSON API, an event stream, and MCP over HTTP on
-the same loopback port:
-
-```bash
-ledger serve --api
-curl -s http://127.0.0.1:4173/api/v1/health
-curl -s -X POST http://127.0.0.1:4173/api/v1/operations/explain \\
-  -H "content-type: application/json" -d '{"path":"src/cli.ts"}'
-```
-
-Every operation that runs inside a workspace is available as
-`POST /api/v1/operations/<name>` with its input as the JSON body and the same
-machine envelope as `--json`. MCP clients connect to `/mcp`.
-
-While the engine runs, the reader open in your browser reloads itself after
-every rebuild, and CLI commands in the same project delegate to the engine and
-answer from its warm cache; nothing changes in how you call them. Pass
-`--local` on any command, or set `LEDGER_NO_DAEMON=1`, to run in-process. If
-the engine is gone, commands fall back to running locally on their own.
-
-The default server binds only to loopback, validates the request host, serves
-only `GET` and `HEAD`, and sends no-store plus browser security headers. The
-optional public profile renders and serves the isolated public release-notes
-output instead of the internal reader. To bind to a network interface, opt in
-explicitly and provide a token through the environment:
-
-```bash
-LEDGER_SERVE_TOKEN="use-a-random-token-at-least-24-characters" \
-  ledger serve --expose --host 0.0.0.0
-```
-
-Network mode accepts HTTP Basic authentication with user `ledger` or a Bearer
-token. Prefer a TLS reverse proxy when traffic leaves the local machine.
-
-### Published Package Shape
-
-Ledger is intended to publish as the scoped public package
-`@kylebegeman/ledger`. The scoped name avoids collisions with unrelated unscoped
-`ledger` packages and supports direct one-off CLI usage:
-
-```bash
-pnpm dlx @kylebegeman/ledger init --with-docs
-pnpm dlx @kylebegeman/ledger ci
-npm exec --package @kylebegeman/ledger -- ledger init --with-docs
-npx --package @kylebegeman/ledger -- ledger ci
-```
-
-For a project-local install:
+### In a Node project
 
 ```bash
 npm install --save-dev @kylebegeman/ledger
 npx ledger init --with-docs
-npx ledger ci
+npx ledger hooks install --host claude-code --command "npx ledger" --import-agents
+npx ledger skills install
+npx ledger agents --write
 ```
 
-### Library API
+Then start a Claude Code session and work as usual.
 
-The package root exports the stable high-level API for agents, CLIs, and
-integrations:
+- `init` writes `.ledger/` with its templates and adds a marked `.gitignore`
+  block for derived files.
+- `hooks install` saves the command in `.ledger/config.yaml`, so the hooks,
+  the `AGENTS.md` block, the skill, and the session context all use it.
+  `--import-agents` makes Claude Code read `AGENTS.md`.
+- For Codex, install with `--host codex` and approve the hooks once with
+  `/hooks`. For Cursor, use `--host cursor`.
 
-```ts
-import {
-  buildAgentPacket,
-  buildStaticReaderModel,
-  readLedgerDocuments,
-  searchLedgerIndex,
-  validateDocuments,
-} from "@kylebegeman/ledger";
-```
+### In any other repository
 
-Lower-level helpers remain available from `@kylebegeman/ledger/unstable`.
-Those exports are useful for experimentation and project-local tooling, but can
-change between minor versions while the package is still pre-1.0.
-
-See [Ledger API](./docs/API.md) for promotion rules, compatibility expectations,
-and token-bounded agent retrieval APIs.
-
-The package builds from source during `prepare`; release checks use
-`npm run release:build`. See [Release Prep](./docs/RELEASE_PREP.md) for the
-full local verification and publishing checklist.
-
-## What Ledger Creates
-
-| Path | Purpose |
-| --- | --- |
-| `.ledger/entries/` | Landed change records. |
-| `.ledger/backlog/` | Accepted or proposed future work. |
-| `.ledger/decisions/` | Durable project decisions. |
-| `.ledger/releases/` | Release records generated from entries or maintained by hand. |
-| `.ledger/sessions/` | Session records written by agent hooks or `ledger scratch`; committed like other records, they expire and are pruned unless promoted or linked by another record. |
-| `.ledger/templates/` | Project-local templates for new records. |
-| `.ledger/indexes/` | Generated JSON indexes. |
-| `.ledger/reports/` | Validation, docs, coverage, and impact reports. |
-| `.ledger/dist/` | Generated internal reader output, with sanitized public output under `.ledger/dist/public/`. |
-| `docs/` | Optional durable project docs scaffold managed alongside Ledger records. |
-
-## Command Map
-
-| Command | What It Does |
-| --- | --- |
-| `ledger init --with-docs` | Creates `.ledger/` and optional `docs/` scaffolding. |
-| `ledger init --migrate` | Creates a partial-adoption scaffold for replacing an existing changelog or docs workflow. |
-| `ledger adopt` | Initializes Ledger for an established repo without claiming ownership of the whole docs tree. It inspects the tracked tree to infer coverage roots, generated-code ignores, and a verification allowlist, sets `git.coverage: any`, adds a marked `.gitignore` block, and leaves an existing docs tree alone. Existing `docs/llm` routing files are left alone; when one exists that Ledger did not generate, `docs.routing` points at `.ledger/reports/docs-start-here.md` and `.ledger/indexes/docs-routing.json`. |
-| `ledger new "Title" --from-diff` | Drafts a change entry from git status. |
-| `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
-| `ledger backlog new "Title" --area cli --decision D001` | Creates the next numbered backlog item from the template. |
-| `ledger decision new "Title" --area architecture` | Creates the next numbered decision record from the template. |
-| `ledger promote B001 --from-diff` | Creates a draft change entry linked to a backlog item or session, carrying acceptance checks or session notes, and updates the source record in one transaction. |
-| `ledger session start --host claude-code` | Starts an expiring session record; `session touch <path>` records touched files, `session note "<text>"` appends a Learned or Next bullet, `session close` ends it, and `session prune --write` deletes expired sessions that nothing links and closes expired ones that another record keeps. |
-| `ledger scratch "Title"` | Starts a session record for scratch notes that expire unless promoted. |
-| `ledger validate` | Parses and validates Ledger source documents. Supports `--current-only`, `--update-baseline`, and `--no-baseline`. |
-| `ledger verify --run` | Runs the allowlisted commands from change entries' Verification sections and records evidence (command, exit status, duration, commit) that doctor, stale, packets, and the reader surface as fresh, stale, or failed. |
-| `ledger ready` | Gates draft change entries on readiness to land: no TODO markers or template placeholders, verification and invariants present, docs impact reviewed, and referenced files present. Pass ids or paths to check specific records. |
-| `ledger index` | Validates records and writes JSON indexes under `.ledger/indexes/`. |
-| `ledger verify-integrity` | Writes record and catalog hashes for provenance checks. Use `--check` to compare without replacing the baseline. |
-| `ledger render` | Builds the internal static reader. Use `--profile public` for released public notes only. |
-| `ledger serve --watch` | Serves the static reader on loopback and rebuilds it when Ledger records change. Use `--profile public` to preview only the isolated public output. |
-| `ledger serve --api` | Starts the engine: the reader plus a JSON API at `/api/v1`, an event stream at `/events`, MCP over Streamable HTTP at `/mcp`, and a daemon record for CLI delegation. |
-| `ledger coverage --explain` | Checks working-tree paths, or an explicit `--base`/`--head` range, and explains required, ignored, covered, historical, and missing coverage. A required path must be listed by a change entry in the same change set unless `git.coverage` is `any`. |
-| `ledger doctor` | Checks workspace health, Git availability, write transaction state, validation, docs references, index freshness, render output, performance budgets, symbol extractor availability, and stale signals. |
-| `ledger metrics` | Measures cold read, warm cached read, validate, index, render-model, and search latency against configured budgets. |
-| `ledger cache status` | Reports the catalog cache backend, size, and freshness. Use `cache warm` to prefill it and `cache clear` to delete it. |
-| `ledger stale --check` | Finds stale knowledge signals: missing relationships, symbols and anchors that no longer exist in the referenced files, invariants that cite them, release verification gaps, expired sessions, and stale or failed verification evidence. |
-| `ledger docs audit` | Finds missing and unreferenced durable docs links. |
-| `ledger docs classify <path>` | Classifies docs as durable, routing, scratch, generated, or unknown. |
-| `ledger docs impact --check` | Fails when a changed source file has no docs impact evidence from a change entry in the same change set (a reviewed `docsImpact` declaration or referenced docs). |
-| `ledger docs reconcile` | Regenerates the configured docs routing manifest and `START_HERE.md` from the docs audit. Refuses to replace a routing file Ledger did not generate unless `--force` is passed, and exits 1 on refusal without writing either file. |
-| `ledger docs migrate` | Writes a docs migration report with cleanup guidance. |
-| `ledger explain <path>` | Shows records that mention a file plus the decisions, backlog items, and superseding records one hop away. |
-| `ledger explain <path> --agent` | Emits compact agent context for a file. |
-| `ledger search <query> --limit 5` | Runs weighted fuzzy search over the same fields used by the static reader. `--full-text` narrows candidates with sqlite FTS5 on large catalogs. |
-| `ledger search-packet <query> --budget 1600 --limit 5` | Builds a token-budgeted agent packet from weighted search results when the exact file path is unknown. |
-| `ledger packet <path> --budget 1200 --write-report` | Builds a compact token-budgeted agent handoff packet, optionally writing `.ledger/reports/packet.md`. |
-| `ledger mcp` | Starts a stdio MCP server exposing every registry operation with MCP metadata. |
-| `ledger conflict <path> --write-report` | Extracts conflict rules, invariants, and verification, optionally writing `.ledger/reports/conflict.md`. |
-| `ledger query --kind change --area cli --symbol run --text retry` | Filters records by kind, area, status, release, relationship, symbol, file, doc, id, or metadata text. |
-| `ledger unreleased` | Lists landed or shipped changes not assigned to a release. |
-| `ledger release v0.1.1 --include-unreleased --assign --status released --write` | Assigns selected entries and writes a release record. |
-| `ledger release notes v0.1.1` | Prints the Public Notes of a release record for GitHub Releases or changelogs. |
-| `ledger migrate changelog <dir> --rewrite-docs` | Migrates legacy Markdown changelog records into `.ledger/entries` and writes a receipt. |
-| `ledger agents --role reviewer` | Prints role-specific `AGENTS.md` instructions for the configured workflow. `--write` maintains them as a fenced block in `AGENTS.md` or `--file <path>`. |
-| `ledger skills install` | Writes `.agents/skills/ledger/SKILL.md` so skills-aware agents know when to call Ledger, with a `.claude/skills/ledger` link for Claude Code. |
-| `ledger hooks install --host claude-code` | Installs Ledger lifecycle hooks into the host's project hook file (`.claude/settings.json`, `.codex/hooks.json`, or `.cursor/hooks.json`), preserving other hooks. `--command <prefix>` is saved as `agents.command` in `.ledger/config.yaml` and reused by every later install and render; `--import-agents` adds the `@AGENTS.md` import to `CLAUDE.md`. Use `--dry-run` to print the merged file. |
-| `ledger ci` | Runs validation, docs audit, coverage, and docs impact together; accepts `--base` and `--head` for clean PR checkouts. |
-
-Every command has focused help:
+Run the published package through npx, pinned to a version, so an agent never
+reaches a different program named `ledger` on its `PATH`:
 
 ```bash
-ledger help
-ledger help new
-ledger docs impact --help
-ledger release --help
+npx --yes @kylebegeman/ledger@0.8.0 adopt
+npx --yes @kylebegeman/ledger@0.8.0 hooks install --host claude-code \
+  --command "npx --yes @kylebegeman/ledger@0.8.0" --import-agents
+npx --yes @kylebegeman/ledger@0.8.0 skills install
+npx --yes @kylebegeman/ledger@0.8.0 agents --write
 ```
 
-Every command except `serve` and `mcp` supports `--json` and returns a versioned
-envelope for both success and failure. MCP tools use the same envelope:
+`adopt` reads the tracked tree and writes a configuration that fits it: which
+paths need receipts, which generated code to ignore, and a proposed list of
+checks `ledger verify --run` may execute. It leaves hand-written docs routing
+files alone.
 
-```json
-{
-  "schemaVersion": 1,
-  "ok": false,
-  "command": "validate",
-  "error": {
-    "code": "workspace-not-found",
-    "message": "Could not find .ledger/config.yaml from /path/to/repo",
-    "details": {
-      "startDir": "/path/to/repo"
-    }
-  }
-}
-```
+<p align="center"><img alt="ledger adopt in a Go repository inferring coverage roots, toolchains, and a verification allowlist that leaves out the release target" src="./assets/readme/adopt.svg" width="880"></p>
 
-Successful envelopes place command-specific output under `data`. Error codes
-come from typed boundaries; human message wording is not used to classify
-failures.
+### Without hooks
 
-## Adoption And Migration
-
-Established repos can use partial docs adoption:
+Everything the hooks do is a command you can run yourself:
 
 ```bash
-ledger adopt
-ledger migrate changelog docs/changelog --rewrite-docs
-ledger validate --current-only
-```
-
-`ledger migrate changelog <dir>` reads Markdown records, preserves IDs when
-possible, writes duplicate-ID suggestions in a migration receipt, and maps
-frontmatter plus body sections into Ledger change entries. `--rewrite-docs`
-updates docs references from old changelog paths to the new `.ledger/entries`
-paths.
-
-`ledger adopt` reads the tracked tree with `git ls-files` and writes a config
-that fits it: every top-level directory with tracked files (plus `.github`, the
-root `Makefile`, and the primary manifest such as `go.mod` or `package.json`)
-becomes a coverage root; generated code such as templ output, sqlc output
-directories, `.product` provenance, and untracked build output is ignored; and
-`verification.allow` is proposed from the detected toolchain (explicit
-Makefile targets, `go test`, npm scripts, cargo, pytest, swift) plus the Ledger
-checks. Makefile targets and npm scripts named after release, publish, deploy,
-push, sign, upload, clean, or install are left out, but the list is a proposal:
-review `verification.allow` and prune anything agents should not run. Adopt
-sets `git.coverage: any` so existing history counts; switch it back to
-`current` once pull requests carry their own receipts. `ledger init` and
-`ledger adopt` both add a marked block to `.gitignore` for Ledger's derived
-state and update it in place on a later run.
-
-`ledger adopt` never replaces routing files you already maintain. When
-`docs/llm/START_HERE.md` or `docs/llm/manifest.json` exists and Ledger did not
-generate it, the written config points `docs.routing` at
-`.ledger/reports/docs-start-here.md` and `.ledger/indexes/docs-routing.json`,
-which are derived and git-ignored, and no sibling scaffold is created under
-`docs/llm`. Existing workspaces are unchanged because `config.yaml` is only
-written when missing.
-
-For long-lived histories, mark migrated records with `status: "historical"` or
-acknowledge stale paths with `staleRefs`. Historical records stay queryable but
-do not flood validation with missing file warnings. Projects can also use
-`ledger validate --update-baseline` to baseline known warnings and
-`ledger validate --current-only` while actively changing current records.
-
-Entry `files` can use exact paths, globs such as `src/features/**`, or explicit
-`prefix:` and `glob:` patterns. `ledger new --from-diff` omits configured
-generated/vendor ignores and groups very large diffs into patterns.
-
-Dogfood findings and product observations belong in product notes:
-
-```bash
-ledger feedback "Improve changelog migration receipt" --area cli --tag dogfood
-```
-
-Project-specific metadata can be made strict with `schema.extensions` in
-`.ledger/config.yaml`, for example `phaseId: string` or `productAreas:
-string[]`.
-
-## Example Change Entry
-
-```markdown
----
-id: "0020"
-kind: "change"
-title: "Overhaul README and prepare patch release"
-date: "2026-06-29"
-updated: "2026-06-29"
-status: "landed"
-areas: ["docs", "release"]
-files:
-  - "README.md"
-  - "package.json"
-symbols:
-  - "ledger release"
-docs:
-  - "docs/PRODUCT.md"
-docsImpact:
-  status: "updated"
-  reason: "Product docs changed with the release workflow."
-  docs:
-    - "docs/PRODUCT.md"
-commits: []
-release: "v0.1.1"
----
-
-# 0020: Overhaul README And Prepare Patch Release
-
-## Summary
-
-Explain what changed.
-
-## Why
-
-Explain why it changed.
-
-## Changed Files
-
-### README.md
-
-- What changed: Reworked the public project landing page.
-- Anchor: `Five Minute Start`
-- On conflict: Keep the README accurate for the current install state.
-
-## Behavior And UX Impact
-
-Explain what users experience differently.
-
-## Invariants
-
-- Markdown remains the source of truth.
-- Generated outputs remain derived artifacts.
-
-## Verification
-
-- `npm run check`
-- `node dist/cli.js ci`
-```
-
-## Agent Workflow
-
-Ledger is designed to be useful to coding agents without special integration.
-
-Before editing:
-
-```bash
-ledger explain path/to/file.ts --agent
-ledger search "thing you need" --limit 5
-ledger search-packet "thing you need" --budget 1600 --limit 5
-ledger packet path/to/file.ts --budget 1200 --write-report
-ledger conflict path/to/file.ts
-```
-
-`ledger packet` and `ledger search-packet` report an approximate token count,
-the requested budget, and how many matching entries were omitted. This keeps
-agent context bounded without requiring callers to trim output themselves.
-
-After editing:
-
-```bash
-ledger new "Describe the change" --from-diff
-ledger verify --run
+ledger new "Add jitter to webhook retries" --from-diff --area billing
 ledger ready
-ledger doctor
-ledger stale
 ledger ci
 ```
 
-In a clean pull-request checkout, pass the compared revisions so coverage and
-docs impact inspect committed changes rather than an empty working tree:
+## The reader
+
+`ledger render` builds a static reader from the same Markdown, with filters for
+kind, status, area, release, and tags, a detail panel for every record, and
+light and dark themes. Served over HTTP, from any static host or
+`ledger serve`, it ranks search results with fuzzy matching. Opened from a
+`file:` URL, it falls back to plain text matching.
+
+<p align="center"><img alt="Searching this repository's receipts from the reader's command palette" src="./assets/readme/palette.png" width="720"></p>
 
 ```bash
-ledger ci --base <base-revision> --head <head-revision>
+ledger render                    # writes .ledger/dist/index.html
+ledger serve --watch             # serves it on loopback and rebuilds as records change
+ledger serve --api               # also reloads open pages and adds a JSON API and MCP
+ledger render --profile public   # a public changelog from released notes only
 ```
 
-Ledger compares the merge-base range. `--staged` and `--base`/`--head` are
-mutually exclusive, and Git inspection failures are reported as operational
-errors instead of being treated as zero changed files.
+The public profile turns release records into a changelog. It is fail-closed:
+only released versions and their Public Notes are included, and paths, files,
+symbols, invariants, and internal links are stripped.
 
-On GitHub, use the repository's composite action instead of scripting the
-range yourself. It runs `ledger ci --github`, which annotates the pull request
-with one `::error` per missing receipt, historical coverage, docs impact gap,
-or validation error, and writes a job summary table:
+<p align="center"><img alt="The public changelog Ledger renders for this repository, showing the notes for a release" src="./assets/readme/changelog.png" width="880"></p>
+
+## In CI
+
+Add the action to a pull request workflow. It validates every record, audits
+docs, checks coverage and docs impact for the pull request's range, annotates
+the pull request, and writes a job summary.
 
 ```yaml
-- uses: kylebegeman/ledger@v0.7.0
-  with:
-    comment: "true" # optional; needs pull-requests: write
+name: ledger
+on: pull_request
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: kylebegeman/ledger@v0.8.0
+        with:
+          command: npx --yes @kylebegeman/ledger@0.8.0
 ```
 
-The action installs the published package through `npx`; pass `command:
-node dist/cli.js` to run a checkout's own build, and `node-version: ""` to
-skip its Node setup.
+The action runs the latest published CLI unless `command` pins it. Set
+`comment: "true"` to also post the summary on the pull request. That posts a
+new comment on each run and needs `pull-requests: write`, which pull requests
+from forks do not get.
 
-The entry should tell the next agent what changed, what must remain true, and
-how to verify the behavior.
+<p align="center"><img alt="ledger ci --github annotating a pull request that changed a source file without a receipt" src="./assets/readme/ci.svg" width="880"></p>
 
-For MCP-capable agents, run Ledger as a stdio server:
+Coverage defaults to `current`: a changed path under `git.requireEntryFor`
+needs a change entry in the same pull request. `adopt` writes `any`, which lets
+`ledger coverage` accept a receipt from an earlier change. Docs impact in
+`ledger ci` still needs a change entry in the pull request that lists the file.
 
-```bash
-ledger mcp
-```
+## Records
 
-The server exposes every registry operation with MCP metadata: validate, query,
-search, explain, conflict, packet, search-packet, coverage, ci, doctor, metrics,
-stale, unreleased, docs audit, docs classify, docs impact, and integrity
-verification. Tools declare input and output schemas and return the machine
-envelope as structured content. Each response includes a compact `summary`
-object before detailed payload fields so agents can decide whether to read the
-full result. Records are also available as resources (`ledger://records/{id}`,
-`ledger://packet/{path}`, `ledger://contract`), and the
-`ledger_agent_instructions` and `ledger_handoff` prompts give agents role
-instructions and a pre-edit handoff for a file. The same server runs over HTTP
-at `/mcp` under `ledger serve --api`.
+| Record | Created by | Use it for |
+| --- | --- | --- |
+| **Change entry**<br>`.ledger/entries/` | hooks, `ledger new` | A receipt for one change: why, invariants, verification, and conflict rules |
+| **Product note**<br>`.ledger/entries/` | `ledger feedback` | Dogfood findings and product observations |
+| **Backlog item**<br>`.ledger/backlog/` | `ledger backlog new` | Planned work with acceptance checks; `ledger promote` turns it into a change entry |
+| **Decision**<br>`.ledger/decisions/` | `ledger decision new` | An architecture or product decision and when to revisit it |
+| **Release**<br>`.ledger/releases/` | `ledger release` | The receipts in a version and the public notes for GitHub Releases |
+| **Session**<br>`.ledger/sessions/` | hooks, `ledger session start` | What one agent session touched and learned; after it expires, `ledger session prune --write` deletes it unless it was promoted or another record links it |
 
-### Skill And Instructions
+Records, and the verification evidence in `.ledger/reports/evidence.json`, are
+committed with the code. Indexes, Markdown reports, caches, and the rendered
+reader are derived and git-ignored. Record fields and sections are documented
+in [docs/SCHEMA.md](./docs/SCHEMA.md).
 
-`ledger skills install` writes `.agents/skills/ledger/SKILL.md`, the Agent
-Skills entry Codex and Cursor read natively; Claude Code gets a symlink at
-`.claude/skills/ledger` (a copy where symlinks are unavailable). The skill
-tells an agent when to call `packet`, `explain`, `search-packet`, `session
-note`, `new`, `promote`, and `ready`. `ledger agents --write` maintains the
-same workflow as a fenced block between `<!-- ledger:agents:start -->` and
-`<!-- ledger:agents:end -->` in `AGENTS.md`, preserving everything else in the
-file. Both render every command span with `agents.command` from
-`.ledger/config.yaml` (`npx ledger`, `node dist/cli.js`, or a pinned `npx
---yes @kylebegeman/ledger@<version>`), so an agent never reads an instruction
-for a program it cannot run. Claude Code reads `CLAUDE.md`, so import
-`AGENTS.md` from it; `ledger hooks install --host claude-code --import-agents`
-adds the `@AGENTS.md` line when it is missing.
+## Commands
 
-### Host Hooks
+Every command except `serve`, `mcp`, `help`, and `version` accepts `--json` and
+returns a versioned envelope. `ledger serve --api` runs every command except
+`init`, `adopt`, `serve`, and `mcp` over its JSON API. The retrieval and check
+commands, such as `packet`, `explain`, `search`, `ready`, `coverage`, and `ci`,
+are also MCP tools through `ledger mcp` or the engine's `/mcp`. Run
+`ledger help <command>` for flags.
 
-`ledger hooks install --host claude-code` (or `codex`, or `cursor`) writes
-lifecycle hooks into the host's project hook file so records get written by
-the workflow instead of by memory:
+<details>
+<summary><strong>Set up and capture</strong></summary>
 
-- session start creates or resumes a session record and injects a budgeted
-  Ledger packet for the paths in play, or recent changes and open backlog when
-  the tree is clean, plus a `Linked receipt:` line for every change entry the
-  session already links, telling the agent to finish a draft rather than
-  create another
-- every user prompt (Claude Code and Codex; Cursor has no prompt hook that can
-  add agent context) injects a one-time notice naming a receipt the hooks
-  drafted for the session, so the agent finishes that draft instead of running
-  `ledger new`; the notice is recorded in `.ledger/cache/hook-notices.json`
-  and never repeats for the same draft
-- every file edit records the touched path on the session record
-- stop and session end draft a change entry from the touched paths and the
-  Git diff, linked to the session, and refresh it on later stops; the draft
-  takes its title from the session's Summary note or a neutral `Changes to
-  <areas>` default that `ledger ready` flags until it is edited, and never
-  lists session records or templates
-- every change entry the session links counts as linked whatever its status:
-  new paths go to the linked draft, nothing is written when every touched path
-  is already covered by a linked receipt (so landing a receipt mid-session does
-  not produce a second one), and a new draft appears only for paths no linked
-  receipt covers
-- pre-compaction records the working tree on the session and writes
-  `.ledger/reports/handoff.md`, so the post-compaction session start receives
-  the same memory
-- an active session past its `expires` date is treated as inactive by the
-  hooks and by `session note`, `touch`, and `close` without `--id`, so a tab
-  whose host never fired SessionEnd (the Claude desktop app on `/exit`) stops
-  collecting touches; the next session start or touch opens a fresh record
-  that inherits the linked receipts of the most recent expired record, a late
-  SessionEnd still closes the expired record, and `ledger session close --id`
-  closes it explicitly
+| Command | What it does |
+| --- | --- |
+| `ledger init --with-docs` | Creates `.ledger/`, its templates, a docs scaffold, and the `.gitignore` block |
+| `ledger adopt` | Adopts an existing repository with inferred coverage roots, ignores, and a verification allowlist |
+| `ledger hooks install --host <host>` | Installs Claude Code, Codex, or Cursor hooks; `--command` saves how Ledger runs |
+| `ledger skills install` | Writes the Ledger skill for agents that read skills |
+| `ledger agents --write` | Maintains the Ledger block in `AGENTS.md` |
+| `ledger new <title> --from-diff` | Drafts a change entry from the Git diff |
+| `ledger feedback <title>` | Captures a product note |
+| `ledger backlog new <title>` | Creates a backlog item |
+| `ledger decision new <title>` | Creates a decision record |
+| `ledger promote <id> --from-diff` | Turns a backlog item or session into a linked draft change entry |
+| `ledger session start`, `touch`, `note`, `close`, `prune` | Manages session records |
+| `ledger scratch <title>` | Starts a session record for notes that expire unless promoted |
+| `ledger migrate changelog <dir>` | Imports an existing Markdown changelog into change entries |
 
-The hooks run `<command> hook <event> --host <host>` with the host's JSON on
-stdin, where `<command>` is `agents.command` from `.ledger/config.yaml`
-(default `ledger`). Pass `--command "npx ledger"` when Ledger is a project
-dependency rather than a global install, or `--command "node dist/cli.js"` in
-this repository, where another program owns the `ledger` name on PATH; the
-prefix is persisted under `agents.command` in the same file transaction as the
-hook file, preserving comments and key order, and reused by `hooks install`
-for the other hosts, `agents --write`, `skills install`, and the context and
-notices the hooks inject. A dry run computes but never writes it. Nothing
-auto-starts the engine. Codex asks you to trust the hook definitions once with
-`/hooks`. Claude Code reads `CLAUDE.md`, not `AGENTS.md`; `hooks install
---host claude-code` reports when `CLAUDE.md` lacks the `@AGENTS.md` import and
-`--import-agents` appends it (creating `CLAUDE.md` when absent).
+</details>
 
-From TypeScript, talk to a running engine with the typed client:
+<details>
+<summary><strong>Retrieve context</strong></summary>
 
-```ts
-import { connectLedgerClient } from "@kylebegeman/ledger";
+| Command | What it does |
+| --- | --- |
+| `ledger packet <path> --budget 1200` | Receipts, invariants, and verification for a file within a token budget |
+| `ledger search-packet <query> --budget 1600` | The same for a topic when the path is unknown |
+| `ledger explain <path> --agent` | Records for a file plus the decisions, backlog, and supersessions one hop away |
+| `ledger conflict <path>` | Conflict rules, invariants, and verification from every receipt for a path |
+| `ledger search <query>` | Weighted fuzzy search over the reader's fields |
+| `ledger query --kind change --area billing` | Structured filters over the catalog |
 
-const client = await connectLedgerClient(process.cwd());
-const result = await client?.run("search", { query: "renderer", limit: 5 });
-```
+</details>
 
-Operation names and inputs are checked at compile time against the registry.
+<details>
+<summary><strong>Check and trust</strong></summary>
 
-Use `ledger agents --role contributor`, `ledger agents --role reviewer`,
-`ledger agents --role release`, `ledger agents --role migration`, or
-`ledger agents --role conflict` to generate narrower operating instructions for
-specialized agents.
+| Command | What it does |
+| --- | --- |
+| `ledger ready` | Fails on drafts with TODOs, template placeholders, or missing verification, invariants, or docs impact |
+| `ledger ci` | Validation, docs audit, coverage, and docs impact; `--github` annotates pull requests |
+| `ledger coverage --explain` | Explains why each changed path is covered, historical, missing, ignored, or not required |
+| `ledger docs impact --check` | Fails when a changed source file has no docs impact evidence |
+| `ledger verify --run` | Runs allowlisted Verification commands and records the evidence |
+| `ledger stale --check` | Missing relationships, stale symbols and anchors, expired sessions, and old evidence |
+| `ledger validate` | Parses and validates every record |
+| `ledger doctor` | Workspace health across Git, writes, indexes, render budgets, symbols, and evidence |
+| `ledger verify-integrity --check` | Compares record and catalog hashes with a saved baseline |
+| `ledger metrics` | Read, validate, index, render, and search latency against budgets |
 
-## Release Workflow
+</details>
 
-Prepare a release record from entries already assigned to a version:
+<details>
+<summary><strong>Read, serve, and release</strong></summary>
 
-```bash
-ledger release v0.1.1 --status released --date 2026-06-29 --write
-```
+| Command | What it does |
+| --- | --- |
+| `ledger render` | Builds the static reader; `--profile public` builds the public changelog |
+| `ledger serve --watch` | Serves the reader on loopback and rebuilds on change |
+| `ledger serve --api` | The engine: the reader, a JSON API at `/api/v1`, events, and MCP at `/mcp` |
+| `ledger mcp` | The MCP server over stdio |
+| `ledger index` | Writes JSON indexes under `.ledger/indexes/` |
+| `ledger cache status` | Reports the catalog cache; `cache warm` and `cache clear` manage it |
+| `ledger unreleased` | Landed change entries not yet in a release |
+| `ledger release <version> --include-unreleased --assign --status released --write` | Writes a release record and assigns its receipts to it |
+| `ledger release notes <version>` | Prints a release's public notes for GitHub Releases |
 
-Or preview currently unreleased work without writing:
+</details>
 
-```bash
-ledger release v0.1.1 --include-unreleased --status planned
-```
+<details>
+<summary><strong>Docs</strong></summary>
 
-To promote currently unreleased landed work and write the release record in one
-step:
+| Command | What it does |
+| --- | --- |
+| `ledger docs audit` | Finds missing and unreferenced durable docs |
+| `ledger docs classify <path>` | Classifies a doc as durable, routing, scratch, generated, or unknown |
+| `ledger docs reconcile` | Regenerates docs routing files and refuses files Ledger did not write unless `--force` is passed |
+| `ledger docs migrate` | Writes a docs cleanup report |
 
-```bash
-ledger release v0.1.1 --include-unreleased --assign --status released --write
-```
+</details>
 
-Assignment and release-file creation commit through one journaled transaction.
-If an entry changes after planning, Ledger stops without overwriting the newer
-content or creating a partial release.
+## Use it from code
 
-The generated release document includes public notes, internal entry details,
-verification guidance, and known issues.
-
-## Docs Relationship
-
-Ledger does not replace full project documentation. It replaces the scattered
-implementation memory that often grows inside `docs/` without structure.
-
-Use:
-
-- `.ledger/` for change records, backlog, decisions, releases, invariants,
-  verification, and conflict rules
-- `docs/` for durable product, architecture, operations, API, guide, reference,
-  and agent routing docs
-
-Ledger can scaffold and audit `docs/`, but it does not try to become a docs CMS.
-`ledger docs reconcile` keeps agent routing files current, and
-`ledger docs migrate` reports scratch, generated, unknown, missing, and
-unreferenced docs that may need cleanup. Reconcile never overwrites a curated
-routing file: it replaces only a manifest with `generatedBy: "ledger"` or a
-`START_HERE.md` that carries the `<!-- ledger:docs:start-here -->` marker (or
-the generated sentence older files carry near the top), unless `--force` is
-passed.
-
-## Integrity
-
-Use `ledger verify-integrity` to generate a deterministic SHA-256 hash for every
-Ledger source record plus a catalog hash for the current record set. Ledger
-writes `.ledger/indexes/integrity.json` for tools and
-`.ledger/reports/integrity.md` for review.
-
-Use `ledger verify-integrity --check` in CI or release verification when a
-previously generated integrity index has been preserved as the expected
-baseline. Check mode never replaces that baseline and reports added, removed,
-and changed records.
-
-## Public Reader Export
-
-`ledger render --profile public` writes a separate reader to
-`.ledger/dist/public/`. The public profile is fail-closed: it includes only
-release records whose status is `released`, and only their explicit
-`Public Notes` content. It removes raw Markdown, repository paths, files,
-symbols, internal relationships, validation issues, invariants, and verification
-details from the HTML and JSON artifacts. Review public notes before publishing
-the generated directory.
-
-## Library Usage
-
-The package exports the same core primitives used by the CLI:
+The package root exports the operations the CLI runs, plus a typed client for a
+running engine:
 
 ```ts
 import {
+  connectLedgerClient,
   findWorkspace,
   readLedgerDocuments,
   validateDocuments,
-  buildIndexes,
-  createLedgerMcpServer,
 } from "@kylebegeman/ledger";
 
 const workspace = await findWorkspace(process.cwd());
-const documents = await readLedgerDocuments(workspace);
-const validation = validateDocuments(workspace, documents);
-const indexes = buildIndexes(workspace, documents);
-const mcpServer = createLedgerMcpServer({ cwd: process.cwd() });
+const validation = validateDocuments(workspace, await readLedgerDocuments(workspace));
+
+const client = await connectLedgerClient(process.cwd());
+const results = await client?.run("search", { query: "webhook retries", limit: 5 });
 ```
 
-Use the library when you want to build custom dashboards, agent context
-packets, release tooling, or renderer adapters.
+The client's operation names and input types come from the registry, so a
+misspelled operation or a wrongly typed input fails to compile.
+Lower-level helpers live in `@kylebegeman/ledger/unstable` and may change
+between minor versions. See [docs/API.md](./docs/API.md).
 
-## Project Docs
+## Configuration
 
-- [Product Brief](./docs/PRODUCT.md)
-- [Architecture](./docs/ARCHITECTURE.md)
-- [API](./docs/API.md)
-- [Schema](./docs/SCHEMA.md)
-- [Ledger And Project Docs](./docs/DOCS_RELATIONSHIP.md)
-- [Release Prep](./docs/RELEASE_PREP.md)
-- [Roadmap](./docs/ROADMAP.md)
-- [Implementation Plan](./docs/IMPLEMENTATION_PLAN.md)
+`init` or `adopt` writes `.ledger/config.yaml` with every key at its default
+when the file is missing. After that it is yours to edit, and the only command
+that changes it is `hooks install --command`, which sets `agents.command`. The
+settings people change most:
+
+| Setting | What it controls |
+| --- | --- |
+| `agents.command` | The command the hooks, the `AGENTS.md` block, the skill, and session context use |
+| `git.requireEntryFor` | Paths whose changes need a receipt |
+| `git.coverage` | `current` needs a receipt in the same change set; `any` accepts older ones |
+| `verification.allow` | Commands `ledger verify --run` may execute |
+| `docs.routing` | Where `ledger docs reconcile` writes agent routing files |
+| `sessions.expiresInDays` | Days until a new session record expires and `ledger session prune --write` may delete it |
+
+[docs/SCHEMA.md](./docs/SCHEMA.md) explains the coverage, verification,
+agents, sessions, render, performance, limits, and validation settings.
+
+## Docs
+
+| Doc | Read it for |
+| --- | --- |
+| [Product](./docs/PRODUCT.md) | What Ledger is for and what it deliberately is not |
+| [Architecture](./docs/ARCHITECTURE.md) | The operation registry, cache, engine, hooks, and reader |
+| [Schema](./docs/SCHEMA.md) | Record frontmatter, sections, and the main config settings |
+| [API](./docs/API.md) | The library API and its stability rules |
+| [Docs relationship](./docs/DOCS_RELATIONSHIP.md) | How Ledger records relate to a project's docs |
+| [Roadmap](./docs/ROADMAP.md) | Where the product is going |
+| [Release prep](./docs/RELEASE_PREP.md) | The release checklist and npm publishing |
+| [Security](./SECURITY.md) | Reporting issues and exposing the server beyond loopback |
 
 ## Development
 
-Development happens on short-lived branches merged into `master` through pull
-requests. Releases are tagged from `master`.
-
 ```bash
 npm ci
-npm run ci
+npm run ci   # typecheck, tests, build, ledger ci, and a pack dry run
 ```
 
-`npm run ci` runs typecheck, tests, build, Ledger's own CI checks, and an npm
-package dry run. The reader's browser runtime and stylesheet are bundled from
-`src/reader/` with esbuild (`npm run build:reader`, run automatically by
-`build` and `test`) and tested in happy-dom.
+This repository records its own history with Ledger: every change carries a
+receipt under [.ledger/entries](./.ledger/entries). Work lands on short-lived
+branches merged into `master` by pull request, and pushing a `v*` tag publishes
+to npm through trusted publishing. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-Tagged releases use `.github/workflows/release.yml`. Pushing `vX.Y.Z` runs the
-full verification, publishes the package to npm through trusted publishing with
-provenance (an `NPM_TOKEN` secret is accepted as a fallback), and creates a
-GitHub Release from the matching `.ledger/releases/` record.
-
-### Publishing To npm
-
-First-time maintainers need an npm account that has permission to publish the
-`@kylebegeman` scope.
-
-1. Create an account at <https://www.npmjs.com/signup> if needed.
-2. Verify the account email address in npm.
-3. In this repo, run:
-
-```bash
-npm login --auth-type=web
-npm whoami
-npm run release:build
-npm publish --access public
-```
-
-npm may open a browser authorization flow for accounts protected by passkeys or
-security keys. Complete the browser prompt, return to the terminal, and continue
-the publish. For unattended releases, prefer npm trusted publishing from GitHub
-Actions once the package has a trusted publisher configured.
-
-Each publish needs a new package version. If npm reports that the version was
-already published, bump `package.json` and `package-lock.json`, rerun the release
-checks, and publish that new version.
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) and [SECURITY.md](./SECURITY.md).
-
-## Product Boundary
-
-Ledger stands on its own. It does not depend on Dossier or any renderer to be
-useful. Later, a separate adapter can export Ledger's normalized model into
-Dossier or another artifact system.
+Ledger stands on its own and depends on no hosted service or renderer.
 
 ## License
 

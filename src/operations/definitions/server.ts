@@ -210,9 +210,9 @@ export const mcpOperation = defineOperation<Record<string, never>, { readonly tr
     flags: {},
     json: false,
     help: `Starts a stdio Model Context Protocol server exposing Ledger tools for agents:
-validate, query, search, explain, conflict, packet, search-packet, coverage, ci,
-doctor, metrics, stale, unreleased, cache status, docs audit, docs classify,
-docs impact, and integrity verification. For MCP over HTTP, run
+validate, ready, query, search, explain, conflict, packet, search-packet,
+coverage, ci, doctor, metrics, stale, unreleased, release notes, cache status,
+docs audit, docs classify, docs impact, and integrity verification. For MCP over HTTP, run
 \`ledger serve --api\` and connect to /mcp.`,
   },
   async run(context) {

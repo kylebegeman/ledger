@@ -25,6 +25,37 @@ node dist/cli.js new "Describe the change" --from-diff
 node dist/cli.js coverage
 ```
 
+## README Images
+
+Everything under `assets/readme/` is shown in the README and left out of the
+npm package. The terminal cards and the capture loop diagram are generated
+from real output: the script builds two throwaway demo repositories with this
+checkout's build, runs the hooks and commands the README shows, and renders
+what they print.
+
+```bash
+npm run build
+node scripts/readme-assets.mjs
+```
+
+Set `LEDGER_README_VERSION` to change the version in pinned `npx` commands.
+Regenerate the cards whenever hook context or command output changes, and
+review the diff for trims the cards now mark differently.
+
+The four reader screenshots are captured by hand in a browser at a device
+scale factor of 2, dark color scheme, from `node dist/cli.js serve` for this
+repository:
+
+| Image | Page | Viewport |
+| --- | --- | --- |
+| `hero.png` | `/?kind=change&record=0133`, scrolled to the library | 1440 by 900 |
+| `palette.png` | `/`, press `/`, type `draft receipt`, crop to the dialog plus 44px | 1440 by 900 |
+| `changelog.png` | `serve --profile public`, scrolled to the changelog heading | 1180 by 820 |
+| `receipt.png` | record `0001` in the billing demo from `--keep`, Files and Relationships open, cropped to the panel | 1440 by 1600 |
+
+Each screenshot gets rounded corners and a 1px `#2a322d` inner border, with
+pixels kept at their captured size.
+
 ## Branches
 
 `master` is the only long-lived branch. Work on short-lived branches and open
