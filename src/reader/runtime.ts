@@ -817,28 +817,37 @@ document.addEventListener("keydown", (event) => {
 });
 
 const themeToggle = required<HTMLElement>("theme-toggle");
-function resolvedTheme(): "light" | "dark" {
+const themeLabel = themeToggle.querySelector<HTMLElement>("[data-theme-label]");
+type ThemeMode = "system" | "light" | "dark";
+/** The toggle cycles auto, light, and dark; auto follows the system and stores nothing. */
+const themeOrder: readonly ThemeMode[] = ["system", "light", "dark"];
+const themeNames: Readonly<Record<ThemeMode, string>> = { system: "Auto", light: "Light", dark: "Dark" };
+function currentTheme(): ThemeMode {
   const value = document.documentElement.dataset.theme;
-  if (value === "light" || value === "dark") return value;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return value === "light" || value === "dark" ? value : "system";
+}
+function nextTheme(mode: ThemeMode): ThemeMode {
+  return themeOrder[(themeOrder.indexOf(mode) + 1) % themeOrder.length]!;
 }
 function updateThemeLabel(): void {
-  const next = resolvedTheme() === "dark" ? "light" : "dark";
-  const label = `Switch to ${next} theme`;
+  const mode = currentTheme();
+  const now = mode === "system" ? "auto, follows your system" : mode;
+  const label = `Theme: ${now}. Switch to ${themeNames[nextTheme(mode)].toLowerCase()}`;
   themeToggle.setAttribute("aria-label", label);
   themeToggle.title = label;
+  if (themeLabel) themeLabel.textContent = themeNames[mode];
 }
 themeToggle.addEventListener("click", () => {
-  const next = resolvedTheme() === "dark" ? "light" : "dark";
+  const next = nextTheme(currentTheme());
   document.documentElement.dataset.theme = next;
   try {
-    localStorage.setItem("ledger-theme", next);
+    if (next === "system") localStorage.removeItem("ledger-theme");
+    else localStorage.setItem("ledger-theme", next);
   } catch {
     // Storage may be unavailable.
   }
   updateThemeLabel();
 });
-window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", updateThemeLabel);
 
 entriesContainer.addEventListener("click", (event) => {
   const link = event.target instanceof Element ? event.target.closest<HTMLElement>(".entry-link") : null;

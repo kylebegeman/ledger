@@ -93,8 +93,8 @@ ${staticReaderStyles}
       </button>
       <div class="topbar-actions">
         <span class="profile-badge">${isPublic ? "Public notes" : "Internal"}</span>
-        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme">
-          ${icon("theme-light", 'data-theme-icon="light"')}${icon("theme-dark", 'data-theme-icon="dark"')}
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Theme: auto, follows your system" title="Theme: auto, follows your system">
+          ${icon("theme-system", 'data-theme-icon="system"')}${icon("theme-light", 'data-theme-icon="light"')}${icon("theme-dark", 'data-theme-icon="dark"')}<span data-theme-label>Auto</span>
         </button>
       </div>
     </header>
@@ -103,7 +103,7 @@ ${staticReaderStyles}
       <section class="hero" aria-labelledby="page-title">
         <div class="hero-copy">
           <p class="eyebrow">${isPublic ? "Release archive" : "Project intelligence"}</p>
-          <h1 id="page-title">${isPublic ? "What shipped, clearly." : "Find the context behind every change."}</h1>
+          <h1 id="page-title">${isPublic ? "What shipped, <em>clearly</em>." : "Find the context behind every <em>change</em>."}</h1>
           <p class="hero-description">${isPublic
             ? `A clean history of released work in ${escapeHtml(model.project)}, written for the people who use it.`
             : `Search ${escapeHtml(model.project)} decisions, changes, verification, and operating knowledge without digging through the repository.`}</p>
@@ -369,7 +369,7 @@ function issueList(issues: readonly LedgerIssue[]): string {
   if (issues.length === 0) return "";
   return `<section class="signal-panel" aria-label="Validation issues">
             <div class="section-heading"><span>${icon("warning")}</span><h4>Validation issues</h4><small>${issues.length}</small></div>
-            <ul>${issues.map((issue) => `<li><span>${escapeHtml(issue.level)}</span>${escapeHtml(issue.message)}</li>`).join("")}</ul>
+            <ul>${issues.map((issue) => `<li><span data-level="${escapeHtml(issue.level)}">${escapeHtml(issue.level)}</span>${escapeHtml(issue.message)}</li>`).join("")}</ul>
           </section>`;
 }
 
@@ -457,7 +457,9 @@ function facetButtons(
   facets: readonly LedgerFacet[],
 ): string {
   if (facets.length === 0) return "";
-  return `<div class="facet-list" aria-label="${escapeHtml(label)}">${facets
+  const labelId = `facet-${field}`;
+  return `<p class="facet-group" id="${labelId}">${escapeHtml(label)}</p>
+            <div class="facet-list" role="group" aria-labelledby="${labelId}">${facets
     .slice(0, 8)
     .map((facet) => `<button class="facet-button" type="button" aria-pressed="false" data-filter-field="${field}" data-filter-value="${escapeHtml(facet.value)}"><span>${escapeHtml(facet.value === "__none" ? "No release" : facet.value)}</span><small>${facet.count}</small></button>`)
     .join("")}</div>`;
@@ -581,6 +583,7 @@ const iconPaths: Record<string, string> = {
   "theme-light":
     '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5m0 14v2.5M4.57 4.57 6.34 6.34m11.32 11.32 1.77 1.77M2.5 12H5m14 0h2.5M4.57 19.43l1.77-1.77M17.66 6.34l1.77-1.77"/>',
   "theme-dark": '<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>',
+  "theme-system": '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   chevron: '<path d="m8 10 4 4 4-4"/>',
   arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
