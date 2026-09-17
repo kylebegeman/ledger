@@ -5,28 +5,34 @@ next session can resume without rereading history. Update this file whenever a
 milestone lands or a plan changes; retire sections that stop being true.
 
 Kyle paused Ledger on 2026-09-17, after 0.9.2 shipped and Kore moved to it.
+The same day, 0.9.3 added the Codex hook launcher, and Kore moved to it too.
 Nothing is in flight. "Next slices" lists where to pick up.
 
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.9.2 on npm and GitHub Release v0.9.2,
+- Published: `@kylebegeman/ledger` 0.9.3 on npm and GitHub Release v0.9.3,
   created by `.github/workflows/release.yml` through npm trusted publishing on
-  2026-09-17 from kylebegeman/ledger#31. 0.8.0 (#20 and #21), 0.8.1 (#22),
-  0.8.2 (#25), 0.9.0 (#26), and 0.9.1 (#29) shipped earlier that day. The
-  GitHub Release notes come from `ledger release notes`. A smoke run of the
-  published package drafted `Server.Handle` from a Go diff and rendered the
-  public feed. Receipts 0187 and 0188 are unreleased.
+  2026-09-17 from kylebegeman/ledger#33. 0.8.0 (#20 and #21), 0.8.1 (#22),
+  0.8.2 (#25), 0.9.0 (#26), 0.9.1 (#29), and 0.9.2 (#31) shipped earlier
+  that day. The GitHub Release notes come from `ledger release notes`. A
+  smoke run of the published 0.9.3 package installed the Codex launcher in a
+  scratch repository, passed a SessionStart payload through it, and passed
+  doctor's hooks check. Receipt 0192 is unreleased.
   `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
-- First outside adopter: Kore runs Ledger 0.9.2 with Claude Code and Codex
-  hooks since kylebegeman/forge#32 (Kore receipt 0010). Before that it ran
-  0.9.1 from kylebegeman/forge#31, 0.9.0 from #30, 0.8.2 from #29, 0.8.1
-  from #26, 0.8.0 from #25, and the 0.7.0 adoption from #22 and #24 (Ledger
-  receipts 0128 and 0130). Its
-  allowlist uses plain `ledger <command> **` patterns, so a version bump is
-  the 36 pinned version strings the three installers write plus a Kore
-  receipt. Kyle uses the Codex app there, so after each bump he trusts the
-  six changed hooks on the Hooks page of the app's settings; `/hooks` is a
-  command only in the Codex CLI. A second live Claude Code session there
+- First outside adopter: Kore runs Ledger 0.9.3 with Claude Code and Codex
+  hooks since kylebegeman/forge#33 (Kore receipt 0011). Before that it ran
+  0.9.2 from kylebegeman/forge#32, 0.9.1 from #31, 0.9.0 from #30, 0.8.2
+  from #29, 0.8.1 from #26, 0.8.0 from #25, and the 0.7.0 adoption from #22
+  and #24 (Ledger receipts 0128 and 0130). Its allowlist uses plain
+  `ledger <command> **` patterns, so a version bump is the pinned version
+  strings the three installers write plus a Kore receipt. Since forge#33 its
+  Codex hooks run `.ledger/bin/ledger.mjs`, so a bump rewrites that script
+  and leaves `.codex/hooks.json` unchanged. Kyle uses the Codex app there
+  and approves changed hooks on the Hooks page of the app's settings;
+  `/hooks` is a command only in the Codex CLI. On 2026-09-17 Kore's checkout
+  held another task's branch with uncommitted work, so the 0.9.3 bump ran in
+  a separate worktree from `origin/main` and left that checkout alone. A
+  second live Claude Code session there
   passed B010's last acceptance check on 2026-09-17 (Kore receipt 0005 in
   kylebegeman/forge#27, Ledger receipt 0162), so B007 and B010 are landed.
   That session also found two OCI staging checks that could never fail,
@@ -315,14 +321,15 @@ The project is paused. When work resumes:
   ready but not enabled for this repository; enabling Pages is Kyle's call.
 - Codex and Cursor hooks were verified by piping their payload shapes through
   `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
-  hooks installed and approved but no live Codex session yet. Cursor's hooks
+  hooks installed but no live Codex session yet. Cursor's hooks
   have no message channel, so a Cursor agent hears about its draft only at the
   next session start. In the Claude desktop app, `/exit` does not fire
   SessionEnd, so a session record stays active until it expires or
   `ledger session close --id <id>` closes it. Codex skips a changed hook
-  until it is trusted again, and the app may not say so, so a Kore bump
-  records no Codex sessions until Kyle trusts the new hooks. Kore's
-  `docs/PLAN.md` names both places to trust them since Kore receipt 0009.
+  until it is trusted again, and the app may not say so. Kore's hooks
+  changed one last time in forge#33; later bumps leave them approved. Kore's
+  `docs/PLAN.md` names both places to trust them since Kore receipt 0009 and
+  describes the launcher since Kore receipt 0011.
 - Dossier: Kyle deleted its merged `next` branch on 2026-09-17. Its CI
   already runs Ubuntu with Node 22 and 24, its own docs describe a
   release-branch model that Ledger's model does not replace, and its
