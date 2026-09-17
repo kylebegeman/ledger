@@ -78,7 +78,7 @@ export function outer() {
     ).rejects.toThrow(/TypeScript parser was requested but is unavailable/);
 
     const statuses = await symbolExtractorStatus();
-    expect(statuses.map((status) => status.name)).toEqual(["typescript", "regex", "markdown"]);
+    expect(statuses.map((status) => status.name)).toEqual(["typescript", "regex", "markdown", "go", "rust", "python", "swift"]);
     expect(statuses[0]).toMatchObject({ available: true, version: expect.stringMatching(/^\d+\./) });
   });
 

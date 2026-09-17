@@ -12,6 +12,7 @@ describe("public API boundary", () => {
       ledgerMachineSchemaVersion: 1,
       machineSuccess: expect.any(Function),
       findWorkspace: expect.any(Function),
+      outlineSymbolSpans: expect.any(Function),
       readLedgerDocuments: expect.any(Function),
       runLedgerPacketCommand: expect.any(Function),
       runLedgerQueryCommand: expect.any(Function),

@@ -157,6 +157,36 @@ describe("anchor and invariant freshness", () => {
     expect(report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target)).toEqual(["oldDispatch"]);
   });
 
+  it("finds member symbols by their segments", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-members-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "billing"), { recursive: true });
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await writeFile(path.join(tempDir, "billing", "invoice.go"), "package billing\n\nfunc (i *Invoice) Charge() int { return 0 }\n");
+    await writeFile(path.join(tempDir, "src", "parser.rs"), "impl Parser {\n    pub fn parse(&self) {}\n}\n");
+    await writeFile(
+      path.join(tempDir, ".ledger", "entries", "0001-stale.md"),
+      entry().replace(
+        '  - "src/cli.ts"\nsymbols:\n  - "oldRun"',
+        '  - "billing/invoice.go"\n  - "src/parser.rs"\nsymbols:\n  - "Invoice.Charge"\n  - "Invoice.Refund"\n  - "Parser::parse"\n  - "Parser::gone"',
+      ).replace(
+        "### src/cli.ts\n\n- What changed: Fixture.",
+        "### src/parser.rs\n\n- What changed: parsing.\n- Anchor: `Parser::parse`, `Parser::lex`",
+      ),
+      "utf8",
+    );
+
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+
+    expect(report.issues.filter((issue) => issue.kind === "stale-symbol").map((issue) => issue.target)).toEqual([
+      "Invoice.Refund",
+      "Parser::gone",
+    ]);
+    expect(report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target)).toEqual(["Parser::lex"]);
+  });
+
   it("honors anchor acknowledgements", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-ack-"));
     await initWorkspace(tempDir);

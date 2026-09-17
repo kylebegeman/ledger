@@ -34,6 +34,7 @@ export * from "./renderAssets.js";
 export * from "./search.js";
 export * from "./serve.js";
 export * from "./stale.js";
+export * from "./symbolOutlines.js";
 export * from "./symbols.js";
 export * from "./template.js";
 export * from "./types.js";

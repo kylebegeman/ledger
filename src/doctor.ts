@@ -133,14 +133,14 @@ async function symbolsCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorChe
   );
   const languages = summarizeSymbolLanguages(covered);
   if (covered.length > 0 && !languages.extractable) {
-    const named = languages.otherLanguages.length > 0
-      ? languages.otherLanguages.join(", ")
-      : "other-language";
-    return {
-      name: "symbols",
-      level: "pass",
-      message: `no TypeScript or JavaScript under coverage; symbol extraction covers TypeScript, JavaScript, and Markdown, so ${named} anchors are not extracted or checked`,
-    };
+    const notes = ["no TypeScript or JavaScript under coverage, so the TypeScript parser is not needed"];
+    if (languages.outlinedLanguages.length > 0) {
+      notes.push(`${listNames(languages.outlinedLanguages)} symbols come from Ledger's declaration outlines`);
+    }
+    if (languages.otherLanguages.length > 0) {
+      notes.push(`${listNames(languages.otherLanguages)} anchors are not extracted or checked`);
+    }
+    return { name: "symbols", level: "pass", message: notes.join("; ") };
   }
   const statuses = await symbolExtractorStatus();
   const typescript = statuses.find((status) => status.name === "typescript");
@@ -153,6 +153,11 @@ async function symbolsCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorChe
     level: "warn",
     message: `regex fallback for code anchors: ${typeScriptFallbackAdvice(typescript?.reason)}`,
   };
+}
+
+function listNames(names: readonly string[]): string {
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
 async function engineCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorCheck> {
