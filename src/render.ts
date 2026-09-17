@@ -228,7 +228,7 @@ export function buildStaticReaderModel(
         ...normalized,
         source: document.raw,
         sourceHref: sourceHref(normalized.id, document.relativePath),
-        summary: compactSection(getSectionBody(document, "Summary")),
+        summary: compactSection(getSectionBody(document, "Summary"), { codeSpans: true }),
         why: compactSection(getSectionBody(document, "Why")),
         publicNotes: extractBullets(getSectionBody(document, "Public Notes")),
         invariants: extractBullets(getSectionBody(document, "Invariants")),
@@ -998,11 +998,17 @@ function countFacet(values: readonly string[]): readonly LedgerFacet[] {
     .sort((left, right) => right.count - left.count || left.value.localeCompare(right.value));
 }
 
-function compactSection(value: string | undefined): string | undefined {
+/**
+ * One line of a section, shortened to an excerpt. `codeSpans` keeps the cut
+ * from landing inside a Markdown code span, for text the reader renders as
+ * prose; search-only text such as `why` keeps every character it can.
+ */
+function compactSection(value: string | undefined, options: { readonly codeSpans?: boolean } = {}): string | undefined {
   const compacted = value?.replace(/\s+/g, " ").trim();
   if (!compacted) return undefined;
   if (compacted.length <= 320) return compacted;
-  return `${withoutOpenCodeSpan(compacted.slice(0, 317)).trimEnd()}...`;
+  const cut = compacted.slice(0, 317);
+  return `${(options.codeSpans ? withoutOpenCodeSpan(cut) : cut).trimEnd()}...`;
 }
 
 function verificationFields(

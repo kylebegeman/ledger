@@ -434,6 +434,63 @@ Run \`ledger ready\` before landing; \`<img src=x onerror=alert(1)>\` stays text
     expect(publicHtml).toContain('<span>Run <code class="inline-code">ledger ci --github</code> in pull requests.</span>');
   });
 
+  it("keeps a shortened summary that is one long code span, and shortens why without the rule", () => {
+    const raw = `---
+id: "0001"
+kind: "change"
+title: "Long span"
+date: "2026-06-29"
+status: "landed"
+areas: ["cli"]
+files: []
+symbols: []
+commits: []
+---
+
+# 0001: Long span
+
+## Summary
+
+\`${"x".repeat(400)}\` is the whole summary.
+
+## Why
+
+Because ${"y".repeat(300)} \`ledger ${"z".repeat(100)}\` more.
+`;
+    const html = renderStaticReaderHtml(buildStaticReaderModel(workspace(), [parsedChange(raw)]));
+    // The span is the whole summary, so the text stays and its stray backtick renders literally.
+    expect(html).toContain(`<p class="entry-summary">\`${"x".repeat(316)}...</p>`);
+    // Search text is not rendered, so the why excerpt keeps the words a code span cut would drop.
+    expect(html).toContain("`ledger...");
+  });
+
+  it("renders unpaired backtick runs literally in linear time", () => {
+    const runs = Array.from({ length: 2000 }, (_, index) => `${"`".repeat(index + 1)}w${index}`).join(" ");
+    const raw = `---
+id: "0001"
+kind: "change"
+title: "Runs"
+date: "2026-06-29"
+status: "landed"
+areas: ["cli"]
+files: []
+symbols: []
+commits: []
+---
+
+# 0001: Runs
+
+## Invariants
+
+- ${runs}
+`;
+    const started = performance.now();
+    const html = renderStaticReaderHtml(buildStaticReaderModel(workspace(), [parsedChange(raw)]));
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(html).not.toContain("inline-code\">");
+    expect(html).toContain("w1999</li>");
+  });
+
   it("ends a shortened summary before a code span it cuts off", () => {
     const lead = "Receipts keep context. ".repeat(13);
     const raw = `---

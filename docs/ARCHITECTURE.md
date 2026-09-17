@@ -520,7 +520,9 @@ invariants, verification bullets, and public release notes render Markdown
 code spans as inline code: the text is escaped first and backtick runs pair
 as they do in Markdown, so record content never becomes markup, while search
 documents keep the plain text. A summary shortened to its excerpt ends before
-any code span the cut would split. Detail markup ships inside an inert
+any code span the cut would split, unless that span is the whole summary. The
+agent packet digest at the foot of the panel keeps its backticks, because it
+shows the Markdown an agent receives from `ledger packet`. Detail markup ships inside an inert
 template per record, the open record is addressable through a record URL
 parameter, and the list stays visible and interactive behind the panel so
 readers can move between records without losing context.
