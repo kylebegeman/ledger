@@ -33,6 +33,7 @@ related:
   - "0151"
   - "0160"
   - "0161"
+release: "v0.8.2"
 ---
 
 # 0162: Close B010 With The Second Live Kore Session

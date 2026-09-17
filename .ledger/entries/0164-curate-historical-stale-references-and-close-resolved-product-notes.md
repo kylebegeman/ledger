@@ -24,6 +24,7 @@ related:
   - "0121"
   - "0127"
   - "0163"
+release: "v0.8.2"
 ---
 
 # 0164: Curate Historical Stale References And Close Resolved Product Notes

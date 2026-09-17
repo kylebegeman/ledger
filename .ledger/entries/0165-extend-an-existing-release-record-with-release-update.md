@@ -37,6 +37,7 @@ related:
   - "0043"
   - "0047"
   - "0155"
+release: "v0.8.2"
 ---
 
 # 0165: Extend An Existing Release Record With Release --update

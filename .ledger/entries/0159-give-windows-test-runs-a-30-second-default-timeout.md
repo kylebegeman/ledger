@@ -23,6 +23,7 @@ commits: []
 related:
   - "0142"
   - "0151"
+release: "v0.8.2"
 ---
 
 # 0159: Give Windows Test Runs A 30 Second Default Timeout

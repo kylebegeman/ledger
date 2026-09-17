@@ -53,6 +53,7 @@ related:
   - "0022"
   - "0058"
   - "0133"
+release: "v0.8.2"
 ---
 
 # 0163: Draft Symbols From Changed Lines And Name The Hooked Session In Mid-Turn Checks
