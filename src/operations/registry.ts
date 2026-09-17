@@ -13,7 +13,7 @@ import {
   updateOperation,
 } from "./definitions/authoring.js";
 import { cacheClearOperation, cacheStatusOperation, cacheWarmOperation } from "./definitions/cache.js";
-import { ciOperation, coverageOperation, docsImpactOperation } from "./definitions/changes.js";
+import { ciOperation, contextOperation, coverageOperation, docsImpactOperation } from "./definitions/changes.js";
 import {
   docsAuditOperation,
   docsCheckOperation,
@@ -83,6 +83,7 @@ export const ledgerOperationTable = {
   "serve": serveOperation,
   "coverage": coverageOperation,
   "ci": ciOperation,
+  "context": contextOperation,
   "doctor": doctorOperation,
   "metrics": metricsOperation,
   "stale": staleOperation,

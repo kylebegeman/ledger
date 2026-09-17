@@ -6,6 +6,7 @@ describe("public API boundary", () => {
   it("exports stable high-level APIs from the package root", () => {
     expect(api).toMatchObject({
       buildAgentPacket: expect.any(Function),
+      buildChangeContext: expect.any(Function),
       buildSearchAgentPacket: expect.any(Function),
       buildStaticReaderModel: expect.any(Function),
       ledgerMachineSchemaVersion: 1,

@@ -211,7 +211,7 @@ export const mcpOperation = defineOperation<Record<string, never>, { readonly tr
     json: false,
     help: `Starts a stdio Model Context Protocol server exposing Ledger tools for agents:
 validate, ready, query, search, explain, conflict, packet, search-packet,
-coverage, ci, doctor, metrics, stale, unreleased, release notes, cache status,
+context, coverage, ci, doctor, metrics, stale, unreleased, release notes, cache status,
 docs audit, docs classify, docs impact, and integrity verification. The tools
 that write records (new, feedback, backlog new, decision new, promote,
 update, and session start, note, and close) take section bodies, ask the user

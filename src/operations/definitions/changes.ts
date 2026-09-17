@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { appendFile } from "node:fs/promises";
 import { formatCiAnnotations, formatCiSummaryMarkdown, formatCiText, runCiChecks, type LedgerCiResult } from "../../ci.js";
+import { buildChangeContext, defaultContextBudgetTokens, formatChangeContext, type LedgerChangeContext } from "../../context.js";
 import { checkCoverage } from "../../coverage.js";
 import { writeDocsAuditReport } from "../../docs.js";
 import { buildDocsImpact, writeDocsImpactReport } from "../../docsImpact.js";
@@ -13,6 +14,7 @@ import {
   loadDocuments,
   looseRecord,
   pathString,
+  positiveInt,
   resolveChangeOptions,
   type ChangeRangeInput,
 } from "../shared.js";
@@ -299,5 +301,87 @@ and --head inspect their merge-base change range.`,
     for (const filePath of data.missingDocsImpact) lines.push(`- missing docs impact: ${filePath}`);
     for (const hint of data.sessions) lines.push(`- session: ${hint.message}`);
     return lines.join("\n");
+  },
+});
+
+export interface ContextInput extends ChangeRangeInput, Record<string, unknown> {
+  readonly budget?: number;
+}
+
+const contextNote = z.array(looseRecord({ record: z.string(), text: z.string() }));
+const contextRecordRef = looseRecord({ id: z.string(), kind: z.string(), title: z.string(), status: z.string() });
+
+export const contextOperation = defineOperation<ContextInput, LedgerChangeContext>({
+  name: "context",
+  title: "Review a change set",
+  description:
+    "Summarize a change set for review: each changed file's coverage, docs impact, history, invariants, and conflict rules, plus the change's receipts, linked records, and verification.",
+  workspace: "required",
+  mutates: false,
+  input: z.strictObject({
+    ...changeRangeShape,
+    budget: positiveInt.max(100_000).optional().describe(`Approximate token budget, default ${defaultContextBudgetTokens}.`),
+  }),
+  output: looseRecord({
+    range: z.string(),
+    files: z.array(
+      looseRecord({
+        path: z.string(),
+        change: z.string(),
+        coverage: z.string(),
+        receipts: z.array(z.string()),
+        records: z.array(contextRecordRef),
+        moreRecords: z.number(),
+        invariants: contextNote,
+        conflictRules: contextNote,
+      }),
+    ),
+    receipts: z.array(looseRecord({ id: z.string(), ready: z.boolean(), verification: z.array(z.string()) })),
+    coverage: looseRecord({ mode: z.string(), required: z.number(), covered: z.number(), missing: z.array(z.string()) }),
+    docsImpact: looseRecord({ missing: z.array(z.string()) }),
+    related: z.array(contextRecordRef),
+    sessions: sessionHintsSchema,
+    estimatedTokens: z.number(),
+    budgetTokens: z.number(),
+    truncated: z.boolean(),
+  }),
+  cli: {
+    path: ["context"],
+    usage: "ledger context [--staged | --base <revision> --head <revision>] [--budget <tokens>] [--json]",
+    flags: {
+      ...changeRangeFlags,
+      budget: { type: "number", description: "Approximate token budget." },
+    },
+    json: true,
+    help: `Prints one review packet for a change set: the working tree by default,
+the staged diff with --staged, or a merge-base range with --base and --head.
+For each changed file it shows the Git change, coverage, docs impact, the
+newest records that mention it, and their invariants and conflict rules. It
+then lists the receipts the change carries with their ready state and
+verification evidence, the decisions and backlog items they link, and the
+verification to run. Per-file details are dropped from the end to fit --budget.`,
+  },
+  mcp: {
+    tool: "ledger_context",
+    title: "Review a change set",
+    summary: (data) => ({
+      files: data.files.length,
+      receipts: data.receipts.length,
+      notReady: data.receipts.filter((receipt) => !receipt.ready).length,
+      missingCoverage: data.coverage.missing.length,
+      missingDocsImpact: data.docsImpact.missing.length,
+      truncated: data.truncated,
+    }),
+  },
+  async run(context, input) {
+    const { workspace, documents } = await loadDocuments(context);
+    const data = await buildChangeContext(workspace, documents, {
+      ...resolveChangeOptions(input),
+      budgetTokens: input.budget,
+    });
+    return { data };
+  },
+  format(data) {
+    return formatChangeContext(data);
   },
 });

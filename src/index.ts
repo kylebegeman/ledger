@@ -46,6 +46,7 @@ export {
   machineSuccess,
   normalizeLedgerError,
 } from "./machine.js";
+export { buildChangeContext, formatChangeContext } from "./context.js";
 export {
   createLedgerMcpHttpHandler,
   createLedgerMcpServer,
@@ -195,6 +196,7 @@ export { findProjectRoot, findWorkspace, initWorkspace } from "./workspace.js";
 export type * from "./authoring.js";
 export type * from "./ci.js";
 export type * from "./client.js";
+export type * from "./context.js";
 export type * from "./commands/index.js";
 export type * from "./config.js";
 export type * from "./coverage.js";

@@ -335,7 +335,7 @@ in [docs/SCHEMA.md](./docs/SCHEMA.md).
 Every command except `serve`, `mcp`, `help`, and `version` accepts `--json` and
 returns a versioned envelope. `ledger serve --api` runs every command except
 `init`, `adopt`, `serve`, and `mcp` over its JSON API. The retrieval and check
-commands, such as `packet`, `explain`, `search`, `ready`, `coverage`, and `ci`,
+commands, such as `packet`, `explain`, `search`, `context`, `ready`, `coverage`, and `ci`,
 are also MCP tools through `ledger mcp` or the engine's `/mcp`. So are the
 commands that write records (`new`, `feedback`, `backlog new`,
 `decision new`, `promote`, `update`, and `session start|note|close`), which
@@ -375,6 +375,7 @@ the 2025 revisions. Run `ledger help <command>` for flags.
 | `ledger conflict <path>` | Conflict rules, invariants, and verification from every receipt for a path |
 | `ledger search <query>` | Weighted fuzzy search over the reader's fields |
 | `ledger query --kind change --area billing` | Structured filters over the catalog |
+| `ledger context [--base <rev> --head <rev>]` | One review packet for a change set: coverage, docs impact, history, invariants, conflict rules, receipts, and verification |
 
 </details>
 
