@@ -4,20 +4,24 @@ Last updated: 2026-09-17. Written at the end of a long working session so the
 next session can resume without rereading history. Update this file whenever a
 milestone lands or a plan changes; retire sections that stop being true.
 
+Kyle paused Ledger on 2026-09-17, after 0.9.2 shipped and Kore moved to it.
+Nothing is in flight. "Next slices" lists where to pick up.
+
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.9.1 on npm and GitHub Release v0.9.1,
+- Published: `@kylebegeman/ledger` 0.9.2 on npm and GitHub Release v0.9.2,
   created by `.github/workflows/release.yml` through npm trusted publishing on
-  2026-09-17 from kylebegeman/ledger#29. 0.8.0 (#20 and #21), 0.8.1 (#22),
-  0.8.2 (#25), and 0.9.0 (#26) shipped earlier that day. The GitHub Release
-  notes come from `ledger release notes`. 0.9.2 is prepared on the
-  `release-0.9.2` branch with receipts 0175 to 0186; its tag publishes it.
+  2026-09-17 from kylebegeman/ledger#31. 0.8.0 (#20 and #21), 0.8.1 (#22),
+  0.8.2 (#25), 0.9.0 (#26), and 0.9.1 (#29) shipped earlier that day. The
+  GitHub Release notes come from `ledger release notes`. A smoke run of the
+  published package drafted `Server.Handle` from a Go diff and rendered the
+  public feed. Receipts 0187 and 0188 are unreleased.
   `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
-- First outside adopter: Kore runs Ledger 0.9.1 with Claude Code and Codex
-  hooks since kylebegeman/forge#31 (Kore receipt 0009). Before that it ran
-  0.9.0 from kylebegeman/forge#30, 0.8.2 from #29, 0.8.1 from #26, 0.8.0
-  from #25, and the 0.7.0 adoption from #22 and #24 (Ledger receipts 0128
-  and 0130). Its
+- First outside adopter: Kore runs Ledger 0.9.2 with Claude Code and Codex
+  hooks since kylebegeman/forge#32 (Kore receipt 0010). Before that it ran
+  0.9.1 from kylebegeman/forge#31, 0.9.0 from #30, 0.8.2 from #29, 0.8.1
+  from #26, 0.8.0 from #25, and the 0.7.0 adoption from #22 and #24 (Ledger
+  receipts 0128 and 0130). Its
   allowlist uses plain `ledger <command> **` patterns, so a version bump is
   the 36 pinned version strings the three installers write plus a Kore
   receipt. Kyle uses the Codex app there, so after each bump he trusts the
@@ -215,15 +219,23 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Publish 0.9.2 and move Kore.** After the merge, the `v0.9.2` tag
-   publishes. Kore then moves its pin with the three installers and a Kore
-   receipt, and Kyle trusts the changed hooks in the Codex app. With Kyle's
-   go-ahead, one short `codex exec` session in Kore exercises the Codex
-   hooks live.
-2. **New features**, when Kyle chooses them. MCP Tasks are deprecated in the
-   2026-07-28 revision, and MCP Apps, search shards by kind or year, in-place
-   live reload, and confirmed writes over 2025-era HTTP, the VS Code
-   extension, or a Kore plugin were left out of 0.9.2 on purpose.
+The project is paused. When work resumes:
+
+1. **Trust Kore's hooks.** Kyle trusts the six changed Ledger hooks on the
+   Hooks page of the Codex app's settings, if that is not done yet. A short
+   live `codex exec` session in Kore would then exercise the Codex hooks for
+   the first time; ask Kyle first, because it runs on his Codex account.
+2. **Product note 0187.** Doctor's symbols check suggests the TypeScript
+   parser when nothing is under coverage, and it does not name the outlined
+   languages beside TypeScript. Fix both messages, then release a patch and
+   move Kore.
+3. **New features**, when Kyle chooses them. Left out of 0.9.2 on purpose:
+   - MCP Tasks, which the 2026-07-28 revision deprecates
+   - MCP Apps
+   - search shards by kind or year
+   - in-place live reload
+   - confirmed writes over 2025-era HTTP
+   - the VS Code extension and a Kore plugin
 
 ## Conventions that were in force
 
