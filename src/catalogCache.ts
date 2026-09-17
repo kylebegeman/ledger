@@ -379,6 +379,8 @@ export async function clearLedgerCatalogCache(
     "catalog.sqlite-journal",
     "catalog.sqlite-wal",
     "catalog.sqlite-shm",
+    // The hook notice store lives beside the catalog cache and is derived state like it.
+    "hook-notices.json",
   ]) {
     const target = path.join(directory, name);
     try {

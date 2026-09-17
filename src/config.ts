@@ -211,7 +211,17 @@ export function renderConfigWithAgentsCommand(raw: string, command: string): str
   // parseDocument never expands aliases, so the alias limit applied by parse does not apply here.
   const doc = parseDocument(raw);
   if (doc.getIn(["agents", "command"]) === command) return raw;
-  doc.setIn(["agents", "command"], command);
+  try {
+    doc.setIn(["agents", "command"], command);
+  } catch (error) {
+    // The yaml library refuses to set a key under a scalar or an alias; say what to do instead of leaking its message.
+    throw new LedgerError(
+      "invalid-config",
+      "agents.command could not be written because the agents key is not a plain mapping; set agents.command in .ledger/config.yaml by hand",
+      { key: "agents.command" },
+      { cause: error },
+    );
+  }
   const rendered = doc.toString({ lineWidth: 0 });
   // The document renders with LF; keep CRLF when the file uses it.
   return raw.includes("\r\n") ? rendered.replace(/\r?\n/g, "\r\n") : rendered;
