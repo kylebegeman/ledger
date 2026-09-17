@@ -191,9 +191,11 @@ D006 records what was retired; D007 records the runtime decision below.
 - Windows CI lessons: recursive `fs.watch` asserts on 8.3 short paths, so
   watched directories are resolved with `realpathSync.native` and test fixtures
   use `realpath` on temp directories; a cache backend left open locks its file,
-  so `readLedgerCatalog` closes backends in `finally`; long end-to-end tests
-  carry explicit timeouts of 20 to 30 seconds. The skill symlink test skips on
-  Windows and the installer falls back to a copied file there.
+  so `readLedgerCatalog` closes backends in `finally`; `vitest.config.ts`
+  gives every test a 30 second timeout on Windows, where runner speed varies
+  threefold between runs, and long end-to-end tests also carry explicit
+  timeouts of 20 to 30 seconds for the other platforms. The skill symlink test
+  skips on Windows and the installer falls back to a copied file there.
 - Node 24.15 runners select the sqlite cache backend automatically; local Node
   24.13 uses JSON. Tests must accept either.
 - The reader must keep working from a `file:` URL and from any static host.

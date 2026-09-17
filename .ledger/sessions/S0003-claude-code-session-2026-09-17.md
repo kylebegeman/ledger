@@ -36,6 +36,7 @@ files:
   - "test/draftLimits.test.ts"
   - "test/delegation.test.ts"
   - "scripts/readme-clock.mjs"
+  - "vitest.config.ts"
 host: "claude-code"
 hostSession: "71358ecc-08f4-4086-aa8b-4fbccb7ed699"
 related:
