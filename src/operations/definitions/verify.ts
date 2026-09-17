@@ -49,8 +49,10 @@ export const verifyOperation = defineOperation<VerifyInput, LedgerVerifyReport>(
     help: `Reads the Verification section of change entries. Each bullet that starts
 with a backticked command is parsed; an optional KEY=value prefix sets the
 environment. Commands must match verification.allow (npm run, npm test, npx
-vitest, ledger checks, and similar by default); prose, shell operators, and
-unlisted commands are skipped, never failed. --run executes the allowed
+vitest, ledger checks, and similar by default). When agents.command is set, a
+command written with it matches the same ledger pattern, and a bare ledger
+command runs through it. Prose, shell operators, and unlisted commands are
+skipped, never failed. --run executes the allowed
 commands from the project root, records command, exit status, duration, and
 the HEAD commit in the evidence sidecar (verification.evidence), and exits 1
 when a command fails. Without ids, --all, or changed entries, nothing is
