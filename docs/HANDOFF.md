@@ -6,17 +6,18 @@ milestone lands or a plan changes; retire sections that stop being true.
 
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.9.0 on npm and GitHub Release v0.9.0,
+- Published: `@kylebegeman/ledger` 0.9.1 on npm and GitHub Release v0.9.1,
   created by `.github/workflows/release.yml` through npm trusted publishing on
-  2026-09-17 from kylebegeman/ledger#26. 0.8.0 (#20 and #21), 0.8.1 (#22),
-  and 0.8.2 (#25) shipped earlier that day. The GitHub Release notes come
-  from `ledger release notes`. 0.9.1 is prepared on branch `mcp-v2-0.9.1`
-  (receipts 0171 to 0174). `@kylebegeman/dossier` (0.7.2) publishes the same
+  2026-09-17 from kylebegeman/ledger#29. 0.8.0 (#20 and #21), 0.8.1 (#22),
+  0.8.2 (#25), and 0.9.0 (#26) shipped earlier that day. The GitHub Release
+  notes come from `ledger release notes`. Receipt 0175 is unreleased and goes
+  out with the next patch. `@kylebegeman/dossier` (0.7.2) publishes the same
   way from its own repo.
-- First outside adopter: Kore runs Ledger 0.9.0 with Claude Code and Codex
-  hooks since kylebegeman/forge#30 (Kore receipt 0008). Before that it ran
-  0.8.2 from kylebegeman/forge#29, 0.8.1 from #26, 0.8.0 from #25, and the
-  0.7.0 adoption from #22 and #24 (Ledger receipts 0128 and 0130). Its
+- First outside adopter: Kore runs Ledger 0.9.1 with Claude Code and Codex
+  hooks since kylebegeman/forge#31 (Kore receipt 0009). Before that it ran
+  0.9.0 from kylebegeman/forge#30, 0.8.2 from #29, 0.8.1 from #26, 0.8.0
+  from #25, and the 0.7.0 adoption from #22 and #24 (Ledger receipts 0128
+  and 0130). Its
   allowlist uses plain `ledger <command> **` patterns, so a version bump is
   the 36 pinned version strings the three installers write plus a Kore
   receipt. Kyle uses the Codex app there, so after each bump he trusts the
@@ -187,10 +188,7 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Publish 0.9.1** from `mcp-v2-0.9.1`, then move Kore's pin with the
-   installers, name the Codex app's Hooks page in its `docs/PLAN.md`, add a
-   Kore receipt, and record both here.
-2. **New features**, when Kyle chooses them. Move Kore's pin after each
+1. **New features**, when Kyle chooses them. Move Kore's pin after each
    release with the three installers and a Kore receipt. Records created
    over MCP are templates because the authoring operations take no body
    text; accepting body sections would make MCP-only receipts complete
@@ -271,9 +269,8 @@ D006 records what was retired; D007 records the runtime decision below.
   SessionEnd, so a session record stays active until it expires or
   `ledger session close --id <id>` closes it. Codex skips a changed hook
   until it is trusted again, and the app may not say so, so a Kore bump
-  records no Codex sessions until Kyle trusts the new hooks. Kore's `docs/PLAN.md` still
-  names only `/hooks`; add the app's Hooks page there with the next Kore
-  bump (receipt 0172).
+  records no Codex sessions until Kyle trusts the new hooks. Kore's
+  `docs/PLAN.md` names both places to trust them since Kore receipt 0009.
 - Dossier: Kyle deleted its merged `next` branch on 2026-09-17. Its CI
   already runs Ubuntu with Node 22 and 24, its own docs describe a
   release-branch model that Ledger's model does not replace, and its
