@@ -17,6 +17,7 @@ import {
   type ApplyReleaseResult,
   type LedgerReleaseDocument,
 } from "../../release.js";
+import { typeScriptFallbackAdvice } from "../../symbols.js";
 import type { NormalizedLedgerDocument } from "../../types.js";
 import { validateDocuments, writeValidationReport } from "../../validate.js";
 import { loadDocuments, looseRecord, plural, shortString } from "../shared.js";
@@ -90,7 +91,7 @@ are omitted, and very large diffs are grouped into coverage patterns.`,
       lines.push(`Symbols: ${counts.map(([name, count]) => `${name} ${count} file(s)`).join(", ")}`);
     }
     if (data.symbolExtractors?.fallbackReason) {
-      lines.push(`Regex fallback: ${data.symbolExtractors.fallbackReason}; install typescript for parser-backed anchors.`);
+      lines.push(`Regex fallback: ${typeScriptFallbackAdvice(data.symbolExtractors.fallbackReason)}.`);
     }
     return lines.join("\n");
   },

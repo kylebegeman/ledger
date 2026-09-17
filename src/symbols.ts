@@ -332,16 +332,78 @@ function extractTypeScriptSymbolSpans(ts: TypeScriptModule, raw: string, filePat
 async function loadTypeScript(): Promise<TypeScriptModule | undefined> {
   if (loadedTypeScript) return loadedTypeScript;
   if (typeScriptFailure) return undefined;
-  try {
-    loadedTypeScript = await import("typescript");
+  const resolved = await resolveTypeScriptModule();
+  if (resolved.ts) {
+    loadedTypeScript = resolved.ts;
     return loadedTypeScript;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    typeScriptFailure = /cannot find (?:package|module)/i.test(message)
-      ? "the typescript package is not installed"
-      : `the typescript package failed to load (${message.split("\n")[0]})`;
-    return undefined;
   }
+  typeScriptFailure = resolved.reason;
+  return undefined;
+}
+
+/** Packages that may hold the TypeScript compiler API, in the order Ledger tries them. */
+const typeScriptPackages = ["typescript", "@typescript/typescript6"] as const;
+
+const typeScriptNotInstalled = "the typescript package is not installed";
+
+/**
+ * Why the regex fallback runs, with the fix: installing the optional peer when
+ * none is present. Other reasons already say what to do, and TypeScript 7's
+ * says to add the TypeScript 6 package rather than to install TypeScript.
+ */
+export function typeScriptFallbackAdvice(reason: string | undefined): string {
+  if (!reason) return "the typescript parser is unavailable";
+  return reason === typeScriptNotInstalled ? `${reason}; install the optional typescript peer for parsed symbols` : reason;
+}
+
+/**
+ * The TypeScript compiler API, or the reason none is available. A module
+ * counts only when it has the calls Ledger makes. TypeScript 5.0 to 5.4 expose
+ * them only on the default export under `import()`. TypeScript 7.0 ships no
+ * JavaScript API, and its official side-by-side setup installs TypeScript 6 as
+ * `@typescript/typescript6`, which is tried next.
+ */
+export async function resolveTypeScriptModule(
+  importModule: (specifier: string) => Promise<unknown> = (specifier) => import(specifier),
+): Promise<{ readonly ts?: TypeScriptModule; readonly reason?: string }> {
+  const reasons: string[] = [];
+  for (const specifier of typeScriptPackages) {
+    let loaded: unknown;
+    try {
+      loaded = await importModule(specifier);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/cannot find (?:package|module)/i.test(message)) {
+        reasons.push(`the ${specifier} package failed to load (${message.split("\n")[0]})`);
+      }
+      continue;
+    }
+    const fallback = isRecord(loaded) ? loaded.default : undefined;
+    const api = hasCompilerApi(loaded) ? loaded : hasCompilerApi(fallback) ? fallback : undefined;
+    if (api) return { ts: api as TypeScriptModule };
+    const version = moduleVersion(loaded) ?? moduleVersion(fallback);
+    const hint = version?.startsWith("7.") ? "; install @typescript/typescript6 beside it for parsed symbols" : "";
+    reasons.push(`${specifier}${version ? ` ${version}` : ""} has no JavaScript compiler API${hint}`);
+  }
+  return { reason: reasons.length > 0 ? reasons.join("; ") : typeScriptNotInstalled };
+}
+
+function hasCompilerApi(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.createSourceFile === "function" &&
+    typeof value.isVariableStatement === "function" &&
+    isRecord(value.ScriptTarget) &&
+    isRecord(value.ScriptKind)
+  );
+}
+
+function moduleVersion(value: unknown): string | undefined {
+  return isRecord(value) && typeof value.version === "string" ? value.version : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return (typeof value === "object" || typeof value === "function") && value !== null;
 }
 
 function collectStatementSymbols(

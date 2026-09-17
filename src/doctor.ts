@@ -10,7 +10,7 @@ import { inspectWorkspaceWriteState } from "./fileTransaction.js";
 import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
 import { checkRenderBudgets } from "./render.js";
 import { detectStaleKnowledge } from "./stale.js";
-import { summarizeSymbolLanguages, symbolExtractorStatus } from "./symbols.js";
+import { summarizeSymbolLanguages, symbolExtractorStatus, typeScriptFallbackAdvice } from "./symbols.js";
 import { evidenceFreshness, readEvidence } from "./verify.js";
 import type {
   LedgerDocsAudit,
@@ -129,7 +129,7 @@ async function symbolsCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorChe
   return {
     name: "symbols",
     level: "warn",
-    message: `regex fallback for code anchors: ${typescript?.reason ?? "typescript parser unavailable"}; install the optional typescript peer for parser-backed symbols`,
+    message: `regex fallback for code anchors: ${typeScriptFallbackAdvice(typescript?.reason)}`,
   };
 }
 

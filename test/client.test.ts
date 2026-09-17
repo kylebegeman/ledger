@@ -39,7 +39,7 @@ describe("operation table", () => {
   });
 
   it("derives client types from the registry", () => {
-    expectTypeOf<LedgerOperationName>().toMatchTypeOf<string>();
+    expectTypeOf<LedgerOperationName>().toExtend<string>();
     expectTypeOf<LedgerOperationInput<"packet">>().toHaveProperty("path");
     expectTypeOf<LedgerOperationOutput<"doctor">>().toHaveProperty("checks");
     const client = createLedgerClient({ url: "http://127.0.0.1:1/" });

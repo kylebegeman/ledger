@@ -228,6 +228,11 @@ top-level anchors, and add docs-impact prompts. `typescript` is an optional
 peer dependency: when it is installed the parser runs, otherwise a regex
 extractor runs and the draft says so (`ledger new` prints the extractor
 counts and the fallback reason, and `ledger doctor` has a `symbols` check).
+`resolveTypeScriptModule` accepts a module only when it has the compiler calls
+Ledger makes. It reads TypeScript 5.0 to 5.4 through their default export.
+TypeScript 7.0 ships no JavaScript API, so Ledger treats it as unavailable
+unless `@typescript/typescript6`, the official side-by-side package, is also
+installed; that package is tried next.
 Callers that need parser quality pass `parser: "typescript"` and get an error
 instead of silent regex output. Each extractor also reports where every
 symbol sits (`LedgerSymbolSpan`): a heading's section up to the next heading

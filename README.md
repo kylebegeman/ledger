@@ -463,6 +463,12 @@ settings people change most:
 [docs/SCHEMA.md](./docs/SCHEMA.md) explains the coverage, verification,
 agents, sessions, render, performance, limits, and validation settings.
 
+Drafts read TypeScript and JavaScript declarations with the project's
+`typescript` package, version 5 or 6, and with a regex fallback otherwise.
+TypeScript 7 has no JavaScript API. A project on it gets parsed symbols by
+also installing `@typescript/typescript6`. `ledger doctor` reports which
+extractor runs.
+
 ## Docs
 
 | Doc | Read it for |
