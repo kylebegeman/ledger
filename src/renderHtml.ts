@@ -1,3 +1,4 @@
+import { hashFileContent } from "./fileTransaction.js";
 import { staticReaderRuntime, staticReaderStyles } from "./renderAssets.js";
 import type {
   LedgerFacet,
@@ -90,7 +91,7 @@ export function renderStaticReaderHtml(
 ${staticReaderStyles}
   </style>
 </head>
-<body data-profile="${model.profile}">
+<body data-profile="${model.profile}" data-reader-key="${escapeHtml(`${model.project}:${model.profile}`)}">
   ${iconSprite()}
   <a class="skip-link" href="#library">Skip to records</a>
   <div class="app-shell" id="top">
@@ -154,6 +155,7 @@ ${staticReaderStyles}
             <div>
               <p class="eyebrow">${isPublic ? "Changelog" : "Knowledge library"}</p>
               <h2 id="result-count" tabindex="-1" data-result-noun="${isPublic ? "release" : "record"}">${model.documents.length} ${isPublic ? "releases" : "records"}</h2>
+              ${visitNote(isPublic)}
             </div>
             <div class="view-controls">
               ${isPublic ? "" : densityToggle()}
@@ -228,7 +230,7 @@ function renderEntry(
   if (profile === "public") return renderPublicEntry(document, yearStart);
   const recordId = domId(document.id);
   const updatedDate = document.updated && document.updated !== document.date ? document.updated : "";
-  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}"${referenceAttributes(document)}${detailHref ? ` data-detail="${escapeHtml(detailHref)}" data-source="${escapeHtml(document.sourceHref)}"` : ""} data-search="${escapeHtml(searchTerms(document))}">
+  return `<article class="entry" id="record-${recordId}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="${escapeHtml(document.kind)}" data-status="${escapeHtml(document.status)}" data-areas="${escapeHtml(JSON.stringify(document.areas))}" data-tags="${escapeHtml(JSON.stringify(document.tags))}" data-release="${escapeHtml(document.release ?? "")}" data-warnings="${document.warningCount}" data-errors="${document.errorCount}" data-missing-refs="${document.hasMissingRefs}" data-duplicate-id="${document.hasDuplicateId}" data-coverage="${document.coverageStatus}" data-hash="${contentHash(document)}"${referenceAttributes(document)}${detailHref ? ` data-detail="${escapeHtml(detailHref)}" data-source="${escapeHtml(document.sourceHref)}"` : ""} data-search="${escapeHtml(searchTerms(document))}">
               <div class="entry-row">
                 ${recordBadges(document)}
                 <h3 class="entry-title"><a class="entry-link" href="?record=${escapeHtml(encodeURIComponent(document.id))}">${escapeHtml(document.title)}</a></h3>
@@ -322,7 +324,7 @@ function recordTags(
 }
 
 function renderPublicEntry(document: LedgerRenderedDocument, yearStart: boolean): string {
-  return `<article class="entry release-entry${yearStart ? " year-start" : ""}" id="record-${domId(document.id)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-year="${escapeHtml(document.date.slice(0, 4))}" data-search="${escapeHtml(searchTerms(document))}">
+  return `<article class="entry release-entry${yearStart ? " year-start" : ""}" id="record-${domId(document.id)}" tabindex="-1" data-id="${escapeHtml(document.id)}" data-kind="release" data-status="released" data-areas="[]" data-tags="[]" data-release="" data-warnings="0" data-errors="0" data-missing-refs="false" data-duplicate-id="false" data-coverage="none" data-hash="${contentHash(document)}" data-year="${escapeHtml(document.date.slice(0, 4))}" data-search="${escapeHtml(searchTerms(document))}">
               <div class="release-date">
                 <span class="version-badge">${escapeHtml(document.id)}</span>
                 <time datetime="${escapeHtml(document.date)}">${escapeHtml(formatDate(document.date))}</time>
@@ -381,6 +383,28 @@ function densityToggle(): string {
                 <button type="button" data-density="compact" aria-pressed="false">Compact</button>
                 <button type="button" data-density="expanded" aria-pressed="true">Comfortable</button>
               </div>`;
+}
+
+/** Length of an entry's content hash; enough to tell whether a record changed between visits. */
+const contentHashLength = 12;
+
+/**
+ * A short hash of what a reader shows for a record, so the runtime can tell
+ * which records are new or changed since the viewer's last visit. The public
+ * profile hashes only what it shows.
+ */
+function contentHash(document: LedgerRenderedDocument): string {
+  const shown = document.source || JSON.stringify([document.title, document.date, document.publicNotes]);
+  return hashFileContent(shown).slice(0, contentHashLength);
+}
+
+/** Changed-since-last-visit controls, shown by the runtime once a viewer has visited before and something changed. */
+function visitNote(isPublic: boolean): string {
+  return `<p class="visit-note" id="visit-note" hidden>
+                <button class="text-button" type="button" id="changed-toggle" aria-pressed="false"></button>
+                <button class="text-button" type="button" id="mark-seen">Mark all as seen</button>
+                <span class="sr-only">${isPublic ? "Releases" : "Records"} that are new or changed since your last visit are marked.</span>
+              </p>`;
 }
 
 /** The heading of an entity view, filled in by the runtime when one is active. */

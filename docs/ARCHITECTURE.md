@@ -671,6 +671,20 @@ packet` command, or the agent-ready context on the clipboard. Where the
 Clipboard API is missing or refused, they fall back to a selected text area.
 Coverage patterns match in the browser through `src/pathPatterns.ts`, the
 module coverage checks use.
+
+Both profiles mark records that are new or changed since the viewer's last
+visit. Each entry carries `data-hash`, the first 12 hex digits of a SHA-256
+of its source record, or of the title, date, and Public Notes in the public
+profile. The runtime keeps the hashes it saw in `localStorage` under the
+body's `data-reader-key` (the project and profile). A load more than 30
+minutes after the last one starts a new visit and compares with the one
+before it. A reload within that gap keeps comparing with the same earlier
+visit, so the markers survive live reload. A first visit only records a
+baseline. Changed records get a New or Updated chip, and a note under the
+result count offers a filter to them (the `changed` URL parameter) and Mark
+all as seen. Every storage call is guarded: without storage, or with
+unreadable state, the page renders normally and marks nothing. Nothing
+leaves the browser.
 Color marks status: teal for landed and released, violet for in-progress
 states, coral for blocked and rejected, and neutral for the rest. Kind badges
 stay neutral outline chips. The accent marks what is interactive, selected,

@@ -562,8 +562,13 @@ Links.
     expect(details.get("D001")).not.toContain("Referenced by");
 
     expect(html).toContain('<div class="entity-bar" id="entity-bar" tabindex="-1" hidden>');
+    expect(html).toContain('<body data-profile="internal" data-reader-key="ledger-project:internal">');
+    expect(entry).toMatch(/ data-hash="[a-f0-9]{12}"/);
+    expect(html).toContain('<p class="visit-note" id="visit-note" hidden>');
     const publicHtml = renderStaticReaderHtml(buildStaticReaderModel(workspace(), [publicReleaseDocument("v1.0.0", "released")], { profile: "public" }));
     expect(publicHtml).not.toContain('id="entity-bar"');
+    expect(publicHtml).toMatch(/<article class="entry release-entry[^>]* data-hash="[a-f0-9]{12}"/);
+    expect(publicHtml).toContain('id="visit-note"');
     expect(publicHtml).not.toContain("data-files=");
   });
 
