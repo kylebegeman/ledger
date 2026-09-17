@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getChangedFileDetails,
   inspectGit,
+  listTrackedFiles,
   parseNameStatusLine,
   parseStatusLine,
 } from "../src/git.js";
@@ -128,6 +129,30 @@ describe("git status parsing", () => {
         mode: "working-tree",
       },
     });
+  });
+
+  it("lists tracked files sorted and relative to cwd", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-git-tracked-test-")));
+    await git("init");
+    await git("config", "user.email", "ledger@example.com");
+    await git("config", "user.name", "Ledger Test");
+    await mkdir(path.join(tempDir, "src", "nested"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "nested", "deep.ts"), "export {};\n");
+    await writeFile(path.join(tempDir, "Makefile"), "check:\n");
+    await writeFile(path.join(tempDir, "src", "a.ts"), "export {};\n");
+    await git("add", ".");
+    await git("commit", "-m", "base");
+    await writeFile(path.join(tempDir, "src", "untracked.ts"), "export {};\n");
+
+    await expect(listTrackedFiles(tempDir)).resolves.toEqual(["Makefile", "src/a.ts", "src/nested/deep.ts"]);
+    await expect(listTrackedFiles(path.join(tempDir, "src"))).resolves.toEqual(["a.ts", "nested/deep.ts"]);
+  }, 30_000);
+
+  it("lists no tracked files outside a work tree", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-git-tracked-test-")));
+    await writeFile(path.join(tempDir, "file.ts"), "export {};\n");
+
+    await expect(listTrackedFiles(tempDir)).resolves.toEqual([]);
   });
 
   it("inspects Git availability", async () => {

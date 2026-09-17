@@ -1,11 +1,19 @@
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { defaultConfig, readLedgerConfig } from "./config.js";
 import { docsStartHereMarker, isLedgerGeneratedManifest, isLedgerGeneratedStartHere } from "./docs.js";
+import { normalizePath } from "./documents.js";
+import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
 import { assertNoEscapingSymlink, resolveProjectPath } from "./projectPaths.js";
 import { LedgerError } from "./machine.js";
-import type { LedgerDocsAdoption, LedgerWorkspace } from "./types.js";
+import type { ToolchainDetection } from "./toolchain.js";
+import type {
+  LedgerConfig,
+  LedgerCoverageMode,
+  LedgerDocsAdoption,
+  LedgerWorkspace,
+} from "./types.js";
 
 const configRelativePath = path.join(".ledger", "config.yaml");
 
@@ -65,6 +73,10 @@ export async function findProjectRoot(startDir: string): Promise<string> {
 export interface InitWorkspaceOptions {
   readonly withDocs?: boolean;
   readonly adoption?: LedgerDocsAdoption;
+  /** git.coverage for a new config. Defaults to current. */
+  readonly coverage?: LedgerCoverageMode;
+  /** Inferred coverage roots, ignores, and allowlist for a new config; defaults apply when absent. */
+  readonly detection?: Pick<ToolchainDetection, "coverageRoots" | "ignore" | "verificationAllow">;
 }
 
 export interface LedgerDocsRoutingPaths {
@@ -91,12 +103,25 @@ export interface InitWorkspaceResult {
   readonly routingFilesDetected: boolean;
   /** False when .ledger/config.yaml already existed and was left untouched. */
   readonly configWritten: boolean;
+  /** The marked Ledger block in the project .gitignore. */
+  readonly gitignore: LedgerGitignoreBlockResult;
+}
+
+export interface LedgerGitignoreBlockResult {
+  readonly path: ".gitignore";
+  /** True when this call wrote .gitignore. */
+  readonly changed: boolean;
+  /** True when .gitignore did not exist before this call. */
+  readonly created: boolean;
 }
 
 export async function initWorkspace(
   projectRoot = process.cwd(),
   options: InitWorkspaceOptions = {},
 ): Promise<InitWorkspaceResult> {
+  // Fail on an unreadable .gitignore or a stray block marker before anything is written.
+  replaceGitignoreBlock((await readGitignore(projectRoot)) ?? "", "");
+
   const ledgerRoot = path.join(projectRoot, ".ledger");
   const directories = [
     ledgerRoot,
@@ -106,13 +131,18 @@ export async function initWorkspace(
     path.join(ledgerRoot, "releases"),
     path.join(ledgerRoot, "sessions"),
     path.join(ledgerRoot, "templates"),
-    path.join(ledgerRoot, "policies"),
     path.join(ledgerRoot, "indexes"),
     path.join(ledgerRoot, "reports"),
     path.join(ledgerRoot, "dist"),
   ];
 
-  if (options.withDocs) {
+  // An existing docs tree is left alone: only the docs/llm routing folder is added to it.
+  const docsTreeExists = options.withDocs
+    ? await pathExists(path.join(projectRoot, "docs"))
+    : false;
+  if (options.withDocs && docsTreeExists) {
+    directories.push(path.join(projectRoot, "docs", "llm"));
+  } else if (options.withDocs) {
     directories.push(
       path.join(projectRoot, "docs"),
       path.join(projectRoot, "docs", "product"),
@@ -150,9 +180,8 @@ export async function initWorkspace(
     path.join(ledgerRoot, "templates", "product-note.md"),
     productNoteTemplate(),
   );
-  await writeFileIfMissing(path.join(ledgerRoot, "policies", "coverage.yaml"), coveragePolicy());
 
-  if (options.withDocs) {
+  if (options.withDocs && !docsTreeExists) {
     await writeFileIfMissing(path.join(projectRoot, "docs", "README.md"), docsReadme());
   }
   if (options.withDocs && !routingFilesDetected) {
@@ -166,7 +195,83 @@ export async function initWorkspace(
     );
   }
 
-  return { routing, routingFilesDetected, configWritten };
+  const gitignore = await writeGitignoreBlock(await findWorkspace(projectRoot));
+  return { routing, routingFilesDetected, configWritten, gitignore };
+}
+
+export const gitignoreBlockStart = "# ledger:gitignore:start";
+export const gitignoreBlockEnd = "# ledger:gitignore:end";
+
+/** The marked .gitignore block for Ledger derived state, with paths taken from config. */
+export function renderGitignoreBlock(config: LedgerConfig): string {
+  const directory = (value: string) => normalizePath(value).replace(/\/+$/, "");
+  return [
+    gitignoreBlockStart,
+    `${directory(config.indexes.output)}/*.json`,
+    `${directory(config.reports.output)}/*.md`,
+    `${directory(config.render.output)}/`,
+    `${directory(config.cache.output)}/`,
+    ".ledger/transactions/",
+    ".ledger/write.lock",
+    ".ledger/daemon.json",
+    gitignoreBlockEnd,
+  ].join("\n");
+}
+
+/**
+ * Replace the marked block in place, append it after existing content, or return it alone for
+ * an empty file. Lines outside the markers are preserved.
+ */
+export function replaceGitignoreBlock(existing: string, block: string): string {
+  const start = existing.indexOf(gitignoreBlockStart);
+  const end = existing.indexOf(gitignoreBlockEnd);
+  if (start >= 0 && end > start) {
+    return `${existing.slice(0, start)}${block}${existing.slice(end + gitignoreBlockEnd.length)}`;
+  }
+  if (start >= 0 || end >= 0) {
+    throw new LedgerError(
+      "invalid-argument",
+      ".gitignore has an unbalanced Ledger gitignore block; remove the stray marker",
+      { path: ".gitignore" },
+    );
+  }
+  const trimmed = existing.replace(/\s+$/, "");
+  return trimmed.length === 0 ? `${block}\n` : `${trimmed}\n\n${block}\n`;
+}
+
+/** Write the marked Ledger block to the project .gitignore through a file transaction. */
+export async function writeGitignoreBlock(
+  workspace: LedgerWorkspace,
+): Promise<LedgerGitignoreBlockResult> {
+  const relativePath = ".gitignore";
+  const existing = await readGitignore(workspace.projectRoot);
+  const content = replaceGitignoreBlock(existing ?? "", renderGitignoreBlock(workspace.config));
+  const changed = existing !== content;
+  if (changed) {
+    await applyFileTransaction(workspace, "write gitignore block", [
+      {
+        path: relativePath,
+        content,
+        expectedHash: existing === undefined ? null : hashFileContent(existing),
+      },
+    ]);
+  }
+  return { path: relativePath, changed, created: existing === undefined };
+}
+
+/** The project .gitignore content, or undefined when it does not exist. */
+async function readGitignore(projectRoot: string): Promise<string | undefined> {
+  try {
+    return await readFile(path.join(projectRoot, ".gitignore"), "utf8");
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return undefined;
+    throw new LedgerError(
+      "filesystem-error",
+      ".gitignore exists but cannot be read as a file; fix or remove it and rerun",
+      { path: ".gitignore", systemCode: (error as { readonly code?: unknown }).code },
+      { cause: error },
+    );
+  }
 }
 
 /**
@@ -215,7 +320,8 @@ async function writeFileIfMissing(filePath: string, content: string): Promise<bo
   }
 }
 
-async function pathExists(filePath: string): Promise<boolean> {
+/** True when the path exists; other access errors propagate. */
+export async function pathExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
     return true;
@@ -273,7 +379,9 @@ function serializeDefaultConfig(
     "  extensions: {}",
     "verification:",
     "  allow:",
-    ...defaultConfig.verification.allow.map((pattern) => `    - ${JSON.stringify(pattern)}`),
+    ...(options.detection?.verificationAllow ?? defaultConfig.verification.allow).map(
+      (pattern) => `    - ${JSON.stringify(pattern)}`,
+    ),
     "  evidence: .ledger/reports/evidence.json",
     "  maxAgeDays: 30",
     "  timeoutMs: 600000",
@@ -317,12 +425,14 @@ function serializeDefaultConfig(
     `    manifest: ${routing.manifest}`,
     "git:",
     "  requireEntryFor:",
-    "    - src/**",
-    "    - test/**",
-    "    - docs/**",
+    ...(options.detection?.coverageRoots ?? defaultConfig.git.requireEntryFor).map(
+      (pattern) => `    - ${JSON.stringify(pattern)}`,
+    ),
     "  ignore:",
-    ...defaultConfig.git.ignore.map((pattern) => `    - ${JSON.stringify(pattern)}`),
-    "  coverage: current",
+    ...(options.detection?.ignore ?? defaultConfig.git.ignore).map(
+      (pattern) => `    - ${JSON.stringify(pattern)}`,
+    ),
+    `  coverage: ${options.coverage ?? "current"}`,
     "",
   ].join("\n");
 }
@@ -617,19 +727,6 @@ export function productNoteTemplate(): string {
     "## Follow-ups",
     "",
     "- Add concrete follow-ups or `None`.",
-    "",
-  ].join("\n");
-}
-
-function coveragePolicy(): string {
-  return [
-    "version: 1",
-    "requireEntryFor:",
-    "  - src/**",
-    "  - test/**",
-    "  - docs/**",
-    "ignore:",
-    ...defaultConfig.git.ignore.map((pattern) => `  - ${JSON.stringify(pattern)}`),
     "",
   ].join("\n");
 }

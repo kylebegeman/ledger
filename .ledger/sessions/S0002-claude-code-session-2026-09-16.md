@@ -13,6 +13,7 @@ areas:
   - "readme"
   - "sessions"
   - "tests"
+  - "toolchain"
   - "types"
   - "workspace"
 files:
@@ -27,12 +28,15 @@ files:
   - "src/hooks.ts"
   - "src/sessions.ts"
   - "test/sessions.test.ts"
+  - "src/toolchain.ts"
+  - "test/toolchain.test.ts"
 host: "claude-code"
 hostSession: "6cf5fed7-a387-4a27-bb1a-125e18d27bfd"
 related:
   - "0131"
   - "0132"
   - "0133"
+  - "0135"
 ---
 
 # S0002: Claude Code session 2026-09-16

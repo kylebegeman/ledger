@@ -1,3 +1,4 @@
+import path from "node:path";
 import { z } from "zod";
 import { buildIndexes, writeIndexes } from "../../indexer.js";
 import {
@@ -16,14 +17,24 @@ import {
   type LedgerRenderProfile,
   type RenderStaticReaderResult,
 } from "../../render.js";
-import type { LedgerDocsAdoption, LedgerValidationResult } from "../../types.js";
+import type {
+  LedgerCoverageMode,
+  LedgerDocsAdoption,
+  LedgerValidationResult,
+} from "../../types.js";
 import {
   readValidationBaseline,
   validateDocuments,
   writeValidationBaseline,
   writeValidationReport,
 } from "../../validate.js";
-import { initWorkspace, type LedgerDocsRoutingPaths } from "../../workspace.js";
+import { inspectToolchain } from "../../toolchain.js";
+import {
+  initWorkspace,
+  pathExists,
+  type LedgerDocsRoutingPaths,
+  type LedgerGitignoreBlockResult,
+} from "../../workspace.js";
 import { loadDocuments, looseRecord, validationLine, validationResultShape } from "../shared.js";
 import { defineOperation } from "../types.js";
 import { readEvidence } from "../../verify.js";
@@ -45,6 +56,16 @@ export interface InitOutput {
   readonly routingFilesDetected: boolean;
   /** False when .ledger/config.yaml already existed and was left untouched. */
   readonly configWritten: boolean;
+  /** The marked Ledger block in .gitignore. */
+  readonly gitignore: LedgerGitignoreBlockResult;
+  /** git.coverage adopt wrote to a new config; present only when configWritten is true. */
+  readonly coverage?: LedgerCoverageMode;
+  /** git.requireEntryFor inferred from the tracked tree and written; only when configWritten. */
+  readonly coverageRoots?: readonly string[];
+  /** git.ignore inferred from the tracked tree and written; only when configWritten. */
+  readonly ignore?: readonly string[];
+  /** Toolchains detected in the tracked tree; only when configWritten. */
+  readonly toolchains?: readonly string[];
 }
 
 const initOutput = looseRecord({
@@ -55,6 +76,11 @@ const initOutput = looseRecord({
   routing: looseRecord({ startHere: z.string(), manifest: z.string() }),
   routingFilesDetected: z.boolean(),
   configWritten: z.boolean(),
+  gitignore: looseRecord({ path: z.string(), changed: z.boolean(), created: z.boolean() }),
+  coverage: z.enum(["current", "any"]).optional(),
+  coverageRoots: z.array(z.string()).optional(),
+  ignore: z.array(z.string()).optional(),
+  toolchains: z.array(z.string()).optional(),
 });
 
 export const initOperation = defineOperation<InitInput, InitOutput>({
@@ -78,8 +104,9 @@ export const initOperation = defineOperation<InitInput, InitOutput>({
       "managed-docs": { type: "boolean", description: "Use managed docs adoption instead of partial." },
     },
     json: true,
-    help: `Creates .ledger/ in the current directory. With --with-docs or --migrate, also
-creates docs routing files in partial adoption mode unless --managed-docs is set.`,
+    help: `Creates .ledger/ in the current directory and adds a marked Ledger block to
+.gitignore for derived state. With --with-docs or --migrate, also creates docs
+routing files in partial adoption mode unless --managed-docs is set.`,
   },
   async run(context, input) {
     const adoption: LedgerDocsAdoption = input.managedDocs ? "managed" : "partial";
@@ -115,28 +142,72 @@ export const adoptOperation = defineOperation<AdoptInput, InitOutput>({
       "managed-docs": { type: "boolean", description: "Use managed docs adoption instead of partial." },
     },
     json: true,
-    help: `Initializes Ledger for an established repo. By default this uses partial docs
-adoption, updating routing docs and impact reports without owning all docs.
-Existing docs/llm routing files are never replaced: when one exists that Ledger
-did not generate, docs.routing points at derived files under .ledger/ instead.`,
+    help: `Initializes Ledger for an established repo. It inspects the tracked tree to
+infer coverage roots, generated-code ignores, and a verification allowlist, sets
+git.coverage to any, and adds a marked Ledger block to .gitignore. An existing
+docs tree is left alone apart from docs/llm routing files. By default this uses
+partial docs adoption, updating routing docs and impact reports without owning
+all docs. Existing docs/llm routing files are never replaced: when one exists
+that Ledger did not generate, docs.routing points at derived files under
+.ledger/ instead.`,
   },
   async run(context, input) {
     const adoption: LedgerDocsAdoption = input.managedDocs ? "managed" : "partial";
-    const result = await initWorkspace(context.cwd, { withDocs: true, adoption });
+    // Inference only feeds a new config; an existing one is left alone, so skip inspecting the tree.
+    const detection = (await pathExists(path.join(context.cwd, ".ledger", "config.yaml")))
+      ? undefined
+      : await inspectToolchain(context.cwd);
+    const coverage: LedgerCoverageMode = "any";
+    const result = await initWorkspace(context.cwd, {
+      withDocs: true,
+      adoption,
+      coverage,
+      ...(detection ? { detection } : {}),
+    });
+    const base = { projectRoot: context.cwd, ledgerRoot: ".ledger", withDocs: true, adoption, ...result };
+    if (!result.configWritten || !detection) return { data: base };
     return {
-      data: { projectRoot: context.cwd, ledgerRoot: ".ledger", withDocs: true, adoption, ...result },
+      data: {
+        ...base,
+        coverage,
+        coverageRoots: detection.coverageRoots,
+        ignore: detection.ignore,
+        toolchains: detection.toolchains,
+      },
     };
   },
   format(data) {
-    const base = `Initialized Ledger adoption scaffold in ${data.adoption} docs mode.`;
+    const lines = [`Initialized Ledger adoption scaffold in ${data.adoption} docs mode.`];
     const routing = `${data.routing.startHere} and ${data.routing.manifest}`;
     if (!data.configWritten) {
-      return `${base} .ledger/config.yaml already existed and was left alone; docs.routing stays at ${routing}.`;
+      lines.push(`.ledger/config.yaml already existed and was left alone; docs.routing stays at ${routing}.`);
+    } else {
+      lines.push(`coverage: ${data.coverage ?? "current"}`);
+      lines.push(`coverage roots: ${formatList(data.coverageRoots)}`);
+      lines.push(`toolchains: ${formatList(data.toolchains, "none detected")}`);
     }
-    if (!data.routingFilesDetected) return base;
-    return `${base} Existing docs/llm routing files were left alone; docs.routing points at ${routing}.`;
+    lines.push(
+      data.gitignore.created
+        ? ".gitignore: created with the Ledger block"
+        : data.gitignore.changed
+          ? ".gitignore: updated with the Ledger block"
+          : ".gitignore: Ledger block already current",
+    );
+    if (data.configWritten && data.routingFilesDetected) {
+      lines.push(`Existing docs/llm routing files were left alone; docs.routing points at ${routing}.`);
+    }
+    if (data.configWritten) {
+      lines.push(
+        "Review verification.allow in .ledger/config.yaml and prune any command agents should not run.",
+      );
+    }
+    return lines.join("\n");
   },
 });
+
+function formatList(values: readonly string[] | undefined, empty = "none"): string {
+  return values && values.length > 0 ? values.join(", ") : empty;
+}
 
 export interface ValidateInput extends Record<string, unknown> {
   readonly currentOnly?: boolean;

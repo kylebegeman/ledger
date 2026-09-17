@@ -566,6 +566,26 @@ fails coverage. `any` accepts any record that lists the path, which is useful
 while adopting Ledger on a repository with history. `ledger coverage --mode`
 overrides the setting for one run.
 
+`ledger init` writes the defaults above. `ledger adopt` infers
+`requireEntryFor` and `ignore` from the tracked tree instead: each top-level
+directory with tracked files (skipping `.ledger` and every hidden directory
+except `.github`), the root `Makefile`, and the primary manifest become roots, and ignores cover Ledger derived state, dependency and untracked build
+output, and generated code found in the tree. Adopt writes `coverage: any`;
+init keeps `current`.
+
+A pattern such as `**/generated/**` matches only below another directory, so a
+recursive ignore needs both forms to cover a root-level directory too. Adopt
+emits both, for example:
+
+```yaml
+git:
+  ignore:
+    - "generated/**"
+    - "**/generated/**"
+    - "*_templ.go"
+    - "**/*_templ.go"
+```
+
 `ledger validate` also uses `git.ignore` when warning about missing `files` or
 `docs` references, so generated outputs can stay out of source-control and
 validation churn.
@@ -597,6 +617,16 @@ time. Passing evidence older than `maxAgeDays` is `stale`; a failed run is
 `failed`; `doctor`, `stale`, `explain`, `packet`, and the reader show the
 state. The sidecar is derived data under the Markdown source of truth and is
 committed so pull requests carry it.
+
+`ledger init` writes a default allowlist for npm projects. `ledger adopt`
+proposes one per detected toolchain instead: `make <target>` for each explicit
+root Makefile target, `go test **`, `go vet **`, and `go build **` for Go,
+`npm run <script>`, `npm test **`, `npm ci`, and `npx vitest **` or
+`npx tsc **` for Node packages, the cargo, pytest, and swift equivalents, and
+the Ledger checks (`ci`, `doctor`, `validate`, `ready`, `stale`, `coverage`)
+through the Ledger command. Targets and scripts whose names contain release,
+publish, deploy, push, sign, upload, clean, or install are excluded. The list is
+a starting point: prune anything a receipt should not be able to run.
 
 ## Agents Config
 

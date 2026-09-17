@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,8 +10,9 @@ import {
   ledgerOperations,
   mcpInputSchema,
 } from "../src/operations/registry.js";
+import { readLedgerConfig } from "../src/config.js";
 import { docsStartHereMarker } from "../src/docs.js";
-import { ledgerOwnedDocsRouting } from "../src/workspace.js";
+import { gitignoreBlockEnd, gitignoreBlockStart, ledgerOwnedDocsRouting } from "../src/workspace.js";
 
 const curatedStartHere = "# Curated\n\nHand-written router.\n";
 const curatedManifest = `${JSON.stringify({ version: 1, repo: "fixture", entrypoint: "docs/llm/START_HERE.md" }, null, 2)}\n`;
@@ -116,6 +118,7 @@ describe("registry-driven CLI", () => {
         adoption: "partial",
         routing: { startHere: "docs/llm/START_HERE.md", manifest: "docs/llm/manifest.json" },
         routingFilesDetected: false,
+        gitignore: { path: ".gitignore", created: true },
       },
     });
 
@@ -251,6 +254,68 @@ describe("registry-driven CLI", () => {
     expect(await readFile(manifestPath, "utf8")).toBe(curatedManifest);
   }, 30_000);
 
+  it("adopts a Go repository with an existing docs tree without manual edits", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-adopt-go-")));
+    const curatedRouter = "# Kore start here\n\nCurated routing.\n";
+    const files: Record<string, string> = {
+      "go.mod": "module example.com/app\n\ngo 1.23\n",
+      Makefile: ".PHONY: check test release-oci-sign\ncheck: test\n\tgo vet ./...\ntest:\n\tgo test ./...\nrelease-oci-sign:\n\techo sign\n",
+      "cmd/app/main.go": "package main\n\nfunc main() {}\n",
+      "internal/store/db/models.sql.go": "package db\n",
+      "internal/store/sqlc.yaml": "version: \"2\"\nsql:\n  - engine: postgresql\n    gen:\n      go:\n        out: db\n",
+      "build/Containerfile": "FROM scratch\n",
+      ".github/workflows/ci.yml": "name: ci\n",
+      "docs/README.md": "# Docs\n",
+      "docs/architecture/overview.md": "# Overview\n",
+      "docs/llm/START_HERE.md": curatedRouter,
+    };
+    for (const [relative, content] of Object.entries(files)) {
+      await mkdir(path.dirname(path.join(tempDir, relative)), { recursive: true });
+      await writeFile(path.join(tempDir, relative), content, "utf8");
+    }
+    await git(tempDir, "init");
+    await git(tempDir, "add", ".");
+    await git(tempDir, "-c", "user.email=ledger@example.com", "-c", "user.name=Ledger Test", "commit", "-m", "base");
+
+    const adopt = await captureRun(["adopt", "--json"], tempDir);
+    expect(adopt.exitCode).toBe(0);
+    const data = (JSON.parse(adopt.stdout) as { data: Record<string, unknown> }).data;
+    expect(data).toMatchObject({ coverage: "any", gitignore: { path: ".gitignore", created: true } });
+    expect(data.coverageRoots).toEqual(
+      expect.arrayContaining(["cmd/**", "internal/**", "build/**", "docs/**", ".github/**", "Makefile", "go.mod"]),
+    );
+
+    const config = await readLedgerConfig(path.join(tempDir, ".ledger", "config.yaml"));
+    expect(config.git.coverage).toBe("any");
+    expect(config.git.ignore).toContain("internal/store/db/**");
+    expect(config.git.ignore).not.toContain("build/**");
+    expect(config.verification.allow).toEqual(
+      expect.arrayContaining(["make check", "make test", "go test **", "ledger ci **"]),
+    );
+    expect(config.verification.allow).not.toContain("make release-oci-sign");
+
+    const gitignore = await readFile(path.join(tempDir, ".gitignore"), "utf8");
+    expect(gitignore).toContain(`${gitignoreBlockStart}\n.ledger/indexes/*.json`);
+    expect(gitignore).toContain(`.ledger/daemon.json\n${gitignoreBlockEnd}`);
+    for (const folder of ["api", "guides", "reference", "product", "operations"]) {
+      await expect(access(path.join(tempDir, "docs", folder))).rejects.toMatchObject({ code: "ENOENT" });
+    }
+    expect(await readFile(path.join(tempDir, "docs", "llm", "START_HERE.md"), "utf8")).toBe(curatedRouter);
+
+    const text = await captureRun(["adopt"], tempDir);
+    expect(text.exitCode).toBe(0);
+    expect(text.stdout).toContain(".gitignore: Ledger block already current");
+
+    // A rerun leaves the config alone, so it reports no inferred values that were not written.
+    const rerun = await captureRun(["adopt", "--json"], tempDir);
+    expect(rerun.exitCode).toBe(0);
+    const rerunData = (JSON.parse(rerun.stdout) as { data: Record<string, unknown> }).data;
+    expect(rerunData.configWritten).toBe(false);
+    for (const field of ["coverage", "coverageRoots", "ignore", "toolchains"]) {
+      expect(rerunData).not.toHaveProperty(field);
+    }
+  }, 30_000);
+
   it("rejects unknown group subcommands and reports group usage", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-operations-"));
     expect((await captureRun(["init"], tempDir)).exitCode).toBe(0);
@@ -323,4 +388,13 @@ async function captureRun(argv: readonly string[], cwd: string): Promise<{
     console.log = originalLog;
     console.error = originalError;
   }
+}
+
+async function git(cwd: string, ...args: readonly string[]): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    execFile("git", [...args], { cwd }, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
 }

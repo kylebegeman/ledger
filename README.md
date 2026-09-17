@@ -111,11 +111,12 @@ This creates:
   decisions/
   releases/
   templates/
-  policies/
 
 docs/
   README.md
   llm/
+
+.gitignore   (a marked Ledger block for derived state)
 ```
 
 ### Record A Change
@@ -286,7 +287,6 @@ full local verification and publishing checklist.
 | `.ledger/releases/` | Release records generated from entries or maintained by hand. |
 | `.ledger/sessions/` | Session records written by agent hooks or `ledger scratch`; committed like other records, they expire and are pruned unless promoted or linked by another record. |
 | `.ledger/templates/` | Project-local templates for new records. |
-| `.ledger/policies/` | Policy files such as git coverage requirements. |
 | `.ledger/indexes/` | Generated JSON indexes. |
 | `.ledger/reports/` | Validation, docs, coverage, and impact reports. |
 | `.ledger/dist/` | Generated internal reader output, with sanitized public output under `.ledger/dist/public/`. |
@@ -298,7 +298,7 @@ full local verification and publishing checklist.
 | --- | --- |
 | `ledger init --with-docs` | Creates `.ledger/` and optional `docs/` scaffolding. |
 | `ledger init --migrate` | Creates a partial-adoption scaffold for replacing an existing changelog or docs workflow. |
-| `ledger adopt` | Initializes Ledger for an established repo without claiming ownership of the whole docs tree. Existing `docs/llm` routing files are left alone; when one exists that Ledger did not generate, `docs.routing` points at `.ledger/reports/docs-start-here.md` and `.ledger/indexes/docs-routing.json`. |
+| `ledger adopt` | Initializes Ledger for an established repo without claiming ownership of the whole docs tree. It inspects the tracked tree to infer coverage roots, generated-code ignores, and a verification allowlist, sets `git.coverage: any`, adds a marked `.gitignore` block, and leaves an existing docs tree alone. Existing `docs/llm` routing files are left alone; when one exists that Ledger did not generate, `docs.routing` points at `.ledger/reports/docs-start-here.md` and `.ledger/indexes/docs-routing.json`. |
 | `ledger new "Title" --from-diff` | Drafts a change entry from git status. |
 | `ledger feedback "Title"` | Captures dogfood or product feedback as a first-class product note. |
 | `ledger backlog new "Title" --area cli --decision D001` | Creates the next numbered backlog item from the template. |
@@ -387,6 +387,21 @@ possible, writes duplicate-ID suggestions in a migration receipt, and maps
 frontmatter plus body sections into Ledger change entries. `--rewrite-docs`
 updates docs references from old changelog paths to the new `.ledger/entries`
 paths.
+
+`ledger adopt` reads the tracked tree with `git ls-files` and writes a config
+that fits it: every top-level directory with tracked files (plus `.github`, the
+root `Makefile`, and the primary manifest such as `go.mod` or `package.json`)
+becomes a coverage root; generated code such as templ output, sqlc output
+directories, `.product` provenance, and untracked build output is ignored; and
+`verification.allow` is proposed from the detected toolchain (explicit
+Makefile targets, `go test`, npm scripts, cargo, pytest, swift) plus the Ledger
+checks. Makefile targets and npm scripts named after release, publish, deploy,
+push, sign, upload, clean, or install are left out, but the list is a proposal:
+review `verification.allow` and prune anything agents should not run. Adopt
+sets `git.coverage: any` so existing history counts; switch it back to
+`current` once pull requests carry their own receipts. `ledger init` and
+`ledger adopt` both add a marked block to `.gitignore` for Ledger's derived
+state and update it in place on a later run.
 
 `ledger adopt` never replaces routing files you already maintain. When
 `docs/llm/START_HERE.md` or `docs/llm/manifest.json` exists and Ledger did not
