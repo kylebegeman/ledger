@@ -23,6 +23,7 @@ release: "v0.1.2"
 commits: ["689eb72"]
 staleRefs:
   - "anchors:Command Map"
+  - "anchors:conflictCommand"
 ---
 
 # 0023: Add Conflict Report Output

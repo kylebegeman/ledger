@@ -48,3 +48,5 @@ search indexes on the raw text.
 - Add a reader test that a summary with `` `code` `` renders a code element and
   that a summary containing HTML inside backticks stays escaped.
 - Recapture the README screenshots once inline code renders.
+- Resolved: 0146 renders inline code in the reader, with escaping tests, and
+  recaptured the README screenshots.

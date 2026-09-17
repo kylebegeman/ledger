@@ -30,6 +30,8 @@ commits:
 release: "v0.1.5"
 staleRefs:
   - "anchors:Docs Relationship"
+  - "anchors:docsMigrateCommand"
+  - "anchors:writeDocsStartHere"
 ---
 
 # 0037: Expand Docs Plane Reconcile And Migration Reports

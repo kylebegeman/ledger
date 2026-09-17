@@ -44,3 +44,6 @@ in adopt's output and the docs that `any` only affects `ledger coverage`.
 
 - Add a `ledger ci` test on a range under `coverage: any` that pins the chosen
   behavior.
+- Resolved: 0144 judges docs impact under the coverage mode, with a range
+  test, and 0156 counts earlier receipts under `any` only for the files they
+  name.

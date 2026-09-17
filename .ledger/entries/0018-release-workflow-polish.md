@@ -28,6 +28,9 @@ docs:
   - "docs/SCHEMA.md"
 release: "v0.1.1"
 commits: ["c5ff5d3"]
+staleRefs:
+  - "anchors:releaseCommand"
+  - "symbols:releaseCommand"
 ---
 
 # 0018: Polish Release Workflow

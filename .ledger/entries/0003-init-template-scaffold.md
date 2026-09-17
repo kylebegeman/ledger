@@ -17,6 +17,8 @@ symbols:
   - "coveragePolicy"
 release: "v0.1.1"
 commits: ["4fe2ea5"]
+staleRefs:
+  - "symbols:coveragePolicy"
 ---
 
 # 0003: Complete Init Template Scaffold

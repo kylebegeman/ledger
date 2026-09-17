@@ -24,6 +24,10 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["f5f70f6"]
+staleRefs:
+  - "anchors:export * from \"./render.js\""
+  - "anchors:renderCommand"
+  - "symbols:renderCommand"
 ---
 
 # 0010: Add Static Reader Render Command

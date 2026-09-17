@@ -30,6 +30,9 @@ commits: []
 backlog:
   - "B005"
 release: "v0.1.13"
+staleRefs:
+  - "anchors:metricsCommand"
+  - "anchors:searchCommand"
 ---
 
 # 0057: Command Result Model Extraction

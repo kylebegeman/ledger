@@ -23,6 +23,10 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["24de390"]
+staleRefs:
+  - "anchors:conflictCommand"
+  - "anchors:export * from \"./conflict.js\""
+  - "symbols:conflictCommand"
 ---
 
 # 0006: Add Conflict Assistant Command

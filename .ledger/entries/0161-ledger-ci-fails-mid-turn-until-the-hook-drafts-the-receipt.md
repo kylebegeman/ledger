@@ -51,3 +51,5 @@ still block `ledger ci`, but point to the draft instead of `ledger new`.
 - A `ledger ci` test with an active session record that lists the uncovered
   paths.
 - Mention the mid-turn result in the skill's draft lifecycle section.
+- Resolved: 0163 lists failing files in `ledger ci` and names the hooked
+  session and its draft.

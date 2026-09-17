@@ -29,6 +29,9 @@ backlog:
   - "B005"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:packetCommand"
+  - "anchors:queryCommand"
 ---
 
 # 0065: Query And Packet Command Models

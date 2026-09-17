@@ -30,6 +30,8 @@ docs:
 commits:
   - "18aa723"
 release: "v0.1.4"
+staleRefs:
+  - "anchors:mcpCommand"
 ---
 
 # 0035: Add MCP Agent Integration

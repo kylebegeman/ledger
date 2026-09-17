@@ -24,6 +24,7 @@ release: "v0.1.2"
 commits: ["e81f6b4"]
 staleRefs:
   - "anchors:Agent Workflow"
+  - "anchors:packetCommand"
 ---
 
 # 0027: Add Agent Packet Command

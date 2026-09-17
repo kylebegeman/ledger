@@ -57,3 +57,5 @@ symbols.
   Markdown extractors.
 - A draft test with a one-line change in a Markdown file with many headings
   and in a TypeScript file with many exports.
+- Resolved: 0163 adds spans to every extractor and keeps only the symbols
+  that hold a changed line.

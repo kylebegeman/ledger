@@ -24,6 +24,7 @@ commits:
 release: "v0.1.3"
 staleRefs:
   - "anchors:Command Map"
+  - "anchors:queryCommand"
 ---
 
 # 0031: Add Query Text Filter

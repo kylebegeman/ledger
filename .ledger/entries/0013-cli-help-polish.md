@@ -18,6 +18,9 @@ release: "v0.1.1"
 commits: ["ec655d1"]
 staleRefs:
   - "anchors:Command Help"
+  - "anchors:helpText"
+  - "symbols:helpText"
+  - "symbols:helpTopicForCommand"
 ---
 
 # 0013: Polish CLI Help Output

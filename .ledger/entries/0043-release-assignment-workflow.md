@@ -25,6 +25,8 @@ docs:
 commits:
   - "c367bb6"
 release: "v0.1.8"
+staleRefs:
+  - "anchors:releaseCommand"
 ---
 
 # 0043: Add Release Assignment Workflow

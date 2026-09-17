@@ -44,6 +44,8 @@ commits: []
 release: "v0.1.13"
 staleRefs:
   - "anchors:Render Budget Config"
+  - "anchors:ledger doctor"
+  - "anchors:ledger render"
 ---
 
 # 0052: Render Artifact Budget Metrics

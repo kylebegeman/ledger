@@ -59,6 +59,9 @@ commits: []
 release: "v0.1.13"
 staleRefs:
   - "anchors:Agent Workflow"
+  - "anchors:ledger doctor"
+  - "anchors:ledger packet --budget"
+  - "anchors:ledger stale"
 ---
 
 # 0051: Static Search And Token-Budgeted Agent Context

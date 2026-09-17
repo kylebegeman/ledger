@@ -21,6 +21,8 @@ docs:
   - "docs/SCHEMA.md"
 release: "v0.1.2"
 commits: ["967193a"]
+staleRefs:
+  - "anchors:coveragePolicy"
 ---
 
 # 0028: Ignore Generated Docs Manifest

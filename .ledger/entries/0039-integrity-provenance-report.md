@@ -28,6 +28,8 @@ docs:
 commits:
   - "ffc1ff6"
 release: "v0.1.6"
+staleRefs:
+  - "anchors:verifyIntegrityCommand"
 ---
 
 # 0039: Add Integrity Provenance Report

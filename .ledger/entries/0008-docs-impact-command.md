@@ -24,6 +24,10 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["9ad3073"]
+staleRefs:
+  - "anchors:docsImpactCommand"
+  - "anchors:export * from \"./docsImpact.js\""
+  - "symbols:docsImpactCommand"
 ---
 
 # 0008: Add Docs Impact Command
