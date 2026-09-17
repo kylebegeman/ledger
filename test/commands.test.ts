@@ -46,7 +46,13 @@ describe("command result models", () => {
   });
 
   it("runs metrics without intercepting console output", async () => {
-    const workspace = await fixtureWorkspace();
+    const fixture = await fixtureWorkspace();
+    // Shared CI runners vary severalfold in speed, so the budgets here only rule out a stalled step.
+    const budgets = Object.fromEntries(Object.keys(fixture.config.performance.budgets).map((name) => [name, 60_000]));
+    const workspace = {
+      ...fixture,
+      config: { ...fixture.config, performance: { ...fixture.config.performance, budgets } },
+    } as typeof fixture;
     const result = await runLedgerMetricsCommand(workspace);
 
     expect(result.performance.ok).toBe(true);

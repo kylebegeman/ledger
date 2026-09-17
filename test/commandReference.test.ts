@@ -9,7 +9,8 @@ describe("command reference", () => {
     const target = path.join(process.cwd(), commandReferencePath);
     const rendered = renderCommandReference();
     if (process.env.LEDGER_UPDATE_COMMANDS === "1") await writeFile(target, rendered, "utf8");
-    const committed = await readFile(target, "utf8");
+    // Windows checkouts may convert the file to CRLF line endings.
+    const committed = (await readFile(target, "utf8")).replace(/\r\n/g, "\n");
     expect(committed, "docs/COMMANDS.md is stale; run LEDGER_UPDATE_COMMANDS=1 npx vitest run test/commandReference.test.ts").toBe(rendered);
   });
 
