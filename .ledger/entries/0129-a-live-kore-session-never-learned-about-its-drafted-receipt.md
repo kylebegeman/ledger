@@ -91,3 +91,8 @@ pruning does to receipts that link a pruned session.
 - A rule for committing session records and for links to pruned sessions.
 - Close sessions without relying on SessionEnd, which the desktop app did not
   fire on `/exit`.
+- Resolved: 0133 announces drafts, documents their lifecycle, stops
+  re-drafting after a receipt lands, keeps session paths out of drafts, and
+  treats expired sessions as inactive. 0134 commits session records and keeps
+  linked ones when pruning. 0162 confirmed the fix in a second live Kore
+  session.

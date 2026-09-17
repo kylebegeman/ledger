@@ -53,3 +53,6 @@ session's draft instead of taking a new id. Exclude the sessions directory from
   system message so agents finish it.
 - Decide whether hand-written milestone receipts should replace or adopt the
   hook draft; record the convention in `docs/HANDOFF.md`.
+- Resolved: 0133 keeps session records out of drafts and names each draft to
+  the agent, and 0142 stops a hook from drafting when a receipt in the working
+  tree already covers the paths.

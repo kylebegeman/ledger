@@ -26,6 +26,8 @@ backlog:
   - "B006"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:scoreSearchDocument"
 ---
 
 # 0053: Weighted Static Search Ranking

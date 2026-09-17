@@ -48,6 +48,7 @@ commits: []
 release: "v0.1.13"
 staleRefs:
   - "anchors:Docs Impact Declaration"
+  - "anchors:ledger docs impact"
 ---
 
 # 0054: Explicit Docs Impact Declarations

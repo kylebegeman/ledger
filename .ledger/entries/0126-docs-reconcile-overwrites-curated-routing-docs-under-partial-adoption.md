@@ -56,3 +56,5 @@ Ledger-owned paths, as was done by hand in Kore.
 - Guard `docs reconcile` against replacing files Ledger did not generate, with
   a test that a curated START_HERE survives.
 - Detect existing routing files in `adopt` and choose Ledger-owned paths.
+- Resolved: 0131 guards `docs reconcile` and points `adopt` at Ledger-owned
+  routing paths when curated routing files exist.

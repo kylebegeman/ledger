@@ -25,6 +25,11 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["7d0f134"]
+staleRefs:
+  - "anchors:export * from \"./release.js\""
+  - "anchors:releaseCommand"
+  - "symbols:releaseCommand"
+  - "symbols:unreleasedCommand"
 ---
 
 # 0007: Add Release And Unreleased Commands

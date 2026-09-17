@@ -25,6 +25,8 @@ release: "v0.1.2"
 commits: ["5835fdd"]
 staleRefs:
   - "anchors:Command Map"
+  - "anchors:docsReconcileCommand"
+  - "anchors:writeDocsRoutingManifest"
 ---
 
 # 0026: Generate Docs Routing Manifest

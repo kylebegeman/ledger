@@ -22,6 +22,10 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["807e8d9"]
+staleRefs:
+  - "anchors:ciCommand"
+  - "anchors:export * from \"./ci.js\""
+  - "symbols:ciCommand"
 ---
 
 # 0011: Add CI Summary Command

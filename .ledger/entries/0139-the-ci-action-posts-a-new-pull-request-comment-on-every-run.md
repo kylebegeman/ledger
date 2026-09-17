@@ -37,3 +37,4 @@ the step with a notice when the token cannot write.
 ## Follow-ups
 
 - Keep the README's note on `comment` until the action updates in place.
+- Resolved: 0145 keeps one pull request comment and updates it in place.

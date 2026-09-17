@@ -62,3 +62,7 @@ patterns, and blocks for a new pinned version.
 - `hooks install` adds the `@AGENTS.md` import to `CLAUDE.md` when asked.
 - Measure hook latency through npx and document a faster install for
   repositories without Node.
+- Resolved: 0132 saves one configured command for the hooks, the agents
+  block, the skill, and hook context, and adds the `@AGENTS.md` import. 0164
+  measured hook latency through npx and documents the installed alternative in
+  the README.

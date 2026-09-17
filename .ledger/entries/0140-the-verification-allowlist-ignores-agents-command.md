@@ -44,3 +44,5 @@ check as the bare `ledger` form when matching the allowlist, or have
 ## Follow-ups
 
 - Add a `verify --run` test with `agents.command: npx ledger`.
+- Resolved: 0143 matches `agents.command` in the verification allowlist,
+  with a `verify --run` test.

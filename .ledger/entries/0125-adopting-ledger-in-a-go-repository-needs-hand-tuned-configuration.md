@@ -83,3 +83,7 @@ coverage, and say plainly when a language has no extractor.
 - Remove `.ledger/policies/coverage.yaml` from the scaffold or read it.
 - Draft Markdown symbols only from changed hunks, and skip Ledger's scaffold
   files when drafting.
+- Resolved: 0135 infers adopt's coverage roots, ignores, `.gitignore` block,
+  and allowlist from the tracked tree, scopes doctor's symbols check, and
+  drops `.ledger/policies/coverage.yaml`. 0133 keeps Ledger's scaffold out of
+  drafts, and 0163 takes draft symbols only from changed lines.

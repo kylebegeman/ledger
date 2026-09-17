@@ -24,6 +24,9 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["f693978"]
+staleRefs:
+  - "anchors:queryCommand"
+  - "symbols:printAgentExplanation"
 ---
 
 # 0005: Add Query And Agent Explain Output

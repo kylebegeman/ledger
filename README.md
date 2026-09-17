@@ -87,6 +87,11 @@ finishes it instead of starting another:
 
 <p align="center"><img alt="The Stop hook names the drafted receipt, and the next prompt tells the agent once to finish it" src="./assets/readme/agent-draft-notice.svg" width="880"></p>
 
+The draft's symbols and anchors come from the lines the diff changed. If the
+agent runs `ledger ci` before its turn ends, the report lists the files still
+uncovered and names the session whose hook will draft their receipt, so the
+agent keeps working instead of writing a second one.
+
 `ledger ready` fails on a draft until its placeholders and TODOs are replaced.
 `ledger ci` does not run it, so run it before marking a receipt landed:
 
@@ -226,6 +231,15 @@ checks `ledger verify --run` may execute. It leaves hand-written docs routing
 files alone.
 
 <p align="center"><img alt="ledger adopt in a Go repository inferring coverage roots, toolchains, and a verification allowlist that leaves out the release target" src="./assets/readme/adopt.svg" width="880"></p>
+
+Starting the pinned package through npx costs about 0.3 seconds per hook. On
+an Apple silicon Mac, a PostToolUse hook took 0.47 seconds through npx and
+0.17 seconds from an installed copy. The first call after a version change
+also downloads the package. On a machine where no other program is named
+`ledger`, `npm install --global @kylebegeman/ledger@0.8.1` and
+`--command ledger` save that time. The hooks are committed, though, so every
+contributor then needs the same install. The npx pin works on any machine
+with Node.
 
 ### Without hooks
 

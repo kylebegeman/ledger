@@ -52,6 +52,9 @@ backlog:
   - "B006"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:ledger_search_packet"
+  - "anchors:searchPacketCommand"
 ---
 
 # 0068: Search Result Agent Packets

@@ -29,6 +29,9 @@ docs:
 commits:
   - "d06e8c2"
 release: "v0.1.10"
+staleRefs:
+  - "anchors:ledger_verify_integrity"
+  - "anchors:release --assign --write"
 ---
 
 # 0047: Bug Sweep Release And Agent Integration Fixes

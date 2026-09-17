@@ -34,6 +34,8 @@ commits: []
 related:
   - "0095"
 release: "v0.5.0"
+staleRefs:
+  - "symbols:sharedSearchRuntime"
 ---
 
 # 0103: Share Search Scoring Between Node And The Reader

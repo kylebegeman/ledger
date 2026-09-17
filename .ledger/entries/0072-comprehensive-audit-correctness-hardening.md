@@ -52,6 +52,9 @@ backlog:
   - "B006"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:datasetList"
+  - "anchors:parseArgs"
 ---
 
 # 0072: Comprehensive Audit Correctness Hardening

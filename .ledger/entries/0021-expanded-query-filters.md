@@ -23,6 +23,7 @@ release: "v0.1.2"
 commits: ["246cb75"]
 staleRefs:
   - "anchors:Command Map"
+  - "anchors:queryCommand"
 ---
 
 # 0021: Expand Query Filters

@@ -30,6 +30,8 @@ docs:
   - "docs/SCHEMA.md"
 release: "v0.1.1"
 commits: ["bf27f82"]
+staleRefs:
+  - "anchors:coverageCommand"
 ---
 
 # 0004: Add Git Coverage Command

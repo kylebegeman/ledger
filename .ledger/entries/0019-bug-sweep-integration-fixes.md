@@ -33,6 +33,9 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["31c7f0b"]
+staleRefs:
+  - "anchors:npm run check"
+  - "anchors:renderTemplate"
 ---
 
 # 0019: Complete Bug Sweep And Integration Fixes

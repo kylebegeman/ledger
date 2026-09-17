@@ -21,6 +21,9 @@ symbols:
 staleRefs:
   - "symbols:printJsonError"
   - "symbols:errorCode"
+  - "anchors:errorCode"
+  - "anchors:printJsonError"
+  - "anchors:validate --json"
 docs:
   - "README.md"
   - "docs/ARCHITECTURE.md"

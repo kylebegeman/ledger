@@ -22,6 +22,7 @@ commits:
 release: "v0.1.3"
 staleRefs:
   - "anchors:Agent Workflow"
+  - "anchors:packetCommand"
 ---
 
 # 0032: Add Agent Packet Report Output

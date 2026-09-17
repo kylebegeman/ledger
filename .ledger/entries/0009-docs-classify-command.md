@@ -21,6 +21,9 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.1"
 commits: ["a6507d6"]
+staleRefs:
+  - "anchors:docsClassifyCommand"
+  - "symbols:docsClassifyCommand"
 ---
 
 # 0009: Add Docs Classify Command
