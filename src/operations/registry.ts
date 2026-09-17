@@ -10,6 +10,7 @@ import {
   releaseNotesOperation,
   releaseOperation,
   unreleasedOperation,
+  updateOperation,
 } from "./definitions/authoring.js";
 import { cacheClearOperation, cacheStatusOperation, cacheWarmOperation } from "./definitions/cache.js";
 import { ciOperation, coverageOperation, docsImpactOperation } from "./definitions/changes.js";
@@ -67,6 +68,7 @@ export const ledgerOperationTable = {
   "backlog.new": backlogNewOperation,
   "decision.new": decisionNewOperation,
   "promote": promoteOperation,
+  "update": updateOperation,
   "session.start": sessionStartOperation,
   "session.touch": sessionTouchOperation,
   "session.note": sessionNoteOperation,
@@ -155,7 +157,9 @@ export interface LedgerOperationContract {
     readonly usage: string;
     readonly json: boolean;
     readonly positionals?: { readonly field: string; readonly min: number; readonly max?: number; readonly join?: boolean };
-    readonly flags: Readonly<Record<string, { readonly type: string; readonly field: string; readonly choices?: readonly string[] }>>;
+    readonly flags: Readonly<
+      Record<string, { readonly type: string; readonly field: string; readonly choices?: readonly string[]; readonly preparedInto?: string }>
+    >;
   };
   readonly input: unknown;
   readonly output: unknown;
@@ -193,6 +197,7 @@ export function buildOperationsContract(
               type: spec.type,
               field: spec.field ?? flag.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase()),
               ...(spec.choices ? { choices: spec.choices } : {}),
+              ...(spec.preparedInto ? { preparedInto: spec.preparedInto } : {}),
             },
           ]),
         ),

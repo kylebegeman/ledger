@@ -15,6 +15,8 @@ export interface LedgerFlagSpec {
   readonly choices?: readonly string[];
   /** Human label used in choice errors, for example "agent role". */
   readonly choicesLabel?: string;
+  /** The input field `cli.prepare` folds this flag's value into, when the flag has no field of its own. */
+  readonly preparedInto?: string;
 }
 
 export interface LedgerPositionalSpec {
@@ -66,6 +68,12 @@ export interface LedgerOperationMcp<I, O> {
    * source records declares it; tools without it never ask.
    */
   readonly confirm?: (input: I) => string;
+  /**
+   * Checks a confirmed tool runs before asking, such as a dry run of the
+   * write, so the user is never asked to approve a call that would fail.
+   * It throws the error the operation would.
+   */
+  readonly precheck?: (context: LedgerOperationContext, input: I) => Promise<void>;
 }
 
 export interface LedgerOperationContext {

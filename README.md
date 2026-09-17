@@ -338,8 +338,8 @@ returns a versioned envelope. `ledger serve --api` runs every command except
 commands, such as `packet`, `explain`, `search`, `ready`, `coverage`, and `ci`,
 are also MCP tools through `ledger mcp` or the engine's `/mcp`. So are the
 commands that write records (`new`, `feedback`, `backlog new`,
-`decision new`, `promote`, and `session start|note|close`), which ask you to
-confirm in the client before they write. The server speaks MCP 2026-07-28 and
+`decision new`, `promote`, `update`, and `session start|note|close`), which
+take section bodies and ask you to confirm in the client before they write. The server speaks MCP 2026-07-28 and
 the 2025 revisions. Run `ledger help <command>` for flags.
 
 <details>
@@ -352,11 +352,12 @@ the 2025 revisions. Run `ledger help <command>` for flags.
 | `ledger hooks install --host <host>` | Installs Claude Code, Codex, or Cursor hooks; `--command` saves how Ledger runs |
 | `ledger skills install` | Writes the Ledger skill for agents that read skills |
 | `ledger agents --write` | Maintains the Ledger block in `AGENTS.md` |
-| `ledger new <title> --from-diff` | Drafts a change entry from the Git diff |
+| `ledger new <title> --from-diff` | Drafts a change entry from the Git diff; `--section Heading=text`, `--sections-file`, `--file`, and `--docs-impact` write a finished one |
 | `ledger feedback <title>` | Captures a product note |
 | `ledger backlog new <title>` | Creates a backlog item |
 | `ledger decision new <title>` | Creates a decision record |
 | `ledger promote <id> --from-diff` | Turns a backlog item or session into a linked draft change entry |
+| `ledger update <id>` | Rewrites a record's title, status, lists, docs impact, or sections in place |
 | `ledger session start`, `touch`, `note`, `close`, `prune` | Manages session records |
 | `ledger scratch <title>` | Starts a session record for notes that expire unless promoted |
 | `ledger migrate changelog <dir>` | Imports an existing Markdown changelog into change entries |

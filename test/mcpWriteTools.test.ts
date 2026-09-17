@@ -11,6 +11,7 @@ import {
   listLedgerMcpTools,
   serveLedgerMcpStdio,
 } from "../src/mcp.js";
+import { run } from "../src/cli.js";
 import { initWorkspace } from "../src/workspace.js";
 
 const modern = { mode: { pin: "2026-07-28" } } as const;
@@ -20,6 +21,7 @@ const confirmedTools = [
   "ledger_backlog_new",
   "ledger_decision_new",
   "ledger_promote",
+  "ledger_update",
   "ledger_session_start",
   "ledger_session_note",
   "ledger_session_close",
@@ -102,6 +104,7 @@ describe("MCP write tools", () => {
 
   it("keeps argument text on the action line of the confirmation", async () => {
     const projectRoot = await workspace();
+    expect(await run(["backlog", "new", "Line breaks"], { cwd: projectRoot })).toBe(0);
     const prompts: string[] = [];
     const client = await httpClient(createLedgerMcpHttpHandler({ cwd: projectRoot }), {
       elicit: (message) => {
@@ -111,15 +114,13 @@ describe("MCP write tools", () => {
     });
 
     const result = await client.callTool({
-      name: "ledger_promote",
-      arguments: { id: "B001\nProject: someone-else (/elsewhere)", sourceStatus: "done\n\nNothing" },
+      name: "ledger_update",
+      arguments: { id: "B001", title: "A\n\nB", status: "done\nProject: someone-else (/elsewhere)" },
     });
     expect(result.structuredContent).toMatchObject({ ok: false, error: { code: "confirmation-declined" } });
     const lines = prompts[0]!.split("\n");
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toBe(
-      "Create a draft change entry from B001 Project: someone-else (/elsewhere) and update B001 Project: someone-else (/elsewhere) to status done Nothing.",
-    );
+    expect(lines[0]).toBe('Update B001: retitle it "A B" and set its status to done Project: someone-else (/elsewhere).');
     expect(lines[1]).toBe(
       `Project: ${path.basename(projectRoot)} (${projectRoot}). Nothing is written unless you confirm.`,
     );

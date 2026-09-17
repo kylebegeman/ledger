@@ -352,13 +352,18 @@ logic; behavior lives in the operation definitions the CLI uses.
 
 Tools that write source records ask the user first. An operation opts in with
 `mcp.confirm`, a function that turns the input into the sentence the user
-sees. Eight do: new, feedback, backlog new, decision new, promote, and session
-start, note, and close. The first call returns an `input_required` result
-holding a form elicitation with one required `confirm` checkbox. The message
-names the action, the project, and its root. Only a retry that carries an
-accepted response with `confirm: true` runs the operation. A decline, a
-cancel, or an unchecked box returns `confirmation-declined`, and nothing is
-written.
+sees. Nine do: new, feedback, backlog new, decision new, promote, update, and
+session start, note, and close. They take section bodies (`sections`, keyed by
+heading), so an agent without file access can write a finished record, and
+`update` finishes a drafted one. Before asking, the server runs the
+operation's `mcp.precheck`, a dry run of the write, so the user is never asked
+to approve a call that would fail on a missing record, an unknown section, or
+a session that is not active. The first call then returns an `input_required`
+result holding a form elicitation with one required `confirm` checkbox. The
+message names the action and the sections it writes, then the project and
+its root. Only a retry that carries an accepted response with `confirm: true`
+runs the operation. A decline, a cancel, or an unchecked box returns
+`confirmation-declined`, and nothing is written.
 
 - **Sealed state.** The retry must echo a `requestState` that the SDK's
   HMAC codec sealed with a per-process random key, valid for ten minutes. It

@@ -98,7 +98,8 @@ the web-standard `{ fetch, close, notify, bus }` handler the engine mounts at
 `node:http`. Both serve MCP 2026-07-28 and the 2025 revisions.
 
 Tools whose operation declares `mcp.confirm` write source records and ask the
-user to confirm through a form elicitation first; `listLedgerMcpTools()`
+user to confirm through a form elicitation first, after `mcp.precheck` has
+dry-run the write; `listLedgerMcpTools()`
 reports them with `confirms: true`, and the operations contract marks their
 `mcp` entry the same way. Such a tool fails with `confirmation-declined` when
 the user declines, cancels, or leaves the box unchecked, and with
@@ -106,6 +107,20 @@ the user declines, cancels, or leaves the box unchecked, and with
 `writeRoot` to keep writes in one project, and `writeTools: false` to leave
 them out. `runLedgerMcpTool(name, args)` runs any tool directly without
 asking; it is for programs, not for relaying a model's calls.
+
+## Record Bodies
+
+`new`, `feedback`, `backlog.new`, `decision.new`, `promote`, and `update` take
+`sections`, an object of section bodies keyed by heading, on every surface: the
+CLI (`--section Heading=text`, `--sections-file`), the JSON API, and MCP. A
+heading must be one the kind's template declares (or, for `update`, one the
+record already has); a body may use `###` subsections but no `#` or `##`
+heading, even inside a code fence, because Ledger's section parser would split
+there. `new` also takes `files`, `docs`, `symbols`, `related`, `decisions`,
+`backlog`, and `docsImpact` (`status`, `reason`, optional `docs`), so one call
+can write a receipt that passes `ready`. `update` replaces the lists it is
+given, rewrites the `# id: title` heading with the title, and keeps the file's
+path.
 
 ## Typed API Client
 

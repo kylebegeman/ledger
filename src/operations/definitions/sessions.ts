@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  assertSessionSelectable,
   closeSession,
   noteSession,
   pruneSessions,
@@ -205,6 +206,10 @@ draft. An active session past its expires date is not selected without --id.`,
     summary: (data) => ({ id: data.session.id, section: data.section, bullets: data.bullets.length }),
     confirm: (input) =>
       `Add ${quoteForConfirmation(input.text)} to the ${input.section ?? "Learned"} section of ${input.id ?? "the active session record"}.`,
+    async precheck(context, input) {
+      const { documents } = await loadDocuments(context);
+      assertSessionSelectable(documents, { id: input.id, hostSession: input.hostSession }, { activeOnly: true });
+    },
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -248,6 +253,10 @@ close it explicitly.`,
     title: "Close a session record",
     summary: (data) => ({ id: data.session.id, changed: data.changed }),
     confirm: (input) => `Close ${input.id ?? "the active session record"}.`,
+    async precheck(context, input) {
+      const { documents } = await loadDocuments(context);
+      assertSessionSelectable(documents, { id: input.id, hostSession: input.hostSession }, { activeOnly: false });
+    },
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);

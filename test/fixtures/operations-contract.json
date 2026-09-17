@@ -283,7 +283,7 @@
           "new"
         ],
         "aliases": [],
-        "usage": "ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>] [--json]",
+        "usage": "ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>] [--file <path>] [--doc <path>] [--symbol <name>] [--related <id>] [--decision <id>] [--backlog <id>] [--docs-impact <status> --docs-impact-reason <text> [--docs-impact-doc <path>]] [--section <Heading=text>] [--sections-file <path>] [--json]",
         "json": true,
         "positionals": {
           "field": "title",
@@ -306,6 +306,60 @@
           "status": {
             "type": "string",
             "field": "status"
+          },
+          "file": {
+            "type": "string[]",
+            "field": "files"
+          },
+          "doc": {
+            "type": "string[]",
+            "field": "docs"
+          },
+          "symbol": {
+            "type": "string[]",
+            "field": "symbols"
+          },
+          "related": {
+            "type": "string[]",
+            "field": "related"
+          },
+          "decision": {
+            "type": "string[]",
+            "field": "decisions"
+          },
+          "backlog": {
+            "type": "string[]",
+            "field": "backlog"
+          },
+          "docs-impact": {
+            "type": "string",
+            "field": "docsImpactStatus",
+            "choices": [
+              "updated",
+              "not-needed",
+              "none"
+            ],
+            "preparedInto": "docsImpact"
+          },
+          "docs-impact-reason": {
+            "type": "string",
+            "field": "docsImpactReason",
+            "preparedInto": "docsImpact"
+          },
+          "docs-impact-doc": {
+            "type": "string[]",
+            "field": "docsImpactDocs",
+            "preparedInto": "docsImpact"
+          },
+          "section": {
+            "type": "string[]",
+            "field": "sectionPairs",
+            "preparedInto": "sections"
+          },
+          "sections-file": {
+            "type": "string",
+            "field": "sectionsFile",
+            "preparedInto": "sections"
           }
         }
       },
@@ -342,6 +396,115 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          },
+          "files": {
+            "description": "Paths or coverage patterns the entry covers, added to any from the diff.",
+            "maxItems": 2000,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "docs": {
+            "description": "Durable docs the entry references.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "symbols": {
+            "description": "Symbols to anchor, added to any read from the diff.",
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "related": {
+            "description": "Related record ids.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "decisions": {
+            "description": "Decision ids.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "backlog": {
+            "description": "Backlog item ids.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "docsImpact": {
+            "description": "Docs impact declaration for a change entry.",
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "updated",
+                  "not-needed",
+                  "none"
+                ],
+                "description": "updated, not-needed, or none."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Reviewed prose explaining the status."
+              },
+              "docs": {
+                "description": "Durable docs the change updated.",
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            },
+            "required": [
+              "status",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "sections": {
+            "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 20000
+            }
           }
         },
         "required": [
@@ -421,6 +584,115 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 500
+            },
+            "files": {
+              "description": "Paths or coverage patterns the entry covers, added to any from the diff.",
+              "maxItems": 2000,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "docs": {
+              "description": "Durable docs the entry references.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "symbols": {
+              "description": "Symbols to anchor, added to any read from the diff.",
+              "maxItems": 500,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "related": {
+              "description": "Related record ids.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "decisions": {
+              "description": "Decision ids.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "backlog": {
+              "description": "Backlog item ids.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "docsImpact": {
+              "description": "Docs impact declaration for a change entry.",
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "updated",
+                    "not-needed",
+                    "none"
+                  ],
+                  "description": "updated, not-needed, or none."
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "description": "Reviewed prose explaining the status."
+                },
+                "docs": {
+                  "description": "Durable docs the change updated.",
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "reason"
+              ],
+              "additionalProperties": false
+            },
+            "sections": {
+              "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 20000
+              }
             }
           },
           "required": [
@@ -448,7 +720,7 @@
             "product-note"
           ]
         ],
-        "usage": "ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>] [--json]",
+        "usage": "ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
         "json": true,
         "positionals": {
           "field": "title",
@@ -467,6 +739,16 @@
           "status": {
             "type": "string",
             "field": "status"
+          },
+          "section": {
+            "type": "string[]",
+            "field": "sectionPairs",
+            "preparedInto": "sections"
+          },
+          "sections-file": {
+            "type": "string",
+            "field": "sectionsFile",
+            "preparedInto": "sections"
           }
         }
       },
@@ -504,6 +786,19 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          },
+          "sections": {
+            "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 20000
+            }
           }
         },
         "required": [
@@ -567,6 +862,19 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 500
+            },
+            "sections": {
+              "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 20000
+              }
             }
           },
           "required": [
@@ -591,7 +899,7 @@
           "new"
         ],
         "aliases": [],
-        "usage": "ledger backlog new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+        "usage": "ledger backlog new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
         "json": true,
         "positionals": {
           "field": "title",
@@ -618,6 +926,16 @@
           "status": {
             "type": "string",
             "field": "status"
+          },
+          "section": {
+            "type": "string[]",
+            "field": "sectionPairs",
+            "preparedInto": "sections"
+          },
+          "sections-file": {
+            "type": "string",
+            "field": "sectionsFile",
+            "preparedInto": "sections"
           }
         }
       },
@@ -673,6 +991,19 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          },
+          "sections": {
+            "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 20000
+            }
           }
         },
         "required": [
@@ -754,6 +1085,19 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 500
+            },
+            "sections": {
+              "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 20000
+              }
             }
           },
           "required": [
@@ -778,7 +1122,7 @@
           "new"
         ],
         "aliases": [],
-        "usage": "ledger decision new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+        "usage": "ledger decision new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
         "json": true,
         "positionals": {
           "field": "title",
@@ -805,6 +1149,16 @@
           "status": {
             "type": "string",
             "field": "status"
+          },
+          "section": {
+            "type": "string[]",
+            "field": "sectionPairs",
+            "preparedInto": "sections"
+          },
+          "sections-file": {
+            "type": "string",
+            "field": "sectionsFile",
+            "preparedInto": "sections"
           }
         }
       },
@@ -860,6 +1214,19 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          },
+          "sections": {
+            "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 20000
+            }
           }
         },
         "required": [
@@ -941,6 +1308,19 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 500
+            },
+            "sections": {
+              "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 20000
+              }
             }
           },
           "required": [
@@ -964,7 +1344,7 @@
           "promote"
         ],
         "aliases": [],
-        "usage": "ledger promote <id> [--title <title>] [--area <area>] [--from-diff] [--staged] [--status <status>] [--source-status <status>] [--json]",
+        "usage": "ledger promote <id> [--title <title>] [--area <area>] [--from-diff] [--staged] [--status <status>] [--source-status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
         "json": true,
         "positionals": {
           "field": "id",
@@ -995,6 +1375,16 @@
           "source-status": {
             "type": "string",
             "field": "sourceStatus"
+          },
+          "section": {
+            "type": "string[]",
+            "field": "sectionPairs",
+            "preparedInto": "sections"
+          },
+          "sections-file": {
+            "type": "string",
+            "field": "sectionsFile",
+            "preparedInto": "sections"
           }
         }
       },
@@ -1043,6 +1433,19 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 500
+          },
+          "sections": {
+            "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 20000
+            }
           }
         },
         "required": [
@@ -1162,11 +1565,476 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 500
+            },
+            "sections": {
+              "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 20000
+              }
             }
           },
           "required": [
             "id",
             "status"
+          ],
+          "additionalProperties": false
+        },
+        "confirms": true
+      }
+    },
+    {
+      "name": "update",
+      "title": "Update a record",
+      "description": "Change a record's title, status, list fields, docs impact, or section bodies in place.",
+      "workspace": "required",
+      "mutates": true,
+      "interactive": false,
+      "cli": {
+        "path": [
+          "update"
+        ],
+        "aliases": [],
+        "usage": "ledger update <id> [--title <title>] [--status <status>] [--area <area>] [--file <path>] [--symbol <name>] [--doc <path>] [--related <id>] [--decision <id>] [--backlog <id>] [--tag <tag>] [--docs-impact <status> --docs-impact-reason <text> [--docs-impact-doc <path>]] [--section <Heading=text>] [--sections-file <path>] [--json]",
+        "json": true,
+        "positionals": {
+          "field": "id",
+          "min": 1,
+          "max": 1
+        },
+        "flags": {
+          "title": {
+            "type": "string",
+            "field": "title"
+          },
+          "status": {
+            "type": "string",
+            "field": "status"
+          },
+          "area": {
+            "type": "string[]",
+            "field": "areas"
+          },
+          "file": {
+            "type": "string[]",
+            "field": "files"
+          },
+          "symbol": {
+            "type": "string[]",
+            "field": "symbols"
+          },
+          "doc": {
+            "type": "string[]",
+            "field": "docs"
+          },
+          "related": {
+            "type": "string[]",
+            "field": "related"
+          },
+          "decision": {
+            "type": "string[]",
+            "field": "decisions"
+          },
+          "backlog": {
+            "type": "string[]",
+            "field": "backlog"
+          },
+          "tag": {
+            "type": "string[]",
+            "field": "tags"
+          },
+          "docs-impact": {
+            "type": "string",
+            "field": "docsImpactStatus",
+            "choices": [
+              "updated",
+              "not-needed",
+              "none"
+            ],
+            "preparedInto": "docsImpact"
+          },
+          "docs-impact-reason": {
+            "type": "string",
+            "field": "docsImpactReason",
+            "preparedInto": "docsImpact"
+          },
+          "docs-impact-doc": {
+            "type": "string[]",
+            "field": "docsImpactDocs",
+            "preparedInto": "docsImpact"
+          },
+          "section": {
+            "type": "string[]",
+            "field": "sectionPairs",
+            "preparedInto": "sections"
+          },
+          "sections-file": {
+            "type": "string",
+            "field": "sectionsFile",
+            "preparedInto": "sections"
+          }
+        }
+      },
+      "input": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Record id, for example 0042 or B007, or the record's project path."
+          },
+          "title": {
+            "description": "New title; the matching # heading follows.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "status": {
+            "description": "New status.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "areas": {
+            "description": "Area tags, replacing the current list.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "files": {
+            "description": "Files or coverage patterns, replacing the current list.",
+            "maxItems": 2000,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "symbols": {
+            "description": "Anchored symbols (change entries), replacing the current list.",
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "docs": {
+            "description": "Durable docs, replacing the current list.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "related": {
+            "description": "Related record ids, replacing the current list.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "decisions": {
+            "description": "Decision ids, replacing the current list.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "backlog": {
+            "description": "Backlog item ids, replacing the current list.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "tags": {
+            "description": "Tags, replacing the current list.",
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "docsImpact": {
+            "description": "Docs impact declaration for a change entry.",
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "updated",
+                  "not-needed",
+                  "none"
+                ],
+                "description": "updated, not-needed, or none."
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Reviewed prose explaining the status."
+              },
+              "docs": {
+                "description": "Durable docs the change updated.",
+                "maxItems": 200,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            },
+            "required": [
+              "status",
+              "reason"
+            ],
+            "additionalProperties": false
+          },
+          "sections": {
+            "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 20000
+            }
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "fields",
+          "sections"
+        ],
+        "additionalProperties": {}
+      },
+      "mcp": {
+        "tool": "ledger_update",
+        "input": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "projectRoot": {
+              "description": "Project directory containing .ledger/.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Record id, for example 0042 or B007, or the record's project path."
+            },
+            "title": {
+              "description": "New title; the matching # heading follows.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "status": {
+              "description": "New status.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "areas": {
+              "description": "Area tags, replacing the current list.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "files": {
+              "description": "Files or coverage patterns, replacing the current list.",
+              "maxItems": 2000,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "symbols": {
+              "description": "Anchored symbols (change entries), replacing the current list.",
+              "maxItems": 500,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "docs": {
+              "description": "Durable docs, replacing the current list.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "related": {
+              "description": "Related record ids, replacing the current list.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "decisions": {
+              "description": "Decision ids, replacing the current list.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "backlog": {
+              "description": "Backlog item ids, replacing the current list.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "tags": {
+              "description": "Tags, replacing the current list.",
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "docsImpact": {
+              "description": "Docs impact declaration for a change entry.",
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "updated",
+                    "not-needed",
+                    "none"
+                  ],
+                  "description": "updated, not-needed, or none."
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "description": "Reviewed prose explaining the status."
+                },
+                "docs": {
+                  "description": "Durable docs the change updated.",
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "reason"
+              ],
+              "additionalProperties": false
+            },
+            "sections": {
+              "description": "Section bodies keyed by heading, for example {\"Summary\": \"...\", \"Why\": \"...\"}. Each replaces that section of the template. Bodies may use ### subsections but not # or ## headings.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 20000
+              }
+            }
+          },
+          "required": [
+            "id"
           ],
           "additionalProperties": false
         },

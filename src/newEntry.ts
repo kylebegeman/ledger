@@ -4,11 +4,12 @@ import { coveragePatternMatches, isIgnoredByGitConfig, matchesGlob } from "./cov
 import { normalizePath } from "./documents.js";
 import { getChangedFileDetails, getChangedLineRanges, type GitChangedFile, type GitLineRange } from "./git.js";
 import { applyFileTransaction } from "./fileTransaction.js";
-import { ensureFrontmatterArrays, replaceSectionBody } from "./frontmatterEdit.js";
+import { ensureFrontmatterArrays, replaceSectionBody, setFrontmatterBlock } from "./frontmatterEdit.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
+import { applySectionBodies, checkSectionBodies, sectionTitles, type LedgerSectionBodies } from "./sections.js";
 import { extractFileSymbolsDetailed, symbolsTouchedByLines, type LedgerSymbolExtractor } from "./symbols.js";
-import { renderLedgerTemplate } from "./template.js";
-import type { LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
+import { escapeYamlString, renderLedgerTemplate } from "./template.js";
+import type { LedgerDocsImpactStatus, LedgerWorkspace, ParsedLedgerDocument } from "./types.js";
 import { changeTemplate } from "./workspace.js";
 
 const largeDiffFileThreshold = 40;
@@ -34,12 +35,41 @@ export interface CreateEntryOptions {
   readonly decisions?: readonly string[];
   /** Other related record ids. */
   readonly related?: readonly string[];
-  /** Section bodies that replace the template placeholders, keyed by heading. */
+  /** Section bodies Ledger fills in itself, such as carried checks; a heading the template lacks is skipped. */
   readonly sectionBodies?: Readonly<Record<string, string>>;
+  /** Caller-written section bodies, checked against the template's headings and applied last. */
+  readonly sections?: LedgerSectionBodies;
+  /** Durable docs the entry references, added to the docs found among its files. */
+  readonly docs?: readonly string[];
+  /** Symbols to anchor, added to the ones read from the diff. */
+  readonly symbols?: readonly string[];
+  /** A docs impact declaration that replaces the template's placeholder. */
+  readonly docsImpact?: LedgerDocsImpactInput;
   /** Coverage patterns whose matching files stay out of the Git-derived list, such as files another receipt lists. */
   readonly excludeFiles?: readonly string[];
   /** Working-tree changes the caller already read, used instead of asking Git again when `fromDiff` is set. */
   readonly changedFiles?: readonly GitChangedFile[];
+}
+
+/** The `docsImpact` block of a change entry. */
+export interface LedgerDocsImpactInput {
+  readonly status: LedgerDocsImpactStatus;
+  readonly reason: string;
+  readonly docs?: readonly string[];
+}
+
+/** The frontmatter lines that declare a change entry's docs impact. */
+export function docsImpactLines(declaration: LedgerDocsImpactInput): readonly string[] {
+  const lines = [
+    "docsImpact:",
+    `  status: "${escapeYamlString(declaration.status)}"`,
+    `  reason: "${escapeYamlString(declaration.reason.replace(/\s+/g, " ").trim())}"`,
+  ];
+  const docs = (declaration.docs ?? []).map(normalizePath);
+  if (docs.length > 0) {
+    lines.push("  docs:", ...docs.map((doc) => `    - "${escapeYamlString(doc)}"`));
+  }
+  return lines;
 }
 
 export interface DraftedRecord {
@@ -102,10 +132,19 @@ export async function draftChangeEntry(
   const symbols = options.fromDiff && changedFiles.length <= largeDiffFileThreshold
     ? await collectChangedSymbols(workspace, changedFiles, await changedLinesFor(workspace, changedFiles, options.staged))
     : { all: [], byFile: new Map<string, readonly string[]>(), extractors: { counts: {} } };
-  const docs = files.filter((file) => isDocsPath(file, workspace.config.docs.root));
+  const docs = uniqueSorted([
+    ...files.filter((file) => isDocsPath(file, workspace.config.docs.root)),
+    ...(options.docs ?? []).map(normalizePath),
+  ]);
+  const allSymbols = options.symbols && options.symbols.length > 0
+    ? [...new Set([...symbols.all, ...options.symbols])]
+    : symbols.all;
   const areas = options.areas.length > 0 ? options.areas : inferAreas(workspace, changedFiles);
   const date = new Date().toISOString().slice(0, 10);
   const template = await readTemplate(workspace);
+  const sections = options.sections
+    ? checkSectionBodies(options.sections, sectionTitles(template), "A change entry")
+    : {};
   const backlog = options.backlog ?? [];
   const decisions = options.decisions ?? [];
   const related = options.related ?? [];
@@ -119,7 +158,7 @@ export async function draftChangeEntry(
     arrays: {
       areas,
       files,
-      symbols: symbols.all,
+      symbols: allSymbols,
       docs,
       backlog,
       decisions,
@@ -132,6 +171,10 @@ export async function draftChangeEntry(
   rendered = ensureFrontmatterArrays(rendered, { backlog, decisions, related });
   for (const [title, body] of Object.entries(options.sectionBodies ?? {})) {
     rendered = replaceSectionBody(rendered, title, body);
+  }
+  rendered = applySectionBodies(rendered, sections);
+  if (options.docsImpact) {
+    rendered = setFrontmatterBlock(rendered, "docsImpact", docsImpactLines(options.docsImpact));
   }
 
   return { id, path: normalizePath(relativePath), content: rendered, symbolExtractors: symbols.extractors };
@@ -188,6 +231,10 @@ export async function createProductNoteEntry(
     readonly areas: readonly string[];
     readonly tags: readonly string[];
     readonly status: string;
+    /** Caller-written section bodies, checked against the template's headings. */
+    readonly sections?: LedgerSectionBodies;
+    /** Render and check the note without writing it. */
+    readonly dryRun?: boolean;
   },
 ): Promise<string> {
   const id = nextEntryId(workspace, documents);
@@ -195,7 +242,10 @@ export async function createProductNoteEntry(
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
   const date = new Date().toISOString().slice(0, 10);
   const template = await readProductNoteTemplate(workspace);
-  const rendered = renderLedgerTemplate(template, {
+  const sections = options.sections
+    ? checkSectionBodies(options.sections, sectionTitles(template), "A product note")
+    : {};
+  const rendered = applySectionBodies(renderLedgerTemplate(template, {
     scalars: {
       id,
       title: options.title,
@@ -206,7 +256,8 @@ export async function createProductNoteEntry(
       areas: options.areas,
       tags: options.tags,
     },
-  });
+  }), sections);
+  if (options.dryRun) return normalizePath(relativePath);
 
   await applyFileTransaction(workspace, "create product note", [
     { path: normalizePath(relativePath), content: rendered, expectedHash: null },

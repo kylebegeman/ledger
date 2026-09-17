@@ -19,21 +19,22 @@ export function renderLedgerTemplate(
   let rendered = template;
 
   for (const [key, value] of Object.entries(scalarValues)) {
-    rendered = rendered.replaceAll(`"{{${key}}}"`, `"${escapeYamlString(value)}"`);
-    rendered = rendered.replaceAll(`{{${key}}}`, value);
+    // Replacer functions keep `$` sequences in record text literal.
+    rendered = rendered.replaceAll(`"{{${key}}}"`, () => `"${escapeYamlString(value)}"`);
+    rendered = rendered.replaceAll(`{{${key}}}`, () => value);
   }
   for (const [key, value] of Object.entries(arrayValues)) {
-    rendered = rendered.replaceAll(`{{${key}}}`, value);
-    rendered = rendered.replace(`${key}: []`, `${key}:${value}`);
+    rendered = rendered.replaceAll(`{{${key}}}`, () => value);
+    rendered = rendered.replace(`${key}: []`, () => `${key}:${value}`);
   }
   for (const [key, value] of Object.entries(blockValues)) {
-    rendered = rendered.replaceAll(`{{${key}}}`, value);
+    rendered = rendered.replaceAll(`{{${key}}}`, () => value);
   }
 
   const status = scalarValues.status;
   if (status) {
     for (const placeholder of templateStatusPlaceholders) {
-      rendered = rendered.replace(`status: "${placeholder}"`, `status: "${escapeYamlString(status)}"`);
+      rendered = rendered.replace(`status: "${placeholder}"`, () => `status: "${escapeYamlString(status)}"`);
     }
   }
   // Only a template without the placeholder still holds the sample block; the
