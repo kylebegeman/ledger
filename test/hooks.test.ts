@@ -158,7 +158,9 @@ describe("hostHookFile", () => {
       expect(configured.nextSteps[0]).not.toMatch(/`ledger version`/);
       expect(configured.nextSteps[0]).not.toContain("Pass --command");
     }
-    expect(hostHookFile("codex", "npx ledger").nextSteps[1]).toContain("/hooks");
+    expect(hostHookFile("codex", "npx ledger").nextSteps[1]).toContain("/hooks in the Codex CLI");
+    expect(hostHookFile("codex", "npx ledger").nextSteps[1]).toContain("Hooks page of the Codex app's settings");
+    expect(hostHookFile("codex", "npx ledger").nextSteps[2]).toContain("skips a changed hook");
     expect(hostHookFile("cursor", "npx ledger").nextSteps[1]).toContain("reloads .cursor/hooks.json");
   });
 });

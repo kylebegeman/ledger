@@ -10,20 +10,22 @@ milestone lands or a plan changes; retire sections that stop being true.
   created by `.github/workflows/release.yml` through npm trusted publishing on
   2026-09-17 from kylebegeman/ledger#26. 0.8.0 (#20 and #21), 0.8.1 (#22),
   and 0.8.2 (#25) shipped earlier that day. The GitHub Release notes come
-  from `ledger release notes`. `@kylebegeman/dossier` (0.7.2) publishes the
-  same way from its own repo.
+  from `ledger release notes`. Receipts 0171 and 0172 are unreleased and go
+  out with the next patch. `@kylebegeman/dossier` (0.7.2) publishes the same
+  way from its own repo.
 - First outside adopter: Kore runs Ledger 0.9.0 with Claude Code and Codex
   hooks since kylebegeman/forge#30 (Kore receipt 0008). Before that it ran
   0.8.2 from kylebegeman/forge#29, 0.8.1 from #26, 0.8.0 from #25, and the
   0.7.0 adoption from #22 and #24 (Ledger receipts 0128 and 0130). Its
   allowlist uses plain `ledger <command> **` patterns, so a version bump is
   the 36 pinned version strings the three installers write plus a Kore
-  receipt. Codex asks Kyle to approve the changed hooks again with `/hooks`
-  after each bump. A second live Claude Code session there passed B010's last
-  acceptance check on 2026-09-17 (Kore receipt 0005 in kylebegeman/forge#27,
-  Ledger receipt 0162), so B007 and B010 are landed. That session also found
-  two OCI staging checks that could never fail, fixed in kylebegeman/forge#28
-  (Kore receipt 0006).
+  receipt. Kyle uses the Codex app there, so after each bump he trusts the
+  six changed hooks on the Hooks page of the app's settings; `/hooks` is a
+  command only in the Codex CLI. A second live Claude Code session there
+  passed B010's last acceptance check on 2026-09-17 (Kore receipt 0005 in
+  kylebegeman/forge#27, Ledger receipt 0162), so B007 and B010 are landed.
+  That session also found two OCI staging checks that could never fail,
+  fixed in kylebegeman/forge#28 (Kore receipt 0006).
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
@@ -262,15 +264,15 @@ D006 records what was retired; D007 records the runtime decision below.
   have no message channel, so a Cursor agent hears about its draft only at the
   next session start. In the Claude desktop app, `/exit` does not fire
   SessionEnd, so a session record stays active until it expires or
-  `ledger session close --id <id>` closes it. Kore's Codex hooks changed in
-  kylebegeman/forge#29 and #30, so Codex asks Kyle to approve them with
-  `/hooks` the next time it opens there.
-- Dossier's `next` branch is fully merged, with no commits of its own and no
-  references. Deleting it (`git push origin --delete next` in the Dossier
-  checkout) was refused by the assistant's permission check and is left for
-  Kyle. Dossier's CI already runs Ubuntu with Node 22 and 24. Its own docs
-  describe a release-branch model, so Ledger's model is not imposed there.
-  Its launcher still declares Node 18 or newer, which is Dossier's call.
+  `ledger session close --id <id>` closes it. Codex skips a changed hook
+  until it is trusted again, and the app may not say so, so a Kore bump
+  records no Codex sessions until Kyle trusts the new hooks. Kore's `docs/PLAN.md` still
+  names only `/hooks`; add the app's Hooks page there with the next Kore
+  bump (receipt 0172).
+- Dossier: Kyle deleted its merged `next` branch on 2026-09-17. Its CI
+  already runs Ubuntu with Node 22 and 24, its own docs describe a
+  release-branch model that Ledger's model does not replace, and its
+  launcher's Node 18 floor is Dossier's call.
 - The two dated reports under `docs/scratchpad/` from 2026-08-30 and the
   2026-09-15 brainstorm are history. The brainstorm's Section 13 records the
   answered decisions; Sections 11 and 12 list the verdicts and sequencing that
