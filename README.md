@@ -283,9 +283,9 @@ jobs:
 ```
 
 The action runs the latest published CLI unless `command` pins it. Set
-`comment: "true"` to also post the summary on the pull request. That posts a
-new comment on each run and needs `pull-requests: write`, which pull requests
-from forks do not get.
+`comment: "true"` to keep the summary in one pull request comment that every
+run updates. It needs `pull-requests: write`, and pull requests from forks,
+whose token cannot write, get a notice instead.
 
 <p align="center"><img alt="ledger ci --github annotating a pull request that changed a source file without a receipt" src="./assets/readme/ci.svg" width="880"></p>
 

@@ -53,6 +53,12 @@ describe("repository automation", () => {
     expect(ledgerStep?.run).toContain('cp "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/ledger-ci-summary.md"');
     expect(commentStep?.run).toContain("$RUNNER_TEMP/ledger-ci-summary.md");
     expect(commentStep?.run).not.toContain('cat "$GITHUB_STEP_SUMMARY"');
+    // One marked comment per pull request, updated in place; forks get a notice instead of a failed step.
+    expect(commentStep?.run).toContain('marker="<!-- ledger-ci-summary -->"');
+    expect(commentStep?.run).toContain('--method PATCH "repos/$GH_REPO/issues/comments/$existing"');
+    expect(commentStep?.run).toContain('"$HEAD_REPO" != "$GH_REPO"');
+    expect(commentStep?.run).toMatch(/\|\| echo "::warning title=Ledger CI::Could not update/);
+    expect(commentStep?.run).toMatch(/\|\| echo "::warning title=Ledger CI::Could not post/);
     expectActionsPinned(source);
   });
 
