@@ -515,10 +515,15 @@ rows with visible dates, and a right-hand rail carries facet quick views and
 the relationship graph summary. Selecting a row opens a slide-out detail
 panel over the right edge that surfaces the full record: summary, tags,
 source reference, invariants, verification, validation issues, files,
-symbols, docs, relationships, and the agent packet digest. Detail markup
-ships inside an inert template per record, the open record is addressable
-through a record URL parameter, and the list stays visible and interactive
-behind the panel so readers can move between records without losing context.
+symbols, docs, relationships, and the agent packet digest. Summaries,
+invariants, verification bullets, and public release notes render Markdown
+code spans as inline code: the text is escaped first and backtick runs pair
+as they do in Markdown, so record content never becomes markup, while search
+documents keep the plain text. A summary shortened to its excerpt ends before
+any code span the cut would split. Detail markup ships inside an inert
+template per record, the open record is addressable through a record URL
+parameter, and the list stays visible and interactive behind the panel so
+readers can move between records without losing context.
 The few remaining container surfaces (search field, filter pills, graph
 summary, empty state) use a thin stroke outline with no background fill.
 Opaque surfaces and shadow are reserved for overlays: the search palette and
