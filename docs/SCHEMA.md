@@ -691,6 +691,11 @@ with `agents.command`, and a bare `ledger` bullet runs through that command.
 Both keys live in the same reviewed config file, so `agents.command` is
 trusted exactly as far as the allowlist is.
 
+Codex hooks installed with `--launcher` run `.ledger/bin/ledger.mjs`, which
+`ledger hooks install --host codex` writes with the command embedded. When
+`agents.command` changes by hand or through another host's install, rerun
+that install to update the script; `ledger doctor` warns until they match.
+
 ## Render Budget Config
 
 `render.budgets` keeps generated static reader artifacts from growing

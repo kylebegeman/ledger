@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -10,8 +10,11 @@ import { readLedgerDocuments } from "../src/documents.js";
 import {
   buildSessionStartContext,
   claudeMdImportsAgents,
+  hookLauncherTarget,
   hostHookFile,
+  isCurrentHookLauncher,
   normalizeHookPayload,
+  renderHookLauncher,
   renderHostHooks,
   runHookEvent,
 } from "../src/hooks.js";
@@ -162,6 +165,30 @@ describe("hostHookFile", () => {
     expect(hostHookFile("codex", "npx ledger").nextSteps[1]).toContain("Hooks page of the Codex app's settings");
     expect(hostHookFile("codex", "npx ledger").nextSteps[2]).toContain("skips a changed hook");
     expect(hostHookFile("cursor", "npx ledger").nextSteps[1]).toContain("reloads .cursor/hooks.json");
+  });
+
+  it("points Codex launcher installs at the launcher and ignores the flag for other hosts", () => {
+    const launched = hostHookFile("codex", "npx ledger", true);
+    expect(launched.nextSteps[0]).toContain("`node .ledger/bin/ledger.mjs version`");
+    expect(launched.nextSteps[1]).toContain("/hooks in the Codex CLI");
+    expect(launched.nextSteps[2]).toContain("rewrites only that script");
+    expect(launched.nextSteps[2]).toContain("Start Codex at the project root");
+    expect(hostHookFile("claude-code", "npx ledger", true)).toEqual(hostHookFile("claude-code", "npx ledger"));
+  });
+});
+
+describe("hook launcher", () => {
+  it("records its command and recognizes only scripts Ledger wrote", () => {
+    const command = 'npx --yes "@scope/ledger@1.0.0"';
+    const script = renderHookLauncher(command);
+    expect(script).toContain(`const command = ${JSON.stringify(command)};\n`);
+    expect(hookLauncherTarget(script)).toBe(command);
+    expect(isCurrentHookLauncher(script, command)).toBe(true);
+    const crlf = script.replace(/\n/g, "\r\n");
+    expect(hookLauncherTarget(crlf)).toBe(command);
+    expect(isCurrentHookLauncher(crlf, command)).toBe(true);
+    expect(isCurrentHookLauncher(script, "ledger")).toBe(false);
+    expect(hookLauncherTarget('const command = "ledger";\n')).toBeUndefined();
   });
 });
 
@@ -967,7 +994,95 @@ describe("hooks install CLI", () => {
     expect(cursor.exitCode).toBe(2);
     await expect(readFile(path.join(root, ".cursor/hooks.json"), "utf8")).rejects.toThrow();
   }, 30_000);
+
+  it("runs Codex hooks through the launcher, so a new version leaves the hook file unchanged", async () => {
+    const root = await fixtureRepo();
+    await writeFile(path.join(root, "fake-ledger.mjs"), fakeLedger);
+    const hooksPath = path.join(root, ".codex", "hooks.json");
+    const launcherPath = path.join(root, ".ledger", "bin", "ledger.mjs");
+
+    const install = await captureRun(["hooks", "install", "--host", "codex", "--launcher", "--command", "node fake-ledger.mjs", "--json"], root);
+    expect(install.exitCode).toBe(0);
+    const installed = JSON.parse(install.stdout).data;
+    expect(installed).toMatchObject({
+      command: "node fake-ledger.mjs",
+      changed: true,
+      configured: true,
+      launcher: { path: ".ledger/bin/ledger.mjs", state: "written" },
+    });
+    expect(installed.nextSteps[0]).toContain("`node .ledger/bin/ledger.mjs version`");
+    expect(installed.nextSteps[1]).toContain("approving the hook definitions once");
+    const hooks = await readFile(hooksPath, "utf8");
+    expect(JSON.parse(hooks).hooks.Stop[0].hooks).toEqual([
+      { type: "command", command: "node .ledger/bin/ledger.mjs hook stop --host codex", timeout: 60 },
+    ]);
+    expect(await readFile(launcherPath, "utf8")).toBe(renderHookLauncher("node fake-ledger.mjs"));
+
+    // Without --launcher, a new command keeps the launcher form and rewrites only the script.
+    const upgrade = await captureRun(["hooks", "install", "--host", "codex", "--command", "node fake-ledger.mjs --next"], root);
+    expect(upgrade.exitCode).toBe(0);
+    expect(upgrade.stdout).toContain(".codex/hooks.json already has the current Ledger hooks for codex.");
+    expect(upgrade.stdout).toContain("Wrote .ledger/bin/ledger.mjs, which the hooks run, to start `node fake-ledger.mjs --next`.");
+    expect(upgrade.stdout).toContain("- .codex/hooks.json did not change, so hooks already approved in Codex stay approved.");
+    expect(upgrade.stdout).not.toContain("approving the hook definitions once");
+    expect(await readFile(hooksPath, "utf8")).toBe(hooks);
+    expect(await readFile(launcherPath, "utf8")).toBe(renderHookLauncher("node fake-ledger.mjs --next"));
+    const again = await captureRun(["hooks", "install", "--host", "codex", "--json"], root);
+    expect(JSON.parse(again.stdout).data).toMatchObject({ changed: false, configured: false, launcher: { state: "current" } });
+
+    // The script runs the command from the project root with the hook's arguments, stdin, and exit status.
+    const ran = await runLauncher(root, ["hook", "stop", "--host", "codex", "it's two words"], '{"session_id":"s1"}', { FAKE_EXIT: "3" });
+    expect(ran.code).toBe(3);
+    const report = JSON.parse(ran.stdout);
+    expect(report).toMatchObject({ args: ["--next", "hook", "stop", "--host", "codex", "it's two words"], stdin: '{"session_id":"s1"}' });
+    expect(await realpath(report.cwd)).toBe(root);
+
+    const back = await captureRun(["hooks", "install", "--host", "codex", "--launcher=false", "--json"], root);
+    expect(back.exitCode).toBe(0);
+    expect(JSON.parse(back.stdout).data).toMatchObject({ changed: true, launcher: { path: ".ledger/bin/ledger.mjs", state: "removed" } });
+    expect(JSON.parse(await readFile(hooksPath, "utf8")).hooks.Stop[0].hooks[0].command).toBe(
+      "node fake-ledger.mjs --next hook stop --host codex",
+    );
+    await expect(readFile(launcherPath, "utf8")).rejects.toThrow();
+    const direct = JSON.parse((await captureRun(["hooks", "install", "--host", "codex", "--json"], root)).stdout).data;
+    expect(direct.changed).toBe(false);
+    expect(direct).not.toHaveProperty("launcher");
+
+    const claude = await captureRun(["hooks", "install", "--host", "claude-code", "--launcher", "--json"], root);
+    expect(claude.exitCode).toBe(2);
+    expect(JSON.parse(claude.stdout).error).toMatchObject({ code: "invalid-argument", message: "--launcher applies to --host codex" });
+    await expect(readFile(path.join(root, ".claude", "settings.json"), "utf8")).rejects.toThrow();
+  }, 30_000);
 });
+
+/** Stands in for Ledger: reports its arguments, working directory, and stdin, then exits with FAKE_EXIT. */
+const fakeLedger = `const chunks = [];
+for await (const chunk of process.stdin) chunks.push(chunk);
+process.stdout.write(JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), stdin: Buffer.concat(chunks).toString("utf8") }));
+process.exitCode = Number(process.env.FAKE_EXIT ?? 0);
+`;
+
+/** Run the project's launcher the way Codex runs a hook: from the project root, with the payload on stdin. */
+function runLauncher(root: string, args: readonly string[], input: string, env: Record<string, string>): Promise<{
+  readonly code: number | null;
+  readonly stdout: string;
+}> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [".ledger/bin/ledger.mjs", ...args], {
+      cwd: root,
+      env: { ...process.env, ...env },
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    let stdout = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout }));
+    child.stdin.end(input);
+  });
+}
 
 async function captureRun(argv: readonly string[], cwd: string): Promise<{
   readonly exitCode: number;

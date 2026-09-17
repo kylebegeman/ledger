@@ -209,11 +209,14 @@ Then start a Claude Code session and work as usual.
 - `hooks install` saves the command in `.ledger/config.yaml`, so the hooks,
   the `AGENTS.md` block, the skill, and the session context all use it.
   `--import-agents` makes Claude Code read `AGENTS.md`.
-- For Codex, install with `--host codex`, then trust the hooks with `/hooks`
-  in the Codex CLI or on the Hooks page of the Codex app's settings. Trust
-  them again whenever the hook commands change, such as a new pinned version,
-  because Codex skips a changed hook until then. For Cursor, use
-  `--host cursor`.
+- For Codex, install with `--host codex --launcher`, then trust the hooks
+  with `/hooks` in the Codex CLI or on the Hooks page of the Codex app's
+  settings. Codex skips a hook whose command changed until you trust it
+  again. With `--launcher`, the hooks run `.ledger/bin/ledger.mjs`, a
+  generated script that runs the saved command, so a later install with a
+  new version rewrites only the script and the trust carries over. Start
+  Codex at the project root, where the hooks find the script. For Cursor,
+  use `--host cursor`.
 
 ### In any other repository
 
@@ -358,7 +361,7 @@ registry.
 | --- | --- |
 | `ledger init --with-docs` | Creates `.ledger/`, its templates, a docs scaffold, and the `.gitignore` block |
 | `ledger adopt` | Adopts an existing repository with inferred coverage roots, ignores, and a verification allowlist |
-| `ledger hooks install --host <host>` | Installs Claude Code, Codex, or Cursor hooks; `--command` saves how Ledger runs |
+| `ledger hooks install --host <host>` | Installs Claude Code, Codex, or Cursor hooks; `--command` saves how Ledger runs, and `--launcher` keeps Codex's trust across versions |
 | `ledger skills install` | Writes the Ledger skill for agents that read skills |
 | `ledger agents --write` | Maintains the Ledger block in `AGENTS.md` |
 | `ledger new <title> --from-diff` | Drafts a change entry from the Git diff; `--section Heading=text`, `--sections-file`, `--file`, and `--docs-impact` write a finished one |

@@ -510,6 +510,25 @@ source, touched paths made project-relative, stop-hook flag), and dispatches:
 - `pre-compact` records the working tree on the session and writes
   `.ledger/reports/handoff.md`
 
+Codex approves each hook by a hash of its definition, including the command,
+and skips a changed hook until it is approved again, so pinning a new version
+in the commands would mean approving all six again. `--launcher` writes Codex
+entries that run `node .ledger/bin/ledger.mjs hook <event> --host codex`
+instead, plus that script, rendered by `renderHookLauncher` with
+`agents.command` as a JSON string. The script runs the command through the
+shell from the project root (two directories above itself), appends its own
+arguments, quoting any beyond word characters and `@+=:,./-`, inherits stdio
+so the payload and response pass straight through, forwards SIGINT and
+SIGTERM, and exits with the command's status; when the shell cannot start it
+prints `{}` and exits 0 like `ledger hook`. Later installs keep the form the
+hook file already uses, so a new `--command` rewrites only the script and
+leaves `.codex/hooks.json` byte for byte. `--launcher=false` writes direct
+commands again and deletes the script when Ledger wrote it. Codex runs hooks
+from the session's working directory, so the relative path needs a session
+started at the project root. `doctor` accepts the launcher prefix and warns
+when the script is missing, runs another command, or differs from the
+current rendering.
+
 `findSession` with `activeOnly` skips an active record whose `expires` date is
 before today, so a session whose host never sent SessionEnd stops receiving
 touches, notes, and drafts; `startSession` or the first `touchSession` then
@@ -1006,9 +1025,16 @@ and agent diagnostics.
 The `hooks` check exists because every host skips a failing hook without a
 message, so a stale build or an unrelated `ledger` on `PATH` silently stops
 capture. For each host hook file that holds Ledger hooks, it checks that the
-hooks run `agents.command`. It then runs `<agents.command> version` with a
-20 second timeout and `LEDGER_NO_DAEMON=1`, and expects `ledger <version>`
-matching the running Ledger.
+hooks run `agents.command`, directly or through the Codex launcher, whose
+script must be the current rendering for that command. It then runs
+`<agents.command> version` with a 20 second timeout and `LEDGER_NO_DAEMON=1`,
+and expects `ledger <version>` matching the running Ledger.
+
+The `symbols` check looks at tracked files under `git.requireEntryFor`. With
+none, it passes and names the patterns. With no TypeScript or JavaScript among
+them, it passes without the parser. Otherwise it reports the TypeScript parser,
+and warns when only the regex fallback is available. Every message names the
+languages Ledger's outlines read and the ones it does not extract.
 
 `ledger doctor --fix` (`repairDerivedState` in `src/doctor.ts`) repairs
 derived and runtime state and then checks again:
