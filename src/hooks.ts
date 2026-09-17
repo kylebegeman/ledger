@@ -222,6 +222,16 @@ function isLedgerHookCommand(value: unknown): boolean {
 }
 
 /**
+ * The command prefix a Ledger hook entry runs, such as `npx ledger` for
+ * `npx ledger hook stop --host codex`, or undefined for other commands.
+ */
+export function ledgerHookCommandPrefix(value: unknown): string | undefined {
+  if (!isLedgerHookCommand(value)) return undefined;
+  const match = /^(.*?)\s+hook\s+\S+(?:\s+--host\s+\S+)?\s*$/.exec(String(value).trim());
+  return match?.[1]?.trim() || undefined;
+}
+
+/**
  * Render the host's hook file with Ledger's hooks merged in. Existing entries
  * that are not Ledger's are preserved; earlier Ledger entries are replaced.
  */

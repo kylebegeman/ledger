@@ -75,6 +75,18 @@ export async function removeDaemonRecord(ledgerRoot: string): Promise<void> {
   await rm(path.join(ledgerRoot, ledgerDaemonFileName), { force: true });
 }
 
+/**
+ * Remove a daemon record whose engine no longer answers. The engine is probed
+ * again first, so a record that belongs to a live engine is kept. Returns
+ * whether a record was removed.
+ */
+export async function removeStaleDaemonRecord(ledgerRoot: string): Promise<boolean> {
+  const current = await readDaemonRecord(ledgerRoot);
+  if (!current || (await probeEngine(current))) return false;
+  await rm(path.join(ledgerRoot, ledgerDaemonFileName), { force: true });
+  return true;
+}
+
 /** Authorization header for an engine, taken from the environment in network mode. */
 export function engineAuthHeaders(token = process.env.LEDGER_SERVE_TOKEN): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};

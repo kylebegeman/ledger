@@ -43,7 +43,7 @@ describe("MCP write tools", () => {
     const tools = listLedgerMcpTools();
     expect(tools.filter((tool) => tool.confirms).map((tool) => tool.name)).toEqual(confirmedTools);
     // Report writers stay unconfirmed; every other mutating tool must ask.
-    const reportWriters = ["ledger_validate", "ledger_verify_integrity", "ledger_ci", "ledger_docs_audit", "ledger_docs_impact"];
+    const reportWriters = ["ledger_validate", "ledger_verify_integrity", "ledger_ci", "ledger_doctor", "ledger_docs_audit", "ledger_docs_impact"];
     for (const tool of tools.filter((candidate) => candidate.mutates && !candidate.confirms)) {
       expect(reportWriters).toContain(tool.name);
     }

@@ -929,8 +929,29 @@ draft receipt.
 ### `ledger doctor`
 
 Checks workspace health, Git availability, write transaction state, validation,
-docs references, index freshness, render output, and stale-knowledge signals. It
-is lighter than CI and is meant for local preflight and agent diagnostics.
+docs references, index freshness, render output, installed hooks, and
+stale-knowledge signals. It is lighter than CI and is meant for local preflight
+and agent diagnostics.
+
+The `hooks` check exists because every host skips a failing hook without a
+message, so a stale build or an unrelated `ledger` on `PATH` silently stops
+capture. For each host hook file that holds Ledger hooks, it checks that the
+hooks run `agents.command`. It then runs `<agents.command> version` with a
+20 second timeout and `LEDGER_NO_DAEMON=1`, and expects `ledger <version>`
+matching the running Ledger.
+
+`ledger doctor --fix` (`repairDerivedState` in `src/doctor.ts`) repairs
+derived and runtime state and then checks again:
+
+- it recovers interrupted transactions, which also removes a stale lock
+- it removes an engine record after a second probe finds no engine
+- it rebuilds a stale catalog cache by reading it, which keeps the hook
+  notice store
+- it regenerates missing or stale indexes and renders a missing reader,
+  unless records fail validation
+
+It never edits source records or committed configuration, so drifted hooks
+and over-budget readers are reported, not changed.
 
 ### `ledger stale`
 
