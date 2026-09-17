@@ -187,8 +187,12 @@ describe("reader runtime in a browser document", () => {
     input.value = "cache";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await settle(50);
-    const results = Array.from(document.querySelectorAll(".command-result")).map((button) => (button as HTMLElement).dataset.id);
+    const results = Array.from(document.querySelectorAll(".command-result[data-id]")).map((button) => (button as HTMLElement).dataset.id);
     expect(results[0]).toBe("0003");
+    // The area named by the query comes first, before the records.
+    const first = document.querySelector(".command-result") as HTMLElement;
+    expect(first.dataset.entity).toBe("area");
+    expect(first.textContent).toContain("Show 1 record");
     expect(document.getElementById("command-status")?.textContent).toContain("for “cache”");
   });
 
@@ -217,6 +221,218 @@ describe("reader runtime in a browser document", () => {
     expect(document.getElementById("command-status")?.textContent).toContain("1 result for");
   });
 });
+
+describe("reader entity views", () => {
+  let copied: string[];
+
+  beforeEach(() => {
+    copied = [];
+    window.history.replaceState(null, "", "/");
+    const model = buildStaticReaderModel(workspace(), [
+      record("0001", "Run the CLI", ["cli"], "landed", { files: ["src/cli.ts"], symbols: ["runCli"], decisions: ["D001"] }),
+      record("0002", "Cover the sources", ["reader"], "landed", { files: ["src/**"], related: ["0001"] }),
+      record("0003", "Document the API", ["docs"], "landed", { files: ["README.md"], docs: ["docs/API.md"], backlog: ["B001"] }),
+      record("D001", "Keep one CLI", ["cli"], "accepted", { kind: "decision", files: [] }),
+    ]);
+    globalThis.fetch = (async () => new Response("[]", { headers: { "content-type": "application/json" } })) as typeof fetch;
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (text: string) => void copied.push(text) },
+    });
+    mount(renderStaticReaderHtml(model, { iconSvg: "<svg></svg>" }));
+  });
+
+  afterEach(() => {
+    delete (navigator as { clipboard?: unknown }).clipboard;
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("lists a file's records from the record panel, with pattern matches, and returns with Back", async () => {
+    await settle(50);
+    expect(visibleIds()).toEqual(["D001", "0003", "0002", "0001"]);
+    openRecordLink("0001");
+    await settle(20);
+    panelEntity("file", "src/cli.ts").click();
+    await settle(50);
+
+    expect(document.getElementById("record-panel")?.classList.contains("open")).toBe(false);
+    const url = new URL(window.location.href);
+    expect(url.searchParams.get("file")).toBe("src/cli.ts");
+    expect(url.searchParams.get("record")).toBeNull();
+    expect(visibleIds()).toEqual(["0002", "0001"]);
+    expect(document.getElementById("entity-bar")?.hidden).toBe(false);
+    expect(document.getElementById("entity-kind")?.textContent).toBe("File");
+    expect(document.getElementById("entity-value")?.textContent).toBe("src/cli.ts");
+    expect(document.getElementById("entity-count")?.textContent).toBe("1 record names it, 1 more by pattern");
+    expect(document.activeElement?.id).toBe("entity-bar");
+
+    window.history.replaceState(null, "", "/?record=0001");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await settle(50);
+    expect(document.getElementById("record-panel")?.classList.contains("open")).toBe(true);
+    expect(document.getElementById("entity-bar")?.hidden).toBe(true);
+    expect(visibleIds()).toHaveLength(4);
+  });
+
+  it("gathers the paths under a pattern and the records of a symbol, doc, or area", async () => {
+    await settle(50);
+    openRecordLink("0002");
+    await settle(20);
+    panelEntity("file", "src/**").click();
+    await settle(50);
+    expect(visibleIds()).toEqual(["0002", "0001"]);
+    expect(document.getElementById("entity-count")?.textContent).toBe("1 record names it, 1 more by pattern");
+
+    openRecordLink("0003");
+    await settle(20);
+    panelEntity("file", "docs/API.md").click();
+    await settle(50);
+    expect(visibleIds()).toEqual(["0003"]);
+
+    openRecordLink("0001");
+    await settle(20);
+    panelEntity("area", "cli").click();
+    await settle(50);
+    // The area filter joins the path view; clearing the view keeps the area.
+    expect(visibleIds()).toEqual([]);
+    expect(document.activeElement?.id).toBe("entity-bar");
+    (document.getElementById("entity-clear") as HTMLElement).click();
+    await settle(50);
+    expect(visibleIds()).toEqual(["D001", "0001"]);
+    expect(document.activeElement?.id).toBe("result-count");
+    expect(new URL(window.location.href).searchParams.get("area")).toBe("cli");
+
+    window.history.replaceState(null, "", "/?symbol=runCli");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await settle(50);
+    expect(visibleIds()).toEqual(["0001"]);
+    expect(document.getElementById("entity-kind")?.textContent).toBe("Symbol");
+  });
+
+  it("follows relationships and backlinks between records", async () => {
+    await settle(50);
+    openRecordLink("0001");
+    await settle(20);
+    const decision = panelButton('[data-open-record="D001"]');
+    expect(decision.textContent).toContain("Keep one CLI");
+    decision.click();
+    await settle(20);
+    const body = document.getElementById("record-panel-body")!;
+    expect(body.querySelector(".record-panel-title")?.textContent).toBe("Keep one CLI");
+    expect(new URL(window.location.href).searchParams.get("record")).toBe("D001");
+
+    const backlink = panelButton('[data-open-record="0001"]');
+    expect(backlink.textContent).toContain("Depends on it");
+    panelEntity("linked", "D001").click();
+    await settle(50);
+    expect(visibleIds()).toEqual(["0001"]);
+    expect(document.getElementById("entity-kind")?.textContent).toBe("Linked to");
+    expect(document.getElementById("entity-count")?.textContent).toBe("1 record links here");
+    (document.querySelector('#entity-value [data-open-record="D001"]') as HTMLElement).click();
+    await settle(20);
+    expect(body.querySelector(".record-panel-title")?.textContent).toBe("Keep one CLI");
+
+    openRecordLink("0003");
+    await settle(20);
+    expect(body.querySelector(".entity-missing")?.textContent).toContain("B001 is not in this reader");
+  });
+
+  it("suggests symbols, paths, and areas in the palette and opens the chosen one", async () => {
+    await settle(50);
+    const dialog = document.getElementById("command-palette") as HTMLDialogElement;
+    if (typeof dialog.showModal !== "function") {
+      dialog.showModal = () => dialog.setAttribute("open", "");
+      dialog.close = () => dialog.removeAttribute("open");
+    }
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+    await settle(50);
+    const input = document.getElementById("command-search") as HTMLInputElement;
+    input.value = "runcli";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle(50);
+    const first = document.querySelector(".command-result") as HTMLElement;
+    expect(first.dataset.entity).toBe("symbol");
+    expect(first.textContent).toContain("runCli");
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await settle(50);
+    expect(dialog.hasAttribute("open")).toBe(false);
+    expect(visibleIds()).toEqual(["0001"]);
+    expect(new URL(window.location.href).searchParams.get("symbol")).toBe("runCli");
+
+    input.value = "api.md";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle(50);
+    const path = document.querySelector('.command-result[data-entity="file"]') as HTMLElement;
+    expect(path.textContent).toContain("docs/API.md");
+    path.click();
+    await settle(50);
+    expect(visibleIds()).toEqual(["0003"]);
+    expect(new URL(window.location.href).searchParams.get("symbol")).toBeNull();
+    expect(new URL(window.location.href).searchParams.get("file")).toBe("docs/API.md");
+  });
+
+  it("copies a record's link, path, packet command, and context, and falls back to a selection", async () => {
+    await settle(50);
+    openRecordLink("0001");
+    await settle(20);
+    const link = panelButton('[data-copy="link"]');
+    link.click();
+    await settle(20);
+    expect(copied[0]).toMatch(/\?record=0001$/);
+    expect(link.textContent).toBe("Copied");
+    expect(document.getElementById("filter-status")?.textContent).toBe("Copied the link.");
+    panelButton('[data-copy="path"]').click();
+    panelButton('[data-copy="command"]').click();
+    panelButton('.agent-packet [data-copy="context"]').click();
+    await settle(20);
+    expect(copied.slice(1)).toEqual([
+      ".ledger/entries/0001.md",
+      "ledger packet src/cli.ts --budget 1200",
+      "ledger packet src/cli.ts --budget 1200\n0001: Run the CLI\nInvariants: Stays.\nVerification: npm test",
+    ]);
+
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async () => Promise.reject(new DOMException("Denied", "NotAllowedError")) },
+    });
+    const selections: string[] = [];
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: (command: string) => {
+        selections.push(`${command}:${(document.activeElement as HTMLTextAreaElement | null)?.value ?? ""}`);
+        return true;
+      },
+    });
+    try {
+      const path = panelButton('[data-copy="path"]');
+      path.click();
+      await settle(20);
+      expect(selections).toEqual(["copy:.ledger/entries/0001.md"]);
+      expect(path.textContent).toBe("Copied");
+      expect(document.querySelector("textarea")).toBeNull();
+    } finally {
+      delete (document as { execCommand?: unknown }).execCommand;
+    }
+  });
+});
+
+function openRecordLink(id: string): void {
+  (document.querySelector(`.entry[data-id="${id}"] .entry-link`) as HTMLElement).click();
+}
+
+function panelButton(selector: string): HTMLElement {
+  const button = document.getElementById("record-panel-body")?.querySelector<HTMLElement>(selector);
+  if (!button) throw new Error(`No ${selector} in the record panel`);
+  return button;
+}
+
+/** A panel button for an entity: an item of the list that names the type, or a chip that carries it. */
+function panelEntity(type: string, value: string): HTMLElement {
+  const buttons = document.getElementById("record-panel-body")?.querySelectorAll<HTMLElement>(`[data-entity="${type}"] button, button[data-entity="${type}"]`) ?? [];
+  const button = Array.from(buttons).find((candidate) => (candidate.dataset.value ?? candidate.textContent) === value);
+  if (!button) throw new Error(`No ${type} ${value} in the record panel`);
+  return button;
+}
 
 describe("reader runtime with chunked details", () => {
   it("fetches a detail chunk when a record opens and falls back when it cannot", async () => {
@@ -247,6 +463,12 @@ describe("reader runtime with chunked details", () => {
     expect(document.getElementById("record-panel")?.classList.contains("open")).toBe(true);
     expect(body?.querySelector(".record-panel-title")?.textContent).toBe("Retry policy for the CLI");
     expect(body?.querySelector(".context-panel")).not.toBeNull();
+    expect(Array.from(body?.querySelectorAll("[data-copy]") ?? []).map((button) => (button as HTMLElement).dataset.copy)).toEqual([
+      "link",
+      "path",
+      "command",
+      "context",
+    ]);
     expect(requested.filter((url) => url.endsWith("details/000.json"))).toHaveLength(1);
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -271,6 +493,8 @@ describe("reader runtime with chunked details", () => {
     expect(body?.querySelector(".record-panel-title")?.textContent).toBe("Static reader renderer");
     expect(body?.textContent).toContain("served over HTTP");
     expect(body?.querySelector("a")?.getAttribute("href")).toMatch(/^sources\/0001-[a-f0-9]{16}\.md$/);
+    // The reference lists come from the row, so they work offline too.
+    expect(body?.querySelector('ul[data-entity="file"] code')?.textContent).toBe("src/cli.ts");
   });
 });
 
@@ -314,17 +538,32 @@ function workspace(): LedgerWorkspace {
   };
 }
 
-function record(id: string, title: string, areas: readonly string[], status: string): ParsedLedgerDocument {
+interface RecordOptions {
+  readonly kind?: "change" | "decision";
+  readonly files?: readonly string[];
+  readonly symbols?: readonly string[];
+  readonly docs?: readonly string[];
+  readonly decisions?: readonly string[];
+  readonly backlog?: readonly string[];
+  readonly related?: readonly string[];
+}
+
+function record(id: string, title: string, areas: readonly string[], status: string, options: RecordOptions = {}): ParsedLedgerDocument {
+  const list = (values: readonly string[]) => `[${values.map((value) => `"${value}"`).join(", ")}]`;
+  const kind = options.kind ?? "change";
   const raw = [
     "---",
     `id: "${id}"`,
-    'kind: "change"',
+    `kind: "${kind}"`,
     `title: "${title}"`,
     'date: "2026-06-29"',
     'updated: "2026-06-29"',
     `status: "${status}"`,
-    `areas: [${areas.map((area) => `"${area}"`).join(", ")}]`,
-    'files: ["src/cli.ts"]',
+    `areas: ${list(areas)}`,
+    `files: ${list(options.files ?? ["src/cli.ts"])}`,
+    ...(["symbols", "docs", "decisions", "backlog", "related"] as const)
+      .filter((field) => options[field])
+      .map((field) => `${field}: ${list(options[field]!)}`),
     "---",
     "",
     `# ${id}: ${title}`,
@@ -366,6 +605,6 @@ function record(id: string, title: string, areas: readonly string[], status: str
     frontmatter: parsed.frontmatter,
     body: parsed.body,
     sections: parsed.sections,
-    kind: "change",
+    kind,
   };
 }

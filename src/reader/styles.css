@@ -767,6 +767,20 @@
     .record-list summary small { margin-left: 4px; color: var(--muted); font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
     .record-list ul { display: grid; gap: 4px; margin: 0; padding: 0 12px 12px; list-style: none; }
     .record-list li { min-width: 0; }
+    .entity-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 10px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--paper); font-size: 13.5px; }
+    .entity-kind { color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+    .entity-count { color: var(--muted); }
+    .entity-bar > .text-button { margin-left: auto; }
+    .record-list button, .entity-value button { display: flex; align-items: baseline; gap: 8px; min-width: 0; padding: 2px 4px; border: 0; border-radius: var(--r-s); background: none; color: var(--ink); cursor: pointer; font-size: 13.5px; text-align: left; }
+    .record-list button:hover, .entity-value button:hover { background: var(--paper-2); }
+    .record-list button:hover > :not(small), .entity-value button:hover > :not(small) { color: var(--accent); }
+    .record-list button small, .entity-missing small { flex: none; color: var(--muted); font-size: 12px; }
+    [data-open-record] code { flex: none; }
+    .entity-value button { padding: 0; }
+    .copy-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+    .agent-packet > .text-button { margin: 0 12px 12px; }
+    button.tag { cursor: pointer; }
+    button.tag:hover { border-color: var(--control-line); color: var(--ink); }
     code {
       color: var(--ink);
       font-family: var(--font-mono);

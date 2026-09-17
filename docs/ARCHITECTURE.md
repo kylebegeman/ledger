@@ -613,13 +613,11 @@ The search sidecar stores weighted fields rather than one undifferentiated text
 blob. ID, title, path, symbol, and file hits rank above metadata, summary, and
 context hits, and the browser reorders visible cards by score when search data
 loads. If a browser blocks sidecar loading from a direct file open, the reader
-falls back to inline compact search text. `ledger search` uses the same weighted
-search documents from Node, which gives terminal retrieval and browser
-retrieval the same ranking behavior.
-The weights and scoring functions live once in `src/searchCore.ts`; the
-reader runtime embeds them by serializing the functions with
-`Function.prototype.toString()` at build time, and a parity test evaluates that
-embedded JavaScript against the Node module.
+falls back to inline compact search text and each entry's references. `ledger
+search` uses the same weighted search documents from Node, which gives
+terminal retrieval and browser retrieval the same ranking behavior. The
+weights and scoring functions live once in `src/searchCore.ts`, which the
+reader bundle imports, and a parity test ranks the same queries in both.
 
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
@@ -635,7 +633,8 @@ under group labels, followed by the relationship graph summary. Selecting a
 row opens a slide-out detail
 panel over the right edge that surfaces the full record: summary, tags,
 source reference, invariants, verification, validation issues, files,
-symbols, docs, relationships, and the agent packet digest. Summaries,
+symbols, docs, relationships, the records that link to it, copy actions, and
+the agent packet digest. Summaries,
 invariants, verification bullets, and public release notes render Markdown
 code spans as inline code: the text is escaped first and backtick runs pair
 as they do in Markdown, so record content never becomes markup, while search
@@ -650,6 +649,28 @@ Panels (the graph summary, invariants, verification, and validation issues)
 sit on a paper fill with a 1px line. The search field, selects, and command
 trigger use a control line that measures at least 3:1 against the page. Only
 the two overlays, the search palette and the record panel, cast a shadow.
+
+Entries carry their files, symbols, docs, and record links in `data-files`,
+`data-symbols`, `data-docs`, and `data-links`, one value per line. When a
+record opens, the runtime builds the panel's Files, Symbols, Documentation,
+Relationships, and Referenced by lists from them. Detail HTML never repeats
+them, and the lists work from a `file:` URL even when detail chunks cannot
+load. Selecting a path, pattern, or symbol closes the panel and shows an
+entity view: the list keeps only the records that name it, and a bar above
+the list names the entity and counts those records. For a path, the count
+adds the records whose coverage pattern covers it; for a pattern, the records
+naming a path under it. The `file`, `symbol`, and `linked` URL parameters
+address these views, which combine with the other filters, and Back returns
+to the record. Relationship and backlink items open the linked record, and
+Referenced by can list every record linking to the open one (the `linked`
+view). Area and release chips in the panel set those filters, and focus moves
+to what names the new view. The command palette lists up to three paths,
+symbols, or areas whose names contain the query before the ranked records.
+The panel's copy buttons put the record link, the source path, the `ledger
+packet` command, or the agent-ready context on the clipboard. Where the
+Clipboard API is missing or refused, they fall back to a selected text area.
+Coverage patterns match in the browser through `src/pathPatterns.ts`, the
+module coverage checks use.
 Color marks status: teal for landed and released, violet for in-progress
 states, coral for blocked and rejected, and neutral for the rest. Kind badges
 stay neutral outline chips. The accent marks what is interactive, selected,
@@ -669,20 +690,22 @@ plum-black scrim, as Dossier's dialog backdrop is, because it reads correctly
 over both themes. The reader needs Chrome 123, Firefox 120, or Safari 17.5,
 the floor `light-dark()` sets. `:has()` (Firefox 121) only adds the row focus
 ring and the active select chevron, and view transitions and
-`content-visibility` degrade quietly. A test holds the stylesheet under
-40 KB, because every page embeds it. Icons ship as a single SVG symbol sprite
+`content-visibility` degrade quietly. A test holds the built stylesheet
+under 40 KB, because every page embeds it. Icons ship as a single SVG symbol sprite
 referenced per use. Raw Markdown remains available to library consumers but
 is not embedded into the initial HTML payload.
 
 The browser code lives in `src/reader/runtime.ts`, a typed module compiled
 against the DOM library, and the stylesheet in `src/reader/styles.css`.
 esbuild bundles both into `dist/reader/` (`npm run build:reader`, part of
-`build` and run before `test`); `src/renderAssets.ts` reads the bundle and
-`renderHtml.ts` inlines it, so the artifact stays a single self-contained
-`index.html`. The runtime imports `fuzzyScore` and `scoreSearchFields` from
+`build` and run before `test`), minifying whitespace and syntax but keeping
+names; `src/renderAssets.ts` reads the bundle, the built copy first even when
+running from `src/`, and `renderHtml.ts` inlines it, so the artifact stays a
+single self-contained `index.html`. The runtime imports `fuzzyScore` and `scoreSearchFields` from
 `src/searchCore.ts`, the same module `ledger search` uses, and a happy-dom
 test mounts the rendered HTML, evaluates the bundle, and exercises search,
-filters, the record panel, the theme toggle, and the command palette.
+filters, the record panel, entity views, copy actions, the theme toggle, and
+the command palette.
 
 Browser behavior remains dependency-free and progressively enhanced. Search is
 available inline and through a native dialog opened with `/` or `Cmd/Ctrl+K`.

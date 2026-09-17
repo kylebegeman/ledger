@@ -2,12 +2,15 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { readLedgerCatalog, type LedgerCatalogReadOptions } from "./catalogCache.js";
 import { LedgerError } from "./machine.js";
+import { normalizePath } from "./pathPatterns.js";
 import type {
   LedgerDocumentKind,
   LedgerWorkspace,
   NormalizedLedgerDocument,
   ParsedLedgerDocument,
 } from "./types.js";
+
+export { normalizePath } from "./pathPatterns.js";
 
 const coreFrontmatterFields = new Set([
   "id",
@@ -166,10 +169,6 @@ export function optionalStringValue(value: unknown): string | undefined {
 export function stringArrayValue(value: unknown): readonly string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
-}
-
-export function normalizePath(input: string): string {
-  return input.replace(/\\/g, "/").replace(/^\.\//, "");
 }
 
 function extensionValues(frontmatter: Record<string, unknown>): Record<string, unknown> {

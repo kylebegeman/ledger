@@ -10,6 +10,7 @@ import {
   renderStaticReaderHtml,
   writeStaticReader,
 } from "../src/render.js";
+import { renderRecordDetails } from "../src/renderHtml.js";
 import {
   closeStaticReader,
   serveStaticReader,
@@ -423,7 +424,7 @@ Run \`ledger ready\` before landing; \`<img src=x onerror=alert(1)>\` stays text
     expect(html).toContain('<li>Quote a command as <code class="inline-code">`ledger ready`</code> in a receipt.</li>');
     expect(html).toContain('<li><code class="inline-code">npm test</code></li>');
     expect(html).not.toContain("<img src=x");
-    expect(html).toContain(".inline-code {");
+    expect(html).toContain(".inline-code{");
 
     const release = publicReleaseDocument("v1.0.0", "released");
     const withCode = { ...release, raw: release.raw.replace("- Safe public feature.", "- Run `ledger ci --github` in pull requests.") };
@@ -515,6 +516,57 @@ ${lead}Run \`ledger ready --json\` before landing.
     expect(html.split(`<p class="entry-summary">${lead}Run...</p>`)).toHaveLength(3);
   });
 
+  it("gives entries their references and leaves the panel's reference lists to the runtime", () => {
+    const change = parsedChange(`---
+id: "0002"
+kind: "change"
+title: "Link things"
+date: "2026-06-30"
+status: "landed"
+areas: ["cli"]
+release: "v1.0.0"
+files:
+  - "src/cli.ts"
+  - "src/**"
+symbols: ["runCli"]
+docs: ["docs/API.md"]
+decisions: ["D001"]
+related: ["0404"]
+commits: []
+---
+
+# 0002: Link things
+
+## Summary
+
+Links.
+`);
+    const model = buildStaticReaderModel(workspace(), [change, document("D001", "decision", "Keep one CLI")]);
+    const html = renderStaticReaderHtml(model);
+    const entry = /<article class="entry" id="record-0002"[^>]*>/.exec(html)?.[0] ?? "";
+    expect(entry).toContain('data-files="src/cli.ts\nsrc/**"');
+    expect(entry).toContain('data-symbols="runCli"');
+    expect(entry).toContain('data-docs="docs/API.md"');
+    expect(entry).toContain('data-links="decision:D001\nrelated:0404"');
+    // The runtime adds references to offline search, so the search terms do not repeat them.
+    expect(/data-search="([^"]*)"/.exec(entry)?.[1]).not.toContain("src/cli.ts");
+
+    const details = renderRecordDetails(model);
+    const panel = details.get("0002") ?? "";
+    expect(panel).toContain('<button class="tag" type="button" data-entity="area">cli</button>');
+    expect(panel).toContain('<button class="tag" type="button" data-entity="release">v1.0.0</button>');
+    // The runtime builds the reference lists, backlinks, and copy buttons from the entries.
+    expect(panel).toContain('<div class="record-columns"></div>');
+    expect(panel).not.toContain("<code>src/cli.ts</code>");
+    expect(panel).not.toContain("data-copy");
+    expect(details.get("D001")).not.toContain("Referenced by");
+
+    expect(html).toContain('<div class="entity-bar" id="entity-bar" tabindex="-1" hidden>');
+    const publicHtml = renderStaticReaderHtml(buildStaticReaderModel(workspace(), [publicReleaseDocument("v1.0.0", "released")], { profile: "public" }));
+    expect(publicHtml).not.toContain('id="entity-bar"');
+    expect(publicHtml).not.toContain("data-files=");
+  });
+
   it("renders escaped source and embedded JSON data", () => {
     const model = buildStaticReaderModel(workspace(), [
       document("0001", "change", "Escape <script>"),
@@ -593,12 +645,12 @@ ${lead}Run \`ledger ready --json\` before landing.
     expect(html).not.toContain("--shadow-md");
     expect(html).toContain("markYearBreaks");
     expect(html).toContain(".release-feed .year-start::before");
-    expect(html).toContain("content: attr(data-year)");
+    expect(html).toContain("content:attr(data-year)");
     expect(html).toContain('data-empty-variant="filtered"');
     expect(html).toContain("No records yet");
     expect(html).toContain("emptyState");
     expect(html).toContain('class="select-wrap"');
-    expect(html).toContain("mask: url(");
+    expect(html).toContain("mask:url(");
     expect(html).toContain("#theme-toggle:hover");
     expect(html).not.toContain("%23838880");
     expect(html).not.toContain("@keyframes reveal");

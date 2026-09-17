@@ -6,6 +6,7 @@
  * reader keeps working from a file: URL and under any static host. Search
  * scoring is imported from the same module `ledger search` uses.
  */
+import { coveragePatternMatches, isCoveragePattern } from "../pathPatterns.js";
 import { fuzzyScore, scoreSearchFields, type SearchableFields } from "../searchCore.js";
 
 interface IndexDocument {
@@ -17,9 +18,30 @@ interface IndexDocument {
   readonly fields?: SearchableFields;
 }
 
-interface CommandItem {
-  readonly document: IndexDocument;
-  readonly score: number;
+/** Views of one thing's records: a path or pattern, a symbol, or the records linking to a record. */
+type EntityType = "file" | "symbol" | "linked";
+
+interface EntityView {
+  readonly type: EntityType;
+  readonly value: string;
+}
+
+/** What a panel or palette item can show: an entity view, or the area or release filter. */
+type EntityTarget = EntityType | "area" | "release";
+
+type CommandItem =
+  | { readonly type: "record"; readonly document: IndexDocument; readonly score: number }
+  | { readonly type: "entity"; readonly entity: EntityTarget; readonly value: string; readonly count: number };
+
+/** How an entry relates to the entity in view: it names it, or one of its patterns covers it. */
+type EntityRelation = "exact" | "pattern";
+
+interface EntryRefs {
+  readonly files: readonly string[];
+  readonly symbols: readonly string[];
+  readonly docs: readonly string[];
+  readonly links: readonly { readonly type: string; readonly id: string }[];
+  readonly areas: readonly string[];
 }
 
 type ControlKey =
@@ -53,6 +75,17 @@ const defaultPerPage = "25";
 const searchDebounceMs = 140;
 const transitionWatchdogMs = 600;
 const maxNamedTransitions = 28;
+const entityTypes: readonly EntityType[] = ["file", "symbol", "linked"];
+const entityLabels: Readonly<Record<EntityTarget, string>> = {
+  file: "File",
+  symbol: "Symbol",
+  linked: "Linked to",
+  area: "Area",
+  release: "Release",
+};
+const maxPaletteEntities = 3;
+const maxPaletteItems = 9;
+const copiedLabelMs = 1600;
 
 let searchIndexPromise: Promise<readonly IndexDocument[]> | undefined;
 let filterRequest = 0;
@@ -62,6 +95,8 @@ let searchDebounce: ReturnType<typeof setTimeout> | undefined;
 let currentPage = 1;
 let pendingResultsScroll = false;
 let openRecordId = "";
+let entityView: EntityView | undefined;
+let entityMatches = new Map<HTMLElement, EntityRelation>();
 
 function byId<T extends HTMLElement>(id: string): T | null {
   return document.getElementById(id) as T | null;
@@ -114,6 +149,7 @@ function fallbackCommandItems(query: string): readonly CommandItem[] {
       return tokens.every((token) => blob.includes(token));
     })
     .map((entry) => ({
+      type: "record" as const,
       document: {
         id: entry.dataset.id || "",
         title: entry.querySelector("h3")?.textContent || entry.dataset.id || "",
@@ -181,19 +217,62 @@ function perPageSize(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-const fallbackBlobs = new Map(
-  entries.map((entry) => [
-    entry,
-    `${entry.querySelector("h3")?.textContent || ""} ${entry.dataset.search || ""}`.toLowerCase(),
-  ]),
-);
-
 function datasetList(entry: HTMLElement, key: string): readonly string[] {
   try {
     const parsed: unknown = JSON.parse(entry.dataset[key] || "[]");
-    return Array.isArray(parsed) ? (parsed as string[]) : [];
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
   } catch {
     return [];
+  }
+}
+
+/** A reference list the renderer wrote one value per line. */
+function datasetLines(entry: HTMLElement, key: string): readonly string[] {
+  return (entry.dataset[key] || "").split("\n").filter((value) => value.length > 0);
+}
+
+function readRefs(entry: HTMLElement): EntryRefs {
+  return {
+    files: datasetLines(entry, "files"),
+    symbols: datasetLines(entry, "symbols"),
+    docs: datasetLines(entry, "docs"),
+    links: datasetLines(entry, "links").map((link) => {
+      const separator = link.indexOf(":");
+      return { type: link.slice(0, separator), id: link.slice(separator + 1) };
+    }),
+    areas: datasetList(entry, "areas"),
+  };
+}
+
+const entryRefs = new Map(entries.map((entry) => [entry, readRefs(entry)]));
+
+/** Offline search text: the title, the rendered search terms, and the entry's references. */
+const fallbackBlobs = new Map(
+  entries.map((entry) => {
+    const refs = entryRefs.get(entry)!;
+    const references = [...refs.files, ...refs.symbols, ...refs.docs, ...refs.links.map((link) => link.id)].join(" ");
+    return [entry, `${entry.querySelector("h3")?.textContent || ""} ${entry.dataset.search || ""} ${references}`.toLowerCase()];
+  }),
+);
+
+function entityRelation(refs: EntryRefs, view: EntityView): EntityRelation | undefined {
+  if (view.type === "symbol") return refs.symbols.includes(view.value) ? "exact" : undefined;
+  if (view.type === "linked") return refs.links.some((link) => link.id === view.value) ? "exact" : undefined;
+  if (refs.files.includes(view.value) || refs.docs.includes(view.value)) return "exact";
+  // A pattern in view gathers the records naming a path under it; a path in view, the records whose patterns cover it.
+  const covered = isCoveragePattern(view.value)
+    ? refs.files.some((file) => !isCoveragePattern(file) && coveragePatternMatches(file, view.value))
+    : refs.files.some((file) => isCoveragePattern(file) && coveragePatternMatches(view.value, file));
+  return covered ? "pattern" : undefined;
+}
+
+function setEntityView(view: EntityView | undefined): void {
+  entityView = view;
+  entityMatches = new Map();
+  if (!view) return;
+  for (const [entry, refs] of entryRefs) {
+    const relation = entityRelation(refs, view);
+    if (relation) entityMatches.set(entry, relation);
   }
 }
 
@@ -212,6 +291,7 @@ function matches(entry: HTMLElement, matchedScores: Map<string, number> | undefi
   const duplicate = controlValue("duplicate");
   const coverage = controlValue("coverage");
   const tag = controlValue("tag");
+  if (entityView && !entityMatches.has(entry)) return false;
   if (kind !== "all" && entry.dataset.kind !== kind) return false;
   if (status !== "all" && entry.dataset.status !== status) return false;
   if (area !== "all" && !datasetList(entry, "areas").includes(area)) return false;
@@ -346,6 +426,7 @@ async function applyFilters(syncUrl = true): Promise<void> {
     }
     markYearBreaks(pageList, Boolean(matchedScores));
     resultCount.textContent = search && matchedScores ? pluralize(total, "ranked match") : pluralize(total, resultNoun);
+    renderEntityBar();
     renderPagination(total, pageCount, per);
     empty.hidden = total !== 0;
     empty.dataset.emptyState = search || activeFilterCount() > 0 ? "filtered" : "bare";
@@ -438,7 +519,62 @@ function updateFacetButtons(): void {
 }
 
 function activeFilterCount(): number {
-  return filterKeys.filter((key) => controlValue(key) !== "all").length;
+  return filterKeys.filter((key) => controlValue(key) !== "all").length + (entityView ? 1 : 0);
+}
+
+const entityBar = byId<HTMLElement>("entity-bar");
+const entityKind = byId<HTMLElement>("entity-kind");
+const entityValue = byId<HTMLElement>("entity-value");
+const entityCount = byId<HTMLElement>("entity-count");
+
+/** Names the entity in view and how many records it has; the counts ignore the other filters. */
+function renderEntityBar(): void {
+  if (!entityBar || !entityKind || !entityValue || !entityCount) return;
+  entityBar.hidden = !entityView;
+  if (!entityView) return;
+  const view = entityView;
+  entityKind.textContent = entityLabels[view.type];
+  const code = document.createElement("code");
+  code.textContent = view.value;
+  const target = view.type === "linked" ? recordEntry(view.value) : undefined;
+  if (target) {
+    const open = document.createElement("button");
+    open.type = "button";
+    open.dataset.openRecord = view.value;
+    const title = document.createElement("span");
+    title.textContent = target.querySelector(".entry-title")?.textContent || "";
+    open.append(code, title);
+    entityValue.replaceChildren(open);
+  } else {
+    entityValue.replaceChildren(code);
+  }
+  const exact = [...entityMatches.values()].filter((relation) => relation === "exact").length;
+  const covered = entityMatches.size - exact;
+  const verb = view.type === "linked" ? (exact === 1 ? "links here" : "link here") : exact === 1 ? "names it" : "name it";
+  entityCount.textContent = `${pluralize(exact, "record")} ${verb}${covered > 0 ? `, ${covered} more by pattern` : ""}`;
+}
+
+/** Shows an entity view, or sets the area or release filter, from a panel or palette item. */
+function showEntity(target: string | undefined, value: string | undefined): void {
+  if (!target || value === undefined) return;
+  if (target === "area" || target === "release") {
+    const control = controls[target];
+    if (!control || !hasOption(control, value)) return;
+    control.value = value;
+  } else if ((entityTypes as readonly string[]).includes(target)) {
+    setEntityView({ type: target as EntityType, value });
+  } else {
+    return;
+  }
+  closePalette();
+  closePanel(false, false);
+  currentPage = 1;
+  pendingResultsScroll = true;
+  void applyFilters(false).then(() => {
+    writeUrlState(true);
+    // Focus lands on what names the new view: the entity bar, or the result count for a filter.
+    (entityView && entityBar ? entityBar : resultCount).focus({ preventScroll: true });
+  });
 }
 
 function announceFilterStatus(total: number, pageCount: number, search: string, matchedScores: Map<string, number> | undefined): void {
@@ -472,6 +608,10 @@ function writeUrlState(push = false): void {
   else url.searchParams.delete("per");
   if (openRecordId) url.searchParams.set("record", openRecordId);
   else url.searchParams.delete("record");
+  for (const type of entityTypes) {
+    if (entityView?.type === type) url.searchParams.set(type, entityView.value);
+    else url.searchParams.delete(type);
+  }
   if (push) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
 }
@@ -526,7 +666,7 @@ function detailFragment(html: string): DocumentFragment {
   return template.content;
 }
 
-function openPanel(id: string, syncUrl = true): boolean {
+function openPanel(id: string, syncUrl = true, push = false): boolean {
   if (!recordPanel || !recordPanelBody) return false;
   const entry = recordEntry(id);
   if (!entry) return false;
@@ -535,20 +675,26 @@ function openPanel(id: string, syncUrl = true): boolean {
   if (!template && !chunkHref) return false;
   if (template) {
     recordPanelBody.replaceChildren(template.content.cloneNode(true));
+    addCopyActions(recordPanelBody);
+    addReferenceLists(recordPanelBody, entry);
   } else if (chunkHref) {
     const body = recordPanelBody;
     body.replaceChildren(fallbackDetail(entry, "Loading record details."));
+    addReferenceLists(body, entry);
     loadDetailChunk(chunkHref)
       .then((chunk) => {
         if (openRecordId !== id) return;
         const html = chunk[id];
         body.replaceChildren(html ? detailFragment(html) : fallbackDetail(entry, "This record's details are missing from its chunk."));
+        if (html) addCopyActions(body);
+        addReferenceLists(body, entry);
       })
       .catch(() => {
         if (openRecordId !== id) return;
         body.replaceChildren(
           fallbackDetail(entry, "Record details load when the reader is served over HTTP, for example with ledger serve."),
         );
+        addReferenceLists(body, entry);
       });
   }
   recordPanelBody.scrollTop = 0;
@@ -556,18 +702,19 @@ function openPanel(id: string, syncUrl = true): boolean {
   openRecordId = id;
   recordPanel.classList.add("open");
   for (const candidate of entries) candidate.classList.toggle("is-open", candidate.dataset.id === id);
-  if (syncUrl) writeUrlState(!wasOpen);
+  if (syncUrl) writeUrlState(push || !wasOpen);
   recordPanel.focus({ preventScroll: true });
   return true;
 }
 
-function closePanel(syncUrl = true): void {
+function closePanel(syncUrl = true, restoreFocus = true): void {
   if (!openRecordId || !recordPanel) return;
   const previous = recordEntry(openRecordId);
   openRecordId = "";
   recordPanel.classList.remove("open");
   for (const candidate of entries) candidate.classList.remove("is-open");
   if (syncUrl) writeUrlState();
+  if (!restoreFocus) return;
   const link = previous && !previous.hidden ? previous.querySelector<HTMLElement>(".entry-link") : null;
   if (link) link.focus();
   else searchInput.focus();
@@ -589,6 +736,11 @@ function readUrlState(): void {
   if (per && perPage && hasOption(perPage, per)) perPage.value = per;
   const page = parseInt(params.get("page") || "1", 10);
   currentPage = Number.isFinite(page) && page > 0 ? page : 1;
+  const entityType = entityTypes.find((type) => params.get(type));
+  const entityValueParam = entityType ? params.get(entityType) || "" : "";
+  if (entityType !== entityView?.type || entityValueParam !== entityView?.value) {
+    setEntityView(entityType ? { type: entityType, value: entityValueParam } : undefined);
+  }
   const record = params.get("record") || "";
   if (record !== openRecordId) {
     if (record) openPanel(record, false);
@@ -599,6 +751,7 @@ function readUrlState(): void {
 function resetFilters(): void {
   clearTimeout(searchDebounce);
   searchInput.value = "";
+  setEntityView(undefined);
   for (const key of filterKeys) {
     const control = controls[key];
     if (control) control.value = "all";
@@ -644,6 +797,18 @@ for (const button of document.querySelectorAll<HTMLElement>("[data-filter-field]
 for (const button of document.querySelectorAll<HTMLElement>("[data-reset-filters]")) {
   button.addEventListener("click", resetFilters);
 }
+byId<HTMLElement>("entity-clear")?.addEventListener("click", () => {
+  setEntityView(undefined);
+  currentPage = 1;
+  void applyFilters(false).then(() => {
+    writeUrlState(true);
+    resultCount.focus({ preventScroll: true });
+  });
+});
+entityBar?.addEventListener("click", (event) => {
+  const opener = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-open-record]") : null;
+  if (opener?.dataset.openRecord) openPanel(opener.dataset.openRecord);
+});
 searchClear.addEventListener("click", () => {
   clearTimeout(searchDebounce);
   searchInput.value = "";
@@ -692,6 +857,45 @@ async function openPalette(): Promise<void> {
   paletteInput.select();
 }
 
+let entityCatalog: ReadonlyMap<string, { readonly entity: EntityTarget; readonly value: string; readonly count: number }> | undefined;
+
+/** Every file, doc, symbol, and area the entries name, with how many entries name each. */
+function paletteEntityCatalog(): NonNullable<typeof entityCatalog> {
+  if (entityCatalog) return entityCatalog;
+  const catalog = new Map<string, { entity: EntityTarget; value: string; count: number }>();
+  const add = (entity: EntityTarget, value: string) => {
+    const key = `${entity}\u0000${value}`;
+    const existing = catalog.get(key);
+    if (existing) existing.count += 1;
+    else catalog.set(key, { entity, value, count: 1 });
+  };
+  for (const refs of entryRefs.values()) {
+    for (const value of new Set([...refs.files, ...refs.docs])) add("file", value);
+    for (const value of new Set(refs.symbols)) add("symbol", value);
+    for (const value of new Set(refs.areas)) add("area", value);
+  }
+  entityCatalog = catalog;
+  return catalog;
+}
+
+/** Up to three entities whose names contain the query: exact names first, then names or last segments that start with it. */
+function paletteEntities(query: string): readonly CommandItem[] {
+  if (query.length < 2) return [];
+  const rank = (value: string): number => {
+    const lower = value.toLowerCase();
+    if (lower === query) return 3;
+    const lastSegment = lower.split(/[/.:]/).pop() || "";
+    if (lower.startsWith(query) || lastSegment.startsWith(query)) return 2;
+    return lower.includes(query) ? 1 : 0;
+  };
+  return [...paletteEntityCatalog().values()]
+    .map((item) => ({ item, rank: rank(item.value) }))
+    .filter((candidate) => candidate.rank > 0)
+    .sort((left, right) => right.rank - left.rank || right.item.count - left.item.count || left.item.value.localeCompare(right.item.value))
+    .slice(0, maxPaletteEntities)
+    .map(({ item }) => ({ type: "entity" as const, ...item }));
+}
+
 async function renderCommandResults(): Promise<void> {
   const index = await loadSearchIndex();
   const query = paletteInput.value.trim().toLowerCase();
@@ -700,11 +904,12 @@ async function renderCommandResults(): Promise<void> {
     ? fallbackCommandItems(query)
     : query
       ? source
-          .map((document) => ({ document, score: scoreSearchDocument(query, document) }))
+          .map((document) => ({ type: "record" as const, document, score: scoreSearchDocument(query, document) }))
           .filter((item) => item.score > 0)
           .sort((left, right) => right.score - left.score || left.document.id.localeCompare(right.document.id))
-      : source.slice(0, 8).map((document) => ({ document, score: 0 }));
-  commandItems = ranked.slice(0, 9);
+      : source.slice(0, 8).map((document) => ({ type: "record" as const, document, score: 0 }));
+  const entities = paletteEntities(query);
+  commandItems = [...entities, ...ranked.slice(0, maxPaletteItems - entities.length)];
   commandSelection = Math.min(commandSelection, Math.max(0, commandItems.length - 1));
   paletteResults.replaceChildren();
   if (commandItems.length === 0) {
@@ -716,6 +921,7 @@ async function renderCommandResults(): Promise<void> {
     paletteStatus.textContent = "Try a broader phrase";
     return;
   }
+  let recordRank = 0;
   commandItems.forEach((item, indexValue) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -723,25 +929,36 @@ async function renderCommandResults(): Promise<void> {
     button.id = `command-result-${indexValue}`;
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", String(indexValue === commandSelection));
-    button.dataset.id = item.document.id;
     const copy = document.createElement("span");
     copy.className = "command-result-copy";
     const title = document.createElement("strong");
-    title.textContent = item.document.title;
     const meta = document.createElement("small");
-    meta.textContent = [item.document.id, item.document.kind, item.document.status].filter(Boolean).join(" · ");
-    copy.append(title, meta);
     const score = document.createElement("span");
     score.className = "command-result-score";
-    score.textContent = item.score ? (indexValue === 0 ? "Top match" : `#${indexValue + 1}`) : "Recent";
+    if (item.type === "entity") {
+      button.dataset.entity = item.entity;
+      title.textContent = item.value;
+      meta.textContent = `Show ${pluralize(item.count, "record")}`;
+      score.textContent = entityLabels[item.entity];
+    } else {
+      recordRank += 1;
+      button.dataset.id = item.document.id;
+      title.textContent = item.document.title;
+      meta.textContent = [item.document.id, item.document.kind, item.document.status].filter(Boolean).join(" · ");
+      score.textContent = item.score ? (recordRank === 1 ? "Top match" : `#${recordRank}`) : "Recent";
+    }
+    copy.append(title, meta);
     button.append(copy, score);
-    button.addEventListener("click", () => {
-      void openRecord(item.document.id);
-    });
+    button.addEventListener("click", () => chooseCommand(item));
     paletteResults.appendChild(button);
   });
   paletteStatus.textContent = query ? `${pluralize(commandItems.length, "result")} for “${paletteInput.value.trim()}”` : "Recent records";
   paletteInput.setAttribute("aria-activedescendant", `command-result-${commandSelection}`);
+}
+
+function chooseCommand(item: CommandItem): void {
+  if (item.type === "entity") showEntity(item.entity, item.value);
+  else void openRecord(item.document.id);
 }
 
 function updateCommandSelection(next: number): void {
@@ -796,7 +1013,7 @@ paletteInput.addEventListener("keydown", (event) => {
   const selected = commandItems[commandSelection];
   if (event.key === "Enter" && selected) {
     event.preventDefault();
-    void openRecord(selected.document.id);
+    chooseCommand(selected);
   }
 });
 
@@ -859,6 +1076,234 @@ entriesContainer.addEventListener("click", (event) => {
   if (entry && entry.dataset.id) openPanel(entry.dataset.id);
 });
 recordPanelClose?.addEventListener("click", () => closePanel());
+recordPanelBody?.addEventListener("click", (event) => {
+  const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("button") : null;
+  if (!button) return;
+  if (button.dataset.openRecord) {
+    openPanel(button.dataset.openRecord, true, true);
+  } else if (button.dataset.copy) {
+    void copyFromButton(button);
+  } else {
+    // A list names the entity type once, and its buttons' text is the value.
+    const entity = button.closest<HTMLElement>("[data-entity]");
+    if (entity) showEntity(entity.dataset.entity, button.dataset.value ?? button.textContent ?? "");
+  }
+});
+
+const relationLabels: Readonly<Record<string, string>> = {
+  decision: "Decision",
+  backlog: "Backlog",
+  supersedes: "Supersedes",
+  related: "Related",
+};
+
+/** How a record that links to the open one relates to it. */
+const backlinkLabels: Readonly<Record<string, string>> = {
+  decision: "Depends on it",
+  backlog: "Works on it",
+  supersedes: "Supersedes it",
+  related: "Related",
+};
+
+let backlinkIndex: ReadonlyMap<string, readonly { readonly type: string; readonly entry: HTMLElement }[]> | undefined;
+
+/** The entries that link to each record id, other than itself. */
+function backlinksTo(id: string): readonly { readonly type: string; readonly entry: HTMLElement }[] {
+  if (!backlinkIndex) {
+    const index = new Map<string, { type: string; entry: HTMLElement }[]>();
+    for (const [entry, refs] of entryRefs) {
+      for (const link of refs.links) {
+        if (link.id === entry.dataset.id) continue;
+        const sources = index.get(link.id) ?? [];
+        if (!sources.some((source) => source.entry === entry && source.type === link.type)) sources.push({ type: link.type, entry });
+        index.set(link.id, sources);
+      }
+    }
+    backlinkIndex = index;
+  }
+  return backlinkIndex.get(id) ?? [];
+}
+
+interface ReferenceListOptions {
+  /** The entity the list's buttons show, named once for all of them. */
+  readonly entity?: EntityType;
+  readonly hint?: string;
+  /** The count in the heading, when it differs from the number of items. */
+  readonly count?: number;
+}
+
+function referenceList(label: string, items: readonly HTMLElement[], options: ReferenceListOptions = {}): HTMLDetailsElement | undefined {
+  if (items.length === 0) return undefined;
+  const details = document.createElement("details");
+  details.className = "record-list";
+  const summary = document.createElement("summary");
+  const heading = document.createElement("span");
+  const count = document.createElement("small");
+  count.textContent = String(options.count ?? items.length);
+  heading.append(`${label} `, count);
+  summary.append(heading);
+  summary.insertAdjacentHTML("beforeend", '<svg class="ui-icon" aria-hidden="true"><use href="#i-chevron"/></svg>');
+  const list = document.createElement("ul");
+  if (options.entity) list.dataset.entity = options.entity;
+  if (options.hint) list.title = options.hint;
+  for (const item of items) {
+    const row = document.createElement("li");
+    row.append(item);
+    list.append(row);
+  }
+  details.append(summary, list);
+  return details;
+}
+
+function codeButton(value: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  const code = document.createElement("code");
+  code.textContent = value;
+  button.append(code);
+  return button;
+}
+
+/** A button that opens a record, or a note when the record is not in this reader. */
+function recordLinkItem(id: string, relation: string, entry: HTMLElement | undefined): HTMLElement {
+  const label = document.createElement("small");
+  label.textContent = relation;
+  const code = document.createElement("code");
+  code.textContent = id;
+  if (!entry) {
+    const missing = document.createElement("span");
+    missing.className = "entity-missing";
+    const note = document.createElement("small");
+    note.textContent = "is not in this reader";
+    missing.append(label, " ", code, " ", note);
+    return missing;
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.openRecord = id;
+  const title = document.createElement("span");
+  title.textContent = entry.querySelector(".entry-title")?.textContent || "";
+  button.append(label, code, title);
+  return button;
+}
+
+/**
+ * The panel's Files, Symbols, Documentation, Relationships, and Referenced by
+ * lists, built from the entries so detail HTML does not repeat them. Paths and
+ * symbols open entity views; relationships and backlinks open records.
+ */
+function addReferenceLists(body: HTMLElement, entry: HTMLElement): void {
+  const refs = entryRefs.get(entry);
+  if (!refs) return;
+  const columns = body.querySelector(".record-columns") ?? body.appendChild(Object.assign(document.createElement("div"), { className: "record-columns" }));
+  const pathHint = (values: readonly string[]) =>
+    `Select a ${values.some(isCoveragePattern) ? "path or pattern" : "path"} to list every record that names it`;
+  const backlinks = backlinksTo(entry.dataset.id || "");
+  const showAll = document.createElement("button");
+  showAll.type = "button";
+  showAll.dataset.entity = "linked";
+  showAll.dataset.value = entry.dataset.id || "";
+  showAll.append(Object.assign(document.createElement("span"), { textContent: "Show them in the list" }));
+  const lists = [
+    referenceList("Files", refs.files.map(codeButton), { entity: "file", hint: pathHint(refs.files) }),
+    referenceList("Symbols", refs.symbols.map(codeButton), { entity: "symbol", hint: "Select a symbol to list every record that names it" }),
+    referenceList("Documentation", refs.docs.map(codeButton), { entity: "file", hint: pathHint(refs.docs) }),
+    referenceList("Relationships", refs.links.map((link) => recordLinkItem(link.id, relationLabels[link.type] || link.type, recordEntry(link.id)))),
+    referenceList(
+      "Referenced by",
+      backlinks.length === 0
+        ? []
+        : [...backlinks.map((link) => recordLinkItem(link.entry.dataset.id || "", backlinkLabels[link.type] || link.type, link.entry)), showAll],
+      { count: backlinks.length },
+    ),
+  ];
+  columns.replaceChildren(...lists.filter((list): list is HTMLDetailsElement => list !== undefined));
+}
+
+/** Copy buttons for a record panel, taking the path and the packet command from the panel itself. */
+function addCopyActions(body: HTMLElement): void {
+  const makeButton = (kind: string, label: string) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "text-button";
+    button.dataset.copy = kind;
+    button.textContent = label;
+    return button;
+  };
+  const actions = document.createElement("div");
+  actions.className = "copy-actions";
+  actions.setAttribute("role", "group");
+  actions.setAttribute("aria-label", "Copy");
+  actions.append(makeButton("link", "Copy link"));
+  const source = body.querySelector(".source-reference");
+  if (source?.querySelector("code")) actions.append(makeButton("path", "Copy path"));
+  const packet = body.querySelector(".agent-packet");
+  if (packet?.querySelector("pre")) {
+    actions.append(makeButton("command", "Copy packet command"));
+    packet.append(makeButton("context", "Copy context"));
+  }
+  (source ?? body.querySelector(".record-panel-title"))?.after(actions);
+}
+
+/** Copies with the Clipboard API, or with a selected text area where that API is missing or refused. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall back to a selection below.
+  }
+  const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.append(area);
+  area.focus({ preventScroll: true });
+  area.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  area.remove();
+  previous?.focus({ preventScroll: true });
+  return copied;
+}
+
+function copyPayload(button: HTMLButtonElement): string {
+  const body = recordPanelBody;
+  const context = body?.querySelector(".agent-packet pre")?.textContent || "";
+  switch (button.dataset.copy) {
+    case "link":
+      return new URL(`?record=${encodeURIComponent(openRecordId)}`, window.location.href).href;
+    case "path":
+      return body?.querySelector(".source-reference code")?.textContent || "";
+    case "command":
+      return context.split("\n")[0] || "";
+    case "context":
+      return context;
+    default:
+      return "";
+  }
+}
+
+async function copyFromButton(button: HTMLButtonElement): Promise<void> {
+  const text = copyPayload(button);
+  if (!text) return;
+  const copied = await copyText(text);
+  const label = button.dataset.label || button.textContent || "";
+  button.dataset.label = label;
+  button.textContent = copied ? "Copied" : "Copy failed";
+  if (filterStatus) filterStatus.textContent = copied ? `${label.replace(/^Copy /, "Copied the ")}.` : "Copying failed; select the text instead.";
+  setTimeout(() => {
+    button.textContent = label;
+  }, copiedLabelMs);
+}
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !palette.open && openRecordId) closePanel();
 });
