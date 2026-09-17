@@ -10,6 +10,7 @@ import {
   renderStaticReaderHtml,
   writeStaticReader,
 } from "../src/render.js";
+import { normalizeSiteUrl, renderAtomFeed, uuidV5 } from "../src/renderFeed.js";
 import { renderRecordDetails } from "../src/renderHtml.js";
 import {
   closeStaticReader,
@@ -335,13 +336,18 @@ describe("writeStaticReader", () => {
     expect(html).toContain("Search versions and release notes");
     expect(html).toContain('data-year="2026"');
     expect(html).toContain('data-year="2025"');
-    expect(html.indexOf('id="record-v1-0-0"')).toBeGreaterThan(-1);
-    expect(html.indexOf('id="record-v1-0-0"')).toBeLessThan(html.indexOf('id="record-v0-9-0"'));
+    // Each release is its own permalink target, named by its version.
+    expect(html.indexOf('id="v1.0.0"')).toBeGreaterThan(-1);
+    expect(html.indexOf('id="v1.0.0"')).toBeLessThan(html.indexOf('id="v0.9.0"'));
+    expect(html).toContain('<a class="version-badge" href="#v1.0.0" title="Link to this release">v1.0.0</a>');
+    expect(html).toContain('<link rel="alternate" type="application/atom+xml" title="ledger-project releases" href="feed.xml">');
+    expect(html).toContain('<a class="text-button" href="feed.xml">Atom feed</a>');
+    expect(html).toContain('<meta name="description" content="Release notes for ledger-project, written for the people who use it.">');
+    expect(html).not.toContain('rel="canonical"');
     expect(html.match(/class="entry release-entry year-start"/g)).toHaveLength(2);
     expect(html).toContain("No matching releases");
     expect(html).toContain("No releases yet");
     expect(html).not.toContain("No matching records");
-    expect(html).toContain('class="version-badge"');
     expect(html).toContain('<use href="#i-check"');
     expect(html).toContain('id="per-page"');
     expect(html).toContain('aria-label="Pagination"');
@@ -379,10 +385,51 @@ describe("writeStaticReader", () => {
       }
     }
     expect((await readdir(path.join(tempDir, ".ledger/dist/public"))).sort()).toEqual([
+      "feed.xml",
       "graph.json",
       "index.html",
       "search-index.json",
     ]);
+    const feed = await readFile(path.join(tempDir, ".ledger/dist/public/feed.xml"), "utf8");
+    expect(feed).toContain('<feed xmlns="http://www.w3.org/2005/Atom">');
+    expect(feed).toContain("<title>ledger-project releases</title>");
+    // The newest release sets the feed's updated time, so an unchanged catalog writes the same feed.
+    expect(feed).toContain("  <updated>2026-06-29T00:00:00Z</updated>");
+    expect(feed.match(/<entry>/g)).toHaveLength(2);
+    expect(feed).toContain("<title>Ledger v1.0.0</title>");
+    expect(feed).toContain("<content type=\"html\">&lt;ul&gt;&lt;li&gt;Safe public feature.&lt;/li&gt;&lt;/ul&gt;</content>");
+    expect(feed).not.toContain("<link");
+    expect(feed).not.toContain("src/private.ts");
+    expect(result.artifacts.find((artifact) => artifact.kind === "feed")).toMatchObject({ path: ".ledger/dist/public/feed.xml", ok: true });
+  });
+
+  it("makes the page and feed links absolute with a site URL and keeps feed ids stable", async () => {
+    const releases = [publicReleaseDocument("v1.0.0", "released"), publicReleaseDocument("v0.9.0", "released", "2025-11-20")];
+    const model = buildStaticReaderModel(workspace(), releases, { profile: "public", siteUrl: "https://example.test/ledger" });
+    expect(model.siteUrl).toBe("https://example.test/ledger/");
+    const html = renderStaticReaderHtml(model, { iconSvg: "<svg><title>Ledger</title></svg>" });
+    expect(html).toContain('<link rel="canonical" href="https://example.test/ledger/">');
+    expect(html).toContain('<meta property="og:url" content="https://example.test/ledger/">');
+    expect(html).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%3E%3Ctitle%3ELedger%3C%2Ftitle%3E%3C%2Fsvg%3E">');
+
+    const feed = renderAtomFeed(model);
+    expect(feed).toContain('<link rel="self" type="application/atom+xml" href="https://example.test/ledger/feed.xml"/>');
+    expect(feed).toContain('<link rel="alternate" type="text/html" href="https://example.test/ledger/#v1.0.0"/>');
+    const ids = [...feed.matchAll(/<id>(urn:uuid:[0-9a-f-]{36})<\/id>/g)].map((match) => match[1]);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+    // Ids depend on the project and release, not the site, so a moved site keeps them.
+    const moved = renderAtomFeed(buildStaticReaderModel(workspace(), releases, { profile: "public", siteUrl: "https://other.test/" }));
+    expect([...moved.matchAll(/<id>(urn:uuid:[0-9a-f-]{36})<\/id>/g)].map((match) => match[1])).toEqual(ids);
+
+    for (const invalid of ["example.test/ledger", "ftp://example.test/", "https://user:secret@example.test/", "https://example.test/?q=1"]) {
+      expect(() => buildStaticReaderModel(workspace(), releases, { profile: "public", siteUrl: invalid })).toThrow(/--site-url/);
+    }
+  });
+
+  it("derives name-based UUIDs as RFC 4122 does", () => {
+    expect(uuidV5("6ba7b810-9dad-11d1-80b4-00c04fd430c8", "www.example.com")).toBe("2ed6657d-e927-568b-95e1-2665a8aea6a2");
+    expect(normalizeSiteUrl("https://example.test")).toBe("https://example.test/");
   });
 });
 

@@ -11,6 +11,7 @@ import {
   type LedgerFileChange,
 } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
+import { feedHref, normalizeSiteUrl, renderAtomFeed } from "./renderFeed.js";
 import { plainProse, renderRecordDetails, renderStaticReaderHtml, withoutOpenCodeSpan } from "./renderHtml.js";
 import { searchTermsFor } from "./searchCore.js";
 import { evidenceFreshness, type LedgerEvidenceIndex, type LedgerVerificationFreshness } from "./verify.js";
@@ -52,6 +53,8 @@ export interface LedgerStaticReaderModel {
   readonly profile: LedgerRenderProfile;
   readonly generatedAt: string;
   readonly project: string;
+  /** The absolute URL the reader is served from, ending in a slash, when known. */
+  readonly siteUrl?: string;
   readonly documents: readonly LedgerRenderedDocument[];
   readonly searchIndex: readonly LedgerSearchDocument[];
   readonly graph: LedgerRelationshipGraph;
@@ -158,7 +161,7 @@ export interface RenderStaticReaderResult {
   readonly budget: LedgerRenderBudgetResult;
 }
 
-export type LedgerRenderArtifactKind = "html" | "search-index" | "graph" | "details" | "sources";
+export type LedgerRenderArtifactKind = "html" | "search-index" | "graph" | "details" | "sources" | "feed";
 
 export interface LedgerRenderArtifact {
   readonly kind: LedgerRenderArtifactKind;
@@ -212,9 +215,12 @@ export function buildStaticReaderModel(
     readonly validation?: LedgerValidationResult;
     readonly profile?: LedgerRenderProfile;
     readonly evidence?: LedgerEvidenceIndex;
+    /** Where the reader is served from; makes the canonical link and feed links absolute. */
+    readonly siteUrl?: string;
   } = {},
 ): LedgerStaticReaderModel {
   const profile = options.profile ?? "internal";
+  const siteUrl = options.siteUrl === undefined ? undefined : normalizeSiteUrl(options.siteUrl);
   const issuesByPath = groupIssuesByPath(options.validation?.issues ?? []);
   const renderedDocuments = documents
     .filter((document) =>
@@ -254,6 +260,7 @@ export function buildStaticReaderModel(
     profile,
     generatedAt: new Date().toISOString(),
     project: workspace.config.project,
+    ...(siteUrl ? { siteUrl } : {}),
     documents: renderedDocuments,
     searchIndex: buildSearchIndex(renderedDocuments),
     graph: buildRelationshipGraph(renderedDocuments),
@@ -303,6 +310,7 @@ export async function writeStaticReader(
   const graph = `${JSON.stringify(chunks.records)}\n`;
   // The public profile strips invariants and verification, so it has no contracts chunk.
   const contracts = model.profile === "internal" ? `${JSON.stringify(chunks.contracts)}\n` : undefined;
+  const feed = model.profile === "public" ? renderAtomFeed(model) : undefined;
   const sources = await sourceSidecars(workspace, model, outputDirectory);
   const staleShards = await staleChunkFiles(outputDirectory, searchShardDirectory, search.files.map((file) => file.href));
   const staleDetails = await staleChunkFiles(outputDirectory, detailChunkDirectory, detailFiles.map((file) => file.href));
@@ -322,6 +330,7 @@ export async function writeStaticReader(
     ...(contracts === undefined
       ? []
       : [{ path: normalizeOutputPath(workspace, path.join(outputDirectory, graphContractsHref)), content: contracts }]),
+    ...(feed === undefined ? [] : [{ path: normalizeOutputPath(workspace, path.join(outputDirectory, feedHref)), content: feed }]),
     ...sources,
   ]);
   const writeMs = Date.now() - startedAt;
@@ -493,6 +502,8 @@ export async function checkRenderBudgets(
   }
   if (profile === "internal") {
     artifactChecks.push(renderSourcesArtifact(workspace, outputDirectory, budgets.maxTotalBytes));
+  } else {
+    artifactChecks.push(renderArtifact(workspace, "feed", path.join(outputDirectory, feedHref), budgets.maxHtmlBytes));
   }
   const artifacts = await Promise.all(artifactChecks);
   const totalBytes = artifacts.reduce((sum, artifact) => sum + artifact.bytes, 0);

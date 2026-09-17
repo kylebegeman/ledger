@@ -512,6 +512,107 @@ describe("changes since the last visit", () => {
   });
 });
 
+describe("release permalinks", () => {
+  function releaseDocument(version: string, date: string): ParsedLedgerDocument {
+    const raw = [
+      "---",
+      `id: "${version}"`,
+      'kind: "release"',
+      `title: "Ledger ${version}"`,
+      `date: "${date}"`,
+      'status: "released"',
+      "entries: []",
+      "---",
+      "",
+      `# Release ${version}`,
+      "",
+      "## Summary",
+      "",
+      "Shipped.",
+      "",
+      "## Public Notes",
+      "",
+      `- Notes for ${version}.`,
+      "",
+    ].join("\n");
+    const parsed = parseMarkdownWithFrontmatter(raw);
+    return {
+      absolutePath: `/tmp/ledger-reader-runtime/.ledger/releases/${version}.md`,
+      relativePath: `.ledger/releases/${version}.md`,
+      raw,
+      frontmatterRaw: parsed.frontmatterRaw,
+      frontmatter: parsed.frontmatter,
+      body: parsed.body,
+      sections: parsed.sections,
+      kind: "release",
+    };
+  }
+
+  let html: string;
+
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/");
+    const releases = Array.from({ length: 30 }, (_, index) =>
+      releaseDocument(`v0.${index}.0`, `2026-${String(Math.floor(index / 28) + 1).padStart(2, "0")}-${String((index % 28) + 1).padStart(2, "0")}`),
+    );
+    html = renderStaticReaderHtml(buildStaticReaderModel(workspace(), releases, { profile: "public" }), { iconSvg: "<svg></svg>" });
+    globalThis.fetch = (async () => new Response("[]", { headers: { "content-type": "application/json" } })) as typeof fetch;
+  });
+
+  it("turns to the page of a release named in the URL fragment", async () => {
+    window.history.replaceState(null, "", "/#v0.0.0");
+    mount(html);
+    await settle(80);
+    const target = document.getElementById("v0.0.0")!;
+    expect(target.hidden).toBe(false);
+    expect(new URL(window.location.href).searchParams.get("page")).toBe("2");
+    expect(new URL(window.location.href).hash).toBe("#v0.0.0");
+    expect(document.activeElement).toBe(target);
+  });
+
+  it("turns the page after a deferred view transition, as browsers run it", async () => {
+    // Browsers run the update after startViewTransition returns, so the reveal must wait for it.
+    const deferred = (update: () => void) => {
+      const done = new Promise<void>((resolve) =>
+        setTimeout(() => {
+          update();
+          resolve();
+        }, 20),
+      );
+      return { ready: done, finished: done, updateCallbackDone: done, skipTransition: () => undefined };
+    };
+    Object.defineProperty(document, "startViewTransition", { configurable: true, value: deferred });
+    try {
+      window.history.replaceState(null, "", "/?per=10#v0.3.0");
+      mount(html);
+      await settle(200);
+      const target = document.getElementById("v0.3.0")!;
+      expect(target.hidden).toBe(false);
+      expect(new URL(window.location.href).searchParams.get("page")).toBe("3");
+      expect(document.activeElement).toBe(target);
+    } finally {
+      delete (document as { startViewTransition?: unknown }).startViewTransition;
+    }
+  });
+
+  it("clears a search that hides the release a changed fragment names", async () => {
+    mount(html);
+    await settle(50);
+    const search = document.getElementById("search") as HTMLInputElement;
+    search.value = "v0.29.0";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    await settle(250);
+    expect(document.getElementById("v0.3.0")?.hidden).toBe(true);
+
+    window.history.replaceState(null, "", "/#v0.3.0");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await settle(80);
+    expect(search.value).toBe("");
+    expect(document.getElementById("v0.3.0")?.hidden).toBe(false);
+    expect(document.getElementById("v0.3.0")?.querySelector(".version-badge")?.getAttribute("href")).toBe("#v0.3.0");
+  });
+});
+
 function openRecordLink(id: string): void {
   (document.querySelector(`.entry[data-id="${id}"] .entry-link`) as HTMLElement).click();
 }

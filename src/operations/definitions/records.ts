@@ -444,7 +444,7 @@ the existing baseline without replacing it.`,
 
 export const renderProfileSchema = z.enum(["internal", "public"]);
 
-export const renderOperation = defineOperation<{ profile: LedgerRenderProfile }, RenderStaticReaderResult>({
+export const renderOperation = defineOperation<{ profile: LedgerRenderProfile; siteUrl?: string }, RenderStaticReaderResult>({
   name: "render",
   title: "Render the static reader",
   description: "Build the offline static reader plus search and graph JSON artifacts.",
@@ -452,6 +452,10 @@ export const renderOperation = defineOperation<{ profile: LedgerRenderProfile },
   mutates: true,
   input: z.strictObject({
     profile: renderProfileSchema.default("internal").describe("Reader profile to render."),
+    siteUrl: z
+      .string()
+      .optional()
+      .describe("Absolute URL the reader is served from, for the canonical link and the public feed's links."),
   }),
   output: looseRecord({
     profile: z.string(),
@@ -463,7 +467,7 @@ export const renderOperation = defineOperation<{ profile: LedgerRenderProfile },
   }),
   cli: {
     path: ["render"],
-    usage: "ledger render [--profile <internal|public>] [--json]",
+    usage: "ledger render [--profile <internal|public>] [--site-url <url>] [--json]",
     flags: {
       profile: {
         type: "string",
@@ -471,11 +475,18 @@ export const renderOperation = defineOperation<{ profile: LedgerRenderProfile },
         choices: ["internal", "public"],
         choicesLabel: "render profile",
       },
+      "site-url": { type: "string", description: "Absolute URL the reader is served from." },
     },
     json: true,
     help: `Builds the offline static reader at .ledger/dist/index.html plus lazy search
 and relationship graph JSON artifacts. The public profile writes to
-.ledger/dist/public and includes only explicit public notes from released releases.`,
+.ledger/dist/public and includes only explicit public notes from released
+releases, with an Atom feed at feed.xml and a permalink for each release.
+
+--site-url names where the rendered page will be served, such as
+https://example.github.io/project/. It makes the canonical link, the Open
+Graph URL, and the feed's links absolute. Without it the feed still carries
+every release's notes.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -492,6 +503,7 @@ and relationship graph JSON artifacts. The public profile writes to
       evidence: await readEvidence(workspace),
       validation: result,
       profile: input.profile,
+      siteUrl: input.siteUrl,
     });
     const rendered = await writeStaticReader(workspace, model);
     return { data: rendered };

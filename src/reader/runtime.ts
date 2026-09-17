@@ -97,6 +97,9 @@ let searchDebounce: ReturnType<typeof setTimeout> | undefined;
 let currentPage = 1;
 let pendingResultsScroll = false;
 let openRecordId = "";
+/** The entries the latest filter pass matched, in list order, and the ones on its page. */
+let latestMatched: readonly HTMLElement[] = [];
+let latestPage: ReadonlySet<HTMLElement> = new Set();
 let entityView: EntityView | undefined;
 let entityMatches = new Map<HTMLElement, EntityRelation>();
 /** Records new or changed since the viewer's last visit, by id. */
@@ -318,6 +321,8 @@ interface ViewTransitionLike {
   /** Rejects when the browser skips the animation, as in a hidden document; the update still runs. */
   readonly ready: Promise<void>;
   readonly finished: Promise<void>;
+  /** Settles once the update callback has run; browsers run it after the call returns. */
+  readonly updateCallbackDone?: Promise<void>;
   skipTransition(): void;
 }
 
@@ -335,10 +340,11 @@ let transitionGeneration = 0;
 /** Entries the latest transition named; a newer transition clears the ones it does not name itself. */
 let namedEntries: readonly HTMLElement[] = [];
 
-function runTransition(update: () => void, candidates: readonly HTMLElement[]): void {
+/** Runs `update`, animated when the browser supports it; the promise settles once the update has run. */
+function runTransition(update: () => void, candidates: readonly HTMLElement[]): Promise<void> {
   if (prefersReducedMotion()) {
     update();
-    return;
+    return Promise.resolve();
   }
   const nearViewport = window.innerHeight * 2;
   const named: HTMLElement[] = [];
@@ -366,15 +372,18 @@ function runTransition(update: () => void, candidates: readonly HTMLElement[]): 
   if (!transition) {
     clearNames();
     update();
-    return;
+    return Promise.resolve();
   }
   // A skipped animation only rejects `ready`; `finished` still rejects when the update itself throws.
   void transition.ready.catch(() => undefined);
   const watchdog = setTimeout(() => transition.skipTransition(), transitionWatchdogMs);
-  void transition.finished.finally(() => {
-    clearTimeout(watchdog);
-    clearNames();
-  });
+  void transition.finished
+    .finally(() => {
+      clearTimeout(watchdog);
+      clearNames();
+    })
+    .catch(() => undefined);
+  return (transition.updateCallbackDone ?? transition.finished).catch(() => undefined);
 }
 
 function pluralize(value: number, noun: string): string {
@@ -415,6 +424,8 @@ async function applyFilters(syncUrl = true): Promise<void> {
   const start = per > 0 ? (currentPage - 1) * per : 0;
   const pageList = per > 0 ? matchedList.slice(start, start + per) : matchedList;
   const pageSet = new Set(pageList);
+  latestMatched = matchedList;
+  latestPage = pageSet;
   const candidates = entries.filter((entry) => !entry.hidden || pageSet.has(entry));
   const orderChanged = sortedEntries.some((entry, index) => entriesContainer.children[index] !== entry);
   const visibilityChanged = entries.some((entry) => entry.hidden === pageSet.has(entry));
@@ -439,7 +450,7 @@ async function applyFilters(syncUrl = true): Promise<void> {
     empty.dataset.emptyState = search || activeFilterCount() > 0 ? "filtered" : "bare";
     entriesContainer.setAttribute("aria-busy", "false");
   };
-  if (orderChanged || visibilityChanged) runTransition(applyUpdate, candidates);
+  if (orderChanged || visibilityChanged) await runTransition(applyUpdate, candidates);
   else applyUpdate();
   searchClear.hidden = searchInput.value.length === 0;
   updateFacetButtons();
@@ -758,7 +769,8 @@ function readUrlState(): void {
   }
 }
 
-function resetFilters(): void {
+/** Clears the search, every filter, the entity view, and the changed-only filter. */
+function clearFilters(): void {
   clearTimeout(searchDebounce);
   searchInput.value = "";
   setEntityView(undefined);
@@ -767,9 +779,42 @@ function resetFilters(): void {
     const control = controls[key];
     if (control) control.value = "all";
   }
+}
+
+function resetFilters(): void {
+  clearFilters();
   currentPage = 1;
   void applyFilters();
   searchInput.focus();
+}
+
+/**
+ * Brings the entry a URL fragment names into view, such as a release
+ * permalink, clearing filters that hide it and turning to its page.
+ */
+async function revealHashTarget(): Promise<void> {
+  let id: string;
+  try {
+    id = decodeURIComponent(window.location.hash.slice(1));
+  } catch {
+    return;
+  }
+  const entry = id ? entries.find((candidate) => candidate.id === id) : undefined;
+  if (!entry) return;
+  if (!latestPage.has(entry)) {
+    // Filters hide it: show everything, in which order the entry sits where the page lists it.
+    let index = latestMatched.indexOf(entry);
+    if (index === -1) {
+      clearFilters();
+      index = entries.indexOf(entry);
+    }
+    const per = perPageSize();
+    currentPage = per > 0 ? Math.floor(index / per) + 1 : 1;
+    await applyFilters();
+  }
+  // An instant scroll; a smooth one can be dropped while the page is still loading.
+  entry.scrollIntoView({ block: "start", behavior: "instant" });
+  entry.focus({ preventScroll: true });
 }
 
 for (const [key, control] of Object.entries(controls)) {
@@ -1428,7 +1473,8 @@ window.addEventListener("popstate", () => {
 trackVisit();
 readUrlState();
 updateThemeLabel();
-void applyFilters(false);
+void applyFilters(false).then(revealHashTarget);
+window.addEventListener("hashchange", () => void revealHashTarget());
 
 // Live reload when served by `ledger serve --api`: the engine streams a
 // rebuilt event after watched records change. A static file server answers

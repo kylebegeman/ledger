@@ -3650,7 +3650,7 @@
           "render"
         ],
         "aliases": [],
-        "usage": "ledger render [--profile <internal|public>] [--json]",
+        "usage": "ledger render [--profile <internal|public>] [--site-url <url>] [--json]",
         "json": true,
         "flags": {
           "profile": {
@@ -3660,6 +3660,10 @@
               "internal",
               "public"
             ]
+          },
+          "site-url": {
+            "type": "string",
+            "field": "siteUrl"
           }
         }
       },
@@ -3675,6 +3679,10 @@
               "internal",
               "public"
             ]
+          },
+          "siteUrl": {
+            "description": "Absolute URL the reader is served from, for the canonical link and the public feed's links.",
+            "type": "string"
           }
         },
         "required": [

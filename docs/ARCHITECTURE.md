@@ -316,6 +316,20 @@ verification details, and extension fields before HTML or JSON generation.
 The public profile is an export-safety boundary, not an authentication system.
 Publishing still requires review of the public notes themselves.
 
+The public profile also writes `feed.xml`, an Atom feed of the newest 50
+releases, from `src/renderFeed.ts`. Entry ids are version 5 UUIDs of the
+project name and release id under a namespace derived from Ledger's
+repository URL, so they survive a moved site. The feed's `updated` time is
+the newest release's date, so an unchanged catalog writes the same feed. Each
+release article's id is the release id when that is a plain token, such as
+`v1.2.0`. The version label links to it, and the runtime turns to the page of
+the release a fragment names, clearing any filters that hide it. Both profiles
+carry a description, Open Graph tags, and the mark as an inline SVG icon.
+`ledger render --site-url <url>` validates an absolute http or https URL and
+adds a trailing slash. It then adds a canonical link and `og:url`, and makes
+the feed's self and entry links absolute. `ledger serve` sends `feed.xml` as
+`application/atom+xml`. `docs/PUBLISHING.md` has the GitHub Pages workflow.
+
 ### Release Workflow
 
 Release generation can either render records already assigned to a version or

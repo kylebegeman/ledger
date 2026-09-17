@@ -278,7 +278,9 @@ ledger render --profile public   # a public changelog from released notes only
 
 The public profile turns release records into a changelog. It is fail-closed:
 only released versions and their Public Notes are included, and paths, files,
-symbols, invariants, and internal links are stripped.
+symbols, invariants, and internal links are stripped. It also writes an Atom
+feed and a permalink for each release, and `--site-url` makes their links
+absolute. [Publishing](./docs/PUBLISHING.md) has a GitHub Pages workflow.
 
 <p align="center"><img alt="The public changelog Ledger renders for this repository, showing the notes for a release" src="./assets/readme/changelog.png" width="880"></p>
 
@@ -495,6 +497,7 @@ project on it gets parsed symbols by also installing
 | [Docs relationship](./docs/DOCS_RELATIONSHIP.md) | How Ledger records relate to a project's docs |
 | [Roadmap](./docs/ROADMAP.md) | Where the product is going |
 | [Release prep](./docs/RELEASE_PREP.md) | The release checklist and npm publishing |
+| [Publishing](./docs/PUBLISHING.md) | Hosting the public changelog, its feed, and permalinks |
 | [Security](./SECURITY.md) | Reporting issues and exposing the server beyond loopback |
 
 ## Development
