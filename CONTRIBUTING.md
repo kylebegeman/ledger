@@ -64,8 +64,9 @@ repository:
 | `changelog.png` | `serve --profile public`, scrolled to the changelog heading | 1180 by 820 |
 | `receipt.png` | record `0001` in the billing demo from `--keep`, Files and Relationships open, cropped to the panel | 1440 by 1600 |
 
-Each screenshot gets rounded corners and a 1px `#2a322d` inner border, with
-pixels kept at their captured size.
+Each screenshot gets rounded corners and a 1px `#3d363f` inner border, the
+reader's dark line color, with pixels kept at their captured size. The cards
+and screenshots share the reader's dark palette, which follows Dossier's.
 
 ## Branches
 

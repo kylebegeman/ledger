@@ -330,7 +330,7 @@ describe("writeStaticReader", () => {
     expect(result.outputPath).toBe(".ledger/dist/public/index.html");
     const html = await readFile(path.join(tempDir, result.outputPath), "utf8");
     expect(html).toContain("Safe public feature.");
-    expect(html).toContain("What shipped, clearly.");
+    expect(html).toContain("What shipped, <em>clearly</em>.");
     expect(html).toContain("Search versions and release notes");
     expect(html).toContain('data-year="2026"');
     expect(html).toContain('data-year="2025"');

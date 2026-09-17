@@ -3,8 +3,8 @@ id: "B009"
 kind: "backlog"
 title: "Adopt the Dossier visual system in the reader and generated pages"
 date: "2026-09-16"
-updated: "2026-09-16"
-status: "proposed"
+updated: "2026-09-17"
+status: "landed"
 areas:
   - "reader"
   - "design"
@@ -19,8 +19,8 @@ docs:
 
 ## Problem
 
-Ledger's reader has its own flat editorial design with `light-dark()` tokens
-and an orange accent matched to the mark. Kyle wants Ledger's reader, public
+Ledger's reader had its own flat editorial design with `light-dark()` tokens
+and an accent matched to the mark. Kyle wants Ledger's reader, public
 changelog, and other generated pages to share the visual system Dossier now
 uses, including its light and dark modes, so the two products read as one
 family.
@@ -35,7 +35,11 @@ self-contained static artifact with no runtime dependency on Dossier.
 
 Included:
 
-- Read Dossier's design record and token sources in the Dossier repository:
+- Read Dossier's design record and token sources in the Dossier repository.
+  Dossier 0.7.2 replaced the files listed next with one stylesheet,
+  `core/internal/render/assets/tokens.css`, and the accent derivation in
+  `core/internal/theme/theme.go`; the port used those at commit `b48ea15`.
+  The 0.6.7 sources were:
   `docs/DESIGN.md`, `src/theme/tokens.css.mjs`, `src/themes.mjs`, and
   `src/skins.mjs`. The current tokens (as of Dossier 0.6.7) are near-monochrome
   plum neutrals with one berry accent: light `--ds-bg #fbfbfc`, `--ds-ink
@@ -79,3 +83,31 @@ Excluded:
 
 Schedule inside 0.7's reader work or as its own minor release after B008's
 typed runtime.
+
+Implemented for 0.9.0 in receipt 0168, from Dossier `b48ea15`. The port
+copies Dossier's neutrals, tones, fonts, radii, and motion into
+`src/reader/styles.css` as `light-dark()` tokens. It keeps Ledger's emerald
+accent (`#047857`, `#34d399`) with tints at Dossier's tint lightness.
+
+Decisions taken by the assistant, as Kyle asked:
+
+- Color marks status only, so kind badges are neutral outline chips.
+- Errors use a Ledger-only crimson, and superseded, deprecated, and expired
+  statuses are neutral.
+- Text inputs and selects use a 3:1 control line, and every selected state
+  carries an accent outline, pip, or underline.
+- Fonts are Dossier's system stacks with no embedded fonts.
+- The hero became Dossier's compact masthead, with the rail on the left from
+  1100px.
+- The theme toggle cycles Auto, Light, and Dark with a visible label.
+
+Acceptance:
+
+- Both profiles render within budget.
+- Every text and tone pairing measures at least 4.5:1 and every control edge
+  at least 3:1 in both themes.
+- The reader works from a `file:` URL, and the engine tests still cover live
+  reload.
+- Screenshots of both themes were sent to Kyle during the work. His
+  instruction to finish everything without waiting stood in for a pre-merge
+  review.

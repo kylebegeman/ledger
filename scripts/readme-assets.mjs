@@ -291,10 +291,12 @@ function buildGoDemo(base) {
 
 const MONO = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
 const SANS = "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+// Dossier's dark neutrals and tones (the reader's palette since B009), with Ledger's emerald for prompts and headings.
+// Code takes Dossier's syntax violet and record ids its number coral.
 const COLORS = {
-  bg: "#0f1311", bar: "#171c19", border: "#2a322d", text: "#dfe5df", bright: "#f6f8f5", muted: "#86918a",
-  accent: "#34d399", heading: "#6ee7b7", pass: "#8bd88f", red: "#ff9aa5", amber: "#efb65f", code: "#93c5fd",
-  ident: "#c4b5fd", title: "#a3ada6",
+  bg: "#141216", bar: "#1c191e", border: "#3d363f", text: "#e2dde3", bright: "#f4f1f4", muted: "#948b96",
+  accent: "#34d399", heading: "#6ee7b7", pass: "#6fdbc9", red: "#f4789a", amber: "#e6b566", code: "#b9aaff",
+  ident: "#e6b566", title: "#b0a7b1",
 };
 const FONT_SIZE = 13.5;
 const CHAR_WIDTH = 8.13; // approximate advance of the monospace stack at 13.5px
@@ -551,8 +553,8 @@ const LOOP_STEPS = [
   ["Next change", ["Whoever touches those files", "reads the receipts first, in", "a packet or the reader."], "ledger packet"],
 ];
 const LOOP = {
-  panel: "#0f1311", panelBorder: "#2a322d", card: "#171c19", border: "#2f3832", title: "#f2f5f2", body: "#b0b8b2",
-  chipBg: "#0f3b2e", chipText: "#6ee7b7", numberBg: "#34d399", numberText: "#03271c", arrow: "#56605a", loop: "#34d399", caption: "#949d96",
+  panel: "#141216", panelBorder: "#3d363f", card: "#1c191e", border: "#3d363f", title: "#f4f1f4", body: "#b0a7b1",
+  chipBg: "#0d2d20", chipText: "#6ee7b7", numberBg: "#34d399", numberText: "#03271c", arrow: "#736b77", loop: "#34d399", caption: "#948b96",
 };
 
 function renderLoop() {

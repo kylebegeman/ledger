@@ -26,6 +26,8 @@ describe("reader runtime bundle", () => {
     expect(staticReaderRuntime).not.toContain("import ");
     expect(staticReaderRuntime).not.toContain("export ");
     expect(staticReaderStyles).toContain("light-dark(");
+    // Every page embeds the stylesheet; Dossier holds its own to a budget, and so does Ledger.
+    expect(Buffer.byteLength(staticReaderStyles)).toBeLessThan(40 * 1024);
     const source = await readFile(path.join(process.cwd(), "src", "reader", "runtime.ts"), "utf8");
     expect(source).toContain('from "../searchCore.js"');
     expect(source).not.toMatch(/function fuzzyScore\(/);
@@ -143,13 +145,27 @@ describe("reader runtime in a browser document", () => {
     expect(new URL(window.location.href).searchParams.get("record")).toBeNull();
   });
 
-  it("toggles the theme and persists it", async () => {
+  it("cycles the theme through auto, light, and dark and remembers an explicit choice", async () => {
     await settle(50);
     const toggle = document.getElementById("theme-toggle") as HTMLElement;
-    expect(toggle.getAttribute("aria-label")).toMatch(/Switch to (dark|light) theme/);
+    const label = toggle.querySelector("[data-theme-label]");
+    const root = document.documentElement;
+    root.dataset.theme = "system";
+    localStorage.removeItem("ledger-theme");
     toggle.click();
-    expect(["light", "dark"]).toContain(document.documentElement.dataset.theme);
-    expect(localStorage.getItem("ledger-theme")).toBe(document.documentElement.dataset.theme);
+    expect(root.dataset.theme).toBe("light");
+    expect(localStorage.getItem("ledger-theme")).toBe("light");
+    expect(label?.textContent).toBe("Light");
+    expect(toggle.getAttribute("aria-label")).toBe("Theme: light. Switch to dark");
+    toggle.click();
+    expect(root.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("ledger-theme")).toBe("dark");
+    expect(label?.textContent).toBe("Dark");
+    toggle.click();
+    expect(root.dataset.theme).toBe("system");
+    expect(localStorage.getItem("ledger-theme")).toBeNull();
+    expect(label?.textContent).toBe("Auto");
+    expect(toggle.getAttribute("aria-label")).toBe("Theme: auto, follows your system. Switch to light");
   });
 
   it("opens the command palette on Cmd+K and ranks results", async () => {
