@@ -11,7 +11,7 @@ import {
   type LedgerFileChange,
 } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
-import { renderRecordDetails, renderStaticReaderHtml } from "./renderHtml.js";
+import { renderRecordDetails, renderStaticReaderHtml, withoutOpenCodeSpan } from "./renderHtml.js";
 import { searchTermsFor } from "./searchCore.js";
 import { evidenceFreshness, type LedgerEvidenceIndex, type LedgerVerificationFreshness } from "./verify.js";
 import type {
@@ -1002,7 +1002,7 @@ function compactSection(value: string | undefined): string | undefined {
   const compacted = value?.replace(/\s+/g, " ").trim();
   if (!compacted) return undefined;
   if (compacted.length <= 320) return compacted;
-  return `${compacted.slice(0, 317).trimEnd()}...`;
+  return `${withoutOpenCodeSpan(compacted.slice(0, 317)).trimEnd()}...`;
 }
 
 function verificationFields(

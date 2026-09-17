@@ -220,7 +220,7 @@ function renderEntry(
                 <span class="status-dot" data-status-tone="${escapeHtml(document.status)}">${escapeHtml(document.status)}</span>
                 ${document.date ? `<time class="record-date" datetime="${escapeHtml(updatedDate || document.date)}"${updatedDate ? ` title="Created ${escapeHtml(formatDate(document.date))}"` : ""}>${escapeHtml(formatDate(updatedDate || document.date))}</time>` : ""}
               </div>
-              ${document.summary ? `<p class="entry-summary">${escapeHtml(document.summary)}</p>` : ""}
+              ${document.summary ? `<p class="entry-summary">${inlineCodeHtml(document.summary)}</p>` : ""}
               <div class="entry-tags">
                 ${document.release ? tag(document.release) : ""}
                 ${document.areas.slice(0, 4).map((value) => tag(value)).join("")}
@@ -240,7 +240,7 @@ function recordDetail(document: LedgerRenderedDocument, updatedDate: string): st
                 ${document.date ? `<time class="record-date" datetime="${escapeHtml(updatedDate || document.date)}">${escapeHtml(formatDate(updatedDate || document.date))}</time>` : ""}
               </div>
               <h2 class="record-panel-title">${escapeHtml(document.title)}</h2>
-              ${document.summary ? `<p class="entry-summary">${escapeHtml(document.summary)}</p>` : ""}
+              ${document.summary ? `<p class="entry-summary">${inlineCodeHtml(document.summary)}</p>` : ""}
               <div class="entry-tags">
                 ${document.release ? tag(document.release) : ""}
                 ${document.areas.map((value) => tag(value)).join("")}
@@ -277,7 +277,7 @@ function renderPublicEntry(document: LedgerRenderedDocument, yearStart: boolean)
 function publicNotesList(values: readonly string[]): string {
   if (values.length === 0) return '<p class="entry-summary">No public notes were recorded.</p>';
   return `<ul class="release-notes">${values
-    .map((value) => `<li><span aria-hidden="true">${icon("check")}</span><span>${escapeHtml(value)}</span></li>`)
+    .map((value) => `<li><span aria-hidden="true">${icon("check")}</span><span>${inlineCodeHtml(value)}</span></li>`)
     .join("")}</ul>`;
 }
 
@@ -385,7 +385,7 @@ function contextBlock(label: string, description: string, values: readonly strin
   if (values.length === 0) return "";
   return `<section class="context-panel">
             <div class="section-heading"><span>${icon}</span><div><h4>${escapeHtml(label)}</h4><small>${escapeHtml(description)}</small></div></div>
-            <ul>${values.map((value) => `<li>${escapeHtml(value)}</li>`).join("")}</ul>
+            <ul>${values.map((value) => `<li>${inlineCodeHtml(value)}</li>`).join("")}</ul>
           </section>`;
 }
 
@@ -593,6 +593,32 @@ function iconSprite(): string {
 
 function icon(name: string, attrs = ""): string {
   return `<svg class="ui-icon"${attrs ? ` ${attrs}` : ""} aria-hidden="true"><use href="#i-${name}"/></svg>`;
+}
+
+/** A Markdown code span on one line: a backtick run, the code, and a closing run of the same length. */
+const inlineCodePattern = /(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)/g;
+
+/**
+ * Record prose as HTML: the text is escaped first, then each code span becomes
+ * inline code, so nothing inside a code span is markup. As in Markdown, a span
+ * closes only on a backtick run as long as the one that opened it, so
+ * `` `ledger ready` `` shows its inner backticks, and one space of padding on
+ * both sides is dropped. An unpaired backtick, such as one cut off by a
+ * truncated summary, stays literal.
+ */
+function inlineCodeHtml(value: string): string {
+  return escapeHtml(value).replace(inlineCodePattern, (_span, _run: string, code: string) => {
+    const padded = code.startsWith(" ") && code.endsWith(" ") && code.trim() !== "";
+    return `<code class="inline-code">${padded ? code.slice(1, -1) : code}</code>`;
+  });
+}
+
+/** Text cut off inside a code span, such as a shortened summary, ends before that span instead of on a stray backtick. */
+export function withoutOpenCodeSpan(value: string): string {
+  let closedEnd = 0;
+  for (const span of value.matchAll(inlineCodePattern)) closedEnd = span.index + span[0].length;
+  const open = value.indexOf("`", closedEnd);
+  return open === -1 ? value : value.slice(0, open);
 }
 
 function escapeHtml(value: string): string {

@@ -386,6 +386,78 @@ describe("writeStaticReader", () => {
 });
 
 describe("renderStaticReaderHtml", () => {
+  it("renders Markdown code spans in record prose as escaped inline code", () => {
+    const raw = `---
+id: "0001"
+kind: "change"
+title: "Inline code"
+date: "2026-06-29"
+status: "landed"
+areas: ["cli"]
+files:
+  - "src/cli.ts"
+symbols: []
+commits: []
+---
+
+# 0001: Inline code
+
+## Summary
+
+Run \`ledger ready\` before landing; \`<img src=x onerror=alert(1)>\` stays text, and a stray \` stays literal.
+
+## Invariants
+
+- Retries stop after \`maxAttempts\` (5).
+- Quote a command as \`\` \`ledger ready\` \`\` in a receipt.
+
+## Verification
+
+- \`npm test\`
+`;
+    const html = renderStaticReaderHtml(buildStaticReaderModel(workspace(), [parsedChange(raw)]));
+    const summary =
+      'Run <code class="inline-code">ledger ready</code> before landing; <code class="inline-code">&lt;img src=x onerror=alert(1)&gt;</code> stays text, and a stray ` stays literal.';
+    expect(html.split(`<p class="entry-summary">${summary}</p>`)).toHaveLength(3);
+    expect(html).toContain('<li>Retries stop after <code class="inline-code">maxAttempts</code> (5).</li>');
+    expect(html).toContain('<li>Quote a command as <code class="inline-code">`ledger ready`</code> in a receipt.</li>');
+    expect(html).toContain('<li><code class="inline-code">npm test</code></li>');
+    expect(html).not.toContain("<img src=x");
+    expect(html).toContain(".inline-code {");
+
+    const release = publicReleaseDocument("v1.0.0", "released");
+    const withCode = { ...release, raw: release.raw.replace("- Safe public feature.", "- Run `ledger ci --github` in pull requests.") };
+    const reparsed = parseMarkdownWithFrontmatter(withCode.raw);
+    const publicHtml = renderStaticReaderHtml(
+      buildStaticReaderModel(workspace(), [{ ...withCode, body: reparsed.body, sections: reparsed.sections }], { profile: "public" }),
+    );
+    expect(publicHtml).toContain('<span>Run <code class="inline-code">ledger ci --github</code> in pull requests.</span>');
+  });
+
+  it("ends a shortened summary before a code span it cuts off", () => {
+    const lead = "Receipts keep context. ".repeat(13);
+    const raw = `---
+id: "0001"
+kind: "change"
+title: "Long summary"
+date: "2026-06-29"
+status: "landed"
+areas: ["cli"]
+files: []
+symbols: []
+commits: []
+---
+
+# 0001: Long summary
+
+## Summary
+
+${lead}Run \`ledger ready --json\` before landing.
+`;
+    const html = renderStaticReaderHtml(buildStaticReaderModel(workspace(), [parsedChange(raw)]));
+    expect(html.split(`<p class="entry-summary">${lead}Run...</p>`)).toHaveLength(3);
+  });
+
   it("renders escaped source and embedded JSON data", () => {
     const model = buildStaticReaderModel(workspace(), [
       document("0001", "change", "Escape <script>"),
@@ -483,6 +555,20 @@ function workspace(projectRoot = "/tmp/ledger"): LedgerWorkspace {
     ledgerRoot: `${projectRoot}/.ledger`,
     configPath: `${projectRoot}/.ledger/config.yaml`,
     config: defaultConfig,
+  };
+}
+
+function parsedChange(raw: string): ParsedLedgerDocument {
+  const parsed = parseMarkdownWithFrontmatter(raw);
+  return {
+    absolutePath: "/tmp/ledger/.ledger/entries/0001.md",
+    relativePath: ".ledger/entries/0001.md",
+    raw,
+    frontmatterRaw: parsed.frontmatterRaw,
+    frontmatter: parsed.frontmatter,
+    body: parsed.body,
+    sections: parsed.sections,
+    kind: "change",
   };
 }
 

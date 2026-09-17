@@ -684,6 +684,15 @@
       font-size: 0.75rem;
       overflow-wrap: anywhere;
     }
+    .inline-code {
+      padding: 0.08em 0.36em;
+      border-radius: 5px;
+      background: var(--surface-soft);
+      color: var(--ink);
+      font-size: 0.86em;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
     pre {
       max-height: 520px;
       margin: 14px 0 0;
