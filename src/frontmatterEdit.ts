@@ -3,6 +3,12 @@ import { escapeYamlString, yamlStringArray } from "./template.js";
 
 const frontmatterPattern = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?=\r?\n|$)/;
 
+/** The line ending the document uses, read from its first line break, so edits never mix endings. */
+function lineEnding(markdown: string): "\r\n" | "\n" {
+  const first = markdown.indexOf("\n");
+  return first > 0 && markdown[first - 1] === "\r" ? "\r\n" : "\n";
+}
+
 /**
  * Replace or append scalar frontmatter fields in a Markdown record without
  * reformatting the rest of the file. Values are written as quoted strings.
@@ -16,15 +22,16 @@ export function setFrontmatterScalars(
   if (!match) {
     throw new LedgerError("invalid-markdown", `Cannot ${label}: missing YAML frontmatter`);
   }
+  const eol = lineEnding(markdown);
   let frontmatter = match[1] ?? "";
   for (const [key, value] of Object.entries(values)) {
     const line = `${key}: "${escapeYamlString(value)}"`;
     const pattern = new RegExp(`^${escapeRegExp(key)}[ \\t]*:.*$`, "m");
     frontmatter = pattern.test(frontmatter)
       ? frontmatter.replace(pattern, line)
-      : `${frontmatter}\n${line}`;
+      : `${frontmatter}${eol}${line}`;
   }
-  return markdown.replace(match[0], `---\n${frontmatter}\n---`);
+  return markdown.replace(match[0], `---${eol}${frontmatter}${eol}---`);
 }
 
 /**
@@ -40,14 +47,15 @@ export function ensureFrontmatterArrays(
   if (!match) {
     throw new LedgerError("invalid-markdown", "Cannot update frontmatter: missing YAML frontmatter");
   }
+  const eol = lineEnding(markdown);
   let frontmatter = match[1] ?? "";
   for (const [key, values] of Object.entries(arrays)) {
     if (values.length === 0) continue;
     const pattern = new RegExp(`^${escapeRegExp(key)}[ \\t]*:`, "m");
     if (pattern.test(frontmatter)) continue;
-    frontmatter = `${frontmatter}\n${key}:${yamlStringArray(values)}`;
+    frontmatter = `${frontmatter}${eol}${key}:${yamlStringArray(values).replace(/\n/g, eol)}`;
   }
-  return markdown.replace(match[0], `---\n${frontmatter}\n---`);
+  return markdown.replace(match[0], `---${eol}${frontmatter}${eol}---`);
 }
 
 /**
@@ -63,16 +71,17 @@ export function setFrontmatterArray(
   if (!match) {
     throw new LedgerError("invalid-markdown", "Cannot update frontmatter: missing YAML frontmatter");
   }
+  const eol = lineEnding(markdown);
   const frontmatter = match[1] ?? "";
-  const rendered = `${key}:${yamlStringArray(values)}`;
+  const rendered = `${key}:${yamlStringArray(values)}`.replace(/\n/g, eol);
   const pattern = new RegExp(
     `^${escapeRegExp(key)}[ \\t]*:(?:[ \\t]*\\[[^\\]]*\\][ \\t]*|[ \\t]*(?:\\r?\\n[ \\t]+-[^\\n]*)*)$`,
     "m",
   );
   const updated = pattern.test(frontmatter)
     ? frontmatter.replace(pattern, rendered)
-    : `${frontmatter}\n${rendered}`;
-  return markdown.replace(match[0], `---\n${updated}\n---`);
+    : `${frontmatter}${eol}${rendered}`;
+  return markdown.replace(match[0], `---${eol}${updated}${eol}---`);
 }
 
 /**
@@ -93,7 +102,7 @@ export function replaceSectionBody(markdown: string, title: string, body: string
     }
   }
   const replacement = [heading, "", body.trim(), ""];
-  return [...lines.slice(0, start), ...replacement, ...lines.slice(end)].join("\n");
+  return [...lines.slice(0, start), ...replacement, ...lines.slice(end)].join(lineEnding(markdown));
 }
 
 function escapeRegExp(value: string): string {
