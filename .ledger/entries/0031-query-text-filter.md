@@ -22,6 +22,8 @@ docs:
 commits:
   - "3e72c61"
 release: "v0.1.3"
+staleRefs:
+  - "anchors:Command Map"
 ---
 
 # 0031: Add Query Text Filter

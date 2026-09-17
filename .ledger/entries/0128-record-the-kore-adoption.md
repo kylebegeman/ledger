@@ -31,6 +31,7 @@ related:
   - "0125"
   - "0126"
   - "0127"
+release: "v0.8.0"
 ---
 
 # 0128: Record The Kore Adoption

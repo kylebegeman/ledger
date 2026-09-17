@@ -55,6 +55,7 @@ decisions:
 related:
   - "0126"
   - "S0002"
+release: "v0.8.0"
 ---
 
 # 0131: Guard Docs Reconcile And Detect Curated Routing Files On Adopt

@@ -31,6 +31,8 @@ backlog:
   - "B005"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:Library API"
 ---
 
 # 0070: API And Release Prep Docs

@@ -28,6 +28,8 @@ docs:
 commits:
   - "bfd62bb"
 release: "v0.1.5"
+staleRefs:
+  - "anchors:Docs Relationship"
 ---
 
 # 0037: Expand Docs Plane Reconcile And Migration Reports

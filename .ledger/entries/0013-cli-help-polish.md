@@ -16,6 +16,8 @@ symbols:
 docs: []
 release: "v0.1.1"
 commits: ["ec655d1"]
+staleRefs:
+  - "anchors:Command Help"
 ---
 
 # 0013: Polish CLI Help Output

@@ -42,6 +42,8 @@ docs:
   - "docs/SCHEMA.md"
 release: "v0.1.1"
 commits: ["5a8da50"]
+staleRefs:
+  - "anchors:Five Minute Start"
 ---
 
 # 0020: Overhaul README And Prepare Patch Release

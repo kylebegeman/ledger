@@ -42,6 +42,8 @@ backlog:
   - "B005"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:Render Budget Config"
 ---
 
 # 0052: Render Artifact Budget Metrics

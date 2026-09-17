@@ -30,6 +30,7 @@ decisions:
 related:
   - "0128"
   - "0129"
+release: "v0.8.0"
 ---
 
 # 0130: Record The Live Kore Capture Session

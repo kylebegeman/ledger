@@ -21,6 +21,8 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.2"
 commits: ["246cb75"]
+staleRefs:
+  - "anchors:Command Map"
 ---
 
 # 0021: Expand Query Filters

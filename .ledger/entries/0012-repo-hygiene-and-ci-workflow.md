@@ -19,6 +19,8 @@ symbols: []
 docs: []
 release: "v0.1.1"
 commits: ["46f1fa6"]
+staleRefs:
+  - "anchors:Contributing"
 ---
 
 # 0012: Add Repo Hygiene And CI Workflow

@@ -39,6 +39,7 @@ files:
   - "scripts/readme-assets.mjs"
   - "CONTRIBUTING.md"
   - "src/operations/definitions/server.ts"
+  - "docs/HANDOFF.md"
 host: "claude-code"
 hostSession: "6cf5fed7-a387-4a27-bb1a-125e18d27bfd"
 related:

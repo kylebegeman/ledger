@@ -1,6 +1,6 @@
 # Ledger Handoff
 
-Last updated: 2026-09-16. Written at the end of a long working session so the
+Last updated: 2026-09-17. Written at the end of a long working session so the
 next session can resume without rereading history. Update this file whenever a
 milestone lands or a plan changes; retire sections that stop being true.
 
@@ -10,11 +10,17 @@ milestone lands or a plan changes; retire sections that stop being true.
   both created by `.github/workflows/release.yml` through npm trusted
   publishing on 2026-09-16 from pull request #18. `@kylebegeman/dossier` 0.6.7
   publishes the same way from its own repo.
-- First outside adopter: Kore installed Ledger 0.7.0 with Claude Code and
-  Codex hooks on 2026-09-16 (kylebegeman/forge#23, Kore receipt 0001). A live
-  Claude Code session there received context on start and left a draft receipt
-  on stop, but the agent was never told the draft existed; that friction and
-  the install friction are backlog B010, and B007 is landed.
+- Prepared, not published: 0.8.0 on branch `adoption-0.8`, backlog B010's
+  adoption and capture fixes plus the README overhaul. Publishing needs the
+  pull request merged and the `v0.8.0` tag pushed. The tag push publishes to
+  npm, so Kyle pushes it.
+- First outside adopter: Kore runs Ledger 0.7.0 with Claude Code and Codex
+  hooks, merged in kylebegeman/forge#22 and kylebegeman/forge#24, with this
+  repository's records for it in kylebegeman/ledger#19 (receipts 0128 and
+  0130). A live Claude Code session there received context on start and left
+  a draft receipt on stop, but the agent was never told the draft existed.
+  0.8.0 fixes that; a second live session is B010's open acceptance check, and
+  B007 is landed.
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
@@ -31,6 +37,7 @@ milestone lands or a plan changes; retire sections that stop being true.
 | 0.5.0 | Engine server (`serve --api`: JSON API, event stream, MCP over Streamable HTTP, server card, daemon record); CLI delegation to the engine; reader live reload; MCP resources and prompts; shared search scoring | 0099 to 0104 |
 | 0.6.0 | Capture: `backlog new`, `decision new`, `promote`, `release notes`; the `session` record kind with `scratch`, `session start|touch|note|close|prune`, expiry, and promotion; `ready`; `hooks install` for Claude Code, Codex, and Cursor with the hidden `hook` dispatcher; `skills install`; `agents --write` | 0105 to 0111 |
 | 0.7.0 | Trust: current-change coverage (`git.coverage`), per-file docs impact evidence, symbol extractor provenance with `typescript` as an optional peer, `verify --run` with an evidence sidecar, anchor and invariant freshness, `ci --github` and the composite `action.yml`, the typed API client, the typed and bundled reader runtime with happy-dom tests, sharded search, chunked graph and details, `search --full-text` | 0112 to 0124 |
+| 0.8.0 (prepared) | Adoption and capture: the `docs reconcile` guard; `agents.command` rendered into hooks, the agents block, the skill, and hook context; a one-time prompt notice for hook drafts and one draft per change; expired active sessions; prune keeps linked sessions and session records are committed; toolchain-aware `adopt` with a marked `.gitignore` block; the README rebuilt around real output and the emerald mark | 0131 to 0137, 0141 |
 
 Read the receipts for invariants and conflict rules before touching those
 areas. Decision D005 records the direction and the four supporting choices;
@@ -63,22 +70,35 @@ D006 records what was retired; D007 records the runtime decision below.
   every cache backend and in the reader; FTS5 narrowing is the explicit
   `--full-text` mode because on this catalog it changed a third of top-three
   results (receipt 0120).
+- Session records are committed with the change they describe, and
+  `session prune --write` deletes an expired session only when it was not
+  promoted and no record links it (receipt 0134).
+- The README shows one image per visual with no light and dark variants.
+  Terminal cards come from `scripts/readme-assets.mjs`; reader screenshots are
+  captured by hand with the settings in `CONTRIBUTING.md` (receipt 0137).
+- The mark is an emerald ruled L with no background shape, and the reader's
+  accent follows it (receipt 0137). B009 should keep both unless Kyle decides
+  otherwise.
 
 ## How capture and trust work in this repository
 
-- `.claude/settings.json` carries the five Claude Code hooks, installed with
-  `--command "node dist/cli.js"` because `/opt/homebrew/bin/ledger` on Kyle's
-  machine is the unrelated ledger-cli accounting tool. Every Claude Code
-  session here creates or resumes a session record under `.ledger/sessions/`,
-  receives a memory packet on start, records Write and Edit tool paths, drafts
-  a change entry on the first stop after an edit, and writes
+- `.claude/settings.json` carries six Claude Code hooks that run
+  `node dist/cli.js`, saved as `agents.command` in `.ledger/config.yaml`,
+  because `/opt/homebrew/bin/ledger` on Kyle's machine is the unrelated
+  ledger-cli accounting tool. Every Claude Code session here creates or
+  resumes a session record under `.ledger/sessions/`, receives the records for
+  the paths in play and a `Linked receipt:` line per linked receipt on start,
+  records Write and Edit tool paths, drafts a change entry on the first stop
+  after an edit, names that draft once on the next prompt, and writes
   `.ledger/reports/handoff.md` before compaction. A stale `dist/` breaks the
-  hooks, so build first.
-- The Stop hook's draft takes the next free id. When writing milestone
-  receipts by hand, delete the hook draft and session records first or the
-  ids collide (product note 0122 records this).
+  hooks, so build first. Codex hooks are not installed here.
+- Finish the hook's draft rather than deleting it: give it a real title and
+  write the receipt into it. A linked receipt of any status covers its paths,
+  so later stops do not draft again for them (receipt 0133). Session records
+  are committed with the change.
 - `.agents/skills/ledger/SKILL.md` is the shipped skill; `.claude/skills/ledger`
-  is a relative symlink to it. `AGENTS.md` ends with the managed block.
+  is a relative symlink to it. `AGENTS.md` ends with the managed block. Both
+  render `agents.command`.
 - Coverage is `current`: a pull request must carry a receipt that lists the
   changed required paths, and each changed source file needs docs impact
   evidence from that receipt.
@@ -93,35 +113,43 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Merge the Kore adoption**: Kore's branch `kore/ledger-adoption` holds the
-   adoption, the live session's `CONTRIBUTING.md` rename with landed receipt
-   0002, and closed session S0001 (commit `c9b3ad5`). Kyle merges
-   kylebegeman/forge#22 first, then forge#23, then this repository's pull
-   request for the adoption records. In the Claude desktop app, `/exit` does
-   not fire SessionEnd, so close a finished session with
-   `ledger session close --id <id>` before landing its receipt (0129).
-2. **Adoption and capture fixes** (backlog B010), most urgent first: the
-   `docs reconcile` guard (0126); one configured Ledger command rendered into
-   the hooks, agents block, skill, and hook context (0127); the draft receipt
-   lifecycle, starting with an agent-visible notice of the draft (0122, 0129);
-   toolchain-aware `adopt` defaults (0125); a rule for committing session
-   records. Acceptance includes a second live Kore session that finishes its
-   draft unprompted. After the release, bump Kore's pin in its two hook files,
-   `verification.allow`, and the `AGENTS.md` note together.
-3. **Dossier visual system** (backlog B009): unblocked, because the reader
+1. **Publish 0.8.0**: merge the `adoption-0.8` pull request once its CI
+   matrix is green, then Kyle tags the merged `master` with
+   `git tag v0.8.0 && git push origin v0.8.0`. The release workflow publishes
+   to npm and creates the GitHub Release from `.ledger/releases/v0.8.0.md`.
+2. **Finish B010 in Kore**: bump the pin by running the 0.8.0 package's
+   `hooks install` for `claude-code` and `codex` with
+   `--command "npx --yes @kylebegeman/ledger@0.8.0"`, then `agents --write` and
+   `skills install`; add the pinned Ledger checks to `verification.allow` by
+   hand (0140); remove the hand-written Ledger note from Kore's `AGENTS.md`
+   that the managed block replaces; re-approve the Codex hooks with `/hooks`.
+   Then run a second live Claude Code session with an ordinary task and check
+   that it finishes its hook draft to `ledger ready` without being told and
+   without a second receipt. In the Claude desktop app, `/exit` does not fire
+   SessionEnd; 0.8.0 treats the expired session as inactive, and
+   `ledger session close --id <id>` still closes it explicitly. Close B010
+   when both checks pass.
+3. **Product notes from the README fact-check**: decide whether
+   `coverage: any` should relax docs impact in `ledger ci` (0138); update the
+   action's pull request comment in place (0139); match `agents.command` in
+   the verification allowlist (0140); render inline code in the reader and
+   recapture the README screenshots (0136).
+4. **Dossier visual system** (backlog B009): unblocked, because the reader
    stylesheet is a real file at `src/reader/styles.css` and the runtime is
    typed and browser-tested.
-4. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
+5. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
    multi round-trip confirmation on write tools, the Tasks extension, and list
    caching TTLs. The installed SDK 1.29 speaks 2025-11-25.
 
 ## Conventions that were in force
 
 - Milestone per commit, receipt per milestone, one PR per release-sized slice
-  (0.5, 0.6, and 0.7 shipped as one PR each; 0.4 as four PRs).
-- The permission classifier in Claude Code's auto mode blocks an agent from
-  merging a pull request; Kyle merges and tags. Everything up to the open PR
-  with a green matrix can be done autonomously.
+  (0.5, 0.6, 0.7, and 0.8 as one PR each; 0.4 as four PRs).
+- Kyle merges pull requests unless he authorizes merging in the conversation,
+  and Kyle pushes release tags because a tag push publishes to npm. Everything
+  up to the open PR with a green matrix can be done autonomously.
+- README cards are regenerated with `node scripts/readme-assets.mjs` after
+  `npm run build`; never edit the SVGs by hand. README copy has no em dashes.
 - Registry changes require regenerating `test/fixtures/operations-contract.json`
   with `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts`;
   review the diff as a contract change and mention it in the receipt.
@@ -158,22 +186,25 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Open threads and small debts
 
-- `ledger stale` reports 53 stale anchors in historical records, nearly all
-  genuine drift from the 0.4 registry refactor (command functions that left
-  `src/cli.ts`) and the README overhaul. Curate them with
-  `staleRefs: ["anchors:<name>"]` or a `historical` status.
+- `ledger stale` reports 66 issues in historical records, nearly all stale
+  anchors from the 0.4 registry refactor (command functions that left
+  `src/cli.ts`). README headings removed by 0137 are acknowledged with
+  `staleRefs`. Curate the rest with `staleRefs: ["anchors:<name>"]` or a
+  `historical` status.
 - Four Dependabot PRs on the Ledger repo (actions and dependency bumps) are
   still open; `actions/checkout` and `actions/setup-node` v7 bumps would also
   silence the Node 20 deprecation warnings in the release workflow. The
   composite action pins `actions/setup-node` too.
 - The release workflow still extracts Public Notes with an inline Node script;
   it can call `node dist/cli.js release notes "$GITHUB_REF_NAME"` now.
-- `.ledger/templates/change.md` leaves three empty bullets after the rendered
-  Changed Files block because the template's default block replacement only
-  swaps the heading line; `ready` flags them as placeholders, which is the
-  intended nudge, but the template could be tightened.
+- `ledger new --from-diff` lists every Markdown heading of a changed file as a
+  symbol, not only headings in changed hunks; 0137's draft listed the whole
+  README.
+- `ledger release --assign` writes the version into entries even without
+  `--write`, as its help says, so a preview with `--assign` is not read-only.
 - Codex and Cursor hooks were verified by piping their payload shapes through
-  `ledger hook` in a throwaway workspace, not in live sessions.
+  `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
+  hooks installed but no live Codex session yet.
 - Dossier still has a `next` branch and Node 18 through 22 CI; Ledger's branch
   model was not applied there.
 - The two dated reports under `docs/scratchpad/` from 2026-08-30 and the
@@ -186,9 +217,9 @@ D006 records what was retired; D007 records the runtime decision below.
 ## Quick verification of the current state
 
 ```sh
-node dist/cli.js version            # 0.7.0
+node dist/cli.js version            # 0.8.0
 node dist/cli.js doctor             # all checks pass; engine, symbols, verification may warn
-node dist/cli.js unreleased         # receipts landed since v0.7.0
+node dist/cli.js unreleased         # receipts landed since v0.8.0
 node dist/cli.js coverage --explain # current mode
 node dist/cli.js stale              # historical anchor drift listed
 gh pr list --repo kylebegeman/ledger

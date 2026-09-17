@@ -33,6 +33,8 @@ backlog:
   - "B005"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:Library API"
 ---
 
 # 0066: Public API Boundary

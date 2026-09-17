@@ -50,6 +50,7 @@ related:
   - "0129"
   - "0133"
   - "S0002"
+release: "v0.8.0"
 ---
 
 # 0134: Keep Linked Session Records When Pruning

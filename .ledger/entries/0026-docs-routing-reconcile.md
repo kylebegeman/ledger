@@ -23,6 +23,8 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.2"
 commits: ["5835fdd"]
+staleRefs:
+  - "anchors:Command Map"
 ---
 
 # 0026: Generate Docs Routing Manifest

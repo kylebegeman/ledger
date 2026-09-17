@@ -57,6 +57,8 @@ backlog:
   - "B006"
 commits: []
 release: "v0.1.13"
+staleRefs:
+  - "anchors:Agent Workflow"
 ---
 
 # 0051: Static Search And Token-Budgeted Agent Context
