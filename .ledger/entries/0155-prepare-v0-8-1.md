@@ -40,6 +40,8 @@ related:
   - "0152"
   - "0153"
   - "0154"
+  - "0156"
+  - "0157"
   - "0141"
 release: "v0.8.1"
 ---
@@ -49,7 +51,8 @@ release: "v0.8.1"
 ## Summary
 
 Bumps the package to 0.8.1 and writes the v0.8.1 release record over the
-fixes from the audit of 0.8.0, receipts 0149 through 0154, and this one. The
+fixes from the audit of 0.8.0, receipts 0149 through 0154, this one, and the
+two decisions Kyle delegated afterward, 0156 and 0157. The
 release workflow now takes the GitHub Release notes from
 `ledger release notes`, which prints the same text the inline script
 extracted. The README quick start, CI example, and adopt card and the schema
@@ -75,7 +78,7 @@ line for line with the script's before the swap.
 
 - Files: `package.json`, `package-lock.json`, `.ledger/releases/v0.8.1.md`
 - Changed: version 0.8.1; the release record with a summary, Public Notes,
-  and receipts 0149 through 0155.
+  and receipts 0149 through 0157.
 - Anchor: `version`, `Public Notes`
 - On conflict: The tag must match the package version or the release
   workflow fails its version check.
@@ -132,6 +135,9 @@ before. Readers of the README copy commands pinned to the patch.
 - `node dist/cli.js version`
 - `node dist/cli.js release v0.8.1 --include-unreleased --assign --status released --write`
 - `node dist/cli.js unreleased` (empty afterwards)
+- After 0156 and 0157, the same release command without `--write` stamped
+  them, and the record's entries, Changes, Summary, and Public Notes were
+  edited by hand.
 - `node dist/cli.js release notes v0.8.0` compared with the workflow's
   inline extraction: identical apart from the trailing newline the shell
   strips.

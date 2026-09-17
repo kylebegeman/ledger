@@ -11,6 +11,7 @@ areas:
   - "reader"
   - "render"
   - "renderhtml"
+  - "scripts"
   - "stale"
   - "tests"
 files:
@@ -34,6 +35,7 @@ files:
   - "test/skills.test.ts"
   - "test/draftLimits.test.ts"
   - "test/delegation.test.ts"
+  - "scripts/readme-clock.mjs"
 host: "claude-code"
 hostSession: "71358ecc-08f4-4086-aa8b-4fbccb7ed699"
 related:
@@ -48,6 +50,8 @@ related:
   - "0153"
   - "0154"
   - "0155"
+  - "0156"
+  - "0157"
 ---
 
 # S0003: Claude Code session 2026-09-17
@@ -64,7 +68,10 @@ skipped view transitions as unhandled rejections (0148) on branch
 `reader-transition-abort`, and added that fix to v0.8.0. Merged #21, tagged
 and published v0.8.0, moved Kore to it in kylebegeman/forge#25, then audited
 the 0.8.0 slice with three parallel reviews and fixed what they found in
-0149 to 0154 for 0.8.1 (0155).
+0149 to 0154 for 0.8.1 (0155). Kyle delegated the two open questions:
+earlier receipts under `git.coverage: any` now count only for files they
+name (0156), and the README demo runs on a pinned clock with a CI check on
+the cards (0157).
 
 ## Learned
 
@@ -88,5 +95,5 @@ the 0.8.0 slice with three parallel reviews and fixed what they found in
 
 - Publish 0.8.1, move Kore to it, and run the second live Kore session that
   closes B010.
-- Decide whether `git.coverage: any` should accept broad patterns from old
-  receipts, and whether the README cards should pin their dates.
+- Watch the first CI run of `npm run readme:check` on Linux; the cards were
+  captured on macOS.
