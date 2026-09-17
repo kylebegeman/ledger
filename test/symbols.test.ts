@@ -10,9 +10,12 @@ import {
   extractFileSymbolsDetailed,
   extractCodeSymbolsWithRegex,
   extractMarkdownSymbols,
+  resolveTypeScriptModule,
   symbolExtractorStatus,
+  typeScriptFallbackAdvice,
 } from "../src/symbols.js";
 import type { LedgerWorkspace } from "../src/types.js";
+import * as typescript from "typescript";
 
 let tempDir: string | undefined;
 
@@ -120,5 +123,50 @@ export function outer() {
 
     await expect(extractFileSymbols(workspace, "large.ts"))
       .rejects.toThrow("symbol source exceeds 32 bytes");
+  });
+});
+
+describe("resolveTypeScriptModule", () => {
+  const notFound = (specifier: string) => Object.assign(new Error(`Cannot find package '${specifier}'`), { code: "ERR_MODULE_NOT_FOUND" });
+  const importer = (modules: Readonly<Record<string, unknown>>) => async (specifier: string) => {
+    if (specifier in modules) return modules[specifier];
+    throw notFound(specifier);
+  };
+  const typeScript7 = { version: "7.0.2", versionMajorMinor: "7.0" };
+
+  it("takes named exports, and the default export that TypeScript 5.0 to 5.4 expose", async () => {
+    expect((await resolveTypeScriptModule(importer({ typescript })).then((result) => result.ts))?.version).toBe(typescript.version);
+    const defaultOnly = { default: { ...typescript, version: "5.4.5" } };
+    expect((await resolveTypeScriptModule(importer({ typescript: defaultOnly }))).ts?.version).toBe("5.4.5");
+  });
+
+  it("rejects TypeScript 7, which has no JavaScript API, and falls back to the TypeScript 6 alias", async () => {
+    const alone = await resolveTypeScriptModule(importer({ typescript: typeScript7 }));
+    expect(alone.ts).toBeUndefined();
+    expect(alone.reason).toBe(
+      "typescript 7.0.2 has no JavaScript compiler API; install @typescript/typescript6 beside it for parsed symbols",
+    );
+    const beside = await resolveTypeScriptModule(
+      importer({ typescript: typeScript7, "@typescript/typescript6": { ...typescript, version: "6.0.3" } }),
+    );
+    expect(beside.ts?.version).toBe("6.0.3");
+  });
+
+  it("explains a missing or broken package", async () => {
+    expect(await resolveTypeScriptModule(importer({}))).toEqual({ reason: "the typescript package is not installed" });
+    const broken = await resolveTypeScriptModule(async (specifier) => {
+      if (specifier === "typescript") throw new SyntaxError("Unexpected token\n  at line 1");
+      throw notFound(specifier);
+    });
+    expect(broken).toEqual({ reason: "the typescript package failed to load (Unexpected token)" });
+  });
+
+  it("suggests installing the peer only when TypeScript is missing", () => {
+    expect(typeScriptFallbackAdvice("the typescript package is not installed")).toBe(
+      "the typescript package is not installed; install the optional typescript peer for parsed symbols",
+    );
+    const typeScript7 = "typescript 7.0.2 has no JavaScript compiler API; install @typescript/typescript6 beside it for parsed symbols";
+    expect(typeScriptFallbackAdvice(typeScript7)).toBe(typeScript7);
+    expect(typeScriptFallbackAdvice(undefined)).toBe("the typescript parser is unavailable");
   });
 });

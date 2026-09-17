@@ -10,7 +10,13 @@ npm run ci
 ```
 
 `npm run ci` is the release-grade local check. It runs typecheck, tests, build,
-Ledger CI, and a package dry run.
+Ledger CI, and a package dry run. Development needs Node 22.12 or newer,
+which Vitest 5 requires; the published CLI runs on any Node 22.
+
+TypeScript stays on 5.x. TypeScript 7 has no JavaScript compiler API, which
+the build and the symbol extractor use, so Dependabot skips its major
+update, and it skips major `@types/node` updates so the types match the
+oldest supported runtime.
 
 ## Ledger Entries
 
