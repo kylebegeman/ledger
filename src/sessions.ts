@@ -9,6 +9,7 @@ import {
   setFrontmatterScalars,
 } from "./frontmatterEdit.js";
 import { LedgerError } from "./machine.js";
+import { getChangedFileDetails } from "./git.js";
 import { defaultDraftTitle, draftChangeEntry, inferAreas, slugify } from "./newEntry.js";
 import { nextRecordId } from "./authoring.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
@@ -316,13 +317,19 @@ export interface SessionReceiptResult {
  * to it. Returns undefined when the session has touched nothing. The session
  * stays active so later touches keep flowing into the same draft.
  *
- * Every change entry the session lists in `related` counts as linked, whatever
- * its status. Touched paths that no linked entry's `files` cover (patterns such
- * as `src/**` count) go to the linked draft when one exists; when every path is
- * covered nothing is written and the most recent linked entry is returned with
- * `created: false`; otherwise a new draft is created for the uncovered paths,
- * related to the session and the earlier receipts. With `fromDiff` the new
- * draft's file list still follows the Git working tree.
+ * A change entry counts as linked, whatever its status, when the session lists
+ * it in `related` or it lists the session. Touched paths that no linked entry's
+ * `files` cover (patterns such as `src/**` count) go to the linked draft when
+ * one exists; when every path is covered nothing is written and the most recent
+ * linked entry is returned with `created: false`; otherwise a new draft is
+ * created for the uncovered paths, related to the session and the earlier
+ * receipts, and undefined is returned when there is nothing to draft.
+ *
+ * With `fromDiff` the draft also consults Git: only touched paths that still
+ * differ from HEAD are pending, a change entry that is itself new or modified in
+ * the working tree covers paths like a linked one (a receipt written with
+ * `ledger new`), and the new draft's diff-derived file list leaves out whatever
+ * those receipts cover. Without Git, every touched path stays pending.
  */
 export async function draftSessionReceipt(
   workspace: LedgerWorkspace,
@@ -335,11 +342,23 @@ export async function draftSessionReceipt(
   const { parsed, normalized } = found;
   const today = isoDate(new Date());
 
-  const linked = documents
-    .map((document) => ({ parsed: document, normalized: normalizeDocument(document) }))
-    .filter(({ parsed: candidate, normalized: entry }) => candidate.kind === "change" && normalized.related.includes(entry.id));
+  const changes = documents
+    .filter((document) => document.kind === "change")
+    .map((document) => ({ parsed: document, normalized: normalizeDocument(document) }));
+  const linked = changes.filter(
+    ({ normalized: entry }) => normalized.related.includes(entry.id) || entry.related.includes(normalized.id),
+  );
+  const pending = options.fromDiff ? await pendingWorkingTreePaths(workspace) : undefined;
+  const covering = pending
+    ? [
+        ...linked,
+        ...changes.filter((change) => !linked.includes(change) && pending.has(normalizePath(change.parsed.relativePath))),
+      ]
+    : linked;
   const uncovered = normalized.files.filter(
-    (file) => !linked.some(({ normalized: entry }) => entry.files.some((pattern) => coveragePatternMatches(file, pattern))),
+    (file) =>
+      (pending === undefined || pending.has(file)) &&
+      !covering.some(({ normalized: entry }) => entry.files.some((pattern) => coveragePatternMatches(file, pattern))),
   );
   const linkedDraft = linked.find(({ normalized: entry }) => entry.status === "draft");
   if (linkedDraft) {
@@ -353,7 +372,8 @@ export async function draftSessionReceipt(
     ]);
     return { session: toSessionRecord(normalized), entry };
   }
-  if (linked.length > 0 && uncovered.length === 0) {
+  if (uncovered.length === 0) {
+    if (linked.length === 0) return undefined;
     const latest = [...linked].sort((left, right) => right.normalized.id.localeCompare(left.normalized.id))[0]!;
     return {
       session: toSessionRecord(normalized),
@@ -363,14 +383,19 @@ export async function draftSessionReceipt(
 
   const notes = sessionNoteLines(parsed);
   const sectionBodies: Record<string, string> = notes.length > 0 ? { Notes: notes.join("\n") } : {};
+  const areas = inferSessionAreas(workspace, uncovered);
   const entryOptions = {
-    title: sessionSummaryTitle(parsed) ?? defaultDraftTitle(normalized.areas, uncovered),
+    title: sessionSummaryTitle(parsed) ?? defaultDraftTitle(areas, uncovered),
     staged: false,
-    areas: normalized.areas,
+    areas,
     status: "draft",
     files: uncovered,
     related: [normalized.id, ...linked.map(({ normalized: entry }) => entry.id)],
     sectionBodies,
+    excludeFiles: covering.flatMap(({ parsed: record, normalized: entry }) => [
+      ...entry.files,
+      normalizePath(record.relativePath),
+    ]),
   };
   let draft;
   try {
@@ -389,6 +414,16 @@ export async function draftSessionReceipt(
     session: { ...toSessionRecord(normalized), related: [...normalized.related, draft.id] },
     entry: { id: draft.id, path: draft.path, created: true },
   };
+}
+
+/** Paths that differ from HEAD, untracked files included, or undefined when Git cannot answer. */
+async function pendingWorkingTreePaths(workspace: LedgerWorkspace): Promise<ReadonlySet<string> | undefined> {
+  try {
+    const files = await getChangedFileDetails(workspace.projectRoot);
+    return new Set(files.map((file) => normalizePath(file.path)));
+  } catch {
+    return undefined;
+  }
 }
 
 /** The first Summary line of a session that is not the template placeholder, as a receipt title. */

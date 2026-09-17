@@ -55,7 +55,7 @@ export function renderLedgerSkill(workspace: LedgerWorkspace): string {
     "## Draft receipt lifecycle",
     "",
     "- Drafted: the Stop or SessionEnd hook creates one change entry from the paths the session touched and the Git diff, with `status: draft`, a neutral title, and `related` naming the session record.",
-    "- Refreshed: later stops add newly touched paths to that draft instead of creating another; a new draft appears only for paths no linked receipt covers.",
+    "- Refreshed: later stops add newly touched paths to that draft instead of creating another; a new draft appears only for uncommitted paths that no linked receipt, and no receipt already in the working tree, covers.",
     `- Finished: you retitle it and fill it in, then \`${command} ready\` gates it.`,
     "- Landed: a person sets `status: landed` after the work merges; hooks never re-draft a landed receipt for the same paths.",
     "- Session records stay committed and are linked from the receipt through `related`; they expire after `sessions.expiresInDays`, and an expired active session is treated as inactive.",

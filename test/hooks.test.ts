@@ -15,6 +15,7 @@ import {
   renderHostHooks,
   runHookEvent,
 } from "../src/hooks.js";
+import { setFrontmatterArray } from "../src/frontmatterEdit.js";
 import { findSession, noteSession } from "../src/sessions.js";
 import { findWorkspace, initWorkspace } from "../src/workspace.js";
 
@@ -349,6 +350,7 @@ describe("hook events", () => {
 
     const loop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: true });
     expect(loop.entry).toBeUndefined();
+    await writeFile(path.join(root, "docs", "README.md"), "# Docs\n\nUpdated in the session.\n");
     await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["docs/README.md"], stopHookActive: false });
     const secondStop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
     expect(secondStop.entry).toMatchObject({ id: "0001", created: false });
@@ -484,6 +486,67 @@ describe("hook events", () => {
     expect((await readLedgerDocuments(workspace)).filter((document) => document.kind === "change")).toHaveLength(2);
   }, 30_000);
 
+  it("leaves committed paths and paths another receipt covers out of hook drafts", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const commit = async (message: string) => {
+      await git(root, "add", ".");
+      await git(root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", message);
+    };
+    const changeEntries = async () => (await readLedgerDocuments(workspace)).filter((document) => document.kind === "change");
+    const sessionId = "hand-1";
+    const start = await runHookEvent(workspace, "claude-code", "session-start", { sessionId, source: "startup", paths: [], stopHookActive: false });
+
+    // A receipt written by hand in the working tree covers the edit, so Stop drafts nothing.
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 2;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/feature.ts"], stopHookActive: false });
+    expect((await captureRun(["new", "Hand-written receipt", "--from-diff", "--area", "feature"], root)).exitCode).toBe(0);
+    const covered = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(covered.entry).toBeUndefined();
+    expect(covered.output).toEqual({});
+    expect(await changeEntries()).toHaveLength(1);
+
+    // Once the work is committed, the touched path is no longer pending.
+    await commit("hand-written");
+    const committed = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(committed.entry).toBeUndefined();
+    expect(await changeEntries()).toHaveLength(1);
+
+    // A new draft lists only the uncovered edit, not the covered file or the other receipt's own path.
+    await writeFile(path.join(root, "src", "feature.ts"), "export const value = 3;\n");
+    await writeFile(path.join(root, "src", "other.ts"), "export const other = 1;\n");
+    expect((await captureRun(["new", "Covers the feature file", "--area", "feature"], root)).exitCode).toBe(0);
+    const coveringDocument = (await changeEntries()).find((document) => document.relativePath.includes("covers-the-feature-file"))!;
+    const coveringPath = path.join(root, coveringDocument.relativePath);
+    await writeFile(coveringPath, setFrontmatterArray(await readFile(coveringPath, "utf8"), "files", ["src/feature.ts"]));
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/feature.ts", "src/other.ts"], stopHookActive: false });
+    const drafted = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(drafted.entry).toMatchObject({ id: "0003", created: true });
+    const draft = await readFile(path.join(root, drafted.entry!.path), "utf8");
+    expect(draft).toContain('files:\n  - "src/other.ts"\n');
+    expect(draft).not.toContain('"src/feature.ts"');
+    expect(draft).not.toContain(coveringDocument.relativePath);
+    expect(draft).toContain('areas:\n  - "other"\n');
+    expect(draft).toContain("### src/other.ts");
+    expect(draft).not.toContain("path/to/file.ts");
+
+    // A committed receipt that names the session in its own related list counts as linked.
+    await commit("drafted");
+    await writeFile(path.join(root, "src", "linked.ts"), "export const linked = 1;\n");
+    expect((await captureRun(["new", "Names the session", "--area", "linked"], root)).exitCode).toBe(0);
+    const namingDocument = (await changeEntries()).find((document) => document.relativePath.includes("names-the-session"))!;
+    const namingPath = path.join(root, namingDocument.relativePath);
+    let naming = setFrontmatterArray(await readFile(namingPath, "utf8"), "files", ["src/linked.ts"]);
+    naming = setFrontmatterArray(naming, "related", [start.session!.id]);
+    await writeFile(namingPath, naming);
+    await commit("naming");
+    await writeFile(path.join(root, "src", "linked.ts"), "export const linked = 2;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["src/linked.ts"], stopHookActive: false });
+    const quiet = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(quiet.entry?.created).toBe(false);
+    expect(await changeEntries()).toHaveLength(4);
+  }, 30_000);
+
   it("keeps session records, templates, and their headings out of hook drafts", async () => {
     const root = await fixtureRepo();
     const workspace = await findWorkspace(root);
@@ -525,6 +588,7 @@ describe("hook events", () => {
     expect(restarted.context).toContain(`Linked receipt: 0001 Changes to feature (${stop.entry!.path}, draft).`);
     expect(await readFile(path.join(root, restarted.session!.path), "utf8")).toContain('related:\n  - "0001"');
 
+    await writeFile(path.join(root, "docs", "README.md"), "# Docs\n\nUpdated after the restart.\n");
     const touch = await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, paths: ["docs/README.md"], stopHookActive: false });
     expect(touch.session?.id).toBe("S0002");
     expect(touch.touched).toEqual(["docs/README.md"]);
@@ -574,6 +638,10 @@ describe("hook events", () => {
     expect(entry).toContain('title: "Rename Forge to Kore in the contributing guide"');
     expect(entry).toContain('areas:\n  - "feature"\n');
     expect(entry).not.toContain('"contributing"');
+    // Commit the first session's work so its draft no longer covers the next edit.
+    await git(root, "add", ".");
+    await git(root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "named");
+    await writeFile(path.join(root, "CONTRIBUTING.md"), "# Contributing\n\nA second edit.\n");
 
     const plain = "summary-2";
     await runHookEvent(workspace, "claude-code", "session-start", { sessionId: plain, source: "startup", paths: [], stopHookActive: false });

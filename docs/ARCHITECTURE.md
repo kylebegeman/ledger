@@ -359,13 +359,21 @@ source, touched paths made project-relative, stop-hook flag), and dispatches:
 - `stop` and `session-end` draft a change entry from the touched paths and the
   Git diff, link it to the session through `related`, and refresh its file
   list on later stops; `session-end` also closes the session. In
-  `draftSessionReceipt` every change entry named in the session's `related`
-  counts as linked whatever its status; touched paths that no linked entry's
-  `files` cover (checked with `coveragePatternMatches`, so `src/**` entries
-  count) go to the linked draft when one exists, nothing is written when every
-  path is covered (the most recent linked entry is returned with
-  `created: false`, so Stop prints `{}`), and a new draft is created only for
-  uncovered paths with `related` naming the session and the earlier receipts.
+  `draftSessionReceipt` a change entry counts as linked whatever its status
+  when the session's `related` names it or its own `related` names the
+  session. The hooks pass `fromDiff`, so only touched paths that still differ
+  from HEAD are pending, and a change entry that is itself new or modified in
+  the working tree covers paths like a linked one, which keeps a receipt
+  written with `ledger new` from getting a duplicate draft. Pending paths that
+  no covering entry's `files` cover (checked with `coveragePatternMatches`, so
+  `src/**` entries count) go to the linked draft when one exists; nothing is
+  written when every pending path is covered (the most recent linked entry is
+  returned with `created: false`, or nothing without one, so Stop prints `{}`);
+  otherwise a new draft is created for the uncovered paths with `related`
+  naming the session and the earlier receipts, areas inferred from those
+  paths, and a diff-derived file list that leaves out whatever the covering
+  receipts list and their own record files. Without Git every touched path
+  stays pending.
   The draft's title is the session's first Summary line when one was noted,
   else `defaultDraftTitle` (`Changes to <areas>` or `Changes to <first path>`),
   which `ready` reports as a template placeholder until it is edited.
