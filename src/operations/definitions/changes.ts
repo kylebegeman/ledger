@@ -67,7 +67,8 @@ export const coverageOperation = defineOperation<CoverageInput, LedgerCoverageRe
 Under the default current mode (git.coverage), a required path must be listed
 by a change entry that is itself part of the change set; a path listed only by
 older records is reported as historical and counts as missing. --mode any
-accepts any record. --explain prints why each changed path is ignored, not
+accepts any change entry, including earlier ones; session records, backlog
+items, and decisions never cover a path. --explain prints why each changed path is ignored, not
 required, covered, historical, or missing. --base and --head inspect their
 merge-base change range.`,
   },
@@ -224,7 +225,7 @@ export const docsImpactOperation = defineOperation<DocsImpactInput, LedgerDocsIm
     declarations: z.array(looseRecord({})),
     files: z.array(looseRecord({ path: z.string(), satisfied: z.boolean() })),
     missingDocsImpact: z.array(z.string()),
-    historicalFiles: z.array(z.string()),
+    earlierEvidenceFiles: z.array(z.string()),
   }),
   cli: {
     path: ["docs", "impact"],
@@ -271,7 +272,7 @@ and --head inspect their merge-base change range.`,
     const lines = [
       `Ledger docs impact: ${data.sourceFiles.length} source file(s), ${data.docsFiles.length} docs file(s), ${data.referencedDocs.length} referenced doc(s), ${data.declarations.length} explicit declaration(s), ${data.missingDocsImpact.length} missing docs impact.`,
     ];
-    for (const filePath of data.historicalFiles) lines.push(`- satisfied by an earlier receipt (git.coverage any): ${filePath}`);
+    for (const filePath of data.earlierEvidenceFiles) lines.push(`- satisfied by an earlier receipt (git.coverage any): ${filePath}`);
     for (const filePath of data.missingDocsImpact) lines.push(`- missing docs impact: ${filePath}`);
     return lines.join("\n");
   },

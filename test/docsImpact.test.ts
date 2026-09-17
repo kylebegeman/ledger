@@ -99,25 +99,28 @@ describe("buildDocsImpact", () => {
     const strict = buildDocsImpact(workspace(), earlier, ["src/cli.ts"]);
     expect(strict.mode).toBe("current");
     expect(strict.missingDocsImpact).toEqual(["src/cli.ts"]);
-    expect(strict.historicalFiles).toEqual([]);
+    expect(strict.earlierEvidenceFiles).toEqual([]);
 
     const relaxed = buildDocsImpact(workspace(), earlier, ["src/cli.ts", "src/other.ts"], { mode: "any" });
-    expect(relaxed.files.map((file) => [file.path, file.satisfied, file.historical ?? false])).toEqual([
+    expect(relaxed.files.map((file) => [file.path, file.satisfied, file.earlierEvidence ?? false])).toEqual([
       ["src/cli.ts", true, true],
       ["src/other.ts", false, false],
     ]);
     expect(relaxed.files[0]?.entries).toEqual([".ledger/entries/0001-docs.md"]);
     expect(relaxed.missingDocsImpact).toEqual(["src/other.ts"]);
-    expect(relaxed.historicalFiles).toEqual(["src/cli.ts"]);
+    expect(relaxed.earlierEvidenceFiles).toEqual(["src/cli.ts"]);
     const report = formatDocsImpactReport(relaxed);
     expect(report).toContain("- satisfied by earlier receipts: `src/cli.ts`");
     expect(report).toContain("- Satisfied by earlier receipts (git.coverage any): 1");
 
     const unreviewed = [document([], { status: "none", reason: "TODO: decide." })];
     expect(buildDocsImpact(workspace(), unreviewed, ["src/cli.ts"], { mode: "any" }).missingDocsImpact).toEqual(["src/cli.ts"]);
+    // An updated status with a placeholder reason is just as unreviewed.
+    const placeholder = [document([], { status: "updated", reason: "TODO: explain why durable docs were updated or not needed." })];
+    expect(buildDocsImpact(workspace(), placeholder, ["src/cli.ts"], { mode: "any" }).missingDocsImpact).toEqual(["src/cli.ts"]);
     const changedFirst = buildDocsImpact(workspace(), earlier, ["src/cli.ts", ".ledger/entries/0001-docs.md"], { mode: "any" });
-    expect(changedFirst.files[0]).toEqual(expect.not.objectContaining({ historical: true }));
-    expect(changedFirst.historicalFiles).toEqual([]);
+    expect(changedFirst.files[0]).toEqual(expect.not.objectContaining({ earlierEvidence: true }));
+    expect(changedFirst.earlierEvidenceFiles).toEqual([]);
   });
 
   it("marks a listed file without a reviewed declaration as missing", () => {

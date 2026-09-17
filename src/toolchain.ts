@@ -14,13 +14,6 @@ export interface ToolchainDetection {
   readonly verificationAllow: readonly string[];
   /** Detected toolchain names such as make, go, node, cargo, python, swift, templ, sqlc. */
   readonly toolchains: readonly string[];
-  /** Tracked file extensions, lowercased. */
-  readonly codeExtensions: readonly string[];
-}
-
-export interface ToolchainDetectionOptions {
-  /** The Ledger command the proposed checks run through. Defaults to agents.command's default. */
-  readonly command?: string;
 }
 
 /** Root manifests in priority order; the first tracked one becomes a coverage root. */
@@ -36,8 +29,20 @@ const sqlcManifestPattern = /(^|\/)sqlc\.(yaml|yml|json)$/;
 const maxSqlcManifests = 32;
 const maxManifestBytes = 256 * 1024;
 const maxMakeTargets = 40;
+const maxNpmScripts = 40;
+/** Names containing these are never proposed, wherever the word sits (reinstall, prerelease). */
 const deniedCommandWords = ["release", "publish", "deploy", "push", "sign", "upload", "clean", "install"];
+/**
+ * Names with one of these as a segment are never proposed: they write, reset, or never exit,
+ * and `verify --run` runs read-only checks under a timeout.
+ */
+const deniedCommandSegments = new Set([
+  "reset", "drop", "migrate", "seed", "destroy", "delete", "prune", "wipe",
+  "serve", "start", "dev", "watch", "fix", "fmt", "format", "generate", "gen", "bump", "tag",
+]);
 const buildOutputDirectories = ["dist", "build", "out", "target", "coverage", ".next"];
+/** Vendored dependencies are never written by the project, so they are ignored and never a coverage root. */
+const vendorDirectory = "vendor";
 const ledgerDerivedIgnores = [".ledger/indexes/**", ".ledger/reports/**", ".ledger/dist/**", ".ledger/cache/**"];
 const routingFiles = ["docs/llm/manifest.json", "docs/llm/START_HERE.md"];
 const sqlcFixedOutputFiles = ["db.go", "models.go", "querier.go", "copyfrom.go", "batch.go"];
@@ -50,16 +55,14 @@ const ledgerChecks = ["ci", "doctor", "validate", "ready", "stale", "coverage"];
 export function detectToolchain(
   files: readonly string[],
   manifests: ReadonlyMap<string, string>,
-  options: ToolchainDetectionOptions = {},
 ): ToolchainDetection {
-  const command = options.command ?? defaultConfig.agents.command;
+  const command = defaultConfig.agents.command;
   if (files.length === 0) {
     return {
       coverageRoots: [...defaultConfig.git.requireEntryFor],
       ignore: [...defaultConfig.git.ignore],
       verificationAllow: [...defaultConfig.verification.allow],
       toolchains: [],
-      codeExtensions: [],
     };
   }
 
@@ -73,7 +76,7 @@ export function detectToolchain(
 
   const coverageRoots: string[] = [];
   for (const directory of topDirectories) {
-    if (directory === ".ledger") continue;
+    if (directory === ".ledger" || directory === vendorDirectory) continue;
     if (directory.startsWith(".") && directory !== ".github") continue;
     coverageRoots.push(`${directory}/**`);
   }
@@ -82,9 +85,11 @@ export function detectToolchain(
   if (primary) coverageRoots.push(primary);
 
   const ignore: string[] = [...ledgerDerivedIgnores];
-  ignore.push(...recursive("node_modules"), ...recursive("generated"));
+  ignore.push(...recursive("node_modules"), ...recursive("generated"), ...recursive(vendorDirectory));
+  // A tracked top-level build directory is source the project chose to keep; otherwise the name
+  // is build output wherever it appears, including inside monorepo packages.
   for (const directory of buildOutputDirectories) {
-    if (!topDirectories.has(directory)) ignore.push(`${directory}/**`);
+    if (!topDirectories.has(directory)) ignore.push(...recursive(directory));
   }
   if (files.some((file) => file.endsWith(".templ") || file.endsWith("_templ.go"))) {
     toolchains.add("templ");
@@ -100,7 +105,6 @@ export function detectToolchain(
   if (files.some((file) => file.split("/").includes(".product"))) {
     ignore.push(...recursive(".product"));
   }
-  if (tracked.has("go.mod") && !topDirectories.has("vendor")) ignore.push("vendor/**");
   for (const routingFile of routingFiles) {
     if (!tracked.has(routingFile)) ignore.push(routingFile);
   }
@@ -133,24 +137,16 @@ export function detectToolchain(
   }
   verificationAllow.push(...ledgerChecks.map((check) => `${command} ${check} **`));
 
-  const codeExtensions = files
-    .map((file) => path.posix.extname(file).toLowerCase())
-    .filter((extension) => extension.length > 1);
-
   return {
     coverageRoots: sortUnique(coverageRoots),
     ignore: sortUnique(ignore),
     verificationAllow: sortUnique(verificationAllow),
     toolchains: sortUnique([...toolchains]),
-    codeExtensions: sortUnique(codeExtensions),
   };
 }
 
 /** List tracked files under cwd, read the manifests detection needs, and detect the toolchain. */
-export async function inspectToolchain(
-  cwd: string,
-  options: ToolchainDetectionOptions = {},
-): Promise<ToolchainDetection> {
+export async function inspectToolchain(cwd: string): Promise<ToolchainDetection> {
   const files = await listTrackedFiles(cwd);
   const tracked = new Set(files);
   const candidates = [
@@ -165,13 +161,14 @@ export async function inspectToolchain(
       // An unreadable manifest contributes nothing; detection falls back to path-based rules.
     }
   }
-  return detectToolchain(files, manifests, options);
+  return detectToolchain(files, manifests);
 }
 
 /**
  * Explicit make targets from a Makefile, sorted. Skips special targets such as .PHONY, pattern
- * rules, double-colon rules, variable assignments, and targets named after release, publish,
- * deploy, push, sign, upload, clean, or install.
+ * rules, double-colon rules, variable assignments, and the names `isDeniedCommandName` rejects:
+ * release, publish, deploy, push, sign, upload, clean, or install anywhere in the name, and
+ * segments that write, reset, or never exit, such as fmt, migrate, or serve.
  */
 export function parseMakeTargets(makefile: string): readonly string[] {
   const targets = new Set<string>();
@@ -195,10 +192,11 @@ function nodeCommands(raw: string | undefined): readonly string[] {
   const manifest = parseJsonObject(raw);
   if (!manifest) return commands;
   const scripts = asRecord(manifest.scripts);
-  for (const script of Object.keys(scripts ?? {})) {
-    if (!/^[\w.:-]+$/.test(script) || isDeniedCommandName(script)) continue;
-    commands.push(`npm run ${script}`);
-  }
+  const proposed = Object.keys(scripts ?? {})
+    .filter((script) => /^[\w.:-]+$/.test(script) && !isDeniedCommandName(script))
+    .sort()
+    .slice(0, maxNpmScripts);
+  commands.push(...proposed.map((script) => `npm run ${script}`));
   const dependencies = {
     ...asRecord(manifest.dependencies),
     ...asRecord(manifest.devDependencies),
@@ -264,7 +262,8 @@ function isSafeRelativeDirectory(value: string): boolean {
 
 function isDeniedCommandName(name: string): boolean {
   const lower = name.toLowerCase();
-  return deniedCommandWords.some((word) => lower.includes(word));
+  if (deniedCommandWords.some((word) => lower.includes(word))) return true;
+  return lower.split(/[^a-z0-9]+/).some((segment) => deniedCommandSegments.has(segment));
 }
 
 function recursive(directory: string): readonly string[] {

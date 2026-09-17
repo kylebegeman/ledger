@@ -99,6 +99,42 @@ describe("checkCoverage", () => {
     expect(result.missingFiles).toEqual(["src/range-missing.ts"]);
   });
 
+  it("counts only change entries as coverage, so a session record never covers a path", async () => {
+    const workspace = await createFixtureWorkspace();
+    await writeFile(path.join(workspace.projectRoot, "src", "covered.ts"), "v1");
+    await git(workspace.projectRoot, "init");
+    await git(workspace.projectRoot, "config", "user.email", "ledger@example.com");
+    await git(workspace.projectRoot, "config", "user.name", "Ledger Test");
+    await git(workspace.projectRoot, "add", ".");
+    await git(workspace.projectRoot, "commit", "-m", "base");
+    await mkdir(path.join(workspace.projectRoot, "src", "later"), { recursive: true });
+    await writeFile(path.join(workspace.projectRoot, "src", "later", "only-session.ts"), "v1");
+    await mkdir(path.join(workspace.ledgerRoot, "sessions"), { recursive: true });
+    await writeFile(
+      path.join(workspace.ledgerRoot, "sessions", "S0001-work.md"),
+      [
+        "---",
+        'id: "S0001"',
+        'kind: "session"',
+        'title: "Work"',
+        'date: "2026-06-29"',
+        'status: "closed"',
+        'expires: "2099-01-01"',
+        "files:",
+        '  - "src/later/only-session.ts"',
+        "---",
+        "",
+        "# S0001: Work",
+        "",
+      ].join("\n"),
+    );
+    const documents = await readLedgerDocuments(workspace);
+    const result = await checkCoverage(workspace, documents, { mode: "any" });
+    expect(result.missingFiles).toContain("src/later/only-session.ts");
+    const file = result.files.find((candidate) => candidate.path === "src/later/only-session.ts");
+    expect(file?.coveredBy).toEqual([]);
+  }, 30_000);
+
   it("treats coverage from records outside the change set as historical under current mode", async () => {
     const workspace = await createFixtureWorkspace();
     await writeFile(path.join(workspace.projectRoot, "src", "covered.ts"), "v1");

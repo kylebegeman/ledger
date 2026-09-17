@@ -49,15 +49,17 @@ export function buildDocsImpact(
     docsRoot,
   );
   const declarations = collectDocsImpactDeclarations(changedEntryDocuments, docsRoot);
-  const earlierEntryDocuments = mode === "any"
-    ? documents.filter((document) => document.kind === "change" && !changedSet.has(normalizePath(document.relativePath)))
+  // Each entry is normalized once; the per-file loop only matches patterns.
+  const changedSources = evidenceSources(changedEntryDocuments, docsRoot);
+  const earlierSources = mode === "any"
+    ? evidenceSources(documents.filter((document) => !changedSet.has(normalizePath(document.relativePath))), docsRoot)
     : [];
   const files = sourceFiles.map((filePath): LedgerDocsImpactFile => {
-    const current = docsImpactFile(filePath, changedEntryDocuments, docsRoot);
-    if (current.satisfied || earlierEntryDocuments.length === 0) return current;
-    const earlier = docsImpactFile(filePath, earlierEntryDocuments, docsRoot);
+    const current = docsImpactFile(filePath, changedSources);
+    if (current.satisfied || earlierSources.length === 0) return current;
+    const earlier = docsImpactFile(filePath, earlierSources);
     if (!earlier.satisfied) return current;
-    return { ...earlier, entries: [...new Set([...current.entries, ...earlier.entries])].sort(), historical: true };
+    return { ...earlier, entries: [...new Set([...current.entries, ...earlier.entries])].sort(), earlierEvidence: true };
   });
 
   return {
@@ -72,8 +74,31 @@ export function buildDocsImpact(
     declarations,
     files,
     missingDocsImpact: files.filter((file) => !file.satisfied).map((file) => file.path),
-    historicalFiles: files.filter((file) => file.historical).map((file) => file.path),
+    earlierEvidenceFiles: files.filter((file) => file.earlierEvidence).map((file) => file.path),
   };
+}
+
+/** What one change entry can say about the files it lists, read once per entry. */
+interface EvidenceSource {
+  readonly entry: string;
+  readonly files: readonly string[];
+  readonly declaration: LedgerDocsImpactDeclaration | undefined;
+  /** Docs the entry references through `docs` or `files`. */
+  readonly docs: readonly string[];
+}
+
+function evidenceSources(documents: readonly ParsedLedgerDocument[], docsRoot: string): readonly EvidenceSource[] {
+  return documents
+    .filter((document) => document.kind === "change")
+    .map((document) => {
+      const normalized = normalizeDocument(document);
+      return {
+        entry: normalizePath(document.relativePath),
+        files: normalized.files,
+        declaration: docsImpactDeclaration(document, docsRoot),
+        docs: [...new Set([...normalized.docs, ...normalized.files].map(normalizePath).filter((candidate) => isDocsPath(candidate, docsRoot)))].sort(),
+      };
+    });
 }
 
 /**
@@ -82,27 +107,18 @@ export function buildDocsImpact(
  * A file with no evidence is missing docs impact, however many docs changed
  * elsewhere in the set.
  */
-function docsImpactFile(
-  filePath: string,
-  changedEntries: readonly ParsedLedgerDocument[],
-  docsRoot: string,
-): LedgerDocsImpactFile {
+function docsImpactFile(filePath: string, sources: readonly EvidenceSource[]): LedgerDocsImpactFile {
   const entries: string[] = [];
   const evidence: LedgerDocsImpactEvidence[] = [];
-  for (const document of changedEntries) {
-    if (document.kind !== "change") continue;
-    const normalized = normalizeDocument(document);
-    const listed = normalized.files.some((pattern) => coveragePatternMatches(filePath, pattern));
-    if (!listed) continue;
-    const entry = normalizePath(document.relativePath);
-    entries.push(entry);
-    const declaration = docsImpactDeclaration(document, docsRoot);
-    if (declaration) {
-      evidence.push({ entry, kind: "declaration", status: declaration.status, reason: declaration.reason, docs: declaration.docs });
+  for (const source of sources) {
+    if (!source.files.some((pattern) => coveragePatternMatches(filePath, pattern))) continue;
+    entries.push(source.entry);
+    if (source.declaration) {
+      const { status, reason, docs } = source.declaration;
+      evidence.push({ entry: source.entry, kind: "declaration", status, reason, docs });
       continue;
     }
-    const docs = [...new Set([...normalized.docs, ...normalized.files].map(normalizePath).filter((candidate) => isDocsPath(candidate, docsRoot)))].sort();
-    if (docs.length > 0) evidence.push({ entry, kind: "docs-reference", docs });
+    if (source.docs.length > 0) evidence.push({ entry: source.entry, kind: "docs-reference", docs: source.docs });
   }
   return { path: filePath, satisfied: evidence.length > 0, entries: entries.sort(), evidence };
 }
@@ -133,7 +149,7 @@ export function formatDocsImpactReport(impact: LedgerDocsImpact): string {
     `- Referenced docs from changed entries: ${impact.referencedDocs.length}`,
     `- Explicit docs impact declarations: ${impact.declarations.length}`,
     `- Missing docs impact: ${impact.missingDocsImpact.length}`,
-    ...(impact.mode === "any" ? [`- Satisfied by earlier receipts (git.coverage any): ${impact.historicalFiles.length}`] : []),
+    ...(impact.mode === "any" ? [`- Satisfied by earlier receipts (git.coverage any): ${impact.earlierEvidenceFiles.length}`] : []),
     "",
     "## Source Files",
     "",
@@ -225,10 +241,9 @@ export function docsImpactDeclaration(
   const record = value as Record<string, unknown>;
   const status = docsImpactStatus(record.status);
   if (!status) return undefined;
+  // A placeholder reason is unreviewed whatever the status says; `ready` applies the same rule.
   const reason = typeof record.reason === "string" ? record.reason.trim() : undefined;
-  if ((status === "not-needed" || status === "none") && !isReviewedReason(reason)) {
-    return undefined;
-  }
+  if (!isReviewedReason(reason)) return undefined;
   const docs = Array.isArray(record.docs)
     ? record.docs.filter((item): item is string => typeof item === "string")
         .map(normalizePath)
@@ -268,7 +283,7 @@ function declarationLines(
 function fileEvidenceLines(files: readonly LedgerDocsImpactFile[]): readonly string[] {
   if (files.length === 0) return ["None."];
   return files.flatMap((file) => {
-    const head = `- ${file.historical ? "satisfied by earlier receipts" : file.satisfied ? "satisfied" : "missing"}: \`${file.path}\``;
+    const head = `- ${file.earlierEvidence ? "satisfied by earlier receipts" : file.satisfied ? "satisfied" : "missing"}: \`${file.path}\``;
     if (file.evidence.length === 0) {
       return [
         file.entries.length > 0

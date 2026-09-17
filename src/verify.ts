@@ -96,7 +96,8 @@ export interface VerificationCommandOptions {
 
 /**
  * Parse a Verification bullet: the first backticked span, an optional
- * `KEY=value` prefix, then argv. `argv` is what runs, which differs from the
+ * `KEY=value` prefix, then argv. The allowlist is matched against the whole
+ * span, environment included. `argv` is what runs, which differs from the
  * written command only when a bare `ledger` command runs through `ledgerCommand`.
  */
 export function parseVerificationBullet(
@@ -129,7 +130,11 @@ export function parseVerificationBullet(
   const prefix = configuredLedgerPrefix(options.ledgerCommand);
   const withPrefix = prefix !== undefined && prefix.length <= written.length && prefix.every((word, position) => written[position] === word);
   const asLedger = withPrefix ? ["ledger", ...written.slice(prefix.length)] : undefined;
-  const allowed = isAllowedCommand(written, allow) || (asLedger !== undefined && isAllowedCommand(asLedger, allow));
+  // The environment assignments are matched as words, so a pattern has to name or wildcard them:
+  // an unlisted NODE_OPTIONS or PATH would otherwise run code the allowlist never mentioned.
+  const environment = words.slice(0, index);
+  const allowed =
+    isAllowedCommand(words, allow) || (asLedger !== undefined && isAllowedCommand([...environment, ...asLedger], allow));
   const argv = prefix && !withPrefix && written[0] === "ledger" ? [...prefix, ...written.slice(1)] : written;
   return allowed
     ? { bullet: trimmed, raw, env, argv, allowed }

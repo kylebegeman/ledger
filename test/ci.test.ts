@@ -87,7 +87,7 @@ describe("coverage modes in ci", () => {
     const relaxed = await runCiChecks(relaxedWorkspace, [earlier], { base, head });
     expect(relaxed.ok).toBe(true);
     expect(relaxed.docsImpact.mode).toBe("any");
-    expect(relaxed.docsImpact.historicalFiles).toEqual(["src/cli.ts"]);
+    expect(relaxed.docsImpact.earlierEvidenceFiles).toEqual(["src/cli.ts"]);
     expect(formatCiAnnotations(relaxed)).toEqual([]);
 
     const unlisted = await runCiChecks(relaxedWorkspace, [document({ title: "Valid" })], { base, head });
@@ -167,7 +167,7 @@ describe("GitHub output", () => {
       validation: { issues: [], errors: [{ level: "error" as const, message: "bad: 100%\nline two", path: "a,b.md" }], warnings: [], suppressed: [] },
       docsAudit: { docsRoot: "docs", adoption: "partial" as const, files: [], referencedDocs: [], missingReferences: [], unreferencedDocs: [], scratchDocs: [], generatedDocs: [], unknownDocs: [] },
       coverage: { mode: "current" as const, changedFiles: [], requiredFiles: [], coveredFiles: [], missingFiles: [], historicalFiles: [], currentEntries: [], files: [] },
-      docsImpact: { mode: "current" as const, docsRoot: "docs", changedFiles: [], sourceFiles: [], docsFiles: [], ledgerFiles: [], changedEntries: [], referencedDocs: [], declarations: [], files: [], missingDocsImpact: [], historicalFiles: [] },
+      docsImpact: { mode: "current" as const, docsRoot: "docs", changedFiles: [], sourceFiles: [], docsFiles: [], ledgerFiles: [], changedEntries: [], referencedDocs: [], declarations: [], files: [], missingDocsImpact: [], earlierEvidenceFiles: [] },
     };
     expect(formatCiAnnotations(result)).toEqual(["::error file=a%2Cb.md,title=Ledger validation::bad: 100%25%0Aline two"]);
   });

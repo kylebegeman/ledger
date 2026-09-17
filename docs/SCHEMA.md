@@ -564,8 +564,10 @@ listed by Ledger entries. `git.coverage` selects what counts: under `current`
 (the default) a required changed path must be listed by a change entry that is
 itself part of the inspected change set, so a pull request carries its own
 receipt; a path listed only by older records is reported as `historical` and
-fails coverage. `any` accepts any record that lists the path, which is useful
-while adopting Ledger on a repository with history. `ledger coverage --mode`
+fails coverage. `any` accepts any change entry that lists the path, earlier
+ones included, which is useful while adopting Ledger on a repository with
+history; session records, backlog items, and decisions never cover a path,
+because sessions expire and the others describe intent rather than a change. `ledger coverage --mode`
 overrides the setting for one run. Docs impact follows the same setting: under
 `current` only change entries in the change set give a source file its docs
 impact evidence, and under `any` a file they do not satisfy may take it from
@@ -576,10 +578,15 @@ covers passes both; a file no receipt lists fails both.
 
 `ledger init` writes the defaults above. `ledger adopt` infers
 `requireEntryFor` and `ignore` from the tracked tree instead: each top-level
-directory with tracked files (skipping `.ledger` and every hidden directory
-except `.github`), the root `Makefile`, and the primary manifest become roots, and ignores cover Ledger derived state, dependency and untracked build
-output, and generated code found in the tree. Adopt writes `coverage: any`;
-init keeps `current`.
+directory with tracked files (skipping `.ledger`, `vendor`, and every hidden
+directory except `.github`), the root `Makefile`, and the primary manifest
+become roots, and ignores cover Ledger derived state, vendored dependencies,
+dependency and build output at any depth unless the build directory is a
+tracked top-level directory, and generated code found in the tree. The
+proposed `verification.allow` leaves out Make targets and npm scripts whose
+names release, publish, deploy, install, or clean, or that reset, migrate,
+seed, format, generate, serve, start, or watch, and lists at most 40 of each.
+Adopt writes `coverage: any`; init keeps `current`.
 
 A pattern such as `**/generated/**` matches only below another directory, so a
 recursive ignore needs both forms to cover a root-level directory too. Adopt
@@ -618,7 +625,11 @@ verification:
 A bullet runs only when it starts with a backticked command (an optional
 `KEY=value` prefix sets the environment), contains no shell operators, and
 matches an `allow` pattern: tokens match literally, `*` matches one token,
-and a trailing `**` matches the rest. When `agents.command` is not plain
+and a trailing `**` matches the rest. Environment assignments are tokens of
+the command, so a bullet that sets one runs only when a pattern names it,
+such as `LEDGER_UPDATE_CONTRACT=1 npx vitest **`; an assignment no pattern
+names, such as `NODE_OPTIONS=--require=./x.js`, keeps the command from
+running. When `agents.command` is not plain
 `ledger`, a command written with it is checked as the same `ledger` command,
 so `npx ledger validate` matches `ledger validate **`, and a bare `ledger`
 command runs through `agents.command` instead of whatever `ledger` is on the
@@ -660,7 +671,9 @@ existing key in place or appending the section, and preserves comments,
 quoting, key order, and CRLF line endings in the rest of the file. `verification.allow` stays a
 separate list that bounds what `ledger verify --run` may execute and is not
 rewritten by the command; its `ledger` patterns also match commands written
-with `agents.command`.
+with `agents.command`, and a bare `ledger` bullet runs through that command.
+Both keys live in the same reviewed config file, so `agents.command` is
+trusted exactly as far as the allowlist is.
 
 ## Render Budget Config
 

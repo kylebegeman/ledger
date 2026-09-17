@@ -314,7 +314,7 @@ export interface LedgerDocsImpact {
   readonly files: readonly LedgerDocsImpactFile[];
   readonly missingDocsImpact: readonly string[];
   /** Source files satisfied only by receipts outside the change set, which `git.coverage: any` accepts. */
-  readonly historicalFiles: readonly string[];
+  readonly earlierEvidenceFiles: readonly string[];
 }
 
 export interface LedgerDocsImpactEvidence {
@@ -332,7 +332,7 @@ export interface LedgerDocsImpactFile {
   readonly entries: readonly string[];
   readonly evidence: readonly LedgerDocsImpactEvidence[];
   /** Present and true when only receipts outside the change set satisfied the file under `git.coverage: any`. */
-  readonly historical?: true;
+  readonly earlierEvidence?: true;
 }
 
 export type LedgerDocsImpactStatus = "updated" | "not-needed" | "none";
