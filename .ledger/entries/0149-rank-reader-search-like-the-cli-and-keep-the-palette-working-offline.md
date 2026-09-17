@@ -23,6 +23,7 @@ related:
   - "0119"
   - "0120"
   - "0148"
+release: "v0.8.1"
 ---
 
 # 0149: Rank Reader Search Like The CLI And Keep The Palette Working Offline

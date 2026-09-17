@@ -276,8 +276,11 @@ typed API client, the typed and browser-tested reader runtime, symbol extractor
 provenance, sharded search, chunked artifacts, and full-text search), and
 adoption fixes in 0.8.0 from Kore's rollout (the `docs reconcile` guard, one
 configured Ledger command, the drafted receipt notice, session retention, and
-toolchain-aware `adopt`). A second live Kore session (backlog B010) and the
-Dossier visual system (backlog B009) are next. Direction accepted in decision
+toolchain-aware `adopt`), with the fixes from an audit of that slice in
+0.8.1 (concurrent hook writes, a Ledger root inside a repository, reader
+search parity, and tighter verification and coverage trust). A second live
+Kore session (backlog B010) and the Dossier visual system (backlog B009) are
+next. Direction accepted in decision
 D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
@@ -307,8 +310,9 @@ Pillars:
 
 Sequencing: hygiene, then registry and cache, then the engine server, then
 capture, then trust. Releases stay on the 0.x line without a contract freeze.
-Kore adopted Ledger with hooks on 0.7.0 (backlog B007); a second live Kore
-session on 0.8.0 is the open acceptance check for capture (backlog B010).
+Kore adopted Ledger with hooks on 0.7.0 (backlog B007) and moved to 0.8.0; a
+second live Kore session is the open acceptance check for capture (backlog
+B010).
 
 ## Long-Term Product Direction
 

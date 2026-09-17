@@ -39,6 +39,7 @@ related:
   - "0133"
   - "0142"
   - "0081"
+release: "v0.8.1"
 ---
 
 # 0151: Keep Hook Writes From Racing And Rebase Git Paths Onto The Ledger Root

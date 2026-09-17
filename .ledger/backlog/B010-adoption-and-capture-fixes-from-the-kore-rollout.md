@@ -90,5 +90,8 @@ Implemented for 0.8.0 as five milestones, each with its own receipt: 0131
 configured Ledger command), 0133 (the drafted receipt notice and one draft
 per change), 0134 (session retention and committed session records), and 0135
 (toolchain-aware `adopt`). The first three acceptance checks are covered by
-tests in those receipts. The second live Kore session and Kore's pin bump wait
-for 0.8.0 on npm; `docs/HANDOFF.md` lists the steps.
+tests in those receipts. Kore's pin moved to 0.8.0 in kylebegeman/forge#25
+on 2026-09-17, which meets the pin check; 0.8.1 fixes capture bugs an audit
+found (parallel hook writes losing paths, a nested Ledger root drafting
+nothing) and should reach Kore before the second live Kore session, the last
+open check. `docs/HANDOFF.md` lists the steps.

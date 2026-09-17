@@ -31,6 +31,7 @@ commits: []
 related:
   - "0146"
   - "0137"
+release: "v0.8.1"
 ---
 
 # 0150: Scan Code Spans Linearly And Share The Record Row Markup

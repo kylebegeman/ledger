@@ -1,7 +1,7 @@
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.js";
 import { probeEngine, readDaemonRecord } from "../src/daemon.js";
 import { startLedgerEngine, type LedgerEngineResult } from "../src/engine.js";
@@ -14,6 +14,11 @@ import type { LedgerWorkspace } from "../src/types.js";
 let tempDir: string | undefined;
 let engine: LedgerEngineResult | undefined;
 const savedNoDaemon = process.env[noDaemonEnvironmentVariable];
+
+// Scripts and hooks often export LEDGER_NO_DAEMON; these tests exercise delegation, so they start without it.
+beforeEach(() => {
+  delete process.env[noDaemonEnvironmentVariable];
+});
 
 afterEach(async () => {
   if (savedNoDaemon === undefined) delete process.env[noDaemonEnvironmentVariable];

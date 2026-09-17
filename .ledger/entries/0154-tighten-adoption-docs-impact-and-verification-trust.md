@@ -48,6 +48,7 @@ related:
   - "0143"
   - "0144"
   - "0131"
+release: "v0.8.1"
 ---
 
 # 0154: Tighten Adoption, Docs Impact, And Verification Trust

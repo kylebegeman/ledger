@@ -38,6 +38,7 @@ related:
   - "0133"
   - "0142"
   - "0151"
+release: "v0.8.1"
 ---
 
 # 0152: Merge Hooks Per Entry, Announce Every New Draft, And Cap Drafts
