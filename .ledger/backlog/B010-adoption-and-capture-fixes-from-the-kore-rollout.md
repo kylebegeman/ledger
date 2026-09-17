@@ -4,7 +4,7 @@ kind: "backlog"
 title: "Adoption and capture fixes from the Kore rollout"
 date: "2026-09-16"
 updated: "2026-09-17"
-status: "in-progress"
+status: "landed"
 areas:
   - "adoption"
   - "capture"
@@ -93,6 +93,18 @@ per change), 0134 (session retention and committed session records), and 0135
 tests in those receipts. Kore's pin moved to 0.8.0 in kylebegeman/forge#25
 and to 0.8.1 in kylebegeman/forge#26 on 2026-09-17, which meets the pin check.
 0.8.1 fixes capture bugs an audit found (parallel hook writes losing paths, a
-nested Ledger root drafting nothing, a recreated draft never announced). The
-second live Kore session is the last open check; `docs/HANDOFF.md` lists the
-steps.
+nested Ledger root drafting nothing, a recreated draft never announced).
+
+The second live Kore session ran on 2026-09-17 in the Claude desktop app with
+the 0.8.1 hooks, and it passed. The task was an ordinary one: rename Forge to
+Kore in the `CHANGELOG.md` intro and three Go test files. The agent made the
+four edits in one message, and session S0002 recorded all four paths. The
+Stop hook drafted Kore receipt 0005 when the turn ended. The next prompt only
+asked to get the change ready to commit, and it carried the draft notice. The
+agent finished 0005, passed `ledger ready`, recorded evidence with
+`verify --run`, and never ran `ledger new`. The second Stop drafted nothing.
+The change and its records are kylebegeman/forge#27. Claude Code ran the four
+PostToolUse hooks one after another as each edit finished, so 0151's
+concurrent-write path stays covered by its test rather than by this session.
+Product notes 0160 and 0161 record what the session exposed, and receipt 0162
+closes this item.

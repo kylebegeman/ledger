@@ -279,9 +279,9 @@ configured Ledger command, the drafted receipt notice, session retention, and
 toolchain-aware `adopt`), with the fixes from an audit of that slice in
 0.8.1 (concurrent hook writes, a Ledger root inside a repository, reader
 search parity, and tighter verification and coverage trust). A second live
-Kore session (backlog B010) and the Dossier visual system (backlog B009) are
-next. Direction accepted in decision
-D005 on 2026-09-15.
+Kore session closed backlog B010 on 2026-09-17. Drafts scoped to the change
+(product notes 0160 and 0161) and the Dossier visual system (backlog B009)
+are next. Direction accepted in decision D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
 `docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are
@@ -310,9 +310,9 @@ Pillars:
 
 Sequencing: hygiene, then registry and cache, then the engine server, then
 capture, then trust. Releases stay on the 0.x line without a contract freeze.
-Kore adopted Ledger with hooks on 0.7.0 (backlog B007) and moved to 0.8.0; a
-second live Kore session is the open acceptance check for capture (backlog
-B010).
+Kore adopted Ledger with hooks on 0.7.0 (backlog B007) and moved to 0.8.0 and
+0.8.1. A second live Kore session then passed the last capture acceptance
+check (backlog B010).
 
 ## Long-Term Product Direction
 
