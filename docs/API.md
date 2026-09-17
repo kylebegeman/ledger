@@ -93,8 +93,10 @@ shared by several operations.
 `createLedgerClient({ url })` returns a client for a running `ledger serve
 --api` engine whose `run(name, input)` is typed from the operation registry:
 `name` must be a registered operation and `input` must match that operation's
-declared input, so a call that would be rejected by the engine does not
-typecheck. The result carries the machine envelope typed with the operation's
+declared input, so a misspelled operation or a wrongly typed input field does
+not typecheck. The engine still rejects what the types let through: an unknown
+input key with status 400, and an operation it does not serve, such as `init`
+or `adopt`, with status 404. The result carries the machine envelope typed with the operation's
 output, the process exit code from the `ledger-exit-code` header, and the HTTP
 status. `connectLedgerClient(projectRoot)` reads the workspace's daemon record
 and probes the engine, returning undefined when none serves that project; CLI
