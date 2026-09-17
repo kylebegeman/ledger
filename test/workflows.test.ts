@@ -14,6 +14,7 @@ describe("repository automation", () => {
               readonly node: readonly number[];
             };
           };
+          readonly steps: readonly { readonly name?: string; readonly if?: string; readonly run?: string }[];
         };
       };
     };
@@ -32,6 +33,11 @@ describe("repository automation", () => {
     expect(source).toContain("github.event.pull_request.head.sha");
     expect(source).toContain("npm audit --omit=dev --audit-level=high");
     expect(source).toContain("npm install --ignore-scripts");
+    // The README cards are regenerated once per run, on the job whose output they were captured from.
+    const readmeCheck = workflow.jobs.test.steps.find((step) => step.name === "Check README cards");
+    expect(readmeCheck).toMatchObject({ if: "matrix.os == 'ubuntu-latest' && matrix.node == 24", run: "npm run readme:check" });
+    const manifest = JSON.parse(await readFile("package.json", "utf8")) as { readonly scripts: Record<string, string> };
+    expect(manifest.scripts["readme:check"]).toBe("node scripts/readme-assets.mjs && git diff --exit-code -- assets/readme");
     expectActionsPinned(source);
   });
 

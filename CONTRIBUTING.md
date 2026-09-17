@@ -39,8 +39,13 @@ node scripts/readme-assets.mjs
 ```
 
 Set `LEDGER_README_VERSION` to change the version in pinned `npx` commands.
-Regenerate the cards whenever hook context or command output changes, and
-review the diff for trims the cards now mark differently.
+The demo's Ledger processes start from the instant in `LEDGER_README_NOW`
+(default `2026-09-17T12:00:00Z`) through `scripts/readme-clock.mjs`, so the
+session names and dates in the cards are the same on any day. Regenerate the
+cards whenever hook context or command output changes, and review the diff
+for trims the cards now mark differently. CI runs `npm run readme:check` on
+the Ubuntu, Node 24 job, which regenerates the cards and fails when any
+differs from the committed file.
 
 The four reader screenshots are captured by hand in a browser at a device
 scale factor of 2, dark color scheme, from `node dist/cli.js serve` for this

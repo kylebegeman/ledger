@@ -4,24 +4,29 @@
 //   npm run build
 //   node scripts/readme-assets.mjs            # writes assets/readme/*.svg
 //   node scripts/readme-assets.mjs --keep     # also keeps the demo repositories and prints their paths
+//   npm run readme:check                      # regenerates and fails when a card differs from the commit
 //
 // The script builds two throwaway repositories with this checkout's dist/cli.js, a small TypeScript
 // billing service and a Go service, drives the hooks and commands the README shows, and renders the
 // captured output. Lines the cards leave out are replaced by a marked annotation, never edited.
 // LEDGER_README_VERSION sets the version shown in pinned npx commands (default: package.json).
+// LEDGER_README_NOW sets the instant the demo's Ledger processes start from, through
+// scripts/readme-clock.mjs, so session names and dates in the cards do not depend on the day.
 // The reader screenshots (hero, receipt, palette, changelog) are captured separately; see CONTRIBUTING.md.
 
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cli = path.join(root, "dist", "cli.js");
 const outDir = path.join(root, "assets", "readme");
 const version = process.env.LEDGER_README_VERSION ?? JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).version;
 const keep = process.argv.includes("--keep");
+const demoNow = process.env.LEDGER_README_NOW ?? "2026-09-17T12:00:00Z";
+const clock = pathToFileURL(path.join(root, "scripts", "readme-clock.mjs")).href;
 if (!existsSync(cli)) {
   console.error("dist/cli.js is missing; run npm run build first.");
   process.exit(1);
@@ -31,7 +36,8 @@ if (!existsSync(cli)) {
 // Demo repositories
 
 function run(command, args, cwd, input) {
-  const result = spawnSync(command, args, { cwd, input, encoding: "utf8", env: { ...process.env, LEDGER_NO_DAEMON: "1" } });
+  const env = { ...process.env, LEDGER_NO_DAEMON: "1", LEDGER_README_NOW: demoNow };
+  const result = spawnSync(command, args, { cwd, input, encoding: "utf8", env });
   if (result.error) throw result.error;
   return result;
 }
@@ -43,7 +49,7 @@ function git(cwd, ...args) {
 }
 
 function ledger(cwd, args, { input, allowFailure = false, stdoutOnly = false } = {}) {
-  const result = run(process.execPath, [cli, ...args], cwd, input);
+  const result = run(process.execPath, ["--import", clock, cli, ...args], cwd, input);
   if (result.status !== 0 && !allowFailure) throw new Error(`ledger ${args.join(" ")} failed: ${result.stdout}${result.stderr}`);
   return stdoutOnly ? result.stdout : `${result.stdout}${result.stderr}`;
 }

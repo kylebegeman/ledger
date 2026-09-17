@@ -42,6 +42,10 @@ jobs:
       - name: Verify
         run: npm run ci
 
+      - name: Check README cards
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: npm run readme:check
+
       - name: Verify Ledger pull request range
         if: github.event_name == 'pull_request'
         uses: ./
