@@ -20,6 +20,8 @@ docs:
 commits:
   - "88c9fe6"
 release: "v0.1.3"
+staleRefs:
+  - "anchors:Agent Workflow"
 ---
 
 # 0032: Add Agent Packet Report Output

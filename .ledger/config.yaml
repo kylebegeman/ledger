@@ -139,3 +139,5 @@ docs:
   routing:
     startHere: docs/llm/START_HERE.md
     manifest: docs/llm/manifest.json
+agents:
+  command: node dist/cli.js

@@ -59,6 +59,7 @@ related:
   - "0127"
   - "0131"
   - "S0002"
+release: "v0.8.0"
 ---
 
 # 0132: Configure One Ledger Command For Hooks, Instructions, And Context

@@ -23,6 +23,8 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.2"
 commits: ["061d908"]
+staleRefs:
+  - "anchors:Record A Change"
 ---
 
 # 0022: Extract Symbols For Diff Drafts

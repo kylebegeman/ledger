@@ -42,6 +42,7 @@ related:
   - "0139"
   - "0140"
   - "S0002"
+release: "v0.8.0"
 ---
 
 # 0137: Rebuild The README Around Real Output And Refresh The Mark

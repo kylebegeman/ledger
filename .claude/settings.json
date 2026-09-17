@@ -2,7 +2,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume|compact",
+        "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
             "type": "command",
@@ -53,6 +53,17 @@
             "type": "command",
             "command": "node dist/cli.js hook pre-compact --host claude-code",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node dist/cli.js hook user-prompt-submit --host claude-code",
+            "timeout": 15
           }
         ]
       }

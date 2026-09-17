@@ -3,8 +3,8 @@ id: "B010"
 kind: "backlog"
 title: "Adoption and capture fixes from the Kore rollout"
 date: "2026-09-16"
-updated: "2026-09-16"
-status: "proposed"
+updated: "2026-09-17"
+status: "in-progress"
 areas:
   - "adoption"
   - "capture"
@@ -85,4 +85,10 @@ Excluded:
 
 ## Promotion Notes
 
-Not promoted yet. Sequenced ahead of B009 in `docs/HANDOFF.md`.
+Implemented for 0.8.0 as five milestones, each with its own receipt: 0131
+(the `docs reconcile` guard and curated routing on adopt), 0132 (one
+configured Ledger command), 0133 (the drafted receipt notice and one draft
+per change), 0134 (session retention and committed session records), and 0135
+(toolchain-aware `adopt`). The first three acceptance checks are covered by
+tests in those receipts. The second live Kore session and Kore's pin bump wait
+for 0.8.0 on npm; `docs/HANDOFF.md` lists the steps.

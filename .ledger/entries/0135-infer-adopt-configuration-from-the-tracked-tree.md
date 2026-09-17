@@ -65,6 +65,7 @@ related:
   - "0125"
   - "0131"
   - "S0002"
+release: "v0.8.0"
 ---
 
 # 0135: Infer Adopt Configuration From The Tracked Tree

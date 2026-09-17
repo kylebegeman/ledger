@@ -21,6 +21,8 @@ docs:
   - "docs/IMPLEMENTATION_PLAN.md"
 release: "v0.1.2"
 commits: ["689eb72"]
+staleRefs:
+  - "anchors:Command Map"
 ---
 
 # 0023: Add Conflict Report Output

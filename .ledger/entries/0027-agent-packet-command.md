@@ -22,6 +22,8 @@ docs:
   - "docs/ARCHITECTURE.md"
 release: "v0.1.2"
 commits: ["e81f6b4"]
+staleRefs:
+  - "anchors:Agent Workflow"
 ---
 
 # 0027: Add Agent Packet Command

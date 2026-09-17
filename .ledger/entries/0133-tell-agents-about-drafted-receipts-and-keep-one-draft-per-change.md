@@ -71,6 +71,7 @@ related:
   - "0129"
   - "0132"
   - "S0002"
+release: "v0.8.0"
 ---
 
 # 0133: Tell Agents About Drafted Receipts And Keep One Draft Per Change
