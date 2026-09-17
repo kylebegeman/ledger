@@ -391,7 +391,7 @@ the 2025 revisions. Run `ledger help <command>` for flags.
 | `ledger verify --run` | Runs allowlisted Verification commands and records the evidence |
 | `ledger stale --check` | Missing relationships, stale symbols and anchors, expired sessions, and old evidence |
 | `ledger validate` | Parses and validates every record |
-| `ledger doctor` | Workspace health across Git, writes, indexes, render budgets, symbols, and evidence |
+| `ledger doctor` | Workspace health across Git, writes, indexes, render budgets, symbols, hooks, and evidence; `--fix` repairs derived state |
 | `ledger verify-integrity --check` | Compares record and catalog hashes with a saved baseline |
 | `ledger metrics` | Read, validate, index, render, and search latency against budgets |
 

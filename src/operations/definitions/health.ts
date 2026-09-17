@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { formatLedgerMetricsResult, runLedgerMetricsCommand } from "../../commands/index.js";
-import { formatDoctorResult, runDoctor, type LedgerDoctorResult } from "../../doctor.js";
+import { formatDoctorResult, repairDerivedState, runDoctor, type LedgerDoctorResult } from "../../doctor.js";
 import type { LedgerPerformanceResult } from "../../performance.js";
 import {
   detectStaleKnowledge,
@@ -12,28 +12,44 @@ import { readValidationBaseline, validateDocuments } from "../../validate.js";
 import { loadDocuments, looseRecord } from "../shared.js";
 import { defineOperation } from "../types.js";
 
-export const doctorOperation = defineOperation<{ noBaseline?: boolean }, LedgerDoctorResult>({
+export const doctorOperation = defineOperation<{ noBaseline?: boolean; fix?: boolean }, LedgerDoctorResult>({
   name: "doctor",
   title: "Check Ledger health",
-  description: "Check workspace health, Git availability, validation, docs, indexes, render output, and stale signals.",
+  description:
+    "Check workspace health, Git availability, validation, docs, indexes, render output, hooks, and stale signals, and with fix repair derived state.",
   workspace: "required",
-  mutates: false,
+  mutates: true,
   input: z.strictObject({
     noBaseline: z.boolean().optional().describe("Ignore the configured validation baseline."),
+    fix: z
+      .boolean()
+      .optional()
+      .describe("Repair derived state first: interrupted writes, stale engine records, the cache, indexes, and a missing reader."),
   }),
   output: looseRecord({
     ok: z.boolean(),
     checks: z.array(looseRecord({ name: z.string(), level: z.string(), message: z.string() })),
+    fixes: z.array(looseRecord({ check: z.string(), ok: z.boolean(), message: z.string() })).optional(),
   }),
   cli: {
     path: ["doctor"],
-    usage: "ledger doctor [--no-baseline] [--json]",
+    usage: "ledger doctor [--no-baseline] [--fix] [--json]",
     flags: {
       "no-baseline": { type: "boolean", description: "Ignore the configured validation baseline." },
+      fix: { type: "boolean", description: "Repair derived state, then check again." },
     },
     json: true,
     help: `Checks workspace health, Git availability, validation, docs references, index
-freshness, render output, performance budgets, and stale-knowledge signals.`,
+freshness, render output, performance budgets, installed hooks, and
+stale-knowledge signals. The hooks check warns when a host hook file runs a
+different command than agents.command, or when that command cannot print this
+Ledger's version, because hosts skip failing hooks without a message.
+
+--fix first repairs derived and runtime state: it recovers interrupted writes
+and stale locks, removes a stale engine record, rebuilds a stale catalog
+cache, regenerates missing or stale indexes, and renders a missing reader. It
+never edits records, so it is safe to rerun, and then it runs the checks
+again.`,
   },
   mcp: {
     tool: "ledger_doctor",
@@ -43,15 +59,22 @@ freshness, render output, performance budgets, and stale-knowledge signals.`,
       checks: data.checks.length,
       failing: data.checks.filter((check) => check.level === "fail").map((check) => check.name),
       warning: data.checks.filter((check) => check.level === "warn").map((check) => check.name),
+      ...(data.fixes ? { fixed: data.fixes.filter((fix) => fix.ok).map((fix) => fix.check) } : {}),
     }),
   },
   async run(context, input) {
-    const { workspace, documents } = await loadDocuments(context);
-    const validation = validateDocuments(workspace, documents, {
-      baseline: input.noBaseline ? undefined : await readValidationBaseline(workspace),
-    });
-    const result = await runDoctor(workspace, documents, validation);
-    return { data: result, exitCode: result.ok ? 0 : 1 };
+    const check = async () => {
+      const { workspace, documents } = await loadDocuments(context);
+      const validation = validateDocuments(workspace, documents, {
+        baseline: input.noBaseline ? undefined : await readValidationBaseline(workspace),
+      });
+      return { workspace, documents, validation, result: await runDoctor(workspace, documents, validation, { version: context.version }) };
+    };
+    const first = await check();
+    if (!input.fix) return { data: first.result, exitCode: first.result.ok ? 0 : 1 };
+    const fixes = await repairDerivedState(first.workspace, first.documents, first.validation, first.result.checks);
+    const after = fixes.length > 0 ? (await check()).result : first.result;
+    return { data: { ...after, fixes }, exitCode: after.ok ? 0 : 1 };
   },
   format(data) {
     return formatDoctorResult(data);

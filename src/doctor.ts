@@ -1,17 +1,21 @@
-import { access, stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { inspectLedgerCatalogCache } from "./catalogCache.js";
-import { probeEngine, readDaemonRecord } from "./daemon.js";
+import { inspectLedgerCatalogCache, readLedgerCatalog } from "./catalogCache.js";
+import { probeEngine, readDaemonRecord, removeStaleDaemonRecord } from "./daemon.js";
 import { auditDocs } from "./docs.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { isCoverageRequired } from "./coverage.js";
 import { inspectGit, listTrackedFiles } from "./git.js";
-import { inspectWorkspaceWriteState } from "./fileTransaction.js";
+import { inspectWorkspaceWriteState, recoverInterruptedTransactions } from "./fileTransaction.js";
+import { hookHosts, hostHookFile, ledgerHookCommandPrefix, type LedgerHookHost } from "./hooks.js";
+import { buildIndexes, writeIndexes } from "./indexer.js";
+import { resolveSafeProjectPath } from "./projectPaths.js";
 import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
-import { checkRenderBudgets } from "./render.js";
+import { buildStaticReaderModel, checkRenderBudgets, writeStaticReader } from "./render.js";
 import { detectStaleKnowledge } from "./stale.js";
 import { summarizeSymbolLanguages, symbolExtractorStatus, typeScriptFallbackAdvice } from "./symbols.js";
-import { evidenceFreshness, readEvidence } from "./verify.js";
+import { evidenceFreshness, readEvidence, splitShellWords } from "./verify.js";
 import type {
   LedgerDocsAudit,
   LedgerValidationResult,
@@ -32,12 +36,29 @@ export interface LedgerDoctorResult {
   readonly checks: readonly LedgerDoctorCheck[];
   readonly docsAudit: LedgerDocsAudit;
   readonly performance: LedgerPerformanceResult;
+  /** Repairs `doctor --fix` attempted before these checks ran. */
+  readonly fixes?: readonly LedgerDoctorFix[];
 }
+
+export interface LedgerDoctorFix {
+  readonly check: string;
+  readonly ok: boolean;
+  readonly message: string;
+}
+
+export interface RunDoctorOptions {
+  /** The running Ledger's version, compared with the version the installed hooks run. */
+  readonly version?: string;
+}
+
+/** How long `doctor` waits for the hook command to print its version. */
+const hookCommandTimeoutMs = 20_000;
 
 export async function runDoctor(
   workspace: LedgerWorkspace,
   documents: readonly ParsedLedgerDocument[],
   validation: LedgerValidationResult,
+  options: RunDoctorOptions = {},
 ): Promise<LedgerDoctorResult> {
   const docsAudit = await auditDocs(workspace, documents);
   const stale = await detectStaleKnowledge(workspace, documents, validation);
@@ -71,6 +92,7 @@ export async function runDoctor(
     await renderBudgetCheck(workspace),
     performanceCheck(performance),
     await symbolsCheck(workspace),
+    await hooksCheck(workspace, options.version),
     await verificationCheck(workspace, documents),
     {
       name: "stale-knowledge",
@@ -199,11 +221,211 @@ async function writeStateCheck(workspace: LedgerWorkspace): Promise<LedgerDoctor
 }
 
 export function formatDoctorResult(result: LedgerDoctorResult): string {
-  const lines = [`Ledger doctor: ${result.ok ? "passed" : "failed"}.`];
+  const lines: string[] = [];
+  if (result.fixes) {
+    lines.push(result.fixes.length === 0 ? "Ledger doctor --fix: nothing to repair." : "Ledger doctor --fix:");
+    for (const fix of result.fixes) lines.push(`- ${fix.ok ? "fixed" : "not fixed"}: ${fix.check} (${fix.message})`);
+    lines.push("");
+  }
+  lines.push(`Ledger doctor: ${result.ok ? "passed" : "failed"}.`);
   for (const check of result.checks) {
     lines.push(`- ${check.level}: ${check.name} (${check.message})`);
   }
   return lines.join("\n");
+}
+
+/**
+ * Repair the derived and runtime state the checks flagged: interrupted writes
+ * and stale locks, a stale engine record, a stale catalog cache, missing or
+ * stale indexes, and a missing reader. Source records are never edited, so a
+ * fix is always safe to rerun.
+ */
+export async function repairDerivedState(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  validation: LedgerValidationResult,
+  checks: readonly LedgerDoctorCheck[],
+): Promise<readonly LedgerDoctorFix[]> {
+  const fixes: LedgerDoctorFix[] = [];
+  const flagged = (name: string) => checks.find((check) => check.name === name && check.level !== "pass");
+  const attempt = async (check: string, action: () => Promise<string>): Promise<void> => {
+    try {
+      fixes.push({ check, ok: true, message: await action() });
+    } catch (error) {
+      fixes.push({ check, ok: false, message: error instanceof Error ? error.message : String(error) });
+    }
+  };
+  const writeState = flagged("write-state");
+  if (writeState) {
+    const state = await inspectWorkspaceWriteState(workspace);
+    if (state.pendingTransactions.length > 0 || state.lock?.stale) {
+      await attempt("write-state", async () => {
+        await recoverInterruptedTransactions(workspace);
+        return state.pendingTransactions.length > 0
+          ? `recovered ${state.pendingTransactions.length} interrupted transaction(s)`
+          : "removed a stale lock";
+      });
+    } else {
+      fixes.push({ check: "write-state", ok: false, message: "another process holds the write lock; wait for it to finish" });
+    }
+  }
+  if (flagged("engine")) {
+    if (await removeStaleDaemonRecord(workspace.ledgerRoot)) {
+      fixes.push({ check: "engine", ok: true, message: "removed the stale engine record" });
+    } else {
+      fixes.push({ check: "engine", ok: false, message: "the engine answered again, so its record stays" });
+    }
+  }
+  const cache = flagged("cache");
+  if (cache && /stale/.test(cache.message)) {
+    await attempt("cache", async () => {
+      const read = await readLedgerCatalog(workspace);
+      return `rebuilt the catalog cache with ${read.documents.length} record(s)`;
+    });
+  }
+  const blocked = validation.errors.length > 0
+    ? `${validation.errors.length} validation error(s) must be fixed first`
+    : undefined;
+  if (flagged("indexes")) {
+    if (blocked) fixes.push({ check: "indexes", ok: false, message: blocked });
+    else {
+      await attempt("indexes", async () => {
+        await writeIndexes(workspace, buildIndexes(workspace, documents));
+        return `regenerated indexes under ${normalizePath(workspace.config.indexes.output)}`;
+      });
+    }
+  }
+  if (flagged("render")) {
+    if (blocked) fixes.push({ check: "render", ok: false, message: blocked });
+    else {
+      await attempt("render", async () => {
+        const model = buildStaticReaderModel(workspace, documents, { evidence: await readEvidence(workspace), validation });
+        const rendered = await writeStaticReader(workspace, model);
+        return `rendered ${normalizePath(rendered.outputPath)}`;
+      });
+    }
+  }
+  return fixes;
+}
+
+interface InstalledHooks {
+  readonly host: LedgerHookHost;
+  readonly path: string;
+  readonly prefixes: readonly string[];
+}
+
+/**
+ * Hooks that cannot run fail silently in every host, so capture stops without
+ * a sign. Check that each installed hook file runs `agents.command` and that
+ * the command prints this Ledger's version.
+ */
+async function hooksCheck(workspace: LedgerWorkspace, version: string | undefined): Promise<LedgerDoctorCheck> {
+  const installed: InstalledHooks[] = [];
+  for (const host of hookHosts) {
+    const file = hostHookFile(host);
+    const prefixes = await installedHookPrefixes(workspace, file.path);
+    if (prefixes.length > 0) installed.push({ host, path: file.path, prefixes });
+  }
+  if (installed.length === 0) return { name: "hooks", level: "pass", message: "no host hooks installed" };
+  const command = workspace.config.agents.command;
+  const hosts = installed.map((entry) => entry.host).join(", ");
+  const drifted = installed.filter((entry) => entry.prefixes.some((prefix) => prefix !== command));
+  if (drifted.length > 0) {
+    const shown = drifted.map((entry) => `${entry.path} runs \`${entry.prefixes.find((prefix) => prefix !== command)}\``);
+    return {
+      name: "hooks",
+      level: "warn",
+      message: `${shown.join("; ")}, but agents.command is \`${command}\`; rerun ledger hooks install for ${drifted.map((entry) => entry.host).join(", ")}`,
+    };
+  }
+  const argv = splitShellWords(command);
+  if (!argv || argv.length === 0) {
+    return { name: "hooks", level: "warn", message: `agents.command \`${command}\` cannot be split into a command` };
+  }
+  const run = await runCommand(argv, workspace.projectRoot);
+  if (!run.ok) {
+    return {
+      name: "hooks",
+      level: "warn",
+      message: `${hosts} hooks cannot run: \`${command} version\` ${run.reason}; the hosts skip them without a message, so rebuild or reinstall Ledger`,
+    };
+  }
+  const reported = /^ledger\s+(\S+)\s*$/m.exec(run.stdout)?.[1];
+  if (!reported) {
+    return {
+      name: "hooks",
+      level: "warn",
+      message: `\`${command} version\` did not print a Ledger version; another program may own the name, so set --command on ledger hooks install`,
+    };
+  }
+  if (version && reported !== version) {
+    return {
+      name: "hooks",
+      level: "warn",
+      message: `${hosts} hooks run Ledger ${reported} through \`${command}\`, but this is Ledger ${version}`,
+    };
+  }
+  return { name: "hooks", level: "pass", message: `${hosts} hooks run Ledger ${reported} through \`${command}\`` };
+}
+
+async function installedHookPrefixes(workspace: LedgerWorkspace, relativePath: string): Promise<readonly string[]> {
+  let raw: string;
+  try {
+    raw = await readFile(await resolveSafeProjectPath(workspace.projectRoot, relativePath, "hook file"), "utf8");
+  } catch (error) {
+    if (isCode(error, "ENOENT")) return [];
+    throw error;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  const prefixes = new Set<string>();
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+    } else if (value !== null && typeof value === "object") {
+      for (const [key, child] of Object.entries(value)) {
+        if (key === "command") {
+          const prefix = ledgerHookCommandPrefix(child);
+          if (prefix) prefixes.add(prefix);
+        } else {
+          visit(child);
+        }
+      }
+    }
+  };
+  visit(parsed);
+  return [...prefixes];
+}
+
+function runCommand(
+  argv: readonly string[],
+  cwd: string,
+): Promise<{ readonly ok: true; readonly stdout: string } | { readonly ok: false; readonly reason: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      argv[0]!,
+      [...argv.slice(1), "version"],
+      { cwd, timeout: hookCommandTimeoutMs, maxBuffer: 64 * 1024, env: { ...process.env, LEDGER_NO_DAEMON: "1" } },
+      (error, stdout, stderr) => {
+        if (!error) {
+          resolve({ ok: true, stdout: String(stdout) });
+          return;
+        }
+        const detail = String(stderr).trim().split(/\r?\n/)[0] || error.message.split(/\r?\n/)[0];
+        const code = (error as { readonly code?: unknown }).code;
+        const reason = (error as { readonly killed?: boolean }).killed
+          ? `timed out after ${hookCommandTimeoutMs / 1000}s`
+          : code === "ENOENT"
+            ? `failed because ${argv[0]} was not found`
+            : `failed: ${detail}`;
+        resolve({ ok: false, reason });
+      },
+    );
+  });
 }
 
 async function gitCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorCheck> {

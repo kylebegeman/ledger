@@ -4657,21 +4657,25 @@
     {
       "name": "doctor",
       "title": "Check Ledger health",
-      "description": "Check workspace health, Git availability, validation, docs, indexes, render output, and stale signals.",
+      "description": "Check workspace health, Git availability, validation, docs, indexes, render output, hooks, and stale signals, and with fix repair derived state.",
       "workspace": "required",
-      "mutates": false,
+      "mutates": true,
       "interactive": false,
       "cli": {
         "path": [
           "doctor"
         ],
         "aliases": [],
-        "usage": "ledger doctor [--no-baseline] [--json]",
+        "usage": "ledger doctor [--no-baseline] [--fix] [--json]",
         "json": true,
         "flags": {
           "no-baseline": {
             "type": "boolean",
             "field": "noBaseline"
+          },
+          "fix": {
+            "type": "boolean",
+            "field": "fix"
           }
         }
       },
@@ -4681,6 +4685,10 @@
         "properties": {
           "noBaseline": {
             "description": "Ignore the configured validation baseline.",
+            "type": "boolean"
+          },
+          "fix": {
+            "description": "Repair derived state first: interrupted writes, stale engine records, the cache, indexes, and a missing reader.",
             "type": "boolean"
           }
         },
@@ -4715,6 +4723,29 @@
               ],
               "additionalProperties": {}
             }
+          },
+          "fixes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "check": {
+                  "type": "string"
+                },
+                "ok": {
+                  "type": "boolean"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "check",
+                "ok",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
           }
         },
         "required": [
@@ -4737,6 +4768,10 @@
             },
             "noBaseline": {
               "description": "Ignore the configured validation baseline.",
+              "type": "boolean"
+            },
+            "fix": {
+              "description": "Repair derived state first: interrupted writes, stale engine records, the cache, indexes, and a missing reader.",
               "type": "boolean"
             }
           },
