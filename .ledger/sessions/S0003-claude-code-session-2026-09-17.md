@@ -42,9 +42,9 @@ Resumed S0002 after its usage limit. Finished inline code in the reader
 recaptured the three README screenshots that showed literal backticks. Fixed
 `ledger stale` and `ledger doctor` failing on a receipt that lists a PNG
 (0147), and folded 0142 to 0147 into the v0.8.0 release record, receipt
-0141, and the handoff. Then, on branch `reader-transition-abort` stacked on
-pull request #20, stopped the reader from logging skipped view transitions
-as unhandled rejections (0148).
+0141, and the handoff. Then merged #20, stopped the reader from logging
+skipped view transitions as unhandled rejections (0148) on branch
+`reader-transition-abort`, and added that fix to v0.8.0.
 
 ## Learned
 
@@ -62,6 +62,5 @@ as unhandled rejections (0148).
 
 ## Next
 
-- Merge #20 and push the v0.8.0 tag, then rebase `reader-transition-abort`
-  onto `master` and open its pull request.
+- Tag v0.8.0 once the transition fix merges, then record the publish.
 - Bump Kore's pin and run the second live Kore session that closes B010.

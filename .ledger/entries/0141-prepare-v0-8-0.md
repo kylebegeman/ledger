@@ -51,6 +51,7 @@ related:
   - "0145"
   - "0146"
   - "0147"
+  - "0148"
 release: "v0.8.0"
 ---
 
@@ -59,7 +60,7 @@ release: "v0.8.0"
 ## Summary
 
 Bumps the package to 0.8.0 and writes the v0.8.0 release record over receipts
-0128 through 0137, this one, and the follow-up fixes 0142 through 0147, with
+0128 through 0137, this one, and the follow-up fixes 0142 through 0148, with
 Public Notes for the GitHub Release. Reinstalls this repository's own Claude
 Code hooks, agents block, and skill with 0.8.0, which saves `agents.command`
 and adds the prompt hook. Moves backlog B010 to in progress with promotion
@@ -84,7 +85,7 @@ last two checks need 0.8.0 on npm.
 
 - Files: `package.json`, `package-lock.json`, `.ledger/releases/v0.8.0.md`
 - Changed: version 0.8.0; the release record with a summary, Public Notes,
-  and every receipt landed since v0.7.0, including 0142 to 0147, whose fixes
+  and every receipt landed since v0.7.0, including 0142 to 0148, whose fixes
   leave no known issues.
 - Anchor: `version`, `Public Notes`
 - On conflict: The tag must match the package version or the release workflow
@@ -135,7 +136,7 @@ receipt.
 - `node dist/cli.js release v0.8.0 --include-unreleased --assign --status released --write`
 - `node dist/cli.js unreleased` (empty afterwards)
 - After the fact-check fixes, the same release command without `--write`
-  stamped 0142 to 0147, and the record's entries, Changes, Public Notes, and
+  stamped 0142 to 0148, and the record's entries, Changes, Public Notes, and
   Known Issues were edited by hand.
 - `node dist/cli.js hooks install --host claude-code --command "node dist/cli.js" --dry-run`
   reviewed before the install

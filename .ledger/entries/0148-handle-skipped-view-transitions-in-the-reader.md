@@ -24,6 +24,7 @@ commits: []
 related:
   - "0083"
   - "0119"
+release: "v0.8.0"
 ---
 
 # 0148: Handle Skipped View Transitions In The Reader
