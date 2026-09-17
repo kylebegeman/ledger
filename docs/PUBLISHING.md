@@ -62,7 +62,7 @@ jobs:
           node-version: 24
       - name: Render the changelog
         run: >-
-          npx --yes @kylebegeman/ledger@0.9.2 render --profile public
+          npx --yes @kylebegeman/ledger@0.9.3 render --profile public
           --site-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -23,6 +23,7 @@ commits: []
 related:
   - "0186"
   - "0187"
+release: "v0.9.3"
 ---
 
 # 0188: Record the v0.9.2 publish, Kore's move to it, and the pause

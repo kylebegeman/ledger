@@ -47,6 +47,7 @@ related:
   - "0172"
   - "0178"
   - "S0006"
+release: "v0.9.3"
 ---
 
 # 0189: Keep Codex hook approval across Ledger versions

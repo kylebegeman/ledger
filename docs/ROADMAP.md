@@ -298,7 +298,8 @@ confirmed write tools (decision D008). 0.9.2 completes records from every
 surface, adds `ledger context`, `doctor --fix`, and symbols for Go, Rust,
 Python, and Swift, and finishes the reader and publishing pillar (entity
 navigation, copy actions, "since you last looked" markers, and a publishable
-changelog). Direction accepted in decision D005 on 2026-09-15.
+changelog). 0.9.3 lets Codex hooks run a generated launcher, so a version bump
+no longer needs Codex's approval again. Direction accepted in decision D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
 `docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are
