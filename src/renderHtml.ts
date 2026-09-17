@@ -670,6 +670,8 @@ function icon(name: string, attrs = ""): string {
 interface ProseSegment {
   readonly text: string;
   readonly code: boolean;
+  /** The segment as written, with a code span's backticks. */
+  readonly raw: string;
 }
 
 interface ProseLine {
@@ -716,15 +718,37 @@ function scanProseLine(line: string): ProseLine {
       continue;
     }
     const close = runs[closer]!;
-    if (open.start > cursor) segments.push({ text: line.slice(cursor, open.start), code: false });
+    if (open.start > cursor) {
+      const text = line.slice(cursor, open.start);
+      segments.push({ text, code: false, raw: text });
+    }
     const code = line.slice(open.start + open.length, close.start);
     const padded = code.startsWith(" ") && code.endsWith(" ") && code.trim() !== "";
-    segments.push({ text: padded ? code.slice(1, -1) : code, code: true });
+    segments.push({ text: padded ? code.slice(1, -1) : code, code: true, raw: line.slice(open.start, close.start + close.length) });
     cursor = close.start + close.length;
     index = closer + 1;
   }
-  if (cursor < line.length) segments.push({ text: line.slice(cursor), code: false });
+  if (cursor < line.length) {
+    const text = line.slice(cursor);
+    segments.push({ text, code: false, raw: text });
+  }
   return { segments, unpairedAt };
+}
+
+/**
+ * Markdown prose as the plain text a one-line excerpt shows: list markers and
+ * paired `**strong**` markers are dropped outside code spans, which keep their
+ * backticks, so `src/**` inside a code span survives.
+ */
+export function plainProse(value: string): string {
+  return value
+    .split("\n")
+    .map((line) =>
+      scanProseLine(line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""))
+        .segments.map((segment) => (segment.code ? segment.raw : segment.text.replace(/\*\*(?=\S)([^*]+?)(?<=\S)\*\*/g, "$1")))
+        .join(""),
+    )
+    .join("\n");
 }
 
 /** Record prose as HTML: every segment is escaped, and code spans become inline code, so nothing in a record is markup. */

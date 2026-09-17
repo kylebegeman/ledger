@@ -435,6 +435,34 @@ Run \`ledger ready\` before landing; \`<img src=x onerror=alert(1)>\` stays text
     expect(publicHtml).toContain('<span>Run <code class="inline-code">ledger ci --github</code> in pull requests.</span>');
   });
 
+  it("shows a summary's lists and strong text as plain prose, keeping code spans", () => {
+    const raw = `---
+id: "0001"
+kind: "change"
+title: "Plain summary"
+date: "2026-06-29"
+status: "landed"
+areas: ["cli"]
+files: ["src/cli.ts"]
+commits: []
+---
+
+# 0001: Plain summary
+
+## Summary
+
+Drafts now read **four** languages:
+
+- **Go:** functions under \`src/**\`.
+1. Rust ** stays literal, as does a lone src/** path.
+`;
+    const model = buildStaticReaderModel(workspace(), [parsedChange(raw)]);
+    expect(model.documents[0]?.summary).toBe(
+      "Drafts now read four languages: Go: functions under `src/**`. Rust ** stays literal, as does a lone src/** path.",
+    );
+    expect(renderStaticReaderHtml(model)).toContain('Go: functions under <code class="inline-code">src/**</code>.');
+  });
+
   it("keeps a shortened summary that is one long code span, and shortens why without the rule", () => {
     const raw = `---
 id: "0001"

@@ -11,7 +11,7 @@ import {
   type LedgerFileChange,
 } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
-import { renderRecordDetails, renderStaticReaderHtml, withoutOpenCodeSpan } from "./renderHtml.js";
+import { plainProse, renderRecordDetails, renderStaticReaderHtml, withoutOpenCodeSpan } from "./renderHtml.js";
 import { searchTermsFor } from "./searchCore.js";
 import { evidenceFreshness, type LedgerEvidenceIndex, type LedgerVerificationFreshness } from "./verify.js";
 import type {
@@ -228,7 +228,7 @@ export function buildStaticReaderModel(
         ...normalized,
         source: document.raw,
         sourceHref: sourceHref(normalized.id, document.relativePath),
-        summary: compactSection(getSectionBody(document, "Summary"), { codeSpans: true }),
+        summary: compactSection(plainSection(getSectionBody(document, "Summary")), { codeSpans: true }),
         why: compactSection(getSectionBody(document, "Why")),
         publicNotes: extractBullets(getSectionBody(document, "Public Notes")),
         invariants: extractBullets(getSectionBody(document, "Invariants")),
@@ -1001,6 +1001,10 @@ function countFacet(values: readonly string[]): readonly LedgerFacet[] {
   return [...counts.entries()]
     .map(([value, count]) => ({ value, count }))
     .sort((left, right) => right.count - left.count || left.value.localeCompare(right.value));
+}
+
+function plainSection(value: string | undefined): string | undefined {
+  return value === undefined ? undefined : plainProse(value);
 }
 
 /**
