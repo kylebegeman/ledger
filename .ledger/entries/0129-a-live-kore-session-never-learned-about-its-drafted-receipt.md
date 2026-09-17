@@ -4,7 +4,7 @@ kind: "product-note"
 title: "A live Kore session never learned about its drafted receipt"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "captured"
+status: "resolved"
 areas:
   - "capture"
   - "hooks"

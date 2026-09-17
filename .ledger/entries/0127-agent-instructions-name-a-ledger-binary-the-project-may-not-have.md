@@ -4,7 +4,7 @@ kind: "product-note"
 title: "Agent instructions name a ledger binary the project may not have"
 date: "2026-09-16"
 updated: "2026-09-16"
-status: "captured"
+status: "resolved"
 areas:
   - "capture"
   - "agents"

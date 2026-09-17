@@ -4,7 +4,7 @@ kind: "product-note"
 title: "The verification allowlist ignores agents.command"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "captured"
+status: "resolved"
 areas:
   - "verification"
 tags:

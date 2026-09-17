@@ -4,7 +4,7 @@ kind: "product-note"
 title: "The reader shows Markdown backticks as literal text"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "captured"
+status: "resolved"
 areas:
   - "reader"
 tags:

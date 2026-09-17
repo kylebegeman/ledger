@@ -357,8 +357,9 @@ items from `Public Notes`. Other sections and internal frontmatter are removed
 from public HTML and JSON artifacts.
 
 Common statuses include `draft`, `landed`, `shipped`, `planned`, `released`,
-`accepted`, `proposed`, `captured`, and `historical`. `historical` records are
-kept queryable but are excluded from missing path reference warnings by default.
+`accepted`, `proposed`, `captured`, `resolved`, and `historical`. `historical`
+records are kept queryable but are excluded from missing path reference
+warnings by default.
 
 ## Product Note Or Feedback
 
@@ -431,6 +432,15 @@ Sessions:
 - `active`
 - `closed`
 - `promoted`
+
+Product notes:
+
+- `captured`
+- `resolved`
+
+A product note stays `captured` while its follow-ups are open. When the
+receipts that fix it land, its Follow-ups section ends with a `Resolved:` line
+that names them, and its status becomes `resolved`.
 
 ## Session
 

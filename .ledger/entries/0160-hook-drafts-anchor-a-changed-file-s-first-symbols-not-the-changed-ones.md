@@ -4,7 +4,7 @@ kind: "product-note"
 title: "Hook drafts anchor a changed file's first symbols, not the changed ones"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "captured"
+status: "resolved"
 areas:
   - "capture"
   - "symbols"

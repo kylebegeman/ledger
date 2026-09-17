@@ -4,7 +4,7 @@ kind: "product-note"
 title: "Ledger ci fails mid-turn until the hook drafts the receipt"
 date: "2026-09-17"
 updated: "2026-09-17"
-status: "captured"
+status: "resolved"
 areas:
   - "capture"
   - "ci"
