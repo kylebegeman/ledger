@@ -4724,7 +4724,7 @@
           "release"
         ],
         "aliases": [],
-        "usage": "ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]",
+        "usage": "ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write | --update] [--json]",
         "json": true,
         "positionals": {
           "field": "version",
@@ -4755,6 +4755,10 @@
           "write": {
             "type": "boolean",
             "field": "write"
+          },
+          "update": {
+            "type": "boolean",
+            "field": "update"
           }
         }
       },
@@ -4792,6 +4796,10 @@
           },
           "write": {
             "description": "Write .ledger/releases/<version>.md.",
+            "type": "boolean"
+          },
+          "update": {
+            "description": "Add selected entries missing from the existing release record.",
             "type": "boolean"
           }
         },
@@ -4850,6 +4858,25 @@
           },
           "writtenPath": {
             "type": "string"
+          },
+          "updated": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "addedEntries": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "path",
+              "addedEntries"
+            ],
+            "additionalProperties": {}
           }
         },
         "required": [

@@ -87,4 +87,8 @@ node dist/cli.js unreleased
 ```
 
 Release prep should assign landed entries to the target release and generate a
-release record with `ledger release <version> --status released --write`.
+release record with
+`ledger release <version> --include-unreleased --assign --status released --write`.
+A receipt that lands after the record exists joins it with
+`ledger release <version> --include-unreleased --assign --update`; then write
+its public note by hand.

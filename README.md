@@ -402,6 +402,7 @@ are also MCP tools through `ledger mcp` or the engine's `/mcp`. Run
 | `ledger cache status` | Reports the catalog cache; `cache warm` and `cache clear` manage it |
 | `ledger unreleased` | Landed change entries not yet in a release |
 | `ledger release <version> --include-unreleased --assign --status released --write` | Writes a release record and assigns its receipts to it |
+| `ledger release <version> --include-unreleased --assign --update` | Adds receipts that landed later to an existing release record |
 | `ledger release notes <version>` | Prints a release's public notes for GitHub Releases |
 
 </details>

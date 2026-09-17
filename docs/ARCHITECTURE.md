@@ -872,9 +872,16 @@ renders a valid release document from entries assigned to that version, or from
 the unreleased set when `--include-unreleased` is supplied. Release versions must
 be semver-like, optional `--status planned|released` and `--date yyyy-mm-dd`
 flags control frontmatter, and `--write` creates a new file under
-`.ledger/releases` without overwriting existing release records. When `--assign`
-and `--write` are combined, entry frontmatter and the release record commit in
-one recoverable transaction. Concurrent editor changes invalidate the plan
+`.ledger/releases` without overwriting existing release records. `--update`
+instead extends an existing record (`extendReleaseRecord` in `src/release.ts`).
+The selected entries it does not list join `entries` and `## Changes`, and
+`updated` moves to today. Its summary, public notes, verification, and known
+issues stay as written, and a missing record is an error. `--write` and
+`--update` cannot be combined. `--assign` writes the version into the selected
+entries whether or not either of those flags is present, so a preview leaves
+it off. When `--assign` is combined with `--write` or `--update`, entry
+frontmatter and the release record commit in one recoverable transaction.
+Concurrent editor changes invalidate the plan
 instead of being overwritten. Rendered release Markdown separates public notes
 from internal Ledger entry details.
 

@@ -177,6 +177,54 @@ describe("applyRelease", () => {
     await expect(access(path.join(tempDir, ".ledger", "releases", "v1.2.3.md")))
       .rejects.toMatchObject({ code: "ENOENT" });
   });
+
+  it("adds a receipt that landed later to an existing record and keeps its hand-written sections", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-release-update-test-"));
+    await initWorkspace(tempDir);
+    const entries = path.join(tempDir, ".ledger", "entries");
+    await writeFile(path.join(entries, "0001-change.md"), document("0001", "landed").raw, "utf8");
+    const workspace = await findWorkspace(tempDir);
+    const releasePath = path.join(tempDir, ".ledger", "releases", "v1.2.3.md");
+
+    await expect(
+      applyRelease(workspace, await readLedgerDocuments(workspace), buildReleaseDocument(await readLedgerDocuments(workspace), "v1.2.3", { includeUnreleased: true }), {
+        assign: true,
+        write: false,
+        update: true,
+      }),
+    ).rejects.toThrow("No release record at .ledger/releases/v1.2.3.md; create it with --write.");
+
+    const first = buildReleaseDocument(await readLedgerDocuments(workspace), "v1.2.3", { includeUnreleased: true, date: "2026-09-01" });
+    await applyRelease(workspace, await readLedgerDocuments(workspace), first, { assign: true, write: true });
+    const edited = (await readFile(releasePath, "utf8")).replace("- Change 0001", "- A note written by hand.");
+    await writeFile(releasePath, edited, "utf8");
+    await writeFile(path.join(entries, "0002-change.md"), document("0002", "landed").raw, "utf8");
+
+    const documents = await readLedgerDocuments(workspace);
+    const second = buildReleaseDocument(documents, "v1.2.3", { includeUnreleased: true });
+    await expect(applyRelease(workspace, documents, second, { assign: true, write: true, update: true }))
+      .rejects.toThrow("pass only one of them");
+    const result = await applyRelease(workspace, documents, second, { assign: true, write: false, update: true });
+    expect(result.updated).toEqual({ path: ".ledger/releases/v1.2.3.md", addedEntries: ["0002"] });
+    expect(result.assignment?.updatedEntries).toEqual([".ledger/entries/0002-change.md"]);
+
+    const record = await readFile(releasePath, "utf8");
+    expect(record).toContain('entries:\n  - "0001"\n  - "0002"');
+    expect(record).toContain("- A note written by hand.");
+    expect(record).toContain(
+      "## Changes\n\n- 0001: Change 0001 [cli] (.ledger/entries/0001-change.md)\n- 0002: Change 0002 [cli] (.ledger/entries/0002-change.md)\n\n## Verification",
+    );
+    expect(record).toMatch(/^date: "2026-09-01"$/m);
+    expect(await readFile(path.join(entries, "0002-change.md"), "utf8")).toContain('release: "v1.2.3"');
+
+    const again = await applyRelease(workspace, await readLedgerDocuments(workspace), buildReleaseDocument(await readLedgerDocuments(workspace), "v1.2.3"), {
+      assign: false,
+      write: false,
+      update: true,
+    });
+    expect(again.updated).toEqual({ path: ".ledger/releases/v1.2.3.md", addedEntries: [] });
+    expect(await readFile(releasePath, "utf8")).toBe(record);
+  });
 });
 
 function document(id: string, status: string, release?: string): ParsedLedgerDocument {

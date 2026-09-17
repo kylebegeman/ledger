@@ -191,6 +191,7 @@ export interface ReleaseInput extends Record<string, unknown> {
   readonly status: "planned" | "released";
   readonly date?: string;
   readonly write?: boolean;
+  readonly update?: boolean;
 }
 
 export interface ReleaseOutput extends LedgerReleaseDocument, ApplyReleaseResult {}
@@ -208,6 +209,7 @@ export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
     status: z.enum(["planned", "released"]).default("planned"),
     date: shortString.optional().describe("Release date as yyyy-mm-dd."),
     write: z.boolean().optional().describe("Write .ledger/releases/<version>.md."),
+    update: z.boolean().optional().describe("Add selected entries missing from the existing release record."),
   }),
   output: looseRecord({
     version: z.string(),
@@ -216,11 +218,12 @@ export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
     markdown: z.string(),
     assignment: looseRecord({ version: z.string(), updatedEntries: z.array(z.string()) }).optional(),
     writtenPath: z.string().optional(),
+    updated: looseRecord({ path: z.string(), addedEntries: z.array(z.string()) }).optional(),
   }),
   cli: {
     path: ["release"],
     usage:
-      "ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write] [--json]",
+      "ledger release <version> [--include-unreleased] [--assign] [--status <status>] [--date <yyyy-mm-dd>] [--write | --update] [--json]",
     positionals: { field: "version", min: 1, max: 1 },
     flags: {
       "include-unreleased": { type: "boolean", description: "Select currently unreleased landed entries." },
@@ -233,11 +236,17 @@ export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
       },
       date: { type: "string", description: "Release date as yyyy-mm-dd." },
       write: { type: "boolean", description: "Write .ledger/releases/<version>.md." },
+      update: { type: "boolean", description: "Add selected entries missing from the existing release record." },
     },
     json: true,
     help: `Renders a valid Ledger release record. status is planned or released.
---assign writes the selected release version back to selected entries.
---write creates .ledger/releases/<version>.md.`,
+--assign writes the selected release version back to the selected entries,
+with or without --write; leave it off to preview.
+--write creates .ledger/releases/<version>.md and refuses an existing record.
+--update adds the selected entries that an existing record does not list to its
+entries and Changes, and leaves its summary, public notes, verification, and
+known issues for you to edit. For a receipt that landed after the record was
+written: ledger release <version> --include-unreleased --assign --update.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -258,6 +267,7 @@ export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
     const applied = await applyRelease(workspace, documents, release, {
       assign: Boolean(input.assign),
       write: Boolean(input.write),
+      update: Boolean(input.update),
     });
     return { data: { ...release, ...applied } };
   },
@@ -266,6 +276,15 @@ export const releaseOperation = defineOperation<ReleaseInput, ReleaseOutput>({
     if (data.assignment) {
       const count = data.assignment.updatedEntries.length;
       lines.push(`Assigned ${count} ${plural(count, "entry", "entries")} to ${data.version}.`);
+    }
+    if (data.updated) {
+      const added = data.updated.addedEntries;
+      lines.push(
+        added.length > 0
+          ? `Added ${added.join(", ")} to ${data.updated.path}; write their public notes by hand.`
+          : `${data.updated.path} already lists every selected entry.`,
+      );
+      return lines.join("\n");
     }
     lines.push(data.writtenPath ? `Wrote ${data.writtenPath}` : data.markdown);
     return lines.join("\n");
