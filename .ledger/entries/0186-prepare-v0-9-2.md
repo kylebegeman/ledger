@@ -8,19 +8,21 @@ status: "landed"
 areas:
   - "release"
 files:
+  - "package.json"
+  - "package-lock.json"
   - ".ledger/releases/v0.9.2.md"
-  - ".ledger/sessions/S0005-claude-code-session-2026-09-17.md"
   - "README.md"
+  - "docs/SCHEMA.md"
   - "assets/readme/adopt.svg"
-  - "assets/readme/changelog.png"
   - "assets/readme/hero.png"
   - "assets/readme/palette.png"
+  - "assets/readme/changelog.png"
   - "assets/readme/receipt.png"
   - "docs/HANDOFF.md"
   - "docs/ROADMAP.md"
-  - "docs/SCHEMA.md"
-  - "package-lock.json"
-  - "package.json"
+  - ".ledger/sessions/S0005-claude-code-session-2026-09-17.md"
+  - "test/commandReference.test.ts"
+  - "test/commands.test.ts"
 symbols: []
 docs:
   - "docs/HANDOFF.md"
@@ -112,6 +114,19 @@ since 0.9.0 releases are patches unless he asks otherwise.
 - On conflict: Keep the handoff describing the current state; record the
   publish in a later receipt.
 
+### Windows CI
+
+- Files: `test/commandReference.test.ts`, `test/commands.test.ts`
+- Changed:
+  - The reference test normalizes CRLF line endings, as the contract test
+    does, because Windows checkouts convert `docs/COMMANDS.md`.
+  - The metrics test gives its fixture generous latency budgets. It checks
+    the command's result, and a shared Windows runner once took longer than
+    the default one-second step budget.
+- Anchor: `matches the committed docs/COMMANDS.md`,
+  `runs metrics without intercepting console output`
+- On conflict: Keep timing budgets out of tests that check command output.
+
 ## Behavior And UX Impact
 
 None beyond the receipts it releases.
@@ -129,6 +144,9 @@ None beyond the receipts it releases.
 - `node dist/cli.js release notes v0.9.2`
 - `npm run readme:check`
 - `npm run ci`
+- The first CI run on the pull request failed on Windows: the reference test
+  saw CRLF line endings, and on Node 24 one metrics step overran its budget.
+  Both tests were fixed, and the run was repeated.
 
 ## Notes
 
