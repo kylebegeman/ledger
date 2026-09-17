@@ -64,6 +64,7 @@ related:
   - "0102"
   - "0106"
   - "0172"
+release: "v0.9.1"
 ---
 
 # 0173: Move MCP To The V2 SDK And Confirm The Tools That Write Records

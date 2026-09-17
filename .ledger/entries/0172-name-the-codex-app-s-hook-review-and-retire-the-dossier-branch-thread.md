@@ -28,6 +28,7 @@ commits: []
 related:
   - "0109"
   - "0171"
+release: "v0.9.1"
 ---
 
 # 0172: Name The Codex App's Hook Review And Retire The Dossier Branch Thread

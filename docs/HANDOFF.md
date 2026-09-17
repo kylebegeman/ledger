@@ -10,8 +10,8 @@ milestone lands or a plan changes; retire sections that stop being true.
   created by `.github/workflows/release.yml` through npm trusted publishing on
   2026-09-17 from kylebegeman/ledger#26. 0.8.0 (#20 and #21), 0.8.1 (#22),
   and 0.8.2 (#25) shipped earlier that day. The GitHub Release notes come
-  from `ledger release notes`. Receipts 0171 and 0172 are unreleased and go
-  out with the next patch. `@kylebegeman/dossier` (0.7.2) publishes the same
+  from `ledger release notes`. 0.9.1 is prepared on branch `mcp-v2-0.9.1`
+  (receipts 0171 to 0174). `@kylebegeman/dossier` (0.7.2) publishes the same
   way from its own repo.
 - First outside adopter: Kore runs Ledger 0.9.0 with Claude Code and Codex
   hooks since kylebegeman/forge#30 (Kore receipt 0008). Before that it ran
@@ -46,6 +46,7 @@ milestone lands or a plan changes; retire sections that stop being true.
 | 0.8.1 | Audit of 0.8.0: the write lock waits and hook writes retry so parallel tool calls keep every path; Git paths rebased onto a Ledger root inside a repository; every new draft announced and the notice store pruned; per-entry hook merge; every managed agents block replaced; capped draft titles, areas, and symbols; CRLF-preserving record edits; reader search ranked like the CLI, a palette that works from disk, modified clicks, a linear code-span scanner, and a visible light-theme chip; environment assignments matched by `verification.allow`; only change entries cover a path; reviewed docs impact reasons for every status; `adopt` ignoring vendored and nested build output and proposing only read-only checks; `docs reconcile` refusing unreadable paths; release notes from `ledger release notes`; earlier receipts under `git.coverage: any` counting only for files they name; a pinned README demo clock and a CI check on the cards | 0149 to 0157 |
 | 0.8.2 | Drafts that fit the change and upkeep: draft symbols and anchors from the lines a diff changed; `ledger ci` lists failing files and names an active hooked session and its draft; `release --update` for receipts that land after a release record; a TypeScript loader that reads 5.0 to 5.4, skips TypeScript 7 without crashing, and tries `@typescript/typescript6`; historical stale references acknowledged and resolved product notes marked; Vitest 5, Node 22 types, MCP SDK 1.30, v7 action pins, and Dependabot holds on TypeScript and Node type majors; B010 closed | 0158, 0159, 0162 to 0167 |
 | 0.9.0 | Dossier's visual system (B009): the reader and the public changelog take Dossier's neutrals, status tones, font stacks, radii, and motion and keep Ledger's emerald accent; a compact masthead, a left facet rail with group labels, and an Auto, Light, and Dark theme toggle with a visible label; contrast and tablet overflow fixes; README cards and screenshots in the same palette; compact JSON sidecars and search shards filled exactly to their budget | 0168 to 0170 |
+| 0.9.1 | MCP on the v2 SDK (D008): `ledger mcp` and `/mcp` speak protocol 2026-07-28 and the 2025 revisions; confirmed MCP tools for new, feedback, backlog new, decision new, promote, and session start, note, and close; list cache hints and change notices on 2026-07-28; a production install of seven packages instead of the SDK's 94; the Codex installer names the app's Hooks page; product notes marked resolved; a 4.5 MB render budget here | 0171 to 0174 |
 
 Read the receipts for invariants and conflict rules before touching those
 areas. Decision D005 records the direction and the four supporting choices;
@@ -56,8 +57,11 @@ D006 records what was retired; D007 records the runtime decision below.
 - Dependency policy: a bundler and a browser test harness may join as dev
   dependencies (esbuild and happy-dom since 0.7.0); the cache uses JSON by
   default and `node:sqlite` automatically on Node 24.15 or newer; `typescript`
-  is an optional peer dependency for symbol extraction. No native addons, and
-  production dependencies are unchanged.
+  is an optional peer dependency for symbol extraction. No native addons. The
+  production dependencies are `yaml`, `zod`, and, since 0.9.1, the MCP
+  server SDK (`@modelcontextprotocol/server` and `/node`, which brings
+  `@hono/node-server` and `hono`) in place of `@modelcontextprotocol/sdk`.
+  Kyle delegated that choice (D008).
 - Host priority for capture: Claude Code, then Codex CLI, then Cursor. All
   three installers shipped in 0.6.0 because the dispatcher normalizes their
   payloads; only Claude Code has been exercised in a live session.
@@ -78,9 +82,12 @@ D006 records what was retired; D007 records the runtime decision below.
   Dossier's derived accent fails 4.5:1 on its second paper color. Kind badges
   are neutral, because Dossier colors status and never categories. The theme
   toggle cycles Auto, Light, and Dark.
-- Write operations stay off MCP until the TypeScript SDK supports multi
-  round-trip confirmation; read operations such as `ready` and
-  `release notes` are exposed.
+- MCP serves protocol 2026-07-28 and the 2025 revisions from one set of
+  definitions, and every MCP tool that writes source records asks the user
+  to confirm first, with state sealed to the tool and its arguments (D008,
+  receipt 0173). The engine leaves those tools out of stateless 2025-era
+  requests and pins writes to its project. `runLedgerMcpTool` stays
+  unconfirmed for programs.
 - Default `ledger search` scans every record so rankings are identical on
   every cache backend and in the reader; FTS5 narrowing is the explicit
   `--full-text` mode because on this catalog it changed a third of top-three
@@ -180,16 +187,14 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **MCP protocol 2026-07-28**: the blocker is gone, but the work needs new
-   production dependencies, so it waits for Kyle's approval. SDK 1.30.0 still
-   speaks 2025-11-25, while the v2 packages (`@modelcontextprotocol/server`,
-   `/node` with a `hono` peer, and the rest, stable since 2026-07-28)
-   implement 2026-07-28. That spec adds `inputRequired` for multi round-trip
-   confirmation, `cacheHints` for list TTLs, and `createMcpHandler` and
-   `serveStdio`, and it deprecates the 2025-11-25 Tasks vocabulary. A codemod
-   moves imports. Write tools stay off MCP until that confirmation exists.
+1. **Publish 0.9.1** from `mcp-v2-0.9.1`, then move Kore's pin with the
+   installers, name the Codex app's Hooks page in its `docs/PLAN.md`, add a
+   Kore receipt, and record both here.
 2. **New features**, when Kyle chooses them. Move Kore's pin after each
-   release with the three installers and a Kore receipt.
+   release with the three installers and a Kore receipt. Records created
+   over MCP are templates because the authoring operations take no body
+   text; accepting body sections would make MCP-only receipts complete
+   (D008 revisit criteria).
 
 ## Conventions that were in force
 
@@ -273,6 +278,11 @@ D006 records what was retired; D007 records the runtime decision below.
   already runs Ubuntu with Node 22 and 24, its own docs describe a
   release-branch model that Ledger's model does not replace, and its
   launcher's Node 18 floor is Dossier's call.
+- The MCP SDK's v2 line was seven weeks old with no patch release when 0.9.1
+  adopted 2.0.0. Take its patch releases when Dependabot proposes them;
+  `test/mcpWriteTools.test.ts` and the engine test cover both protocol eras,
+  and a stdio smoke run of `node dist/cli.js mcp` through the SDK's own
+  client is worth repeating on an SDK update.
 - The two dated reports under `docs/scratchpad/` from 2026-08-30 and the
   2026-09-15 brainstorm are history. The brainstorm's Section 13 records the
   answered decisions; Sections 11 and 12 list the verdicts and sequencing that
@@ -283,7 +293,7 @@ D006 records what was retired; D007 records the runtime decision below.
 ## Quick verification of the current state
 
 ```sh
-node dist/cli.js version            # 0.9.0
+node dist/cli.js version            # 0.9.1
 node dist/cli.js doctor             # all checks pass; engine and verification may warn
 node dist/cli.js unreleased         # receipts landed since the last release
 node dist/cli.js coverage --explain # current mode
