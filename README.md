@@ -221,11 +221,11 @@ Run the published package through npx, pinned to a version, so an agent never
 reaches a different program named `ledger` on its `PATH`:
 
 ```bash
-npx --yes @kylebegeman/ledger@0.9.0 adopt
-npx --yes @kylebegeman/ledger@0.9.0 hooks install --host claude-code \
-  --command "npx --yes @kylebegeman/ledger@0.9.0" --import-agents
-npx --yes @kylebegeman/ledger@0.9.0 skills install
-npx --yes @kylebegeman/ledger@0.9.0 agents --write
+npx --yes @kylebegeman/ledger@0.9.1 adopt
+npx --yes @kylebegeman/ledger@0.9.1 hooks install --host claude-code \
+  --command "npx --yes @kylebegeman/ledger@0.9.1" --import-agents
+npx --yes @kylebegeman/ledger@0.9.1 skills install
+npx --yes @kylebegeman/ledger@0.9.1 agents --write
 ```
 
 `adopt` reads the tracked tree and writes a configuration that fits it: which
@@ -239,7 +239,7 @@ Starting the pinned package through npx costs about 0.3 seconds per hook. On
 an Apple silicon Mac, a PostToolUse hook took 0.47 seconds through npx and
 0.17 seconds from an installed copy. The first call after a version change
 also downloads the package. On a machine where no other program is named
-`ledger`, `npm install --global @kylebegeman/ledger@0.9.0` and
+`ledger`, `npm install --global @kylebegeman/ledger@0.9.1` and
 `--command ledger` save that time. The hooks are committed, though, so every
 contributor then needs the same install. The npx pin works on any machine
 with Node.
@@ -295,9 +295,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: kylebegeman/ledger@v0.9.0
+      - uses: kylebegeman/ledger@v0.9.1
         with:
-          command: npx --yes @kylebegeman/ledger@0.9.0
+          command: npx --yes @kylebegeman/ledger@0.9.1
 ```
 
 The action runs the latest published CLI unless `command` pins it. Set

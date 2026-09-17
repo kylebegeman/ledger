@@ -44,6 +44,7 @@ related:
   - "0168"
   - "0169"
   - "0170"
+release: "v0.9.1"
 ---
 
 # 0171: Record The V0.9.0 Publish, Resolve Product Notes, And Raise The Render Budget
