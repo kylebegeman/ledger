@@ -477,6 +477,27 @@ export interface HookEventResult {
   readonly output: Readonly<Record<string, unknown>>;
 }
 
+const concurrentWriteAttempts = 6;
+
+/**
+ * Run a write planned against the catalog, re-reading and retrying when a
+ * hook for a parallel tool call changed the record between the read and the
+ * write. The write lock serializes the writes; this keeps their plans fresh.
+ */
+async function withFreshCatalog<T>(
+  workspace: LedgerWorkspace,
+  write: (documents: readonly ParsedLedgerDocument[]) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    const documents = await readLedgerDocuments(workspace);
+    try {
+      return await write(documents);
+    } catch (error) {
+      if (attempt >= concurrentWriteAttempts || !isCode(error, "concurrent-file-change")) throw error;
+    }
+  }
+}
+
 /** Run one lifecycle event against the workspace and return what the host should receive. */
 export async function runHookEvent(
   workspace: LedgerWorkspace,
@@ -510,14 +531,16 @@ export async function runHookEvent(
     }
     case "post-tool-use": {
       if (payload.paths.length === 0) return { host, event, output: {} };
-      const documents = await readLedgerDocuments(workspace);
-      const touched = await touchSession(workspace, documents, payload.paths, { host, hostSession: payload.sessionId });
+      const touched = await withFreshCatalog(workspace, (documents) =>
+        touchSession(workspace, documents, payload.paths, { host, hostSession: payload.sessionId }),
+      );
       return { host, event, session: touched.session, touched: touched.added, output: {} };
     }
     case "stop": {
       if (payload.stopHookActive) return { host, event, output: {} };
-      const documents = await readLedgerDocuments(workspace);
-      const drafted = await draftSessionReceipt(workspace, documents, selector, { fromDiff: true });
+      const drafted = await withFreshCatalog(workspace, (documents) =>
+        draftSessionReceipt(workspace, documents, selector, { fromDiff: true }),
+      );
       if (!drafted) return { host, event, output: {} };
       return {
         host,
@@ -533,15 +556,16 @@ export async function runHookEvent(
       };
     }
     case "session-end": {
-      const documents = await readLedgerDocuments(workspace);
-      const drafted = await draftSessionReceipt(workspace, documents, selector, { fromDiff: true });
-      const current = drafted ? await readLedgerDocuments(workspace) : documents;
+      const drafted = await withFreshCatalog(workspace, (documents) =>
+        draftSessionReceipt(workspace, documents, selector, { fromDiff: true }),
+      );
+      const current = await readLedgerDocuments(workspace);
       // A record that expired while its tab stayed open is still closed when SessionEnd finally arrives.
       const session =
         findSession(current, selector, { activeOnly: true }) ??
         (payload.sessionId ? findExpiredActiveSession(current, payload.sessionId) : undefined);
       if (!session) return { host, event, entry: drafted?.entry, output: {} };
-      const closed = await closeSession(workspace, await readLedgerDocuments(workspace), { id: session.normalized.id });
+      const closed = await closeSession(workspace, current, { id: session.normalized.id });
       return { host, event, session: closed.session, entry: drafted?.entry, closed: closed.changed, output: {} };
     }
     case "pre-compact": {

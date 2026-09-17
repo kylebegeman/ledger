@@ -38,6 +38,23 @@ describe("file transactions", () => {
     await expect(readFile(path.join(tempDir!, ".ledger", "write.lock"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("waits for a writer that holds the lock instead of failing", async () => {
+    const workspace = await fixtureWorkspace();
+    const writers = [1, 2, 3, 4, 5];
+    const results = await Promise.all(
+      writers.map((index) =>
+        applyFileTransaction(workspace, `writer ${index}`, [
+          { path: `docs/file-${index}.md`, content: `${index}\n`, expectedHash: null },
+        ]),
+      ),
+    );
+    expect(results.map((result) => result.changedPaths)).toEqual(writers.map((index) => [`docs/file-${index}.md`]));
+    for (const index of writers) {
+      expect(await readFile(path.join(tempDir!, "docs", `file-${index}.md`), "utf8")).toBe(`${index}\n`);
+    }
+    await expect(readFile(path.join(tempDir!, ".ledger", "write.lock"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  }, 30_000);
+
   it("fails optimistic concurrency checks without overwriting the file", async () => {
     const workspace = await fixtureWorkspace();
     const filePath = path.join(tempDir!, "README.md");
@@ -89,12 +106,13 @@ describe("file transactions", () => {
       "utf8",
     );
 
+    // The writer waits for the live owner before giving up, so this takes the full wait.
     await expect(
       applyFileTransaction(workspace, "blocked write", [
         { path: "README.md", content: "blocked\n" },
       ]),
     ).rejects.toThrow("Ledger workspace is locked by other write");
-  });
+  }, 30_000);
 
   it("rolls back an interrupted applying transaction from its journal", async () => {
     const workspace = await fixtureWorkspace();

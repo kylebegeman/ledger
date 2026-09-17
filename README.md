@@ -40,7 +40,8 @@ and wires it into the tools that change code.
 
 Hooks for Claude Code, Codex, and Cursor record the files an agent edits and
 draft a receipt when its turn ends. In Claude Code and Codex, the next prompt
-tells the agent to finish it.
+tells the agent to finish it; a Cursor agent hears about it when its next
+session starts.
 
 </td>
 <td width="33%" valign="top">

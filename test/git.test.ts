@@ -131,6 +131,38 @@ describe("git status parsing", () => {
     });
   });
 
+  it("reports changes relative to a project root inside the repository", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-git-nested-test-")));
+    await git("init");
+    await git("config", "user.email", "ledger@example.com");
+    await git("config", "user.name", "Ledger Test");
+    const app = path.join(tempDir, "packages", "app");
+    await mkdir(path.join(app, "src"), { recursive: true });
+    await writeFile(path.join(app, "src", "a.ts"), "export {};\n");
+    await writeFile(path.join(tempDir, "top.ts"), "export {};\n");
+    await git("add", ".");
+    await git("commit", "-m", "base");
+    const base = await gitOutput("rev-parse", "HEAD");
+    await writeFile(path.join(app, "src", "a.ts"), "export const a = 1;\n");
+    await writeFile(path.join(app, "src", "b.ts"), "export {};\n");
+    await writeFile(path.join(tempDir, "top.ts"), "export const top = 1;\n");
+    await git("add", ".");
+    await git("commit", "-m", "change");
+    const head = await gitOutput("rev-parse", "HEAD");
+
+    await expect(getChangedFileDetails(app, { base, head })).resolves.toEqual([
+      { path: "src/a.ts", status: "modified" },
+      { path: "src/b.ts", status: "added" },
+    ]);
+    await writeFile(path.join(app, "src", "c.ts"), "export {};\n");
+    await writeFile(path.join(tempDir, "other.ts"), "export {};\n");
+    await expect(getChangedFileDetails(app)).resolves.toEqual([{ path: "src/c.ts", status: "untracked" }]);
+    await expect(getChangedFileDetails(tempDir)).resolves.toEqual([
+      { path: "other.ts", status: "untracked" },
+      { path: "packages/app/src/c.ts", status: "untracked" },
+    ]);
+  }, 30_000);
+
   it("lists tracked files sorted and relative to cwd", async () => {
     tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-git-tracked-test-")));
     await git("init");

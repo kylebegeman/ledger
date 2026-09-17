@@ -384,6 +384,50 @@ describe("hook events", () => {
     expect(findSession(await readLedgerDocuments(workspace), { hostSession: sessionId }, { activeOnly: true })).toBeUndefined();
   }, 30_000);
 
+  it("records every path when parallel tool calls run the hook at the same time", async () => {
+    const root = await fixtureRepo();
+    const workspace = await findWorkspace(root);
+    const sessionId = "parallel-1";
+    await runHookEvent(workspace, "claude-code", "session-start", { sessionId, paths: [], stopHookActive: false });
+    const paths = ["src/a.ts", "src/b.ts", "src/c.ts", "src/d.ts", "src/e.ts", "src/f.ts"];
+    const results = await Promise.all(
+      paths.map((filePath) =>
+        runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, toolName: "Edit", paths: [filePath], stopHookActive: false }),
+      ),
+    );
+    expect(results.map((result) => result.touched)).toEqual(paths.map((filePath) => [filePath]));
+    const session = findSession(await readLedgerDocuments(workspace), { hostSession: sessionId }, { activeOnly: true });
+    expect([...session!.normalized.files].sort()).toEqual(paths);
+  }, 30_000);
+
+  it("drafts from a Ledger root inside the repository with paths relative to that root", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-hooks-nested-")));
+    const app = path.join(tempDir, "packages", "app");
+    await initWorkspace(app, { withDocs: true });
+    await mkdir(path.join(app, "src"), { recursive: true });
+    await writeFile(path.join(app, "src", "a.ts"), "export const a = 1;\n");
+    await writeFile(path.join(tempDir, "top.ts"), "export const top = 1;\n");
+    await git(tempDir, "init", "-q");
+    await git(tempDir, "add", ".");
+    await git(tempDir, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "initial");
+    const workspace = await findWorkspace(app);
+    const sessionId = "nested-1";
+    await runHookEvent(workspace, "claude-code", "session-start", { sessionId, paths: [], stopHookActive: false });
+    await writeFile(path.join(app, "src", "a.ts"), "export const a = 2;\n");
+    await writeFile(path.join(tempDir, "top.ts"), "export const top = 2;\n");
+    await runHookEvent(workspace, "claude-code", "post-tool-use", { sessionId, toolName: "Edit", paths: ["src/a.ts"], stopHookActive: false });
+
+    const stop = await runHookEvent(workspace, "claude-code", "stop", { sessionId, paths: [], stopHookActive: false });
+    expect(stop.entry).toMatchObject({ id: "0001", created: true });
+    const entry = await readFile(path.join(app, stop.entry!.path), "utf8");
+    expect(entry).toContain('  - "src/a.ts"');
+    expect(entry).not.toContain("top.ts");
+    expect(entry).not.toContain("packages/app");
+
+    const compact = await runHookEvent(workspace, "claude-code", "pre-compact", { sessionId, paths: [], stopHookActive: false, trigger: "auto" });
+    expect(compact.session?.files).toEqual(["src/a.ts"]);
+  }, 30_000);
+
   it("does nothing on stop without touched paths and answers Cursor in its own shape", async () => {
     const root = await fixtureRepo();
     const workspace = await findWorkspace(root);

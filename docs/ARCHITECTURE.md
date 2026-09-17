@@ -355,7 +355,11 @@ source, touched paths made project-relative, stop-hook flag), and dispatches:
   Announcements are recorded per session id in the derived, git-ignored
   `<cache.output>/hook-notices.json` through `applyFileTransaction`, read
   tolerantly (missing or invalid means nothing announced), so each draft is
-  announced once at creation and a refresh is not announced again. The case
+  announced once, on the first prompt after it is created; refreshing a
+  draft does not announce it again, and a draft created anew, even under an
+  id a deleted draft used, is announced because creating a draft clears its
+  id from the store. Ids of sessions that no longer exist are dropped when
+  the store is written, and `ledger cache clear` removes the file. The case
   never calls Git and returns `{}` on any failure.
 - `post-tool-use` appends touched paths to the session record; for Codex the
   `apply_patch` body may arrive in `tool_input.command`, which is scanned with
@@ -377,10 +381,17 @@ source, touched paths made project-relative, stop-hook flag), and dispatches:
   naming the session and the earlier receipts, areas inferred from those
   paths, and a diff-derived file list that leaves out whatever the covering
   receipts list and their own record files. Without Git every touched path
-  stays pending.
+  stays pending. Git reports paths from the repository root, so
+  `getChangedFileDetails` rebases them onto the project root, which may be a
+  directory inside the repository, and drops paths outside it; a Ledger root
+  under `packages/app` sees `src/a.ts`. Cursor's Stop hook has no message
+  channel, so a Cursor agent learns about its draft from the next session
+  start's `Linked receipt:` lines.
   The draft's title is the session's first Summary line when one was noted,
-  else `defaultDraftTitle` (`Changes to <areas>` or `Changes to <first path>`),
-  which `ready` reports as a template placeholder until it is edited.
+  else `defaultDraftTitle` (`Changes to <areas>`, naming at most three areas
+  and the count of the rest, or `Changes to <first path>`), which `ready`
+  reports as a template placeholder until it is edited. A draft lists at most
+  eight inferred areas and caps the symbols it takes from the diff.
 - `pre-compact` records the working tree on the session and writes
   `.ledger/reports/handoff.md`
 
