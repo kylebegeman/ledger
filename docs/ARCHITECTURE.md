@@ -573,10 +573,12 @@ to the originating row, and renders full-screen on small viewports. Hero
 metrics act as one-click kind filters, and filter pills wrap on small
 screens where the rail stacks below the results. The theme follows the
 system preference until a reader picks a theme; the toggle then flips
-between light and dark and stores that explicit choice. Supported browsers animate result changes with the View
-Transition API, including per-record morphs for rows near the viewport,
-guarded by a duplicate-name check and a skip watchdog. Reduced-motion
-preferences disable nonessential motion. If a browser blocks the search
+between light and dark and stores that explicit choice. Supported browsers
+animate result changes with the View Transition API, including per-record
+morphs for rows near the viewport, guarded by a duplicate-name check and a
+skip watchdog. When the browser skips a transition, as it does in a hidden
+tab, the update still applies and the rejected `ready` promise is handled, so
+nothing is logged. Reduced-motion preferences disable nonessential motion. If a browser blocks the search
 sidecar from a direct file open, inline fallback text still supports
 multi-word token matching.
 

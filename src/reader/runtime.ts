@@ -209,6 +209,8 @@ function matches(entry: HTMLElement, matchedScores: Map<string, number> | undefi
 }
 
 interface ViewTransitionLike {
+  /** Rejects when the browser skips the animation, as in a hidden document; the update still runs. */
+  readonly ready: Promise<void>;
   readonly finished: Promise<void>;
   skipTransition(): void;
 }
@@ -247,6 +249,8 @@ function runTransition(update: () => void, candidates: readonly HTMLElement[]): 
     update();
     return;
   }
+  // A skipped animation only rejects `ready`; `finished` still rejects when the update itself throws.
+  void transition.ready.catch(() => undefined);
   const watchdog = setTimeout(() => transition.skipTransition(), transitionWatchdogMs);
   void transition.finished.finally(() => {
     clearTimeout(watchdog);

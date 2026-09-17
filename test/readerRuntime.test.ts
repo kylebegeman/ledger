@@ -72,6 +72,36 @@ describe("reader runtime in a browser document", () => {
     expect(visibleIds()).toEqual(["0003", "0002", "0001"]);
   });
 
+  it("still updates the list when the browser skips a view transition", async () => {
+    await settle(50);
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on("unhandledRejection", onUnhandled);
+    let started = 0;
+    // A hidden document skips the animation: the update runs, `finished` resolves, and only `ready` rejects.
+    const skippedTransition = (update: () => void) => {
+      started += 1;
+      update();
+      return {
+        ready: Promise.reject(new DOMException("Transition was aborted because of invalid state", "InvalidStateError")),
+        finished: Promise.resolve(),
+        updateCallbackDone: Promise.resolve(),
+        skipTransition: () => undefined,
+      };
+    };
+    Object.defineProperty(document, "startViewTransition", { configurable: true, value: skippedTransition });
+    try {
+      select("status", "draft");
+      await settle(50);
+      expect(started).toBe(1);
+      expect(visibleIds()).toEqual(["0003"]);
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+      delete (document as { startViewTransition?: unknown }).startViewTransition;
+    }
+  });
+
   it("opens the record panel from an entry link and closes it with Escape", async () => {
     await settle(50);
     (document.querySelector('.entry[data-id="0002"] .entry-link') as HTMLElement).click();
