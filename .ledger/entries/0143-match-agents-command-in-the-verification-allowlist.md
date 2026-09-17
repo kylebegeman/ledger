@@ -29,6 +29,7 @@ related:
   - "0115"
   - "0132"
   - "0140"
+release: "v0.8.0"
 ---
 
 # 0143: Match Agents.command In The Verification Allowlist

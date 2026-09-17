@@ -10,10 +10,11 @@ milestone lands or a plan changes; retire sections that stop being true.
   both created by `.github/workflows/release.yml` through npm trusted
   publishing on 2026-09-16 from pull request #18. `@kylebegeman/dossier` 0.6.7
   publishes the same way from its own repo.
-- Prepared, not published: 0.8.0 on branch `adoption-0.8`, backlog B010's
-  adoption and capture fixes plus the README overhaul. Publishing needs the
-  pull request merged and the `v0.8.0` tag pushed. The tag push publishes to
-  npm, so Kyle pushes it.
+- Prepared, not published: 0.8.0 on branch `adoption-0.8` in
+  kylebegeman/ledger#20, with backlog B010's adoption and capture fixes, the
+  README overhaul, and the fixes from checking that README against the code.
+  Publishing needs the pull request merged and the `v0.8.0` tag pushed. The
+  tag push publishes to npm, so Kyle pushes it.
 - First outside adopter: Kore runs Ledger 0.7.0 with Claude Code and Codex
   hooks, merged in kylebegeman/forge#22 and kylebegeman/forge#24, with this
   repository's records for it in kylebegeman/ledger#19 (receipts 0128 and
@@ -37,7 +38,7 @@ milestone lands or a plan changes; retire sections that stop being true.
 | 0.5.0 | Engine server (`serve --api`: JSON API, event stream, MCP over Streamable HTTP, server card, daemon record); CLI delegation to the engine; reader live reload; MCP resources and prompts; shared search scoring | 0099 to 0104 |
 | 0.6.0 | Capture: `backlog new`, `decision new`, `promote`, `release notes`; the `session` record kind with `scratch`, `session start|touch|note|close|prune`, expiry, and promotion; `ready`; `hooks install` for Claude Code, Codex, and Cursor with the hidden `hook` dispatcher; `skills install`; `agents --write` | 0105 to 0111 |
 | 0.7.0 | Trust: current-change coverage (`git.coverage`), per-file docs impact evidence, symbol extractor provenance with `typescript` as an optional peer, `verify --run` with an evidence sidecar, anchor and invariant freshness, `ci --github` and the composite `action.yml`, the typed API client, the typed and bundled reader runtime with happy-dom tests, sharded search, chunked graph and details, `search --full-text` | 0112 to 0124 |
-| 0.8.0 (prepared) | Adoption and capture: the `docs reconcile` guard; `agents.command` rendered into hooks, the agents block, the skill, and hook context; a one-time prompt notice for hook drafts and one draft per change; expired active sessions; prune keeps linked sessions and session records are committed; toolchain-aware `adopt` with a marked `.gitignore` block; the README rebuilt around real output and the emerald mark | 0131 to 0137, 0141 |
+| 0.8.0 (prepared) | Adoption and capture: the `docs reconcile` guard; `agents.command` rendered into hooks, the agents block, the skill, and hook context; a one-time prompt notice for hook drafts and one draft per change; expired active sessions; prune keeps linked sessions and session records are committed; toolchain-aware `adopt` with a marked `.gitignore` block; the README rebuilt around real output and the emerald mark; hook drafts that respect receipts written by hand; `verify --run` matching `agents.command`; docs impact under `git.coverage`; one updated pull request comment from the action; inline code in the reader; stale and doctor skip binary files | 0131 to 0137, 0141 to 0147 |
 
 Read the receipts for invariants and conflict rules before touching those
 areas. Decision D005 records the direction and the four supporting choices;
@@ -76,6 +77,16 @@ D006 records what was retired; D007 records the runtime decision below.
 - The README shows one image per visual with no light and dark variants.
   Terminal cards come from `scripts/readme-assets.mjs`; reader screenshots are
   captured by hand with the settings in `CONTRIBUTING.md` (receipt 0137).
+  Visuals are still images; an animation ships only if it can be recorded
+  smoothly, never as a few frames swapped about once a second.
+- `git.coverage: any` relaxes docs impact as well as coverage: an earlier
+  receipt that lists a file with a reviewed docs impact declaration or docs
+  references satisfies it, and `ledger ci` judges both checks under one mode.
+  Kyle left the choice to the assistant; keeping docs impact strict was
+  rejected because it made `any` meaningless in CI (receipt 0144).
+- The verification allowlist stays literal. A command written with
+  `agents.command` matches its plain `ledger` pattern instead of
+  `hooks install` rewriting the allowlist (receipt 0143).
 - The mark is an emerald ruled L with no background shape, and the reader's
   accent follows it (receipt 0137). B009 should keep both unless Kyle decides
   otherwise.
@@ -94,8 +105,10 @@ D006 records what was retired; D007 records the runtime decision below.
   hooks, so build first. Codex hooks are not installed here.
 - Finish the hook's draft rather than deleting it: give it a real title and
   write the receipt into it. A linked receipt of any status covers its paths,
-  so later stops do not draft again for them (receipt 0133). Session records
-  are committed with the change.
+  so later stops do not draft again for them (receipt 0133), and so does a
+  receipt that is new or modified in the working tree, such as one written
+  with `ledger new` (receipt 0142). Session records are committed with the
+  change.
 - `.agents/skills/ledger/SKILL.md` is the shipped skill; `.claude/skills/ledger`
   is a relative symlink to it. `AGENTS.md` ends with the managed block. Both
   render `agents.command`.
@@ -113,15 +126,18 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Publish 0.8.0**: merge the `adoption-0.8` pull request once its CI
-   matrix is green, then Kyle tags the merged `master` with
+1. **Publish 0.8.0**: merge kylebegeman/ledger#20 from `adoption-0.8` once
+   its CI matrix is green, then Kyle tags the merged `master` with
    `git tag v0.8.0 && git push origin v0.8.0`. The release workflow publishes
    to npm and creates the GitHub Release from `.ledger/releases/v0.8.0.md`.
 2. **Finish B010 in Kore**: bump the pin by running the 0.8.0 package's
    `hooks install` for `claude-code` and `codex` with
    `--command "npx --yes @kylebegeman/ledger@0.8.0"`, then `agents --write` and
-   `skills install`; add the pinned Ledger checks to `verification.allow` by
-   hand (0140); remove the hand-written Ledger note from Kore's `AGENTS.md`
+   `skills install`; replace the six pinned
+   `npx --yes @kylebegeman/ledger@0.7.0 <command> **` patterns in Kore's
+   `verification.allow` with plain `ledger <command> **` patterns, which 0.8.0
+   matches against the pinned command, so later pin bumps leave the allowlist
+   alone (0143); remove the hand-written Ledger note from Kore's `AGENTS.md`
    that the managed block replaces; re-approve the Codex hooks with `/hooks`.
    Then run a second live Claude Code session with an ordinary task and check
    that it finishes its hook draft to `ledger ready` without being told and
@@ -129,15 +145,10 @@ D006 records what was retired; D007 records the runtime decision below.
    SessionEnd; 0.8.0 treats the expired session as inactive, and
    `ledger session close --id <id>` still closes it explicitly. Close B010
    when both checks pass.
-3. **Product notes from the README fact-check**: decide whether
-   `coverage: any` should relax docs impact in `ledger ci` (0138); update the
-   action's pull request comment in place (0139); match `agents.command` in
-   the verification allowlist (0140); render inline code in the reader and
-   recapture the README screenshots (0136).
-4. **Dossier visual system** (backlog B009): unblocked, because the reader
+3. **Dossier visual system** (backlog B009): unblocked, because the reader
    stylesheet is a real file at `src/reader/styles.css` and the runtime is
    typed and browser-tested.
-5. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
+4. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
    multi round-trip confirmation on write tools, the Tasks extension, and list
    caching TTLs. The installed SDK 1.29 speaks 2025-11-25.
 
@@ -202,6 +213,14 @@ D006 records what was retired; D007 records the runtime decision below.
   README.
 - `ledger release --assign` writes the version into entries even without
   `--write`, as its help says, so a preview with `--assign` is not read-only.
+  Adding receipts to an existing release record takes that command without
+  `--write` plus a hand edit of the record, because `--write` refuses an
+  existing record.
+- The reader screenshots have no capture script because Playwright is not a
+  dependency; the last captures ran Playwright through an assistant tool with
+  the `CONTRIBUTING.md` settings. `.claude/launch.json` serves the readers on
+  fixed ports 4173 and 4174, which a server left running by another session
+  can hold.
 - Codex and Cursor hooks were verified by piping their payload shapes through
   `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
   hooks installed but no live Codex session yet.

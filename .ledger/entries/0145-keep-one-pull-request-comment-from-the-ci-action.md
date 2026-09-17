@@ -26,6 +26,7 @@ commits: []
 related:
   - "0117"
   - "0139"
+release: "v0.8.0"
 ---
 
 # 0145: Keep One Pull Request Comment From The CI Action
