@@ -21,6 +21,7 @@ files:
   - "src/symbols.ts"
   - "src/doctor.ts"
   - "src/operations/definitions/authoring.ts"
+  - "src/catalogCache.ts"
   - "test/client.test.ts"
   - "test/symbols.test.ts"
 symbols:
@@ -29,6 +30,7 @@ symbols:
   - "loadTypeScript"
   - "typeScriptPackages"
   - "typeScriptFallbackAdvice"
+  - "loadSqlite"
 docs:
   - "docs/ARCHITECTURE.md"
   - "CONTRIBUTING.md"
@@ -117,6 +119,12 @@ majors now arrive on their own.
   `typescript`, with reasons. `expectTypeOf().toMatchTypeOf` became
   `toExtend`.
 - Anchor: `actions/checkout`, `actions/setup-node`, `update-types`
+- Also: `loadSqlite` in `src/catalogCache.ts` loads `node:sqlite` with
+  `process.getBuiltinModule` instead of `import()`. Vitest 5 externalizes
+  only the modules in `builtinModules`, which omits `node:sqlite` on Node 22.
+  Its bundler therefore rejected the dynamic import while transforming the
+  happy-dom reader tests, and every Node 22 job failed on the first CI run.
+  The sqlite backend still loads on Node 24.15 and newer.
 - On conflict: Pin actions by full commit with the version comment, and keep
   `@types/node` on the major that matches `engines`.
 
@@ -148,6 +156,9 @@ users.
 ## Verification
 
 - `npx vitest run test/symbols.test.ts`
+- `npx vitest run test/readerRuntime.test.ts test/catalogCache.test.ts` on
+  Node 22.14, 24.13, and 26.4. On Node 26, `node dist/cli.js doctor` reported
+  the sqlite cache backend.
 - `npm audit --omit=dev --audit-level=high`
 - `npm run typecheck`
 - `node dist/cli.js ready 0166`

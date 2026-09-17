@@ -769,7 +769,10 @@ let sqliteModule: SqliteModule | null | undefined;
 async function loadSqlite(): Promise<SqliteModule | undefined> {
   if (sqliteModule !== undefined) return sqliteModule ?? undefined;
   try {
-    sqliteModule = await import("node:sqlite");
+    // `getBuiltinModule` loads the module without an import statement. Vitest on Node 22 lists
+    // built-ins from `builtinModules`, which omits `node:sqlite`, so its bundler rejected the
+    // import in the reader's happy-dom tests even though this path only runs on Node 24.15+.
+    sqliteModule = process.getBuiltinModule("node:sqlite") ?? null;
   } catch {
     sqliteModule = null;
   }
