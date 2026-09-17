@@ -24,6 +24,7 @@ commits: []
 related:
   - "0107"
   - "0132"
+release: "v0.8.1"
 ---
 
 # 0153: Preserve Line Endings In Frontmatter Edits

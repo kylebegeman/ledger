@@ -6,22 +6,19 @@ milestone lands or a plan changes; retire sections that stop being true.
 
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.7.0 on npm and GitHub Release v0.7.0,
-  both created by `.github/workflows/release.yml` through npm trusted
-  publishing on 2026-09-16 from pull request #18. `@kylebegeman/dossier` 0.6.7
+- Published: `@kylebegeman/ledger` 0.8.0 on npm and GitHub Release v0.8.0,
+  created by `.github/workflows/release.yml` through npm trusted publishing on
+  2026-09-17 from kylebegeman/ledger#20 and #21. `@kylebegeman/dossier` 0.6.7
   publishes the same way from its own repo.
-- Prepared, not published: 0.8.0 on branch `adoption-0.8` in
-  kylebegeman/ledger#20, with backlog B010's adoption and capture fixes, the
-  README overhaul, and the fixes from checking that README against the code.
-  Publishing needs the pull request merged and the `v0.8.0` tag pushed. The
-  tag push publishes to npm, so Kyle pushes it.
-- First outside adopter: Kore runs Ledger 0.7.0 with Claude Code and Codex
-  hooks, merged in kylebegeman/forge#22 and kylebegeman/forge#24, with this
-  repository's records for it in kylebegeman/ledger#19 (receipts 0128 and
-  0130). A live Claude Code session there received context on start and left
-  a draft receipt on stop, but the agent was never told the draft existed.
-  0.8.0 fixes that; a second live session is B010's open acceptance check, and
-  B007 is landed.
+- Prepared, not published: 0.8.1 on branch `patch-0.8.1`, the fixes from an
+  audit of 0.8.0 (receipts 0149 to 0155). Publishing needs the pull request
+  merged and the `v0.8.1` tag pushed.
+- First outside adopter: Kore runs Ledger 0.8.0 with Claude Code and Codex
+  hooks since kylebegeman/forge#25 (Kore receipt 0003), after adopting 0.7.0 in
+  kylebegeman/forge#22 and #24 (Ledger receipts 0128 and 0130). Its allowlist
+  uses plain `ledger <command> **` patterns, so a pin bump is only the
+  installers. A second live Claude Code session there is B010's open
+  acceptance check; B007 is landed.
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
@@ -38,7 +35,8 @@ milestone lands or a plan changes; retire sections that stop being true.
 | 0.5.0 | Engine server (`serve --api`: JSON API, event stream, MCP over Streamable HTTP, server card, daemon record); CLI delegation to the engine; reader live reload; MCP resources and prompts; shared search scoring | 0099 to 0104 |
 | 0.6.0 | Capture: `backlog new`, `decision new`, `promote`, `release notes`; the `session` record kind with `scratch`, `session start|touch|note|close|prune`, expiry, and promotion; `ready`; `hooks install` for Claude Code, Codex, and Cursor with the hidden `hook` dispatcher; `skills install`; `agents --write` | 0105 to 0111 |
 | 0.7.0 | Trust: current-change coverage (`git.coverage`), per-file docs impact evidence, symbol extractor provenance with `typescript` as an optional peer, `verify --run` with an evidence sidecar, anchor and invariant freshness, `ci --github` and the composite `action.yml`, the typed API client, the typed and bundled reader runtime with happy-dom tests, sharded search, chunked graph and details, `search --full-text` | 0112 to 0124 |
-| 0.8.0 (prepared) | Adoption and capture: the `docs reconcile` guard; `agents.command` rendered into hooks, the agents block, the skill, and hook context; a one-time prompt notice for hook drafts and one draft per change; expired active sessions; prune keeps linked sessions and session records are committed; toolchain-aware `adopt` with a marked `.gitignore` block; the README rebuilt around real output and the emerald mark; hook drafts that respect receipts written by hand; `verify --run` matching `agents.command`; docs impact under `git.coverage`; one updated pull request comment from the action; inline code in the reader; stale and doctor skip binary files; skipped view transitions no longer log errors | 0131 to 0137, 0141 to 0148 |
+| 0.8.0 | Adoption and capture: the `docs reconcile` guard; `agents.command` rendered into hooks, the agents block, the skill, and hook context; a one-time prompt notice for hook drafts and one draft per change; expired active sessions; prune keeps linked sessions and session records are committed; toolchain-aware `adopt` with a marked `.gitignore` block; the README rebuilt around real output and the emerald mark; hook drafts that respect receipts written by hand; `verify --run` matching `agents.command`; docs impact under `git.coverage`; one updated pull request comment from the action; inline code in the reader; stale and doctor skip binary files; skipped view transitions no longer log errors | 0131 to 0137, 0141 to 0148 |
+| 0.8.1 (prepared) | Audit of 0.8.0: the write lock waits and hook writes retry so parallel tool calls keep every path; Git paths rebased onto a Ledger root inside a repository; every new draft announced and the notice store pruned; per-entry hook merge; every managed agents block replaced; capped draft titles, areas, and symbols; CRLF-preserving record edits; reader search ranked like the CLI, a palette that works from disk, modified clicks, a linear code-span scanner, and a visible light-theme chip; environment assignments matched by `verification.allow`; only change entries cover a path; reviewed docs impact reasons for every status; `adopt` ignoring vendored and nested build output and proposing only read-only checks; `docs reconcile` refusing unreadable paths; release notes from `ledger release notes` | 0149 to 0155 |
 
 Read the receipts for invariants and conflict rules before touching those
 areas. Decision D005 records the direction and the four supporting choices;
@@ -86,7 +84,17 @@ D006 records what was retired; D007 records the runtime decision below.
   rejected because it made `any` meaningless in CI (receipt 0144).
 - The verification allowlist stays literal. A command written with
   `agents.command` matches its plain `ledger` pattern instead of
-  `hooks install` rewriting the allowlist (receipt 0143).
+  `hooks install` rewriting the allowlist (receipt 0143). The allowlist
+  bounds the whole command, environment assignments included, and
+  `agents.command` is trusted as far as the allowlist because both live in
+  the same reviewed file (receipt 0154).
+- Only change entries cover a path, under either coverage mode; session
+  records, backlog items, and decisions never do (receipt 0154).
+- Merges by the assistant: Kyle told the assistant to merge and tag on its
+  own in the 2026-09-17 session ("Stop waiting on me"), which it did for
+  #20, #21, the `v0.8.0` tag, and forge#25. The auto-mode permission check
+  refused the first merge attempt as a merge without review until that
+  instruction.
 - The mark is an emerald ruled L with no background shape, and the reader's
   accent follows it (receipt 0137). B009 should keep both unless Kyle decides
   otherwise.
@@ -126,25 +134,20 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Publish 0.8.0**: merge kylebegeman/ledger#20 from `adoption-0.8` once
-   its CI matrix is green, then Kyle tags the merged `master` with
-   `git tag v0.8.0 && git push origin v0.8.0`. The release workflow publishes
-   to npm and creates the GitHub Release from `.ledger/releases/v0.8.0.md`.
-2. **Finish B010 in Kore**: bump the pin by running the 0.8.0 package's
-   `hooks install` for `claude-code` and `codex` with
-   `--command "npx --yes @kylebegeman/ledger@0.8.0"`, then `agents --write` and
-   `skills install`; replace the six pinned
-   `npx --yes @kylebegeman/ledger@0.7.0 <command> **` patterns in Kore's
-   `verification.allow` with plain `ledger <command> **` patterns, which 0.8.0
-   matches against the pinned command, so later pin bumps leave the allowlist
-   alone (0143); remove the hand-written Ledger note from Kore's `AGENTS.md`
-   that the managed block replaces; re-approve the Codex hooks with `/hooks`.
-   Then run a second live Claude Code session with an ordinary task and check
-   that it finishes its hook draft to `ledger ready` without being told and
-   without a second receipt. In the Claude desktop app, `/exit` does not fire
-   SessionEnd; 0.8.0 treats the expired session as inactive, and
-   `ledger session close --id <id>` still closes it explicitly. Close B010
-   when both checks pass.
+1. **Publish 0.8.1**: merge the `patch-0.8.1` pull request once its CI
+   matrix is green, tag the merged `master` with
+   `git tag -a v0.8.1 -m "Ledger v0.8.1" && git push origin v0.8.1`, and
+   confirm npm and the GitHub Release.
+2. **Move Kore to 0.8.1 and finish B010**: in Kore run the 0.8.1 package's
+   `hooks install --host claude-code|codex --command "npx --yes
+   @kylebegeman/ledger@0.8.1"`, `agents --write`, and `skills install`, with a
+   Kore receipt; the allowlist needs no change. Kyle re-approves the Codex
+   hooks with `/hooks`, then runs a second live Claude Code session in Kore
+   with an ordinary task and checks that it finishes its hook draft to
+   `ledger ready` without being told and without a second receipt. In the
+   Claude desktop app, `/exit` does not fire SessionEnd; an expired session is
+   treated as inactive, and `ledger session close --id <id>` still closes it.
+   Close B010 when that check passes.
 3. **Dossier visual system** (backlog B009): unblocked, because the reader
    stylesheet is a real file at `src/reader/styles.css` and the runtime is
    typed and browser-tested.
@@ -206,8 +209,6 @@ D006 records what was retired; D007 records the runtime decision below.
   still open; `actions/checkout` and `actions/setup-node` v7 bumps would also
   silence the Node 20 deprecation warnings in the release workflow. The
   composite action pins `actions/setup-node` too.
-- The release workflow still extracts Public Notes with an inline Node script;
-  it can call `node dist/cli.js release notes "$GITHUB_REF_NAME"` now.
 - `ledger new --from-diff` lists every Markdown heading of a changed file as a
   symbol, not only headings in changed hunks; 0137's draft listed the whole
   README.
@@ -223,7 +224,14 @@ D006 records what was retired; D007 records the runtime decision below.
   can hold.
 - Codex and Cursor hooks were verified by piping their payload shapes through
   `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
-  hooks installed but no live Codex session yet.
+  hooks installed but no live Codex session yet. Cursor's hooks have no
+  message channel, so a Cursor agent hears about its draft only at the next
+  session start.
+- Open questions from the 0.8.0 audit, for Kyle: whether `git.coverage: any`
+  should let one broad pattern such as `src/**` in an old receipt satisfy
+  every later change beneath it (today it does, for coverage and docs
+  impact); and whether the README cards should pin their dates so CI can fail
+  on a stale regeneration (today two cards embed the generation date).
 - Dossier still has a `next` branch and Node 18 through 22 CI; Ledger's branch
   model was not applied there.
 - The two dated reports under `docs/scratchpad/` from 2026-08-30 and the
@@ -236,9 +244,9 @@ D006 records what was retired; D007 records the runtime decision below.
 ## Quick verification of the current state
 
 ```sh
-node dist/cli.js version            # 0.8.0
+node dist/cli.js version            # 0.8.1
 node dist/cli.js doctor             # all checks pass; engine, symbols, verification may warn
-node dist/cli.js unreleased         # receipts landed since v0.8.0
+node dist/cli.js unreleased         # receipts landed since v0.8.1
 node dist/cli.js coverage --explain # current mode
 node dist/cli.js stale              # historical anchor drift listed
 gh pr list --repo kylebegeman/ledger

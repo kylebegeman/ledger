@@ -87,17 +87,7 @@ jobs:
             exit 0
           fi
 
-          notes="$(node -e '
-            const fs = require("node:fs");
-            const text = fs.readFileSync(process.argv[1], "utf8");
-            const marker = "\n## Public Notes\n";
-            const start = text.indexOf(marker);
-            if (start < 0) process.exit(0);
-            let body = text.slice(start + marker.length);
-            const next = body.indexOf("\n## ");
-            if (next >= 0) body = body.slice(0, next);
-            process.stdout.write(body.trim());
-          ' "$record")"
+          notes="$(node dist/cli.js release notes "$GITHUB_REF_NAME")"
           if [[ -z "$notes" ]]; then
             notes="See ${record} for release details."
           fi

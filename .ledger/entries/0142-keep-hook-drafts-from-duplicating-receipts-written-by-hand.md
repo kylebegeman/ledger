@@ -27,11 +27,15 @@ docsImpact:
   reason: "The architecture doc's hook section and the shipped skill describe which receipts count as linked and which paths a hook draft takes."
   docs:
     - "docs/ARCHITECTURE.md"
+staleRefs:
+  - "symbols:pendingWorkingTreePaths"
+  - "anchors:pendingWorkingTreePaths"
 commits: []
 related:
   - "0133"
   - "0137"
   - "0141"
+  - "0151"
 release: "v0.8.0"
 ---
 

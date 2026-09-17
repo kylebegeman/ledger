@@ -213,11 +213,11 @@ Run the published package through npx, pinned to a version, so an agent never
 reaches a different program named `ledger` on its `PATH`:
 
 ```bash
-npx --yes @kylebegeman/ledger@0.8.0 adopt
-npx --yes @kylebegeman/ledger@0.8.0 hooks install --host claude-code \
-  --command "npx --yes @kylebegeman/ledger@0.8.0" --import-agents
-npx --yes @kylebegeman/ledger@0.8.0 skills install
-npx --yes @kylebegeman/ledger@0.8.0 agents --write
+npx --yes @kylebegeman/ledger@0.8.1 adopt
+npx --yes @kylebegeman/ledger@0.8.1 hooks install --host claude-code \
+  --command "npx --yes @kylebegeman/ledger@0.8.1" --import-agents
+npx --yes @kylebegeman/ledger@0.8.1 skills install
+npx --yes @kylebegeman/ledger@0.8.1 agents --write
 ```
 
 `adopt` reads the tracked tree and writes a configuration that fits it: which
@@ -278,9 +278,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: kylebegeman/ledger@v0.8.0
+      - uses: kylebegeman/ledger@v0.8.1
         with:
-          command: npx --yes @kylebegeman/ledger@0.8.0
+          command: npx --yes @kylebegeman/ledger@0.8.1
 ```
 
 The action runs the latest published CLI unless `command` pins it. Set
