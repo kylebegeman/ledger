@@ -347,7 +347,9 @@ are also MCP tools through `ledger mcp` or the engine's `/mcp`. So are the
 commands that write records (`new`, `feedback`, `backlog new`,
 `decision new`, `promote`, `update`, and `session start|note|close`), which
 take section bodies and ask you to confirm in the client before they write. The server speaks MCP 2026-07-28 and
-the 2025 revisions. Run `ledger help <command>` for flags.
+the 2025 revisions. Run `ledger help <command>` for flags, or read
+[the command reference](./docs/COMMANDS.md), which is generated from the same
+registry.
 
 <details>
 <summary><strong>Set up and capture</strong></summary>
@@ -498,6 +500,7 @@ project on it gets parsed symbols by also installing
 | [Roadmap](./docs/ROADMAP.md) | Where the product is going |
 | [Release prep](./docs/RELEASE_PREP.md) | The release checklist and npm publishing |
 | [Publishing](./docs/PUBLISHING.md) | Hosting the public changelog, its feed, and permalinks |
+| [Commands](./docs/COMMANDS.md) | Every command's usage, help, and flags, generated from the registry |
 | [Security](./SECURITY.md) | Reporting issues and exposing the server beyond loopback |
 
 ## Development

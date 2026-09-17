@@ -30,8 +30,10 @@ working in this repository.
   `.ledger/entries/`, created with `node dist/cli.js new "<title>" --from-diff`.
 - Every command and MCP tool is an operation under `src/operations/`. Add a
   definition and a registry entry; never add parsing or formatting to
-  `src/cli.ts`. After changing any operation, regenerate the contract:
-  `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts`.
+  `src/cli.ts`. After changing any operation, regenerate the contract and the
+  command reference:
+  `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts` and
+  `LEDGER_UPDATE_COMMANDS=1 npx vitest run test/commandReference.test.ts`.
 - `npm run ci` is the release-grade local check. Read its exit status directly;
   do not infer success from grep output.
 - Markdown under `.ledger/` is the source of truth. Caches, indexes, reports,
