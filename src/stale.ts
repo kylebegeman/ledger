@@ -358,7 +358,7 @@ class ReferencedFileCache {
     return contents.join("\n");
   }
 
-  /** One file's content, or undefined when it is missing or not a regular file. */
+  /** One file's content, or undefined when it is missing, not a regular file, or not UTF-8 text. */
   private readOne(filePath: string): Promise<string | undefined> {
     let pending = this.contents.get(filePath);
     if (!pending) {
@@ -376,7 +376,13 @@ class ReferencedFileCache {
       if (isCode(error, "ENOENT")) return undefined;
       throw error;
     }
-    return await readUtf8FileLimited(absolutePath, this.workspace.config.limits.maxTotalDocumentBytes, "symbol source");
+    try {
+      return await readUtf8FileLimited(absolutePath, this.workspace.config.limits.maxTotalDocumentBytes, "symbol source");
+    } catch (error) {
+      // A screenshot or other binary file a record lists holds no anchors or symbols to check.
+      if (isCode(error, "invalid-utf8")) return undefined;
+      throw error;
+    }
   }
 }
 

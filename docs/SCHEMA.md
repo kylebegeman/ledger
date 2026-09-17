@@ -154,7 +154,9 @@ stale anchor or symbol in backticks. Anchors without backticks that contain
 spaces are descriptions and are not checked, an anchor that is the block's own
 file name or directory is not checked, and a dotted key path such as
 `git.ignore` counts as present when every segment appears. Acknowledge an
-intentionally historical anchor with `staleRefs: ["anchors:<name>"]`.
+intentionally historical anchor with `staleRefs: ["anchors:<name>"]`. Listed
+files that are not UTF-8 text, such as screenshots, are skipped by the anchor
+and symbol checks, so a block that names only images is not checked.
 
 For broad mechanical work:
 

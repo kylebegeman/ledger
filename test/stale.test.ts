@@ -133,6 +133,30 @@ describe("anchor and invariant freshness", () => {
     expect(report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target)).toEqual(["git.missingKey"]);
   });
 
+  it("skips binary files a record lists and keeps checking its text files", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-binary-"));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "src"), { recursive: true });
+    await mkdir(path.join(tempDir, "assets"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "cli.ts"), "export function run() {}\n");
+    await writeFile(path.join(tempDir, "src", "other.ts"), "export const keep = 1;\n");
+    await writeFile(path.join(tempDir, "assets", "shot.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0xfe, 0x00]));
+    await writeFile(
+      path.join(tempDir, ".ledger", "entries", "0002-anchors.md"),
+      anchoredEntry()
+        .replace('  - "src/other.ts"\ncommits: []', '  - "src/other.ts"\n  - "assets/shot.png"\nsymbols:\n  - "run"\n  - "oldRun"\ncommits: []')
+        .replace("## Behavior And UX Impact", "### assets/shot.png\n\n- What changed: screenshot.\n- Anchor: \`hero\`\n- On conflict: keep one still image.\n\n## Behavior And UX Impact"),
+      "utf8",
+    );
+
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+
+    expect(report.issues.filter((issue) => issue.kind === "stale-symbol").map((issue) => issue.target)).toEqual(["oldRun"]);
+    expect(report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target)).toEqual(["oldDispatch"]);
+  });
+
   it("honors anchor acknowledgements", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-ack-"));
     await initWorkspace(tempDir);
