@@ -330,21 +330,59 @@ modes, but never source contents or secret values.
 
 ### MCP Server
 
-`ledger mcp` starts a local stdio Model Context Protocol server. The MCP surface
-is intentionally read-oriented so agents can retrieve Ledger context without
-mutating source records unless a specific write flag is requested for generated
-reports.
+`ledger mcp` starts a local stdio Model Context Protocol server, built on the
+v2 TypeScript SDK (`@modelcontextprotocol/server`). It speaks protocol
+revision 2026-07-28 and the 2025 revisions from the same definitions:
+`serveStdio` lets the client's opening message pick the revision for the
+connection, and the engine's `/mcp` uses `createMcpHandler`, which serves
+2026-07-28 per request and 2025-era requests statelessly.
 
 The server registers every operation in the registry that carries `mcp`
-metadata: validate, query, search, explain, conflict, packet, search-packet,
-coverage, ci, doctor, metrics, stale, unreleased, docs audit, docs classify,
-docs impact, and integrity verification. Each tool takes the operation's input
-plus an optional `projectRoot`, declares an output schema, and returns the
-versioned machine envelope both as JSON text and as `structuredContent`.
-Payloads include a top-level `summary` object with counts, status, and budget
-metadata before full detailed fields so agents can inspect compact signals
-first. Tools that do not mutate are annotated read-only. The MCP layer contains
-no command logic; behavior lives in the operation definitions the CLI uses.
+metadata. The read tools are validate, ready, query, search, explain,
+conflict, packet, search-packet, coverage, ci, doctor, metrics, stale,
+unreleased, release notes, cache status, docs audit, docs classify, docs
+impact, and integrity verification. Some of them write generated reports, as
+their CLI commands do. Each tool takes the operation's input plus an optional
+`projectRoot`, declares an output schema, and returns the versioned machine
+envelope both as JSON text and as `structuredContent`. Payloads include a
+top-level `summary` object with counts, status, and budget metadata before
+full detailed fields so agents can inspect compact signals first. Tools that
+do not mutate are annotated read-only. The MCP layer contains no command
+logic; behavior lives in the operation definitions the CLI uses.
+
+Tools that write source records ask the user first. An operation opts in with
+`mcp.confirm`, a function that turns the input into the sentence the user
+sees. Eight do: new, feedback, backlog new, decision new, promote, and session
+start, note, and close. The first call returns an `input_required` result
+holding a form elicitation with one required `confirm` checkbox. The message
+names the action, the project, and its root. Only a retry that carries an
+accepted response with `confirm: true` runs the operation. A decline, a
+cancel, or an unchecked box returns `confirmation-declined`, and nothing is
+written.
+
+- **Sealed state.** The retry must echo a `requestState` that the SDK's
+  HMAC codec sealed with a per-process random key, valid for ten minutes. It
+  holds the tool name and a SHA-256 fingerprint of the arguments with keys
+  sorted, so a confirmation cannot be replayed for other arguments.
+- **2025-era connections.** The SDK's legacy shim turns the same result into
+  a real `elicitation/create` request.
+- **Clients that cannot confirm.** A client that declares no form
+  elicitation gets `confirmation-unavailable` before anything is asked. On
+  the 2026-07-28 revision, the declaration comes from the request's
+  envelope; on a 2025-era connection, from `initialize`.
+- **Stateless HTTP.** Stateless 2025-era requests have no path for a
+  confirmation, so the engine leaves the write tools out of those instances.
+- **The engine's project only.** The engine also sets a write root, so a
+  `projectRoot` argument cannot aim a write at another project.
+- **Direct calls.** `runLedgerMcpTool`, the library's direct entry point,
+  never asks, because its caller is the program itself.
+
+On the 2026-07-28 revision, `tools/list`, `prompts/list`, and
+`resources/templates/list` carry a one-hour private cache hint, as does the
+contract resource, because they change only with the Ledger version. Record
+lists and reads keep the SDK's no-cache default. The engine publishes
+`resources/list_changed` to open `subscriptions/listen` streams whenever the
+watched records change.
 
 The server also exposes resources and prompts. `ledger://records/{id}` lists
 every record and reads its raw Markdown; `ledger://packet/{path}` returns a
@@ -695,9 +733,12 @@ Routes:
 - `GET /events` is a server-sent event stream: `ready` on connect, then
   `records-changed` (cache hits, misses, removals), `rebuilt`, and
   `rebuild-failed` as watched source records change, with heartbeats.
-- `POST /mcp` (and GET, DELETE) is the MCP server over Streamable HTTP in
-  stateless mode, the same tools as `ledger mcp`.
-- `GET /.well-known/mcp/server-card.json` describes the MCP endpoint and tools.
+- `POST /mcp` is the MCP server over Streamable HTTP: 2026-07-28 requests
+  per request with the same tools as `ledger mcp`, and 2025-era requests
+  statelessly without the confirmed write tools. GET and DELETE, the 2025
+  session operations, answer 405.
+- `GET /.well-known/mcp/server-card.json` describes the MCP endpoint, the
+  protocol versions it speaks, and its tools, marking the ones that confirm.
 - everything else serves the rendered reader.
 
 Operations exposed over the API are those that run inside a workspace and

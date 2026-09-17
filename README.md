@@ -336,8 +336,11 @@ Every command except `serve`, `mcp`, `help`, and `version` accepts `--json` and
 returns a versioned envelope. `ledger serve --api` runs every command except
 `init`, `adopt`, `serve`, and `mcp` over its JSON API. The retrieval and check
 commands, such as `packet`, `explain`, `search`, `ready`, `coverage`, and `ci`,
-are also MCP tools through `ledger mcp` or the engine's `/mcp`. Run
-`ledger help <command>` for flags.
+are also MCP tools through `ledger mcp` or the engine's `/mcp`. So are the
+commands that write records (`new`, `feedback`, `backlog new`,
+`decision new`, `promote`, and `session start|note|close`), which ask you to
+confirm in the client before they write. The server speaks MCP 2026-07-28 and
+the 2025 revisions. Run `ledger help <command>` for flags.
 
 <details>
 <summary><strong>Set up and capture</strong></summary>
@@ -400,7 +403,7 @@ are also MCP tools through `ledger mcp` or the engine's `/mcp`. Run
 | `ledger render` | Builds the static reader; `--profile public` builds the public changelog |
 | `ledger serve --watch` | Serves the reader on loopback and rebuilds on change |
 | `ledger serve --api` | The engine: the reader, a JSON API at `/api/v1`, events, and MCP at `/mcp` |
-| `ledger mcp` | The MCP server over stdio |
+| `ledger mcp` | The MCP server over stdio; tools that write ask you to confirm first |
 | `ledger index` | Writes JSON indexes under `.ledger/indexes/` |
 | `ledger cache status` | Reports the catalog cache; `cache warm` and `cache clear` manage it |
 | `ledger unreleased` | Landed change entries not yet in a release |

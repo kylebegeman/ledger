@@ -20,7 +20,7 @@ import {
 import { typeScriptFallbackAdvice } from "../../symbols.js";
 import type { NormalizedLedgerDocument } from "../../types.js";
 import { validateDocuments, writeValidationReport } from "../../validate.js";
-import { loadDocuments, looseRecord, plural, shortString } from "../shared.js";
+import { loadDocuments, looseRecord, plural, quoteForConfirmation, shortString } from "../shared.js";
 import { defineOperation } from "../types.js";
 
 export interface NewEntryInput extends Record<string, unknown> {
@@ -72,6 +72,15 @@ export const newEntryOperation = defineOperation<NewEntryInput, CreatedEntry>({
     help: `Creates the next numbered change entry. Use --from-diff to prefill files from
 Git changes and --staged to read the staged diff. Ignored generated/vendor paths
 are omitted, and very large diffs are grouped into coverage patterns.`,
+  },
+  mcp: {
+    tool: "ledger_new",
+    title: "Create a change entry",
+    summary: (data) => ({ path: data.path }),
+    confirm: (input) =>
+      `Create a ${input.status} change entry titled ${quoteForConfirmation(input.title)}${
+        input.fromDiff ? ` with files from the ${input.staged ? "staged" : "uncommitted"} Git changes` : ""
+      }.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -131,6 +140,12 @@ export const feedbackOperation = defineOperation<FeedbackInput, CreatedRecord>({
     json: true,
     help: `Creates a product-note record for dogfood findings, product observations, or
 other feedback that should not be mixed into normal change receipts.`,
+  },
+  mcp: {
+    tool: "ledger_feedback",
+    title: "Create a product note",
+    summary: (data) => ({ path: data.path }),
+    confirm: (input) => `Create a product note titled ${quoteForConfirmation(input.title)}.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -332,6 +347,12 @@ export const backlogNewOperation = defineOperation<NewRecordInput, CreatedRecord
     help: `Creates the next numbered backlog item under the configured backlog directory
 from .ledger/templates/backlog.md. Promote it later with ledger promote <id>.`,
   },
+  mcp: {
+    tool: "ledger_backlog_new",
+    title: "Create a backlog item",
+    summary: (data) => ({ path: data.path }),
+    confirm: (input) => `Create a backlog item titled ${quoteForConfirmation(input.title)}.`,
+  },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
     const path = await createBacklogItem(workspace, documents, {
@@ -379,6 +400,12 @@ export const decisionNewOperation = defineOperation<NewRecordInput, CreatedRecor
     json: true,
     help: `Creates the next numbered decision record under the configured decisions
 directory from .ledger/templates/decision.md.`,
+  },
+  mcp: {
+    tool: "ledger_decision_new",
+    title: "Create a decision record",
+    summary: (data) => ({ path: data.path }),
+    confirm: (input) => `Create a decision record titled ${quoteForConfirmation(input.title)}.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
@@ -445,6 +472,15 @@ export const promoteOperation = defineOperation<PromoteInput, PromoteResult>({
 frontmatter field. The entry carries the item's areas, decisions, and acceptance
 checks (as Verification bullets). The item's status becomes in-progress unless
 --source-status says otherwise. Both writes happen in one transaction.`,
+  },
+  mcp: {
+    tool: "ledger_promote",
+    title: "Promote a record",
+    summary: (data) => ({ entry: data.entry.id, source: data.source.id, carriedChecks: data.carriedChecks.length }),
+    confirm: (input) =>
+      `Create a ${input.status} change entry from ${input.id}${
+        input.title ? ` titled ${quoteForConfirmation(input.title)}` : ""
+      } and update ${input.id}${input.sourceStatus ? ` to status ${input.sourceStatus}` : ""}.`,
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);

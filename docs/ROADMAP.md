@@ -208,7 +208,8 @@ Deliverables:
 
 ## Phase 8: Agent Integrations
 
-Status: first MCP slice landed
+Status: MCP server on the v2 TypeScript SDK since 0.9.1, speaking protocol
+2026-07-28 and the 2025 revisions, with confirmed tools for writing records
 
 Goals:
 
@@ -222,6 +223,7 @@ Deliverables:
 
 - `ledger mcp` with read-oriented validation, query, explain, conflict, packet,
   search-packet, and docs-impact tools
+- MCP tools for writing records that ask the user to confirm first (0.9.1)
 - VS Code extension prototype
 - `ledger packet --budget <tokens>`
 - `ledger agents --role <role>`
@@ -284,8 +286,9 @@ Kore session closed backlog B010 on 2026-09-17, and 0.8.2 fits drafts to the
 change (product notes 0160 and 0161), names the hooked session in mid-turn
 checks, and adds `release --update`. 0.9.0 moves the reader and the public
 changelog to Dossier's visual system (backlog B009) and writes compact
-sidecars. MCP protocol 2026-07-28 on the v2 SDK is next. Direction accepted in
-decision D005 on 2026-09-15.
+sidecars. 0.9.1 moves MCP to the v2 SDK and protocol 2026-07-28 and adds
+confirmed write tools (decision D008). Direction accepted in decision D005 on
+2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
 `docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are

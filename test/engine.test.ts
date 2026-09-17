@@ -1,8 +1,7 @@
 import { access, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ledgerExitCodeHeader,
@@ -170,6 +169,58 @@ describe("Ledger engine", () => {
       });
     } finally {
       await client.close();
+    }
+  });
+
+  it("confirms MCP writes for 2026-07-28 clients and keeps them in the engine's project", async () => {
+    const workspace = await fixtureWorkspace();
+    engine = await startLedgerEngine(workspace, { port: 0, version: "0.0.0-mcp", watch: false });
+
+    const card = await (await fetch(`${engine.url}.well-known/mcp/server-card.json`)).json();
+    expect(card.protocolVersions[0]).toBe("2026-07-28");
+    expect(card.tools.find((tool: { name: string }) => tool.name === "ledger_new")).toMatchObject({
+      readOnly: false,
+      confirms: true,
+      protocolVersions: ["2026-07-28"],
+    });
+
+    const legacy = new Client({ name: "ledger-legacy-client", version: "0.0.0" });
+    await legacy.connect(new StreamableHTTPClientTransport(new URL(`${engine.url}mcp`)));
+    const modern = new Client(
+      { name: "ledger-modern-client", version: "0.0.0" },
+      { capabilities: { elicitation: {} }, versionNegotiation: { mode: "auto" } },
+    );
+    const prompts: string[] = [];
+    modern.setRequestHandler("elicitation/create", async (request) => {
+      prompts.push(String((request.params as { message: string }).message));
+      return { action: "accept", content: { confirm: true } };
+    });
+    await modern.connect(new StreamableHTTPClientTransport(new URL(`${engine.url}mcp`)));
+    const elsewhere = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-engine-other-")));
+    try {
+      expect(legacy.getProtocolEra()).toBe("legacy");
+      expect((await legacy.listTools()).tools.map((tool) => tool.name)).not.toContain("ledger_new");
+      expect(modern.getProtocolEra()).toBe("modern");
+      expect((await modern.listTools()).tools.map((tool) => tool.name)).toContain("ledger_new");
+
+      const created = await modern.callTool({ name: "ledger_new", arguments: { title: "Engine write" } });
+      expect(created.structuredContent).toMatchObject({
+        ok: true,
+        data: { path: ".ledger/entries/0002-engine-write.md" },
+      });
+      expect(prompts).toEqual([expect.stringContaining('Create a draft change entry titled "Engine write".')]);
+
+      await initWorkspace(elsewhere);
+      const redirected = await modern.callTool({
+        name: "ledger_new",
+        arguments: { title: "Redirected write", projectRoot: elsewhere },
+      });
+      expect(redirected.structuredContent).toMatchObject({ ok: false, error: { code: "invalid-argument" } });
+      expect(prompts).toHaveLength(1);
+    } finally {
+      await legacy.close();
+      await modern.close();
+      await rm(elsewhere, { recursive: true, force: true });
     }
   });
 

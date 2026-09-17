@@ -2,6 +2,8 @@ export const ledgerMachineSchemaVersion = 1 as const;
 
 export type LedgerErrorCode =
   | "concurrent-file-change"
+  | "confirmation-declined"
+  | "confirmation-unavailable"
   | "filesystem-error"
   | "invalid-argument"
   | "invalid-config"

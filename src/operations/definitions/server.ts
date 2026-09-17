@@ -212,7 +212,11 @@ export const mcpOperation = defineOperation<Record<string, never>, { readonly tr
     help: `Starts a stdio Model Context Protocol server exposing Ledger tools for agents:
 validate, ready, query, search, explain, conflict, packet, search-packet,
 coverage, ci, doctor, metrics, stale, unreleased, release notes, cache status,
-docs audit, docs classify, docs impact, and integrity verification. For MCP over HTTP, run
+docs audit, docs classify, docs impact, and integrity verification. The tools
+that write records (new, feedback, backlog new, decision new, promote, and
+session start, note, and close) ask the user to confirm first and write nothing
+otherwise. The server speaks MCP 2026-07-28 and the 2025 revisions; a 2025-era
+client can confirm when it supports elicitation. For MCP over HTTP, run
 \`ledger serve --api\` and connect to /mcp.`,
   },
   async run(context) {

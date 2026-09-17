@@ -159,7 +159,7 @@ export interface LedgerOperationContract {
   };
   readonly input: unknown;
   readonly output: unknown;
-  readonly mcp?: { readonly tool: string; readonly input: unknown };
+  readonly mcp?: { readonly tool: string; readonly input: unknown; readonly confirms?: true };
 }
 
 export interface LedgerOperationsContract {
@@ -200,7 +200,13 @@ export function buildOperationsContract(
       input: z.toJSONSchema(operation.input),
       output: z.toJSONSchema(operation.output),
       ...(operation.mcp
-        ? { mcp: { tool: operation.mcp.tool, input: z.toJSONSchema(mcpInputSchema(operation)) } }
+        ? {
+            mcp: {
+              tool: operation.mcp.tool,
+              input: z.toJSONSchema(mcpInputSchema(operation)),
+              ...(operation.mcp.confirm ? { confirms: true as const } : {}),
+            },
+          }
         : {}),
     })),
   };
