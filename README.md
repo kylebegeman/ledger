@@ -290,9 +290,10 @@ from forks do not get.
 <p align="center"><img alt="ledger ci --github annotating a pull request that changed a source file without a receipt" src="./assets/readme/ci.svg" width="880"></p>
 
 Coverage defaults to `current`: a changed path under `git.requireEntryFor`
-needs a change entry in the same pull request. `adopt` writes `any`, which lets
-`ledger coverage` accept a receipt from an earlier change. Docs impact in
-`ledger ci` still needs a change entry in the pull request that lists the file.
+needs a change entry in the same pull request. `adopt` writes `any`, which
+accepts a receipt from an earlier change for both coverage and docs impact, so
+history does not block the first pull requests. A file no receipt lists still
+fails.
 
 ## Records
 

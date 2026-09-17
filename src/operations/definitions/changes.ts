@@ -224,6 +224,7 @@ export const docsImpactOperation = defineOperation<DocsImpactInput, LedgerDocsIm
     declarations: z.array(looseRecord({})),
     files: z.array(looseRecord({ path: z.string(), satisfied: z.boolean() })),
     missingDocsImpact: z.array(z.string()),
+    historicalFiles: z.array(z.string()),
   }),
   cli: {
     path: ["docs", "impact"],
@@ -237,7 +238,9 @@ export const docsImpactOperation = defineOperation<DocsImpactInput, LedgerDocsIm
     help: `Reports whether each changed source file has docs impact evidence: a changed
 change entry that lists the file and carries a reviewed docsImpact declaration
 or references docs. A docs edit elsewhere in the change set does not satisfy a
-file on its own. --base and --head inspect their merge-base change range.`,
+file on its own. Under git.coverage any, an earlier receipt that lists the file
+and carries that evidence also satisfies it, as it satisfies coverage. --base
+and --head inspect their merge-base change range.`,
   },
   mcp: {
     tool: "ledger_docs_impact",
@@ -268,6 +271,7 @@ file on its own. --base and --head inspect their merge-base change range.`,
     const lines = [
       `Ledger docs impact: ${data.sourceFiles.length} source file(s), ${data.docsFiles.length} docs file(s), ${data.referencedDocs.length} referenced doc(s), ${data.declarations.length} explicit declaration(s), ${data.missingDocsImpact.length} missing docs impact.`,
     ];
+    for (const filePath of data.historicalFiles) lines.push(`- satisfied by an earlier receipt (git.coverage any): ${filePath}`);
     for (const filePath of data.missingDocsImpact) lines.push(`- missing docs impact: ${filePath}`);
     return lines.join("\n");
   },

@@ -5908,6 +5908,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "historicalFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -5916,7 +5922,8 @@
           "referencedDocs",
           "declarations",
           "files",
-          "missingDocsImpact"
+          "missingDocsImpact",
+          "historicalFiles"
         ],
         "additionalProperties": {}
       },

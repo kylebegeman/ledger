@@ -94,6 +94,32 @@ describe("buildDocsImpact", () => {
     expect(report).toContain("- missing: `src/other.ts` (no changed entry lists it)");
   });
 
+  it("lets an earlier receipt satisfy a file only under git.coverage any", () => {
+    const earlier = [document([], { status: "not-needed", reason: "Internal plumbing." })];
+    const strict = buildDocsImpact(workspace(), earlier, ["src/cli.ts"]);
+    expect(strict.mode).toBe("current");
+    expect(strict.missingDocsImpact).toEqual(["src/cli.ts"]);
+    expect(strict.historicalFiles).toEqual([]);
+
+    const relaxed = buildDocsImpact(workspace(), earlier, ["src/cli.ts", "src/other.ts"], { mode: "any" });
+    expect(relaxed.files.map((file) => [file.path, file.satisfied, file.historical ?? false])).toEqual([
+      ["src/cli.ts", true, true],
+      ["src/other.ts", false, false],
+    ]);
+    expect(relaxed.files[0]?.entries).toEqual([".ledger/entries/0001-docs.md"]);
+    expect(relaxed.missingDocsImpact).toEqual(["src/other.ts"]);
+    expect(relaxed.historicalFiles).toEqual(["src/cli.ts"]);
+    const report = formatDocsImpactReport(relaxed);
+    expect(report).toContain("- satisfied by earlier receipts: `src/cli.ts`");
+    expect(report).toContain("- Satisfied by earlier receipts (git.coverage any): 1");
+
+    const unreviewed = [document([], { status: "none", reason: "TODO: decide." })];
+    expect(buildDocsImpact(workspace(), unreviewed, ["src/cli.ts"], { mode: "any" }).missingDocsImpact).toEqual(["src/cli.ts"]);
+    const changedFirst = buildDocsImpact(workspace(), earlier, ["src/cli.ts", ".ledger/entries/0001-docs.md"], { mode: "any" });
+    expect(changedFirst.files[0]).toEqual(expect.not.objectContaining({ historical: true }));
+    expect(changedFirst.historicalFiles).toEqual([]);
+  });
+
   it("marks a listed file without a reviewed declaration as missing", () => {
     const impact = buildDocsImpact(
       workspace(),

@@ -564,7 +564,13 @@ itself part of the inspected change set, so a pull request carries its own
 receipt; a path listed only by older records is reported as `historical` and
 fails coverage. `any` accepts any record that lists the path, which is useful
 while adopting Ledger on a repository with history. `ledger coverage --mode`
-overrides the setting for one run.
+overrides the setting for one run. Docs impact follows the same setting: under
+`current` only change entries in the change set give a source file its docs
+impact evidence, and under `any` a file they do not satisfy may take it from
+an earlier receipt that lists the file and carries a reviewed `docsImpact`
+declaration or docs references. `ledger ci` judges both checks under one
+mode, so under `any` a pull request that changes a file an earlier receipt
+covers passes both; a file no receipt lists fails both.
 
 `ledger init` writes the defaults above. `ledger adopt` infers
 `requireEntryFor` and `ignore` from the tracked tree instead: each top-level

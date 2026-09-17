@@ -3,6 +3,7 @@ import { coveragePatternMatches, isCoverageRequired } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import type {
+  LedgerCoverageMode,
   LedgerDocsImpactDeclaration,
   LedgerDocsImpactEvidence,
   LedgerDocsImpactFile,
@@ -12,11 +13,22 @@ import type {
   ParsedLedgerDocument,
 } from "./types.js";
 
+export interface BuildDocsImpactOptions {
+  /**
+   * Coverage mode, defaulting to `git.coverage`. Under `current` only change
+   * entries in the change set give evidence; under `any` a source file they do
+   * not satisfy may take its evidence from an earlier receipt that lists it.
+   */
+  readonly mode?: LedgerCoverageMode;
+}
+
 export function buildDocsImpact(
   workspace: LedgerWorkspace,
   documents: readonly ParsedLedgerDocument[],
   changedFiles: readonly string[],
+  options: BuildDocsImpactOptions = {},
 ): LedgerDocsImpact {
+  const mode = options.mode ?? workspace.config.git.coverage;
   const normalizedChangedFiles = [...new Set(changedFiles.map(normalizePath))].sort();
   const docsRoot = normalizePath(workspace.config.docs.root);
   const changedSet = new Set(normalizedChangedFiles);
@@ -37,9 +49,19 @@ export function buildDocsImpact(
     docsRoot,
   );
   const declarations = collectDocsImpactDeclarations(changedEntryDocuments, docsRoot);
-  const files = sourceFiles.map((filePath) => docsImpactFile(filePath, changedEntryDocuments, docsRoot));
+  const earlierEntryDocuments = mode === "any"
+    ? documents.filter((document) => document.kind === "change" && !changedSet.has(normalizePath(document.relativePath)))
+    : [];
+  const files = sourceFiles.map((filePath): LedgerDocsImpactFile => {
+    const current = docsImpactFile(filePath, changedEntryDocuments, docsRoot);
+    if (current.satisfied || earlierEntryDocuments.length === 0) return current;
+    const earlier = docsImpactFile(filePath, earlierEntryDocuments, docsRoot);
+    if (!earlier.satisfied) return current;
+    return { ...earlier, entries: [...new Set([...current.entries, ...earlier.entries])].sort(), historical: true };
+  });
 
   return {
+    mode,
     docsRoot,
     changedFiles: normalizedChangedFiles,
     sourceFiles,
@@ -50,11 +72,12 @@ export function buildDocsImpact(
     declarations,
     files,
     missingDocsImpact: files.filter((file) => !file.satisfied).map((file) => file.path),
+    historicalFiles: files.filter((file) => file.historical).map((file) => file.path),
   };
 }
 
 /**
- * Evidence for one source file: every changed entry that lists the file
+ * Evidence for one source file: every given entry that lists the file
  * contributes its reviewed docs-impact declaration or its docs references.
  * A file with no evidence is missing docs impact, however many docs changed
  * elsewhere in the set.
@@ -110,6 +133,7 @@ export function formatDocsImpactReport(impact: LedgerDocsImpact): string {
     `- Referenced docs from changed entries: ${impact.referencedDocs.length}`,
     `- Explicit docs impact declarations: ${impact.declarations.length}`,
     `- Missing docs impact: ${impact.missingDocsImpact.length}`,
+    ...(impact.mode === "any" ? [`- Satisfied by earlier receipts (git.coverage any): ${impact.historicalFiles.length}`] : []),
     "",
     "## Source Files",
     "",
@@ -244,7 +268,7 @@ function declarationLines(
 function fileEvidenceLines(files: readonly LedgerDocsImpactFile[]): readonly string[] {
   if (files.length === 0) return ["None."];
   return files.flatMap((file) => {
-    const head = `- ${file.satisfied ? "satisfied" : "missing"}: \`${file.path}\``;
+    const head = `- ${file.historical ? "satisfied by earlier receipts" : file.satisfied ? "satisfied" : "missing"}: \`${file.path}\``;
     if (file.evidence.length === 0) {
       return [
         file.entries.length > 0

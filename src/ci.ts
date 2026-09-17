@@ -124,7 +124,7 @@ export async function runCiChecks(
     base: options.base,
     head: options.head,
   });
-  const docsImpact = buildDocsImpact(workspace, documents, coverage.changedFiles);
+  const docsImpact = buildDocsImpact(workspace, documents, coverage.changedFiles, { mode: coverage.mode });
   const checks: readonly LedgerCiCheck[] = [
     {
       name: "validate",
