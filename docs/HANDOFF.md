@@ -10,7 +10,8 @@ milestone lands or a plan changes; retire sections that stop being true.
   created by `.github/workflows/release.yml` through npm trusted publishing on
   2026-09-17 from kylebegeman/ledger#22; 0.8.0 shipped earlier that day from
   #20 and #21. The GitHub Release notes now come from `ledger release notes`.
-  `@kylebegeman/dossier` 0.6.7 publishes the same way from its own repo.
+  0.8.2 is prepared on branch `patch-0.8.2` (receipts 0163 to 0167).
+  `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
 - First outside adopter: Kore runs Ledger 0.8.1 with Claude Code and Codex
   hooks since kylebegeman/forge#26 (Kore receipt 0004), after 0.8.0 in
   kylebegeman/forge#25 and the 0.7.0 adoption in #22 and #24 (Ledger receipts
@@ -20,7 +21,9 @@ milestone lands or a plan changes; retire sections that stop being true.
   later bump is the three installers plus a Kore receipt. A second live
   Claude Code session there passed B010's last acceptance check on
   2026-09-17 (Kore receipt 0005 in kylebegeman/forge#27, Ledger receipt
-  0162), so B007 and B010 are landed.
+  0162), so B007 and B010 are landed. That session also found two OCI
+  staging checks that could never fail, fixed in kylebegeman/forge#28 (Kore
+  receipt 0006).
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
@@ -38,6 +41,7 @@ milestone lands or a plan changes; retire sections that stop being true.
 | 0.6.0 | Capture: `backlog new`, `decision new`, `promote`, `release notes`; the `session` record kind with `scratch`, `session start|touch|note|close|prune`, expiry, and promotion; `ready`; `hooks install` for Claude Code, Codex, and Cursor with the hidden `hook` dispatcher; `skills install`; `agents --write` | 0105 to 0111 |
 | 0.7.0 | Trust: current-change coverage (`git.coverage`), per-file docs impact evidence, symbol extractor provenance with `typescript` as an optional peer, `verify --run` with an evidence sidecar, anchor and invariant freshness, `ci --github` and the composite `action.yml`, the typed API client, the typed and bundled reader runtime with happy-dom tests, sharded search, chunked graph and details, `search --full-text` | 0112 to 0124 |
 | 0.8.0 | Adoption and capture: the `docs reconcile` guard; `agents.command` rendered into hooks, the agents block, the skill, and hook context; a one-time prompt notice for hook drafts and one draft per change; expired active sessions; prune keeps linked sessions and session records are committed; toolchain-aware `adopt` with a marked `.gitignore` block; the README rebuilt around real output and the emerald mark; hook drafts that respect receipts written by hand; `verify --run` matching `agents.command`; docs impact under `git.coverage`; one updated pull request comment from the action; inline code in the reader; stale and doctor skip binary files; skipped view transitions no longer log errors | 0131 to 0137, 0141 to 0148 |
+| 0.8.2 | Drafts that fit the change and upkeep: draft symbols and anchors from the lines a diff changed; `ledger ci` lists failing files and names an active hooked session and its draft; `release --update` for receipts that land after a release record; a TypeScript loader that reads 5.0 to 5.4, skips TypeScript 7 without crashing, and tries `@typescript/typescript6`; historical stale references acknowledged and resolved product notes marked; Vitest 5, Node 22 types, MCP SDK 1.30, v7 action pins, and Dependabot holds on TypeScript and Node type majors; B010 closed | 0158, 0159, 0162 to 0167 |
 | 0.8.1 | Audit of 0.8.0: the write lock waits and hook writes retry so parallel tool calls keep every path; Git paths rebased onto a Ledger root inside a repository; every new draft announced and the notice store pruned; per-entry hook merge; every managed agents block replaced; capped draft titles, areas, and symbols; CRLF-preserving record edits; reader search ranked like the CLI, a palette that works from disk, modified clicks, a linear code-span scanner, and a visible light-theme chip; environment assignments matched by `verification.allow`; only change entries cover a path; reviewed docs impact reasons for every status; `adopt` ignoring vendored and nested build output and proposing only read-only checks; `docs reconcile` refusing unreadable paths; release notes from `ledger release notes`; earlier receipts under `git.coverage: any` counting only for files they name; a pinned README demo clock and a CI check on the cards | 0149 to 0157 |
 
 Read the receipts for invariants and conflict rules before touching those
@@ -108,6 +112,19 @@ D006 records what was retired; D007 records the runtime decision below.
 - The mark is an emerald ruled L with no background shape, and the reader's
   accent follows it (receipt 0137). B009 should keep both unless Kyle decides
   otherwise.
+- Drafts take symbols only from the lines a diff changed; a line inside a
+  subsection counts for its innermost heading, and an edit outside every
+  symbol leaves a TODO anchor (receipt 0163).
+- `ledger ci` keeps failing mid-turn while a hooked session's receipt is
+  undrafted or unfinished; the report only names the session and its draft,
+  and GitHub output never includes those hints (receipt 0163).
+- A receipt that lands after its release record joins it with
+  `release --update`; `--write` still refuses an existing record rather than
+  merging into it (receipt 0165).
+- TypeScript stays on 5.x. TypeScript 7 ships no JavaScript compiler API, so
+  Ledger treats it as unavailable unless `@typescript/typescript6` is
+  installed beside it, Dependabot skips TypeScript and `@types/node` majors,
+  and `@types/node` follows the Node 22 engines floor (receipt 0166).
 
 ## How capture and trust work in this repository
 
@@ -144,17 +161,20 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Drafts that fit the change** (product notes 0160 and 0161), as a small
-   patch release: drafted symbols and anchors limited to the symbols whose
-   line ranges contain a changed line, and `coverage` and `docs-impact`
-   messages that name an active session's coming or existing draft instead
-   of leaving the agent to guess. Then move Kore's pin with the installers.
+1. **Publish 0.8.2** from `patch-0.8.2`, then move Kore's pin with the
+   installers and a Kore receipt.
 2. **Dossier visual system** (backlog B009): unblocked, because the reader
    stylesheet is a real file at `src/reader/styles.css` and the runtime is
-   typed and browser-tested.
-3. Deferred until the MCP TypeScript SDK implements the 2026-07-28 protocol:
-   multi round-trip confirmation on write tools, the Tasks extension, and list
-   caching TTLs. The installed SDK 1.29 speaks 2025-11-25.
+   typed and browser-tested. Dossier 0.7.2 replaced the token files B009
+   names; its system now lives in `core/internal/render/assets/tokens.css`.
+3. **MCP protocol 2026-07-28**: the blocker is gone, but the work needs new
+   production dependencies. SDK 1.30.0 still speaks 2025-11-25, while the v2
+   packages (`@modelcontextprotocol/server`, `/node` with a `hono` peer, and
+   the rest, stable since 2026-07-28) implement 2026-07-28. That spec adds
+   `inputRequired` for multi round-trip confirmation, `cacheHints` for list
+   TTLs, and `createMcpHandler` and `serveStdio`, and it deprecates the
+   2025-11-25 Tasks vocabulary. A codemod moves imports. Write tools stay off
+   MCP until that confirmation exists.
 
 ## Conventions that were in force
 
@@ -170,7 +190,8 @@ D006 records what was retired; D007 records the runtime decision below.
   with `LEDGER_UPDATE_CONTRACT=1 npx vitest run test/operations.test.ts`;
   review the diff as a contract change and mention it in the receipt.
 - `npm run ci` is the gate; check its exit status explicitly. In one session a
-  grep pipeline hid a typecheck failure and a broken commit reached CI.
+  grep pipeline hid a typecheck failure and a broken commit reached CI. It
+  needs Node 22.12 or newer for Vitest 5.
 - The reader runtime and stylesheet live in `src/reader/` and are bundled with
   esbuild into `dist/reader/`; `npm run build` and `npm test` run
   `build:reader` first. Browser tests use a file-level
@@ -204,24 +225,10 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Open threads and small debts
 
-- `ledger stale` reports 66 issues in historical records, nearly all stale
-  anchors from the 0.4 registry refactor (command functions that left
-  `src/cli.ts`). README headings removed by 0137 are acknowledged with
-  `staleRefs`. Curate the rest with `staleRefs: ["anchors:<name>"]` or a
-  `historical` status.
-- Four Dependabot PRs on the Ledger repo (actions and dependency bumps) are
-  still open; `actions/checkout` and `actions/setup-node` v7 bumps would also
-  silence the Node 20 deprecation warnings in the release workflow. The
-  composite action pins `actions/setup-node` too.
-- `ledger new --from-diff` and hook drafts list a changed file's first
-  symbols, up to 12, not the symbols the change touched. 0137's draft listed
-  the whole README, and Kore receipt 0005's draft listed every
-  `CHANGELOG.md` heading for a one-line change (product note 0160).
-- `ledger release --assign` writes the version into entries even without
-  `--write`, as its help says, so a preview with `--assign` is not read-only.
-  Adding receipts to an existing release record takes that command without
-  `--write` plus a hand edit of the record, because `--write` refuses an
-  existing record.
+- `ledger stale` reports nothing. Historical names are acknowledged with
+  `staleRefs` (receipt 0164), so a new signal is real.
+- Dependabot pull requests #2, #4, #5, and #9 are superseded by receipt 0166.
+  Close any that remain open after the next Dependabot run.
 - The reader screenshots have no capture script because Playwright is not a
   dependency; the last captures ran Playwright through an assistant tool with
   the `CONTRIBUTING.md` settings. `.claude/launch.json` serves the readers on
@@ -234,8 +241,12 @@ D006 records what was retired; D007 records the runtime decision below.
   next session start. In the Claude desktop app, `/exit` does not fire
   SessionEnd, so a session record stays active until it expires or
   `ledger session close --id <id>` closes it.
-- Dossier still has a `next` branch and Node 18 through 22 CI; Ledger's branch
-  model was not applied there.
+- Dossier's `next` branch is fully merged, with no commits of its own and no
+  references. Deleting it (`git push origin --delete next` in the Dossier
+  checkout) was refused by the assistant's permission check and is left for
+  Kyle. Dossier's CI already runs Ubuntu with Node 22 and 24. Its own docs
+  describe a release-branch model, so Ledger's model is not imposed there.
+  Its launcher still declares Node 18 or newer, which is Dossier's call.
 - The two dated reports under `docs/scratchpad/` from 2026-08-30 and the
   2026-09-15 brainstorm are history. The brainstorm's Section 13 records the
   answered decisions; Sections 11 and 12 list the verdicts and sequencing that
@@ -246,10 +257,10 @@ D006 records what was retired; D007 records the runtime decision below.
 ## Quick verification of the current state
 
 ```sh
-node dist/cli.js version            # 0.8.1
-node dist/cli.js doctor             # all checks pass; engine, symbols, verification may warn
-node dist/cli.js unreleased         # receipts landed since v0.8.1 (0158 and later)
+node dist/cli.js version            # 0.8.2
+node dist/cli.js doctor             # all checks pass; engine and verification may warn
+node dist/cli.js unreleased         # receipts landed since the last release
 node dist/cli.js coverage --explain # current mode
-node dist/cli.js stale              # historical anchor drift listed
+node dist/cli.js stale              # no stale knowledge signals
 gh pr list --repo kylebegeman/ledger
 ```

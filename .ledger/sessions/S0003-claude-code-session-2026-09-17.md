@@ -7,12 +7,17 @@ updated: "2026-09-17"
 status: "active"
 expires: "2026-09-24"
 areas:
+  - "ci"
   - "docs"
+  - "git"
+  - "newentry"
+  - "operations"
   - "reader"
   - "render"
   - "renderhtml"
   - "scripts"
   - "stale"
+  - "symbols"
   - "tests"
 files:
   - "src/renderHtml.ts"
@@ -38,6 +43,17 @@ files:
   - "scripts/readme-clock.mjs"
   - "vitest.config.ts"
   - "docs/ROADMAP.md"
+  - "src/symbols.ts"
+  - "src/git.ts"
+  - "src/newEntry.ts"
+  - "src/sessions.ts"
+  - "src/ci.ts"
+  - "src/operations/definitions/changes.ts"
+  - "src/skills.ts"
+  - "test/draftFit.test.ts"
+  - "test/release.test.ts"
+  - "CONTRIBUTING.md"
+  - ".github/dependabot.yml"
 host: "claude-code"
 hostSession: "71358ecc-08f4-4086-aa8b-4fbccb7ed699"
 related:
@@ -59,6 +75,11 @@ related:
   - "0160"
   - "0161"
   - "0162"
+  - "0163"
+  - "0164"
+  - "0165"
+  - "0166"
+  - "0167"
 ---
 
 # S0003: Claude Code session 2026-09-17
@@ -88,14 +109,32 @@ live Kore session from a prompt written here, and it passed: Kore receipt
 kylebegeman/forge#27. B010 is landed (0162), and product notes 0160 and 0161
 record the draft problems the session exposed.
 
+Kyle then asked for everything left to be finished. On branch `patch-0.8.2`,
+drafts now take symbols from changed lines, and mid-turn checks name the
+hooked session (0163). Historical stale references and resolved product notes
+are curated, and the npx hook latency is measured (0164). `release --update`
+landed (0165). A dependency review found that 0.8.1 crashes drafts beside
+TypeScript 7 or TypeScript 5.0 to 5.4, fixed with the Dependabot updates in
+0166, and 0167 prepares v0.8.2. A background agent fixed Kore's OCI staging
+checks in kylebegeman/forge#28 (merged), and another wrote the Dossier 0.7.2
+porting spec for B009.
+
 ## Learned
 
 - `serve` without `--watch` renders once at startup, so a capture server has
   to restart after records change. Servers left by another session can hold
   ports 4173 and 4174.
-- Receipts join an existing release record through
-  `release <version> --include-unreleased --assign` without `--write`,
-  followed by a hand edit of the record.
+- Receipts join an existing release record with
+  `release <version> --include-unreleased --assign --update` since 0165;
+  before, that took `--assign` without `--write` and a hand edit.
+- TypeScript 7.0.2 exports only `version` from its package root.
+  `@typescript/typescript6` is published up to 6.0.2, and its parser reports
+  6.0.3.
+- The auto-mode permission check refused deleting a remote branch (Dossier's
+  merged `next`) as a destructive Git action.
+- Timing hooks with a cached Ledger package found through `~/.npm/_npx` can
+  pick an older version without newer guards; 0.7.0 recorded a session for a
+  payload without a session id.
 - In a hidden Chromium tab, `startViewTransition` still runs the update, and
   only `ready` rejects with `InvalidStateError`; `finished` rejects only when
   the update throws.
@@ -108,5 +147,8 @@ record the draft problems the session exposed.
 
 ## Next
 
-- Kyle re-approves Kore's Codex hooks and runs the second live Kore session,
-  with edits to several files in one turn, that closes B010.
+- Publish 0.8.2, then move Kore's pin to it with the installers.
+- Port Dossier 0.7.2's visual system into the reader for B009, from the spec
+  recorded in the B009 receipt.
+- Kyle deletes Dossier's merged `next` branch, and decides whether MCP
+  protocol 2026-07-28 may add the v2 SDK packages.

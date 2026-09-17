@@ -279,9 +279,11 @@ configured Ledger command, the drafted receipt notice, session retention, and
 toolchain-aware `adopt`), with the fixes from an audit of that slice in
 0.8.1 (concurrent hook writes, a Ledger root inside a repository, reader
 search parity, and tighter verification and coverage trust). A second live
-Kore session closed backlog B010 on 2026-09-17. Drafts scoped to the change
-(product notes 0160 and 0161) and the Dossier visual system (backlog B009)
-are next. Direction accepted in decision D005 on 2026-09-15.
+Kore session closed backlog B010 on 2026-09-17, and 0.8.2 fits drafts to the
+change (product notes 0160 and 0161), names the hooked session in mid-turn
+checks, and adds `release --update`. The Dossier visual system (backlog B009)
+is next, then MCP protocol 2026-07-28 on the v2 SDK. Direction accepted in
+decision D005 on 2026-09-15.
 
 The full brainstorm, including verdicts on every earlier proposal, is in
 `docs/scratchpad/next-version-brainstorm-2026-09-15.md`. Retired proposals are

@@ -25,6 +25,7 @@ backlog:
 related:
   - "0155"
   - "0130"
+release: "v0.8.2"
 ---
 
 # 0158: Record The v0.8.1 Publish And Kore's Move To It

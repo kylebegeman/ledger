@@ -45,6 +45,7 @@ related:
   - "0058"
   - "0114"
   - "0163"
+release: "v0.8.2"
 ---
 
 # 0166: Read TypeScript 5.0 To 5.4 And Skip TypeScript 7, And Update Dependencies And Actions
