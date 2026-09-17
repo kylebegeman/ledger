@@ -28,6 +28,7 @@ commits: []
 related:
   - "0137"
   - "0150"
+release: "v0.8.1"
 ---
 
 # 0157: Pin The README Demo Clock And Check The Cards In CI

@@ -40,6 +40,7 @@ related:
   - "0144"
   - "0154"
   - "0112"
+release: "v0.8.1"
 ---
 
 # 0156: Count Earlier Receipts Under Coverage Any Only For Files They Name
