@@ -286,3 +286,29 @@ function statusFromCode(code: string): GitChangeStatus {
 function compareChangedFiles(left: GitChangedFile, right: GitChangedFile): number {
   return left.path.localeCompare(right.path);
 }
+
+/** Upper bound on tracked paths returned by listTrackedFiles; larger trees are truncated. */
+export const maxTrackedFiles = 200_000;
+const trackedFilesMaxBuffer = 64 * 1024 * 1024;
+
+/**
+ * Tracked files relative to cwd, sorted, as git ls-files reports them. Returns an empty list
+ * when Git is unavailable, cwd is outside a work tree, or the listing fails.
+ */
+export async function listTrackedFiles(cwd: string): Promise<readonly string[]> {
+  const inspection = await inspectGit(cwd);
+  if (!inspection.available || !inspection.insideWorkTree) return [];
+  try {
+    const { stdout } = await execFileAsync("git", ["ls-files", "-z", "--cached"], {
+      cwd,
+      maxBuffer: trackedFilesMaxBuffer,
+    });
+    return stdout
+      .split("\0")
+      .filter((file) => file.length > 0)
+      .sort()
+      .slice(0, maxTrackedFiles);
+  } catch {
+    return [];
+  }
+}

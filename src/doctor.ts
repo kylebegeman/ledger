@@ -4,12 +4,13 @@ import { inspectLedgerCatalogCache } from "./catalogCache.js";
 import { probeEngine, readDaemonRecord } from "./daemon.js";
 import { auditDocs } from "./docs.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
-import { inspectGit } from "./git.js";
+import { isCoverageRequired } from "./coverage.js";
+import { inspectGit, listTrackedFiles } from "./git.js";
 import { inspectWorkspaceWriteState } from "./fileTransaction.js";
 import { measureLedgerPerformance, type LedgerPerformanceResult } from "./performance.js";
 import { checkRenderBudgets } from "./render.js";
 import { detectStaleKnowledge } from "./stale.js";
-import { symbolExtractorStatus } from "./symbols.js";
+import { summarizeSymbolLanguages, symbolExtractorStatus } from "./symbols.js";
 import { evidenceFreshness, readEvidence } from "./verify.js";
 import type {
   LedgerDocsAudit,
@@ -69,7 +70,7 @@ export async function runDoctor(
     await renderOutputCheck(workspace),
     await renderBudgetCheck(workspace),
     performanceCheck(performance),
-    await symbolsCheck(),
+    await symbolsCheck(workspace),
     await verificationCheck(workspace, documents),
     {
       name: "stale-knowledge",
@@ -104,7 +105,21 @@ async function verificationCheck(
   return { name: "verification", level: "pass", message };
 }
 
-async function symbolsCheck(): Promise<LedgerDoctorCheck> {
+async function symbolsCheck(workspace: LedgerWorkspace): Promise<LedgerDoctorCheck> {
+  const covered = (await listTrackedFiles(workspace.projectRoot)).filter((file) =>
+    isCoverageRequired(workspace, file),
+  );
+  const languages = summarizeSymbolLanguages(covered);
+  if (covered.length > 0 && !languages.extractable) {
+    const named = languages.otherLanguages.length > 0
+      ? languages.otherLanguages.join(", ")
+      : "other-language";
+    return {
+      name: "symbols",
+      level: "pass",
+      message: `no TypeScript or JavaScript under coverage; symbol extraction covers TypeScript, JavaScript, and Markdown, so ${named} anchors are not extracted or checked`,
+    };
+  }
   const statuses = await symbolExtractorStatus();
   const typescript = statuses.find((status) => status.name === "typescript");
   if (typescript?.available) {

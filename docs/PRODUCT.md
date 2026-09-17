@@ -113,10 +113,6 @@ Ledger's default root directory is `.ledger/`:
     decision.md
     release.md
 
-  policies/
-    coverage.yaml
-    verification.yaml
-
   indexes/
     manifest.json
     by-file.json

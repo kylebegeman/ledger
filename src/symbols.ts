@@ -31,7 +31,43 @@ export interface LedgerSymbolExtractorStatus {
   readonly reason?: string;
 }
 
-const codeExtensions = [".ts", ".tsx", ".js", ".jsx"];
+/** Extensions the TypeScript parser or regex fallback extracts code symbols from. */
+export const codeExtensions: readonly string[] = [".ts", ".tsx", ".js", ".jsx"];
+
+/** Languages Ledger recognizes but has no symbol extractor for, by extension. */
+const otherLanguageExtensions: ReadonlyMap<string, string> = new Map([
+  [".go", "Go"],
+  [".rs", "Rust"],
+  [".py", "Python"],
+  [".swift", "Swift"],
+  [".java", "Java"],
+  [".kt", "Kotlin"],
+  [".rb", "Ruby"],
+  [".c", "C and C++"],
+  [".h", "C and C++"],
+  [".cpp", "C and C++"],
+  [".cs", "C#"],
+]);
+
+export interface LedgerSymbolLanguageSummary {
+  /** True when any file has a TypeScript or JavaScript extension. */
+  readonly extractable: boolean;
+  /** Recognized languages without a symbol extractor, sorted. */
+  readonly otherLanguages: readonly string[];
+}
+
+/** Whether code symbols can be extracted from these paths, and which other languages appear. */
+export function summarizeSymbolLanguages(files: readonly string[]): LedgerSymbolLanguageSummary {
+  let extractable = false;
+  const otherLanguages = new Set<string>();
+  for (const file of files) {
+    const extension = path.posix.extname(file).toLowerCase();
+    if (codeExtensions.includes(extension)) extractable = true;
+    const language = otherLanguageExtensions.get(extension);
+    if (language) otherLanguages.add(language);
+  }
+  return { extractable, otherLanguages: [...otherLanguages].sort() };
+}
 const markdownExtensions = [".md", ".mdx"];
 
 let loadedTypeScript: TypeScriptModule | undefined;

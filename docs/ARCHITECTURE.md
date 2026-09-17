@@ -729,9 +729,14 @@ Creates `.ledger/` with:
 - config
 - README
 - templates
-- policies
 - source directories
 - generated output directories
+- a marked `.gitignore` block for derived state, replaced in place on later runs
+
+`ledger adopt` does the same with docs routing, and first inspects the tracked
+tree (`git ls-files`) to infer coverage roots, generated-code ignores, and a
+proposed `verification.allow` for the new config, which it writes with
+`git.coverage: any`; an existing docs tree is left alone apart from `docs/llm`.
 
 ### `ledger new`
 
