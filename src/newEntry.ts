@@ -32,6 +32,8 @@ export interface CreateEntryOptions {
   readonly sectionBodies?: Readonly<Record<string, string>>;
   /** Coverage patterns whose matching files stay out of the Git-derived list, such as files another receipt lists. */
   readonly excludeFiles?: readonly string[];
+  /** Working-tree changes the caller already read, used instead of asking Git again when `fromDiff` is set. */
+  readonly changedFiles?: readonly GitChangedFile[];
 }
 
 export interface DraftedRecord {
@@ -78,7 +80,7 @@ export async function draftChangeEntry(
   const slug = slugify(options.title);
   const relativePath = path.join(workspace.config.source.entries, `${id}-${slug}.md`);
   const changedFiles = options.fromDiff
-    ? (await getChangedFileDetails(workspace.projectRoot, { staged: options.staged })).filter(
+    ? (options.changedFiles ?? (await getChangedFileDetails(workspace.projectRoot, { staged: options.staged }))).filter(
         (file) =>
           !isIgnoredByGitConfig(workspace, file.path) &&
           !isLedgerScaffoldPath(workspace, file.path) &&

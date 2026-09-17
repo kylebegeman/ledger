@@ -89,7 +89,18 @@ export async function getChangedFileDetails(
   options: GetChangedFilesOptions = {},
 ): Promise<readonly GitChangedFile[]> {
   validateChangedFilesOptions(options);
+  try {
+    return await relativeToProject(cwd, await repositoryChangedFiles(cwd, options));
+  } catch (error) {
+    throw changedFilesError(error, options);
+  }
+}
 
+/** Changed files as Git reports them, relative to the repository root. */
+async function repositoryChangedFiles(
+  cwd: string,
+  options: GetChangedFilesOptions,
+): Promise<readonly GitChangedFile[]> {
   try {
     if (options.base !== undefined && options.head !== undefined) {
       const { stdout } = await execFileAsync(
@@ -118,13 +129,28 @@ export async function getChangedFileDetails(
 
     const { stdout } = await execFileAsync(
       "git",
-      ["status", "--short", "-z", "--untracked-files=all"],
+      ["status", "--porcelain=v1", "-z", "--untracked-files=all"],
       { cwd },
     );
     return parseNullDelimitedShortStatus(stdout).sort(compareChangedFiles);
   } catch (error) {
     throw changedFilesError(error, options);
   }
+}
+
+/**
+ * Git reports status and diff paths from the repository root, while Ledger
+ * works with paths relative to its project root, which may be a directory
+ * inside the repository. Paths under the project root are rebased onto it;
+ * paths elsewhere in the repository are dropped.
+ */
+async function relativeToProject(cwd: string, files: readonly GitChangedFile[]): Promise<readonly GitChangedFile[]> {
+  const { stdout } = await execFileAsync("git", ["rev-parse", "--show-prefix"], { cwd });
+  const prefix = stdout.trim();
+  if (prefix.length === 0) return files;
+  return files
+    .filter((file) => file.path.startsWith(prefix))
+    .map((file) => ({ ...file, path: file.path.slice(prefix.length) }));
 }
 
 function validateChangedFilesOptions(options: GetChangedFilesOptions): void {

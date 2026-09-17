@@ -9,7 +9,7 @@ import {
   setFrontmatterScalars,
 } from "./frontmatterEdit.js";
 import { LedgerError } from "./machine.js";
-import { getChangedFileDetails } from "./git.js";
+import { getChangedFileDetails, type GitChangedFile } from "./git.js";
 import { defaultDraftTitle, draftChangeEntry, inferAreas, slugify } from "./newEntry.js";
 import { nextRecordId } from "./authoring.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
@@ -348,7 +348,8 @@ export async function draftSessionReceipt(
   const linked = changes.filter(
     ({ normalized: entry }) => normalized.related.includes(entry.id) || entry.related.includes(normalized.id),
   );
-  const pending = options.fromDiff ? await pendingWorkingTreePaths(workspace) : undefined;
+  const changed = options.fromDiff ? await pendingWorkingTreeChanges(workspace) : undefined;
+  const pending = changed ? new Set(changed.map((file) => normalizePath(file.path))) : undefined;
   const covering = pending
     ? [
         ...linked,
@@ -397,13 +398,10 @@ export async function draftSessionReceipt(
       normalizePath(record.relativePath),
     ]),
   };
-  let draft;
-  try {
-    draft = await draftChangeEntry(workspace, documents, { ...entryOptions, fromDiff: options.fromDiff });
-  } catch (error) {
-    if (!options.fromDiff) throw error;
-    draft = await draftChangeEntry(workspace, documents, { ...entryOptions, fromDiff: false });
-  }
+  // Without Git the draft is built from the touched paths alone; with it, the listing above is reused.
+  const draft = changed
+    ? await draftChangeEntry(workspace, documents, { ...entryOptions, fromDiff: true, changedFiles: changed })
+    : await draftChangeEntry(workspace, documents, { ...entryOptions, fromDiff: false });
   let session = setFrontmatterArray(parsed.raw, "related", [...new Set([...normalized.related, draft.id])]);
   session = setFrontmatterScalars(session, { updated: today });
   await applyFileTransaction(workspace, `draft receipt for ${normalized.id}`, [
@@ -416,11 +414,10 @@ export async function draftSessionReceipt(
   };
 }
 
-/** Paths that differ from HEAD, untracked files included, or undefined when Git cannot answer. */
-async function pendingWorkingTreePaths(workspace: LedgerWorkspace): Promise<ReadonlySet<string> | undefined> {
+/** Files that differ from HEAD, untracked files included, or undefined when Git cannot answer. */
+async function pendingWorkingTreeChanges(workspace: LedgerWorkspace): Promise<readonly GitChangedFile[] | undefined> {
   try {
-    const files = await getChangedFileDetails(workspace.projectRoot);
-    return new Set(files.map((file) => normalizePath(file.path)));
+    return await getChangedFileDetails(workspace.projectRoot);
   } catch {
     return undefined;
   }

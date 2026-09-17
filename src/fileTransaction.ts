@@ -85,6 +85,10 @@ interface LockOwner {
 }
 
 const staleLockMs = 15 * 60 * 1000;
+/** How long a writer waits for another process to release the lock before giving up. */
+const lockWaitMs = 5_000;
+const lockRetryBaseMs = 20;
+const lockRetryMaxMs = 200;
 const maxLockBytes = 16 * 1024;
 const maxOperationLength = 500;
 /** index.html, the search index stub, graph.json, graph/contracts.json, and the sources manifest. */
@@ -432,8 +436,16 @@ async function withWorkspaceWriteLock<T>(
   }
 }
 
+/**
+ * Take the lock, waiting with jittered backoff while another live process
+ * holds it, because hosts run hooks for parallel tool calls at the same time
+ * and each one records its paths. A stale lock is removed once; the wait
+ * gives up after `lockWaitMs`.
+ */
 async function acquireLock(lockPath: string, owner: LockOwner) {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const deadline = Date.now() + lockWaitMs;
+  let staleLockRemoved = false;
+  for (let attempt = 0; ; attempt += 1) {
     try {
       const handle = await open(lockPath, "wx");
       try {
@@ -448,14 +460,16 @@ async function acquireLock(lockPath: string, owner: LockOwner) {
     } catch (error) {
       if (!isCode(error, "EEXIST")) throw error;
       const existing = await readLockMetadata(lockPath);
-      if (attempt === 0 && isStaleLock(existing.owner, existing.modifiedAt)) {
+      if (!staleLockRemoved && isStaleLock(existing.owner, existing.modifiedAt)) {
+        staleLockRemoved = true;
         await removeStaleLock(lockPath);
         continue;
       }
-      throw new WorkspaceWriteLockedError(existing.owner);
+      if (Date.now() >= deadline) throw new WorkspaceWriteLockedError(existing.owner);
+      const delay = Math.min(lockRetryBaseMs * 2 ** attempt, lockRetryMaxMs) * (0.5 + Math.random());
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  throw new WorkspaceWriteLockedError();
 }
 
 async function readLockOwner(lockPath: string): Promise<Partial<LockOwner> | undefined> {
