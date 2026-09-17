@@ -69,6 +69,23 @@ describe("chunked reader artifacts", () => {
     expect(shards.flatMap((file) => JSON.parse(file.content) as unknown[])).toHaveLength(40);
   });
 
+  it("fills search shards up to the budget with nested, multi-line documents", () => {
+    const documents = Array.from({ length: 60 }, (_, index) => ({
+      id: String(index),
+      fields: { title: `Record ${index}`, files: Array.from({ length: 12 }, (_, file) => `src/area-${index}/file-${file}.ts`) },
+      terms: "word ".repeat(40),
+    }));
+    for (const maxBytes of [3_000, 5_000, 12_345]) {
+      const shards = shardSearchIndex(documents, maxBytes).files.slice(1);
+      const sizes = shards.map((file) => Buffer.byteLength(file.content, "utf8"));
+      expect(sizes.every((size) => size <= maxBytes)).toBe(true);
+      // Every shard but the last is full: even the largest document would not have fit.
+      const largest = Math.max(...documents.map((document) => Buffer.byteLength(JSON.stringify(document), "utf8")));
+      expect(sizes.slice(0, -1).every((size) => size + largest + 1 > maxBytes)).toBe(true);
+      expect(shards.flatMap((file) => JSON.parse(file.content) as unknown[])).toHaveLength(60);
+    }
+  });
+
   it("splits contract nodes out of the record graph", () => {
     const chunks = chunkRelationshipGraph({
       nodes: [
