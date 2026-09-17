@@ -2,11 +2,12 @@ import { access, mkdir } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
-import { normalizeDocument, normalizePath } from "./documents.js";
-import { applyFileTransaction, hashFileContent } from "./fileTransaction.js";
-import { setFrontmatterScalars } from "./frontmatterEdit.js";
+import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
+import { applyFileTransaction, hashFileContent, type LedgerFileChange } from "./fileTransaction.js";
+import { replaceSectionBody, setFrontmatterArray, setFrontmatterScalars } from "./frontmatterEdit.js";
 import { LedgerError } from "./machine.js";
 import { resolveSafeProjectPath } from "./projectPaths.js";
+import { getSectionBody } from "./query.js";
 import type {
   LedgerWorkspace,
   NormalizedLedgerDocument,
@@ -34,6 +35,17 @@ export interface AssignReleaseResult {
 export interface ApplyReleaseResult {
   readonly assignment?: AssignReleaseResult;
   readonly writtenPath?: string;
+  /** With `update`: the existing record and the entry ids added to it. */
+  readonly updated?: { readonly path: string; readonly addedEntries: readonly string[] };
+}
+
+export interface ApplyReleaseOptions {
+  /** Write the release version into each selected entry. */
+  readonly assign: boolean;
+  /** Create the release record; refused when it exists. */
+  readonly write: boolean;
+  /** Add selected entries missing from the existing record; refused when it does not exist. */
+  readonly update?: boolean;
 }
 
 export function getUnreleasedChanges(
@@ -146,9 +158,15 @@ export async function applyRelease(
   workspace: LedgerWorkspace,
   documents: readonly ParsedLedgerDocument[],
   release: LedgerReleaseDocument,
-  options: { readonly assign: boolean; readonly write: boolean },
+  options: ApplyReleaseOptions,
 ): Promise<ApplyReleaseResult> {
   validateReleaseVersion(release.version);
+  if (options.write && options.update) {
+    throw new LedgerError(
+      "invalid-argument",
+      "--write creates a release record and --update extends an existing one; pass only one of them.",
+    );
+  }
   const changes = [];
   if (options.assign) {
     const parsedByPath = new Map(documents.map((document) => [normalizePath(document.relativePath), document]));
@@ -173,11 +191,18 @@ export async function applyRelease(
     writtenPath = normalizePath(path.relative(workspace.projectRoot, absolutePath));
     changes.push({ path: writtenPath, content: release.markdown, expectedHash: null });
   }
+  let updated: ApplyReleaseResult["updated"];
+  if (options.update) {
+    const extended = extendReleaseRecord(workspace, documents, release);
+    updated = { path: extended.path, addedEntries: extended.addedEntries };
+    if (extended.change) changes.push(extended.change);
+  }
   if (changes.length === 0) {
     return {
       assignment: options.assign
         ? { version: release.version, updatedEntries: [] }
         : undefined,
+      updated,
     };
   }
   const result = await applyFileTransaction(workspace, `apply release ${release.version}`, changes);
@@ -190,6 +215,46 @@ export async function applyRelease(
         }
       : undefined,
     writtenPath,
+    updated,
+  };
+}
+
+/**
+ * Add the selected entries that an existing release record does not list yet:
+ * their ids join `entries` and their lines join `## Changes`, and `updated`
+ * moves to today. The summary, public notes, verification, and known issues
+ * are written by hand, so they are left as they are.
+ */
+function extendReleaseRecord(
+  workspace: LedgerWorkspace,
+  documents: readonly ParsedLedgerDocument[],
+  release: LedgerReleaseDocument,
+): { readonly path: string; readonly addedEntries: readonly string[]; readonly change?: LedgerFileChange } {
+  const relativePath = normalizePath(path.relative(workspace.projectRoot, releaseDocumentPath(workspace, release.version)));
+  const existing = documents.find((document) => normalizePath(document.relativePath) === relativePath);
+  if (!existing) {
+    throw new LedgerError(
+      "record-not-found",
+      `No release record at ${relativePath}; create it with --write.`,
+      { path: relativePath },
+    );
+  }
+  const listed = stringArrayValue(existing.frontmatter.entries);
+  const added = release.entries.filter((entry) => !listed.includes(entry.id));
+  if (added.length === 0) return { path: relativePath, addedEntries: [] };
+  const placeholder = changeLines([])[0];
+  const currentChanges = (getSectionBody(existing, "Changes") ?? "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== placeholder)
+    .join("\n")
+    .trim();
+  let content = setFrontmatterArray(existing.raw, "entries", [...listed, ...added.map((entry) => entry.id)]);
+  content = setFrontmatterScalars(content, { updated: today() }, "update release");
+  content = replaceSectionBody(content, "Changes", [currentChanges, ...changeLines(added)].filter(Boolean).join("\n"));
+  return {
+    path: relativePath,
+    addedEntries: added.map((entry) => entry.id),
+    change: { path: relativePath, content, expectedHash: hashFileContent(existing.raw) },
   };
 }
 
