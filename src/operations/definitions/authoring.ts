@@ -6,10 +6,22 @@ import {
   createDecision,
   promoteRecord,
   readReleaseNotes,
+  recordListFields,
+  updateRecord,
+  type LedgerRecordListField,
   type PromoteResult,
   type ReleaseNotes,
+  type UpdateRecordResult,
 } from "../../authoring.js";
-import { createChangeEntryDetailed, createProductNoteEntry, type LedgerSymbolExtractorReport } from "../../newEntry.js";
+import {
+  createChangeEntryDetailed,
+  createProductNoteEntry,
+  draftChangeEntry,
+  type CreateEntryOptions,
+  type LedgerDocsImpactInput,
+  type LedgerSymbolExtractorReport,
+} from "../../newEntry.js";
+import type { LedgerSectionBodies } from "../../sections.js";
 import {
   applyRelease,
   buildReleaseDocument,
@@ -20,7 +32,20 @@ import {
 import { typeScriptFallbackAdvice } from "../../symbols.js";
 import type { NormalizedLedgerDocument } from "../../types.js";
 import { validateDocuments, writeValidationReport } from "../../validate.js";
-import { loadDocuments, looseRecord, plural, quoteForConfirmation, shortString } from "../shared.js";
+import {
+  describeSections,
+  docsImpactFlags,
+  docsImpactInput,
+  loadDocuments,
+  looseRecord,
+  pathString,
+  plural,
+  prepareRecordFlags,
+  quoteForConfirmation,
+  sectionFlags,
+  sectionsInput,
+  shortString,
+} from "../shared.js";
 import { defineOperation } from "../types.js";
 
 export interface NewEntryInput extends Record<string, unknown> {
@@ -29,7 +54,39 @@ export interface NewEntryInput extends Record<string, unknown> {
   readonly staged?: boolean;
   readonly areas?: readonly string[];
   readonly status: string;
+  readonly files?: readonly string[];
+  readonly docs?: readonly string[];
+  readonly symbols?: readonly string[];
+  readonly related?: readonly string[];
+  readonly decisions?: readonly string[];
+  readonly backlog?: readonly string[];
+  readonly docsImpact?: LedgerDocsImpactInput;
+  readonly sections?: LedgerSectionBodies;
 }
+
+function changeEntryOptions(input: NewEntryInput): CreateEntryOptions {
+  return {
+    title: input.title,
+    fromDiff: Boolean(input.fromDiff),
+    staged: Boolean(input.staged),
+    areas: input.areas ?? [],
+    status: input.status,
+    files: input.files,
+    docs: input.docs,
+    symbols: input.symbols,
+    related: input.related,
+    decisions: input.decisions,
+    backlog: input.backlog,
+    docsImpact: input.docsImpact,
+    sections: input.sections,
+  };
+}
+
+const relationListInputs = {
+  related: z.array(shortString).max(200).optional().describe("Related record ids."),
+  decisions: z.array(shortString).max(200).optional().describe("Decision ids."),
+  backlog: z.array(shortString).max(200).optional().describe("Backlog item ids."),
+};
 
 export interface CreatedRecord {
   readonly path: string;
@@ -53,6 +110,12 @@ export const newEntryOperation = defineOperation<NewEntryInput, CreatedEntry>({
     staged: z.boolean().optional().describe("Read the staged diff."),
     areas: z.array(shortString).optional().describe("Area tags."),
     status: shortString.default("draft").describe("Entry status."),
+    files: z.array(pathString).max(2000).optional().describe("Paths or coverage patterns the entry covers, added to any from the diff."),
+    docs: z.array(pathString).max(200).optional().describe("Durable docs the entry references."),
+    symbols: z.array(shortString).max(500).optional().describe("Symbols to anchor, added to any read from the diff."),
+    ...relationListInputs,
+    docsImpact: docsImpactInput,
+    sections: sectionsInput,
   }),
   output: looseRecord({
     path: z.string(),
@@ -60,18 +123,34 @@ export const newEntryOperation = defineOperation<NewEntryInput, CreatedEntry>({
   }),
   cli: {
     path: ["new"],
-    usage: "ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>] [--json]",
+    usage:
+      "ledger new <title> [--from-diff] [--staged] [--area <area>] [--status <status>] [--file <path>] [--doc <path>] [--symbol <name>] [--related <id>] [--decision <id>] [--backlog <id>] [--docs-impact <status> --docs-impact-reason <text> [--docs-impact-doc <path>]] [--section <Heading=text>] [--sections-file <path>] [--json]",
     positionals: { field: "title", min: 1, join: true },
     flags: {
       "from-diff": { type: "boolean", description: "Prefill files from Git changes." },
       staged: { type: "boolean", description: "Read the staged diff." },
       area: { type: "string[]", field: "areas", description: "Area tag (repeatable)." },
       status: { type: "string", description: "Entry status." },
+      file: { type: "string[]", field: "files", description: "Path or coverage pattern the entry covers (repeatable)." },
+      doc: { type: "string[]", field: "docs", description: "Durable doc the entry references (repeatable)." },
+      symbol: { type: "string[]", field: "symbols", description: "Symbol to anchor (repeatable)." },
+      related: { type: "string[]", description: "Related record id (repeatable)." },
+      decision: { type: "string[]", field: "decisions", description: "Decision id (repeatable)." },
+      backlog: { type: "string[]", description: "Backlog item id (repeatable)." },
+      ...docsImpactFlags,
+      ...sectionFlags,
     },
     json: true,
     help: `Creates the next numbered change entry. Use --from-diff to prefill files from
 Git changes and --staged to read the staged diff. Ignored generated/vendor paths
-are omitted, and very large diffs are grouped into coverage patterns.`,
+are omitted, and very large diffs are grouped into coverage patterns.
+
+--file, --doc, --symbol, --related, --decision, and --backlog add to the
+frontmatter, and --docs-impact with --docs-impact-reason declares docs impact.
+--section Heading=text replaces one section of the template, and
+--sections-file reads every "## Heading" block of a Markdown file. With those,
+one command writes a finished receipt; check it with ledger ready.`,
+    prepare: prepareRecordFlags,
   },
   mcp: {
     tool: "ledger_new",
@@ -80,17 +159,15 @@ are omitted, and very large diffs are grouped into coverage patterns.`,
     confirm: (input) =>
       `Create a ${input.status} change entry titled ${quoteForConfirmation(input.title)}${
         input.fromDiff ? ` with files from the ${input.staged ? "staged" : "uncommitted"} Git changes` : ""
-      }.`,
+      }${describeSections(input.sections)}.`,
+    async precheck(context, input) {
+      const { workspace, documents } = await loadDocuments(context);
+      await draftChangeEntry(workspace, documents, changeEntryOptions(input));
+    },
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
-    const draft = await createChangeEntryDetailed(workspace, documents, {
-      title: input.title,
-      fromDiff: Boolean(input.fromDiff),
-      staged: Boolean(input.staged),
-      areas: input.areas ?? [],
-      status: input.status,
-    });
+    const draft = await createChangeEntryDetailed(workspace, documents, changeEntryOptions(input));
     return { data: { path: draft.path, symbolExtractors: draft.symbolExtractors } };
   },
   format(data) {
@@ -111,6 +188,18 @@ export interface FeedbackInput extends Record<string, unknown> {
   readonly areas?: readonly string[];
   readonly tags?: readonly string[];
   readonly status: string;
+  readonly sections?: LedgerSectionBodies;
+}
+
+function productNoteOptions(input: FeedbackInput, dryRun = false) {
+  return {
+    title: input.title,
+    areas: input.areas ?? [],
+    tags: input.tags ?? [],
+    status: input.status,
+    sections: input.sections,
+    dryRun,
+  };
 }
 
 export const feedbackOperation = defineOperation<FeedbackInput, CreatedRecord>({
@@ -124,37 +213,42 @@ export const feedbackOperation = defineOperation<FeedbackInput, CreatedRecord>({
     areas: z.array(shortString).optional().describe("Area tags."),
     tags: z.array(shortString).optional().describe("Tags."),
     status: shortString.default("captured").describe("Note status."),
+    sections: sectionsInput,
   }),
   output: createdRecordOutput,
   cli: {
     path: ["feedback"],
     aliases: [["product-note"]],
     helpTopics: ["product-note"],
-    usage: "ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>] [--json]",
+    usage:
+      "ledger feedback <title> [--area <area>] [--tag <tag>] [--status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
     positionals: { field: "title", min: 1, join: true },
     flags: {
       area: { type: "string[]", field: "areas", description: "Area tag (repeatable)." },
       tag: { type: "string[]", field: "tags", description: "Tag (repeatable)." },
       status: { type: "string", description: "Note status." },
+      ...sectionFlags,
     },
     json: true,
     help: `Creates a product-note record for dogfood findings, product observations, or
-other feedback that should not be mixed into normal change receipts.`,
+other feedback that should not be mixed into normal change receipts. --section
+Heading=text and --sections-file fill the Context, Finding, Impact,
+Recommendation, and Follow-ups sections.`,
+    prepare: prepareRecordFlags,
   },
   mcp: {
     tool: "ledger_feedback",
     title: "Create a product note",
     summary: (data) => ({ path: data.path }),
-    confirm: (input) => `Create a product note titled ${quoteForConfirmation(input.title)}.`,
+    confirm: (input) => `Create a product note titled ${quoteForConfirmation(input.title)}${describeSections(input.sections)}.`,
+    async precheck(context, input) {
+      const { workspace, documents } = await loadDocuments(context);
+      await createProductNoteEntry(workspace, documents, productNoteOptions(input, true));
+    },
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
-    const path = await createProductNoteEntry(workspace, documents, {
-      title: input.title,
-      areas: input.areas ?? [],
-      tags: input.tags ?? [],
-      status: input.status,
-    });
+    const path = await createProductNoteEntry(workspace, documents, productNoteOptions(input));
     return { data: { path } };
   },
   format(data) {
@@ -314,6 +408,20 @@ export interface NewRecordInput extends Record<string, unknown> {
   readonly related?: readonly string[];
   readonly docs?: readonly string[];
   readonly status: string;
+  readonly sections?: LedgerSectionBodies;
+}
+
+function recordOptions(input: NewRecordInput, dryRun = false) {
+  return {
+    title: input.title,
+    areas: input.areas ?? [],
+    decisions: input.decisions,
+    related: input.related,
+    docs: input.docs,
+    status: input.status,
+    sections: input.sections,
+    dryRun,
+  };
 }
 
 export const backlogNewOperation = defineOperation<NewRecordInput, CreatedRecord>({
@@ -329,12 +437,13 @@ export const backlogNewOperation = defineOperation<NewRecordInput, CreatedRecord
     related: z.array(shortString).optional().describe("Related record ids."),
     docs: z.array(shortString).optional().describe("Durable docs the item relates to."),
     status: shortString.default("proposed").describe("Item status."),
+    sections: sectionsInput,
   }),
   output: createdRecordOutput,
   cli: {
     path: ["backlog", "new"],
     usage:
-      "ledger backlog new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+      "ledger backlog new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
     positionals: { field: "title", min: 1, join: true },
     flags: {
       area: { type: "string[]", field: "areas", description: "Area tag (repeatable)." },
@@ -342,27 +451,27 @@ export const backlogNewOperation = defineOperation<NewRecordInput, CreatedRecord
       related: { type: "string[]", description: "Related record id (repeatable)." },
       doc: { type: "string[]", field: "docs", description: "Durable doc path (repeatable)." },
       status: { type: "string", description: "Item status." },
+      ...sectionFlags,
     },
     json: true,
     help: `Creates the next numbered backlog item under the configured backlog directory
-from .ledger/templates/backlog.md. Promote it later with ledger promote <id>.`,
+from .ledger/templates/backlog.md. Promote it later with ledger promote <id>.
+--section Heading=text and --sections-file fill the template's sections.`,
+    prepare: prepareRecordFlags,
   },
   mcp: {
     tool: "ledger_backlog_new",
     title: "Create a backlog item",
     summary: (data) => ({ path: data.path }),
-    confirm: (input) => `Create a backlog item titled ${quoteForConfirmation(input.title)}.`,
+    confirm: (input) => `Create a backlog item titled ${quoteForConfirmation(input.title)}${describeSections(input.sections)}.`,
+    async precheck(context, input) {
+      const { workspace, documents } = await loadDocuments(context);
+      await createBacklogItem(workspace, documents, recordOptions(input, true));
+    },
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
-    const path = await createBacklogItem(workspace, documents, {
-      title: input.title,
-      areas: input.areas ?? [],
-      decisions: input.decisions,
-      related: input.related,
-      docs: input.docs,
-      status: input.status,
-    });
+    const path = await createBacklogItem(workspace, documents, recordOptions(input));
     return { data: { path } };
   },
   format(data) {
@@ -383,12 +492,13 @@ export const decisionNewOperation = defineOperation<NewRecordInput, CreatedRecor
     related: z.array(shortString).optional().describe("Related record ids."),
     docs: z.array(shortString).optional().describe("Durable docs the decision affects."),
     status: shortString.default("proposed").describe("Decision status."),
+    sections: sectionsInput,
   }),
   output: createdRecordOutput,
   cli: {
     path: ["decision", "new"],
     usage:
-      "ledger decision new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--json]",
+      "ledger decision new <title> [--area <area>] [--decision <id>] [--related <id>] [--doc <path>] [--status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
     positionals: { field: "title", min: 1, join: true },
     flags: {
       area: { type: "string[]", field: "areas", description: "Area tag (repeatable)." },
@@ -396,27 +506,28 @@ export const decisionNewOperation = defineOperation<NewRecordInput, CreatedRecor
       related: { type: "string[]", description: "Related record id (repeatable)." },
       doc: { type: "string[]", field: "docs", description: "Durable doc path (repeatable)." },
       status: { type: "string", description: "Decision status." },
+      ...sectionFlags,
     },
     json: true,
     help: `Creates the next numbered decision record under the configured decisions
-directory from .ledger/templates/decision.md.`,
+directory from .ledger/templates/decision.md. --section Heading=text and
+--sections-file fill the Context, Decision, Consequences, and Revisit Criteria
+sections.`,
+    prepare: prepareRecordFlags,
   },
   mcp: {
     tool: "ledger_decision_new",
     title: "Create a decision record",
     summary: (data) => ({ path: data.path }),
-    confirm: (input) => `Create a decision record titled ${quoteForConfirmation(input.title)}.`,
+    confirm: (input) => `Create a decision record titled ${quoteForConfirmation(input.title)}${describeSections(input.sections)}.`,
+    async precheck(context, input) {
+      const { workspace, documents } = await loadDocuments(context);
+      await createDecision(workspace, documents, recordOptions(input, true));
+    },
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
-    const path = await createDecision(workspace, documents, {
-      title: input.title,
-      areas: input.areas ?? [],
-      decisions: input.decisions,
-      related: input.related,
-      docs: input.docs,
-      status: input.status,
-    });
+    const path = await createDecision(workspace, documents, recordOptions(input));
     return { data: { path } };
   },
   format(data) {
@@ -432,6 +543,20 @@ export interface PromoteInput extends Record<string, unknown> {
   readonly staged?: boolean;
   readonly status: string;
   readonly sourceStatus?: string;
+  readonly sections?: LedgerSectionBodies;
+}
+
+function promoteOptions(input: PromoteInput, dryRun = false) {
+  return {
+    title: input.title,
+    areas: input.areas,
+    fromDiff: Boolean(input.fromDiff),
+    staged: Boolean(input.staged),
+    status: input.status,
+    sourceStatus: input.sourceStatus,
+    sections: input.sections,
+    dryRun,
+  };
 }
 
 export const promoteOperation = defineOperation<PromoteInput, PromoteResult>({
@@ -448,6 +573,7 @@ export const promoteOperation = defineOperation<PromoteInput, PromoteResult>({
     staged: z.boolean().optional().describe("Read the staged diff."),
     status: shortString.default("draft").describe("Entry status."),
     sourceStatus: shortString.optional().describe("Status written to the promoted item. Defaults to in-progress."),
+    sections: sectionsInput,
   }),
   output: looseRecord({
     source: looseRecord({ id: z.string(), kind: z.string(), path: z.string(), status: z.string() }),
@@ -457,7 +583,7 @@ export const promoteOperation = defineOperation<PromoteInput, PromoteResult>({
   cli: {
     path: ["promote"],
     usage:
-      "ledger promote <id> [--title <title>] [--area <area>] [--from-diff] [--staged] [--status <status>] [--source-status <status>] [--json]",
+      "ledger promote <id> [--title <title>] [--area <area>] [--from-diff] [--staged] [--status <status>] [--source-status <status>] [--section <Heading=text>] [--sections-file <path>] [--json]",
     positionals: { field: "id", min: 1, max: 1 },
     flags: {
       title: { type: "string", description: "Entry title." },
@@ -466,12 +592,16 @@ export const promoteOperation = defineOperation<PromoteInput, PromoteResult>({
       staged: { type: "boolean", description: "Read the staged diff." },
       status: { type: "string", description: "Entry status." },
       "source-status": { type: "string", description: "Status written to the promoted item." },
+      ...sectionFlags,
     },
     json: true,
     help: `Creates a draft change entry linked to a backlog item through the backlog
 frontmatter field. The entry carries the item's areas, decisions, and acceptance
 checks (as Verification bullets). The item's status becomes in-progress unless
---source-status says otherwise. Both writes happen in one transaction.`,
+--source-status says otherwise. Both writes happen in one transaction.
+--section Heading=text and --sections-file fill the entry's sections and win
+over the carried checks and notes.`,
+    prepare: prepareRecordFlags,
   },
   mcp: {
     tool: "ledger_promote",
@@ -480,18 +610,15 @@ checks (as Verification bullets). The item's status becomes in-progress unless
     confirm: (input) =>
       `Create a ${input.status} change entry from ${input.id}${
         input.title ? ` titled ${quoteForConfirmation(input.title)}` : ""
-      } and update ${input.id}${input.sourceStatus ? ` to status ${input.sourceStatus}` : ""}.`,
+      }${describeSections(input.sections)} and update ${input.id}${input.sourceStatus ? ` to status ${input.sourceStatus}` : ""}.`,
+    async precheck(context, input) {
+      const { workspace, documents } = await loadDocuments(context);
+      await promoteRecord(workspace, documents, input.id, promoteOptions(input, true));
+    },
   },
   async run(context, input) {
     const { workspace, documents } = await loadDocuments(context);
-    const result = await promoteRecord(workspace, documents, input.id, {
-      title: input.title,
-      areas: input.areas,
-      fromDiff: Boolean(input.fromDiff),
-      staged: Boolean(input.staged),
-      status: input.status,
-      sourceStatus: input.sourceStatus,
-    });
+    const result = await promoteRecord(workspace, documents, input.id, promoteOptions(input));
     return { data: result };
   },
   format(data) {
@@ -500,6 +627,128 @@ checks (as Verification bullets). The item's status becomes in-progress unless
       `Created ${data.entry.path} from ${data.source.id} (${checks} acceptance ${plural(checks, "check", "checks")} carried).`,
       `Updated ${data.source.path} to status ${data.source.status}.`,
     ].join("\n");
+  },
+});
+
+export interface UpdateInput extends Record<string, unknown> {
+  readonly id: string;
+  readonly title?: string;
+  readonly status?: string;
+  readonly areas?: readonly string[];
+  readonly files?: readonly string[];
+  readonly symbols?: readonly string[];
+  readonly docs?: readonly string[];
+  readonly related?: readonly string[];
+  readonly decisions?: readonly string[];
+  readonly backlog?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly docsImpact?: LedgerDocsImpactInput;
+  readonly sections?: LedgerSectionBodies;
+}
+
+function updateChanges(input: UpdateInput) {
+  const lists: Partial<Record<LedgerRecordListField, readonly string[]>> = {};
+  for (const field of recordListFields) {
+    const values = input[field];
+    if (values !== undefined) lists[field] = values;
+  }
+  return {
+    title: input.title,
+    status: input.status,
+    lists,
+    docsImpact: input.docsImpact,
+    sections: input.sections,
+  };
+}
+
+function describeUpdate(input: UpdateInput): string {
+  const parts: string[] = [];
+  if (input.title !== undefined) parts.push(`retitle it ${quoteForConfirmation(input.title)}`);
+  if (input.status !== undefined) parts.push(`set its status to ${input.status}`);
+  const lists = recordListFields.filter((field) => input[field] !== undefined);
+  if (lists.length > 0) parts.push(`replace its ${lists.join(", ")}`);
+  if (input.docsImpact) parts.push(`declare docs impact ${input.docsImpact.status}`);
+  const sections = Object.keys(input.sections ?? {});
+  if (sections.length > 0) parts.push(`rewrite ${describeSections(input.sections).replace(/^ with /, "")}`);
+  if (parts.length === 0) return "change nothing";
+  if (parts.length <= 2) return parts.join(" and ");
+  return `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+}
+
+export const updateOperation = defineOperation<UpdateInput, UpdateRecordResult>({
+  name: "update",
+  title: "Update a record",
+  description: "Change a record's title, status, list fields, docs impact, or section bodies in place.",
+  workspace: "required",
+  mutates: true,
+  input: z.strictObject({
+    id: shortString.describe("Record id, for example 0042 or B007, or the record's project path."),
+    title: z.string().min(1).max(500).optional().describe("New title; the matching # heading follows."),
+    status: shortString.optional().describe("New status."),
+    areas: z.array(shortString).max(200).optional().describe("Area tags, replacing the current list."),
+    files: z.array(pathString).max(2000).optional().describe("Files or coverage patterns, replacing the current list."),
+    symbols: z.array(shortString).max(500).optional().describe("Anchored symbols (change entries), replacing the current list."),
+    docs: z.array(pathString).max(200).optional().describe("Durable docs, replacing the current list."),
+    related: z.array(shortString).max(200).optional().describe("Related record ids, replacing the current list."),
+    decisions: z.array(shortString).max(200).optional().describe("Decision ids, replacing the current list."),
+    backlog: z.array(shortString).max(200).optional().describe("Backlog item ids, replacing the current list."),
+    tags: z.array(shortString).max(200).optional().describe("Tags, replacing the current list."),
+    docsImpact: docsImpactInput,
+    sections: sectionsInput,
+  }),
+  output: looseRecord({
+    id: z.string(),
+    kind: z.string(),
+    path: z.string(),
+    fields: z.array(z.string()),
+    sections: z.array(z.string()),
+  }),
+  cli: {
+    path: ["update"],
+    usage:
+      "ledger update <id> [--title <title>] [--status <status>] [--area <area>] [--file <path>] [--symbol <name>] [--doc <path>] [--related <id>] [--decision <id>] [--backlog <id>] [--tag <tag>] [--docs-impact <status> --docs-impact-reason <text> [--docs-impact-doc <path>]] [--section <Heading=text>] [--sections-file <path>] [--json]",
+    positionals: { field: "id", min: 1, max: 1 },
+    flags: {
+      title: { type: "string", description: "New title." },
+      status: { type: "string", description: "New status." },
+      area: { type: "string[]", field: "areas", description: "Area tag (repeatable; replaces the list)." },
+      file: { type: "string[]", field: "files", description: "File or pattern (repeatable; replaces the list)." },
+      symbol: { type: "string[]", field: "symbols", description: "Symbol (repeatable; replaces the list)." },
+      doc: { type: "string[]", field: "docs", description: "Durable doc (repeatable; replaces the list)." },
+      related: { type: "string[]", description: "Related record id (repeatable; replaces the list)." },
+      decision: { type: "string[]", field: "decisions", description: "Decision id (repeatable; replaces the list)." },
+      backlog: { type: "string[]", description: "Backlog item id (repeatable; replaces the list)." },
+      tag: { type: "string[]", field: "tags", description: "Tag (repeatable; replaces the list)." },
+      ...docsImpactFlags,
+      ...sectionFlags,
+    },
+    json: true,
+    help: `Changes a record in place and sets updated to today. A list flag replaces
+that whole list, so pass every value the record should keep. --title also
+rewrites the "# id: title" heading; the file keeps its path. --section
+Heading=text and --sections-file replace sections, and a heading from the
+kind's template that the record lacks is appended. Docs impact and symbols
+apply to change entries only. Finish a hook-drafted receipt this way, then run
+ledger ready.`,
+    prepare: prepareRecordFlags,
+  },
+  mcp: {
+    tool: "ledger_update",
+    title: "Update a record",
+    summary: (data) => ({ id: data.id, fields: data.fields.length, sections: data.sections.length }),
+    confirm: (input) => `Update ${input.id}: ${describeUpdate(input)}.`,
+    async precheck(context, input) {
+      const { workspace, documents } = await loadDocuments(context);
+      await updateRecord(workspace, documents, input.id, updateChanges(input), { dryRun: true });
+    },
+  },
+  async run(context, input) {
+    const { workspace, documents } = await loadDocuments(context);
+    return { data: await updateRecord(workspace, documents, input.id, updateChanges(input)) };
+  },
+  format(data) {
+    const changed = [...data.fields, ...data.sections.map((section) => `the ${section} section`)];
+    return `Updated ${data.path}: ${changed.join(", ")}.`;
   },
 });
 

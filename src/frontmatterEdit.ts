@@ -1,3 +1,4 @@
+import { normalizeSectionTitle } from "./frontmatter.js";
 import { LedgerError } from "./machine.js";
 import { escapeYamlString, yamlStringArray } from "./template.js";
 
@@ -28,10 +29,10 @@ export function setFrontmatterScalars(
     const line = `${key}: "${escapeYamlString(value)}"`;
     const pattern = new RegExp(`^${escapeRegExp(key)}[ \\t]*:.*$`, "m");
     frontmatter = pattern.test(frontmatter)
-      ? frontmatter.replace(pattern, line)
+      ? frontmatter.replace(pattern, () => line)
       : `${frontmatter}${eol}${line}`;
   }
-  return markdown.replace(match[0], `---${eol}${frontmatter}${eol}---`);
+  return markdown.replace(match[0], () => `---${eol}${frontmatter}${eol}---`);
 }
 
 /**
@@ -55,7 +56,7 @@ export function ensureFrontmatterArrays(
     if (pattern.test(frontmatter)) continue;
     frontmatter = `${frontmatter}${eol}${key}:${yamlStringArray(values).replace(/\n/g, eol)}`;
   }
-  return markdown.replace(match[0], `---${eol}${frontmatter}${eol}---`);
+  return markdown.replace(match[0], () => `---${eol}${frontmatter}${eol}---`);
 }
 
 /**
@@ -79,20 +80,23 @@ export function setFrontmatterArray(
     "m",
   );
   const updated = pattern.test(frontmatter)
-    ? frontmatter.replace(pattern, rendered)
+    ? frontmatter.replace(pattern, () => rendered)
     : `${frontmatter}${eol}${rendered}`;
-  return markdown.replace(match[0], `---${eol}${updated}${eol}---`);
+  return markdown.replace(match[0], () => `---${eol}${updated}${eol}---`);
 }
 
 /**
  * Replace the body of a level-two Markdown section. The section keeps its
- * heading; the new body is written with one blank line on each side. Returns
- * the input unchanged when the section does not exist.
+ * heading; the new body is written with one blank line on each side, and an
+ * empty body leaves one blank line. Headings match the way the section parser
+ * reads them. Returns the input unchanged when the section does not exist.
  */
 export function replaceSectionBody(markdown: string, title: string, body: string): string {
-  const heading = `## ${title}`;
   const lines = markdown.split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim() === heading);
+  const start = lines.findIndex((line) => {
+    const match = /^##\s+(.+?)\s*$/.exec(line);
+    return match !== null && normalizeSectionTitle(match[1] ?? "") === title;
+  });
   if (start < 0) return markdown;
   let end = lines.length;
   for (let index = start + 1; index < lines.length; index += 1) {
@@ -101,8 +105,40 @@ export function replaceSectionBody(markdown: string, title: string, body: string
       break;
     }
   }
-  const replacement = [heading, "", body.trim(), ""];
+  const content = body.trim();
+  const replacement = content ? [lines[start]!, "", content, ""] : [lines[start]!, ""];
   return [...lines.slice(0, start), ...replacement, ...lines.slice(end)].join(lineEnding(markdown));
+}
+
+/**
+ * Replace a top-level frontmatter field and its indented children with the
+ * given lines, or append them when the field is missing. `lines` starts with
+ * the `key:` line.
+ */
+export function setFrontmatterBlock(markdown: string, key: string, lines: readonly string[]): string {
+  const match = frontmatterPattern.exec(markdown);
+  if (!match) {
+    throw new LedgerError("invalid-markdown", "Cannot update frontmatter: missing YAML frontmatter");
+  }
+  const eol = lineEnding(markdown);
+  const frontmatter = (match[1] ?? "").split(/\r?\n/);
+  const keyLine = new RegExp(`^${escapeRegExp(key)}[ \\t]*:`);
+  const start = frontmatter.findIndex((line) => keyLine.test(line));
+  let updated: string[];
+  if (start < 0) {
+    updated = [...frontmatter, ...lines];
+  } else {
+    let end = start + 1;
+    while (end < frontmatter.length) {
+      const line = frontmatter[end] ?? "";
+      if (line.trim() !== "" && !/^[ \t]/.test(line)) break;
+      end += 1;
+    }
+    // Blank lines between the block and the next field stay with the next field.
+    while (end > start + 1 && (frontmatter[end - 1] ?? "").trim() === "") end -= 1;
+    updated = [...frontmatter.slice(0, start), ...lines, ...frontmatter.slice(end)];
+  }
+  return markdown.replace(match[0], () => `---${eol}${updated.join(eol)}${eol}---`);
 }
 
 function escapeRegExp(value: string): string {

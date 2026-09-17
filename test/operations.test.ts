@@ -67,8 +67,9 @@ describe("operation registry", () => {
     for (const operation of ledgerOperations) {
       const shape = operation.input.shape;
       for (const [flag, spec] of Object.entries(operation.cli.flags)) {
-        const field = spec.field ?? flag.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+        const field = spec.preparedInto ?? spec.field ?? flag.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
         expect(shape, `${operation.name} input accepts ${field}`).toHaveProperty(field);
+        if (spec.preparedInto) expect(operation.cli.prepare, `${operation.name} folds --${flag}`).toBeTypeOf("function");
       }
       if (operation.cli.positionals) {
         expect(shape).toHaveProperty(operation.cli.positionals.field);

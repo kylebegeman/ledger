@@ -471,6 +471,10 @@ async function runConfirmedLedgerMcpTool(
       const cwd = projectRoot ?? options.cwd ?? process.cwd();
       if (options.writeRoot !== undefined) await requireWriteRoot(cwd, options.writeRoot);
       const workspace = await findWorkspace(cwd);
+      if (mcp.precheck) {
+        const base = await buildContext(operation, cwd, options.version ?? "0.0.0");
+        await mcp.precheck({ ...base, log: () => undefined, logError: () => undefined }, input);
+      }
       // One line per part, so text from the arguments cannot pose as the project line.
       const action = confirm(input).replace(/\s+/g, " ").trim();
       message = `${action}\nProject: ${workspace.config.project} (${workspace.projectRoot}). Nothing is written unless you confirm.`;

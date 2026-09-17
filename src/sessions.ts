@@ -290,6 +290,19 @@ export interface CloseSessionResult {
   readonly changed: boolean;
 }
 
+/**
+ * Throw the error `session note` or `session close` would, without writing:
+ * no record for the selector, or, when `activeOnly` is set, a record that is
+ * not active.
+ */
+export function assertSessionSelectable(
+  documents: readonly ParsedLedgerDocument[],
+  selector: SessionSelector,
+  options: { readonly activeOnly: boolean },
+): void {
+  requireSession(documents, selector, options);
+}
+
 /** Mark the active session closed. Closed sessions still expire and can be promoted. */
 export async function closeSession(
   workspace: LedgerWorkspace,
