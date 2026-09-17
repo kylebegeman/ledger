@@ -1,5 +1,5 @@
 import path from "node:path";
-import { coveragePatternMatches, isCoverageRequired } from "./coverage.js";
+import { coveragePatternMatches, isCoverageRequired, isCoveragePattern } from "./coverage.js";
 import { normalizeDocument, normalizePath } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import type {
@@ -17,7 +17,8 @@ export interface BuildDocsImpactOptions {
   /**
    * Coverage mode, defaulting to `git.coverage`. Under `current` only change
    * entries in the change set give evidence; under `any` a source file they do
-   * not satisfy may take its evidence from an earlier receipt that lists it.
+   * not satisfy may take its evidence from an earlier receipt that names it,
+   * though not from one that only matches it through a pattern.
    */
   readonly mode?: LedgerCoverageMode;
 }
@@ -57,7 +58,7 @@ export function buildDocsImpact(
   const files = sourceFiles.map((filePath): LedgerDocsImpactFile => {
     const current = docsImpactFile(filePath, changedSources);
     if (current.satisfied || earlierSources.length === 0) return current;
-    const earlier = docsImpactFile(filePath, earlierSources);
+    const earlier = docsImpactFile(filePath, earlierSources, { namedOnly: true });
     if (!earlier.satisfied) return current;
     return { ...earlier, entries: [...new Set([...current.entries, ...earlier.entries])].sort(), earlierEvidence: true };
   });
@@ -107,11 +108,18 @@ function evidenceSources(documents: readonly ParsedLedgerDocument[], docsRoot: s
  * A file with no evidence is missing docs impact, however many docs changed
  * elsewhere in the set.
  */
-function docsImpactFile(filePath: string, sources: readonly EvidenceSource[]): LedgerDocsImpactFile {
+function docsImpactFile(
+  filePath: string,
+  sources: readonly EvidenceSource[],
+  options: { readonly namedOnly?: boolean } = {},
+): LedgerDocsImpactFile {
   const entries: string[] = [];
   const evidence: LedgerDocsImpactEvidence[] = [];
   for (const source of sources) {
-    if (!source.files.some((pattern) => coveragePatternMatches(filePath, pattern))) continue;
+    const lists = source.files.some(
+      (pattern) => !(options.namedOnly && isCoveragePattern(pattern)) && coveragePatternMatches(filePath, pattern),
+    );
+    if (!lists) continue;
     entries.push(source.entry);
     if (source.declaration) {
       const { status, reason, docs } = source.declaration;

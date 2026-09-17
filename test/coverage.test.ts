@@ -99,6 +99,45 @@ describe("checkCoverage", () => {
     expect(result.missingFiles).toEqual(["src/range-missing.ts"]);
   });
 
+  it("accepts an earlier receipt under any only when it names the file", async () => {
+    const workspace = await createFixtureWorkspace();
+    await writeFile(path.join(workspace.projectRoot, ".ledger", "entries", "0001-test.md"), entry("0001", ["src/**", "src/named.ts"]));
+    await writeFile(path.join(workspace.projectRoot, "src", "named.ts"), "v1");
+    await writeFile(path.join(workspace.projectRoot, "src", "broad.ts"), "v1");
+    await git(workspace.projectRoot, "init");
+    await git(workspace.projectRoot, "config", "user.email", "ledger@example.com");
+    await git(workspace.projectRoot, "config", "user.name", "Ledger Test");
+    await git(workspace.projectRoot, "add", ".");
+    await git(workspace.projectRoot, "commit", "-m", "base");
+    const base = await gitOutput(workspace.projectRoot, "rev-parse", "HEAD");
+    await writeFile(path.join(workspace.projectRoot, "src", "named.ts"), "v2");
+    await writeFile(path.join(workspace.projectRoot, "src", "broad.ts"), "v2");
+    await git(workspace.projectRoot, "add", ".");
+    await git(workspace.projectRoot, "commit", "-m", "change without a receipt");
+    const head = await gitOutput(workspace.projectRoot, "rev-parse", "HEAD");
+
+    const result = await checkCoverage(workspace, await readLedgerDocuments(workspace), { base, head, mode: "any" });
+    expect(result.files.find((file) => file.path === "src/named.ts")?.status).toBe("covered");
+    const broad = result.files.find((file) => file.path === "src/broad.ts");
+    expect(broad?.status).toBe("historical");
+    expect(broad?.coveredBy).toEqual(["src/**"]);
+    expect(result.missingFiles).toEqual(["src/broad.ts"]);
+
+    // The same pattern in a receipt that is part of the change covers the file.
+    await writeFile(
+      path.join(workspace.projectRoot, ".ledger", "entries", "0001-test.md"),
+      entry("0001", ["src/**", "src/named.ts"]).replace('updated: "2026-06-29"', 'updated: "2026-09-17"'),
+    );
+    await git(workspace.projectRoot, "add", ".");
+    await git(workspace.projectRoot, "commit", "-m", "touch the receipt");
+    const refreshed = await checkCoverage(workspace, await readLedgerDocuments(workspace), {
+      base,
+      head: await gitOutput(workspace.projectRoot, "rev-parse", "HEAD"),
+      mode: "any",
+    });
+    expect(refreshed.missingFiles).toEqual([]);
+  }, 30_000);
+
   it("counts only change entries as coverage, so a session record never covers a path", async () => {
     const workspace = await createFixtureWorkspace();
     await writeFile(path.join(workspace.projectRoot, "src", "covered.ts"), "v1");

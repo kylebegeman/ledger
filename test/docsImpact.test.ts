@@ -118,6 +118,10 @@ describe("buildDocsImpact", () => {
     // An updated status with a placeholder reason is just as unreviewed.
     const placeholder = [document([], { status: "updated", reason: "TODO: explain why durable docs were updated or not needed." })];
     expect(buildDocsImpact(workspace(), placeholder, ["src/cli.ts"], { mode: "any" }).missingDocsImpact).toEqual(["src/cli.ts"]);
+    // An earlier receipt that only matches the file through a pattern is not evidence for it.
+    const broad = [document([], { status: "not-needed", reason: "Internal plumbing." }, ["src/**"])];
+    expect(buildDocsImpact(workspace(), broad, ["src/cli.ts"], { mode: "any" }).missingDocsImpact).toEqual(["src/cli.ts"]);
+    expect(buildDocsImpact(workspace(), broad, ["src/cli.ts", ".ledger/entries/0001-docs.md"]).missingDocsImpact).toEqual([]);
     const changedFirst = buildDocsImpact(workspace(), earlier, ["src/cli.ts", ".ledger/entries/0001-docs.md"], { mode: "any" });
     expect(changedFirst.files[0]).toEqual(expect.not.objectContaining({ earlierEvidence: true }));
     expect(changedFirst.earlierEvidenceFiles).toEqual([]);
@@ -165,6 +169,7 @@ function workspace(): LedgerWorkspace {
 function document(
   docs: readonly string[],
   docsImpact?: { readonly status: string; readonly reason?: string; readonly docs?: readonly string[] },
+  files: readonly string[] = ["src/cli.ts"],
 ): ParsedLedgerDocument {
   const docsLines =
     docs.length > 0 ? docs.map((filePath) => `  - "${filePath}"`).join("\n") : "  []";
@@ -189,7 +194,7 @@ date: "2026-06-29"
 status: "landed"
 areas: ["docs"]
 files:
-  - "src/cli.ts"
+${files.map((filePath) => `  - "${filePath}"`).join("\n")}
 docs:
 ${docsLines}
 ${docsImpactLines}

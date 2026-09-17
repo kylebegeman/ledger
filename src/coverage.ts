@@ -194,7 +194,9 @@ function explainCoverageForPath(
   const current = currentEntries
     .filter((entry) => entry.files.some((pattern) => coveragePatternMatches(normalized, pattern)))
     .map((entry) => entry.id);
-  const covered = mode === "any" ? coveredBy.length > 0 : current.length > 0;
+  // Under any, an earlier receipt counts only when it names the file. A pattern such as src/** counts
+  // only from a receipt in the change set, so one old receipt never exempts a directory for good.
+  const covered = current.length > 0 || (mode === "any" && coveredBy.some((pattern) => !isCoveragePattern(pattern)));
   const status = covered
     ? "covered"
     : coveredBy.length > 0

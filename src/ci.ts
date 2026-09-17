@@ -56,7 +56,7 @@ export function formatCiAnnotations(result: LedgerCiResult): readonly string[] {
       const where = anyMode ? "no change entry" : "no change entry in this change set";
       lines.push(annotation("error", "Ledger coverage", `${where} lists ${file.path}; add or update a receipt`, file.path));
     } else if (file.status === "historical") {
-      lines.push(annotation("error", "Ledger coverage", `${file.path} is listed only by records outside this change set (${file.coveredBy.join(", ")}); add or update a receipt`, file.path));
+      lines.push(annotation("error", "Ledger coverage", historicalCoverageMessage(file.path, file.coveredBy, anyMode), file.path));
     }
   }
   for (const file of result.docsImpact.files) {
@@ -86,7 +86,9 @@ export function formatCiSummaryMarkdown(result: LedgerCiResult): string {
     if (file.status === "missing") {
       details.push(`- coverage: \`${file.path}\` has no change entry${result.coverage.mode === "any" ? "" : " in this change set"}`);
     }
-    if (file.status === "historical") details.push(`- coverage: \`${file.path}\` is listed only by ${file.coveredBy.join(", ")} outside this change set`);
+    if (file.status === "historical") {
+      details.push(`- coverage: ${historicalCoverageMessage(`\`${file.path}\``, file.coveredBy, result.coverage.mode === "any")}`);
+    }
   }
   for (const file of result.docsImpact.files) {
     if (!file.satisfied) {
@@ -99,6 +101,13 @@ export function formatCiSummaryMarkdown(result: LedgerCiResult): string {
     lines.push(`Change entries in this change set: ${result.coverage.currentEntries.join(", ")}.`, "");
   }
   return lines.join("\n");
+}
+
+/** Why a path only historical records match fails coverage, and what to do about it. */
+function historicalCoverageMessage(filePath: string, coveredBy: readonly string[], anyMode: boolean): string {
+  return anyMode
+    ? `${filePath} is matched only by patterns in earlier receipts (${coveredBy.join(", ")}); name the file in a receipt`
+    : `${filePath} is listed only by records outside this change set (${coveredBy.join(", ")}); add or update a receipt`;
 }
 
 /** Where docs impact evidence may come from under the result's coverage mode. */
