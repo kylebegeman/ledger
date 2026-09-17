@@ -299,9 +299,10 @@ export async function writeStaticReader(
   }
   const search = shardSearchIndex(serializedSearchIndex(model), budgets.maxSearchIndexBytes);
   const chunks = chunkRelationshipGraph(model.graph);
-  const graph = `${JSON.stringify(chunks.records, null, 2)}\n`;
+  // Sidecars are read by code, so they are written compact; indentation added about a third to the graph.
+  const graph = `${JSON.stringify(chunks.records)}\n`;
   // The public profile strips invariants and verification, so it has no contracts chunk.
-  const contracts = model.profile === "internal" ? `${JSON.stringify(chunks.contracts, null, 2)}\n` : undefined;
+  const contracts = model.profile === "internal" ? `${JSON.stringify(chunks.contracts)}\n` : undefined;
   const sources = await sourceSidecars(workspace, model, outputDirectory);
   const staleShards = await staleChunkFiles(outputDirectory, searchShardDirectory, search.files.map((file) => file.href));
   const staleDetails = await staleChunkFiles(outputDirectory, detailChunkDirectory, detailFiles.map((file) => file.href));
@@ -404,34 +405,38 @@ export function chunkRecordDetails(
 }
 
 /**
- * Split the serialized search index into shard files no larger than the
- * per-artifact budget. Returns a single `search-index.json` when it fits.
+ * Split the serialized search index into compact shard files no larger than
+ * the per-artifact budget. Returns a single `search-index.json` when it fits.
+ * A shard is `[`, its documents joined by commas, and `]` with a newline, so
+ * each document costs its own bytes plus one separator, and a shard only
+ * exceeds the budget when a single document does.
  */
 export function shardSearchIndex(
   documents: readonly unknown[],
   maxBytes: number,
 ): { readonly files: readonly { readonly href: string; readonly content: string }[]; readonly manifest?: LedgerSearchIndexManifest } {
-  const whole = `${JSON.stringify(documents, null, 2)}\n`;
+  const whole = `${JSON.stringify(documents)}\n`;
   if (Buffer.byteLength(whole, "utf8") <= maxBytes || documents.length <= 1) {
     return { files: [{ href: "search-index.json", content: whole }] };
   }
+  const frameBytes = 3;
   const shards: unknown[][] = [];
   let current: unknown[] = [];
-  let currentBytes = 4;
+  let currentBytes = frameBytes;
   for (const document of documents) {
-    const bytes = Buffer.byteLength(JSON.stringify(document, null, 2), "utf8") + 4;
-    if (current.length > 0 && currentBytes + bytes > maxBytes) {
+    const size = Buffer.byteLength(JSON.stringify(document), "utf8");
+    if (current.length > 0 && currentBytes + 1 + size > maxBytes) {
       shards.push(current);
       current = [];
-      currentBytes = 4;
+      currentBytes = frameBytes;
     }
+    currentBytes += (current.length > 0 ? 1 : 0) + size;
     current.push(document);
-    currentBytes += bytes;
   }
   if (current.length > 0) shards.push(current);
   const files = shards.map((shard, index) => ({
     href: `${searchShardDirectory}/${String(index).padStart(3, "0")}.json`,
-    content: `${JSON.stringify(shard, null, 2)}\n`,
+    content: `${JSON.stringify(shard)}\n`,
   }));
   const manifest: LedgerSearchIndexManifest = { shards: files.map((file) => file.href), documents: documents.length };
   return {

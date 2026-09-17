@@ -509,10 +509,12 @@ surfaces summaries, invariants, verification checks, agent packet digests, and
 Markdown source access for each record.
 
 Artifacts stay under their per-file budgets as a catalog grows. The search
-index omits each record's `terms` text, which Node and the browser derive from
-the weighted fields with `searchTermsFor`, and when it still exceeds
-`maxSearchIndexBytes` it is written as shards under `search/` with
-`search-index.json` becoming a manifest the runtime follows. The internal graph
+index, graph, and detail sidecars are compact JSON, because only code reads
+them. The search index omits each record's `terms` text, which Node and the
+browser derive from the weighted fields with `searchTermsFor`. When it still
+exceeds `maxSearchIndexBytes`, `shardSearchIndex` fills shards under `search/`
+up to that budget, counting each document's exact bytes and separators, and
+`search-index.json` becomes a manifest the runtime follows. The internal graph
 is split into `graph.json` (records, files, symbols, and relationships) and
 `graph/contracts.json` (invariant and verification nodes). The HTML is written
 with template indentation removed outside `pre`, `script`, and `style`; when the
