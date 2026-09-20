@@ -12,13 +12,17 @@ files:
   - "package-lock.json"
   - ".ledger/releases/v0.9.4.md"
   - "docs/HANDOFF.md"
+  - "README.md"
+  - "assets/readme/adopt.svg"
 docs:
   - "docs/HANDOFF.md"
+  - "README.md"
 docsImpact:
   status: "updated"
-  reason: "The handoff records the prepared release, what the stale fix changes for adopters, and the Kore pin bump and record cleanup that follow it."
+  reason: "The handoff records the prepared release and what follows it, and the README's pinned npx commands, action version, and adopt card move to the new version."
   docs:
     - "docs/HANDOFF.md"
+    - "README.md"
 commits: []
 related:
   - "0192"
@@ -55,6 +59,16 @@ pin moves, so the slice is prepared for the tag-driven workflow.
 - Anchor: `version`, `Public Notes`
 - On conflict: The tag must match the package version or the release workflow
   fails its version check.
+
+### Pinned version in the README
+
+- Files: `README.md`, `assets/readme/adopt.svg`
+- Changed: the quick start's pinned `npx` commands, the global install line,
+  the action reference, and the version the adopt card shows, which
+  `scripts/readme-assets.mjs` takes from `package.json`.
+- Anchor: `In any other repository`
+- On conflict: The README's pinned version and the card must match
+  `package.json`, which the `readme:check` job enforces.
 
 ### Handoff
 
