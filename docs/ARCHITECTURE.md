@@ -1058,6 +1058,20 @@ verification gaps, expired sessions, and stale or failed verification
 evidence. Anchors are checked per block against the files the block names,
 so the message says which file lost the anchor.
 
+A record may reference files by coverage pattern, such as `src/**` or
+`plugins/*/adapter.json`, and those patterns name files the record never
+spells out. The exact files a record lists are read and cached for the run;
+the patterns are searched with `git grep` over the matching tracked files,
+converted to `:(glob)` pathspecs, for the symbols and anchors the exact files
+did not account for. A member name counts as present when every segment is
+found, as it does in text. When the search cannot run at all, because Git is
+missing, the workspace is outside a work tree, or a pathspec is unusable,
+nothing is reported for those patterns: a reference Ledger cannot read must
+not look like drift. The cost is one search per record and block file list,
+so a repository whose receipts lean on broad patterns pays for it; on a
+12,000 file tree with 62 such receipts `ledger stale` takes about 15 seconds
+against well under a second for exact file lists.
+
 ### `ledger explain <path>`
 
 Shows the Ledger history for a file or symbol.
