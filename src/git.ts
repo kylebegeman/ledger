@@ -424,6 +424,41 @@ function unquoteGitPath(value: string): string {
   return Buffer.concat(bytes).toString("utf8");
 }
 
+const grepMaxBuffer = 8 * 1024 * 1024;
+/** Upper bound on search terms and pathspecs one grep may carry. */
+export const maxGrepTerms = 200;
+export const maxGrepPathspecs = 64;
+
+/**
+ * The distinct search terms that appear in tracked files matching the given pathspecs, found
+ * with `git grep`. Returns undefined when the search could not run at all, so a caller can tell
+ * "searched and absent" from "could not search": Git missing, cwd outside a work tree, an
+ * unusable pathspec, or output past the buffer. An empty set means the search ran and matched
+ * nothing.
+ */
+export async function grepTrackedFiles(
+  cwd: string,
+  terms: readonly string[],
+  pathspecs: readonly string[],
+): Promise<ReadonlySet<string> | undefined> {
+  const searchTerms = [...new Set(terms)].filter((term) => term.length > 0 && !/[\0\n]/.test(term));
+  const searchPaths = [...new Set(pathspecs)].filter((spec) => spec.length > 0 && !/[\0\n]/.test(spec));
+  if (searchTerms.length === 0 || searchTerms.length > maxGrepTerms) return undefined;
+  if (searchPaths.length === 0 || searchPaths.length > maxGrepPathspecs) return undefined;
+  const inspection = await inspectGit(cwd);
+  if (!inspection.available || !inspection.insideWorkTree) return undefined;
+  const args = ["grep", "--no-color", "-I", "-h", "-o", "-F"];
+  for (const term of searchTerms) args.push("-e", term);
+  args.push("--", ...searchPaths);
+  try {
+    const { stdout } = await execFileAsync("git", args, { cwd, maxBuffer: grepMaxBuffer });
+    return new Set(stdout.split("\n").map((line) => line.trim()).filter((line) => line.length > 0));
+  } catch (error) {
+    // git grep exits 1 when nothing matched, which is an answer; anything else is not.
+    return (error as { readonly code?: unknown }).code === 1 ? new Set<string>() : undefined;
+  }
+}
+
 /** Upper bound on tracked paths returned by listTrackedFiles; larger trees are truncated. */
 export const maxTrackedFiles = 200_000;
 const trackedFilesMaxBuffer = 64 * 1024 * 1024;

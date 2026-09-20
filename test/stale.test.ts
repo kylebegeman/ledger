@@ -1,4 +1,6 @@
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { promisify } from "node:util";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -6,6 +8,8 @@ import { readLedgerDocuments } from "../src/documents.js";
 import { detectStaleKnowledge, formatStaleReport } from "../src/stale.js";
 import { validateDocuments } from "../src/validate.js";
 import { findWorkspace, initWorkspace } from "../src/workspace.js";
+
+const execFileAsync = promisify(execFile);
 
 let tempDir: string | undefined;
 
@@ -187,6 +191,55 @@ describe("anchor and invariant freshness", () => {
     expect(report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target)).toEqual(["Parser::lex"]);
   });
 
+  it("searches the files a coverage pattern covers, and stays silent without Git", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-stale-pattern-test-")));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "src", "billing"), { recursive: true });
+    await writeFile(path.join(tempDir, "src", "billing", "webhooks.go"), "func RetryWebhook() {}\n");
+    await writeFile(path.join(tempDir, "CHANGELOG.md"), "# Changelog\n");
+    await writeFile(path.join(tempDir, ".ledger", "entries", "0001-pattern.md"), patternEntry(), "utf8");
+
+    // Without Git the pattern cannot be searched, so nothing is reported as stale.
+    const bare = await findWorkspace(tempDir);
+    const bareDocuments = await readLedgerDocuments(bare);
+    const bareReport = await detectStaleKnowledge(bare, bareDocuments, validateDocuments(bare, bareDocuments));
+    expect(bareReport.issues.filter((issue) => issue.kind === "stale-symbol" || issue.kind === "stale-anchor")).toEqual([]);
+
+    await execFileAsync("git", ["init", "-q"], { cwd: tempDir });
+    await execFileAsync("git", ["add", "."], { cwd: tempDir });
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+    const targets = report.issues
+      .filter((issue) => issue.kind === "stale-symbol" || issue.kind === "stale-anchor")
+      .map((issue) => issue.target);
+
+    // RetryWebhook lives under the pattern, so only the symbol and anchor that exist nowhere are stale.
+    expect(targets).toEqual(["AlsoGone", "goneFromTheTree"]);
+  }, 30_000);
+
+  it("matches a block headed with a directory and treats path anchors as references", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-stale-directory-test-")));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "internal", "composer"), { recursive: true });
+    await mkdir(path.join(tempDir, "docs"), { recursive: true });
+    await writeFile(path.join(tempDir, "internal", "composer", "composer_test.go"), "func TestEjected() {}\n");
+    await writeFile(path.join(tempDir, "docs", "contracts.md"), "# Contracts\n");
+    await writeFile(path.join(tempDir, "CHANGELOG.md"), "# Changelog\n");
+    await writeFile(path.join(tempDir, ".ledger", "entries", "0001-directory.md"), directoryEntry(), "utf8");
+    await execFileAsync("git", ["init", "-q"], { cwd: tempDir });
+    await execFileAsync("git", ["add", "."], { cwd: tempDir });
+
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+    const targets = report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target);
+
+    // TestEjected lives under the directory the block heads; docs/contracts.md is a real path, so
+    // it is a reference rather than content; only the file that exists nowhere is stale.
+    expect(targets).toEqual(["docs/gone.md"]);
+  }, 30_000);
+
   it("honors anchor acknowledgements", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-ack-"));
     await initWorkspace(tempDir);
@@ -292,6 +345,105 @@ Test stale detection.
 ### src/cli.ts
 
 - What changed: Fixture.
+- On conflict: Keep behavior.
+
+## Behavior And UX Impact
+
+None.
+
+## Invariants
+
+- Keep behavior.
+
+## Verification
+
+- npm test
+`;
+}
+
+function directoryEntry(): string {
+  return `---
+id: "0001"
+kind: "change"
+title: "Directory fixture"
+date: "2026-06-29"
+updated: "2026-06-29"
+status: "landed"
+areas: ["composer"]
+files:
+  - "internal/composer/composer_test.go"
+  - "docs/contracts.md"
+  - "CHANGELOG.md"
+symbols: []
+commits: []
+---
+
+# 0001: Directory Fixture
+
+## Summary
+
+Fixture.
+
+## Why
+
+Test block file resolution.
+
+## Changed Files
+
+### internal/composer, CHANGELOG.md
+
+- What changed: Fixture.
+- Anchor: \`TestEjected\`, \`docs/contracts.md\`, \`docs/gone.md\`
+- On conflict: Keep behavior.
+
+## Behavior And UX Impact
+
+None.
+
+## Invariants
+
+- Keep behavior.
+
+## Verification
+
+- npm test
+`;
+}
+
+function patternEntry(): string {
+  return `---
+id: "0001"
+kind: "change"
+title: "Pattern fixture"
+date: "2026-06-29"
+updated: "2026-06-29"
+status: "landed"
+areas: ["billing"]
+files:
+  - "src/**"
+  - "CHANGELOG.md"
+symbols:
+  - "RetryWebhook"
+  - "goneFromTheTree"
+commits: []
+---
+
+# 0001: Pattern Fixture
+
+## Summary
+
+Fixture.
+
+## Why
+
+Test pattern search.
+
+## Changed Files
+
+### src/**
+
+- What changed: Fixture.
+- Anchor: \`RetryWebhook\`, \`AlsoGone\`
 - On conflict: Keep behavior.
 
 ## Behavior And UX Impact

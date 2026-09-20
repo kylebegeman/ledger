@@ -386,7 +386,11 @@ function blockTitleMatchesPath(title: string, filePath: string): boolean {
       return true;
     }
     if (candidate.includes("*")) return matchesSimpleGlob(filePath, candidate);
-    return normalizePath(candidate).includes(normalizePath(filePath));
+    const normalizedCandidate = normalizePath(candidate).replace(/\/$/, "");
+    // A block headed with a directory path, such as `plugins/agent-surface`, names the files under
+    // it. The candidate has to carry a separator, so a prose heading word like `docs` stays prose.
+    if (normalizedCandidate.includes("/") && normalizePath(filePath).startsWith(`${normalizedCandidate}/`)) return true;
+    return normalizedCandidate.includes(normalizePath(filePath));
   });
 }
 

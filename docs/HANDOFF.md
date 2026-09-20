@@ -1,12 +1,14 @@
 # Ledger Handoff
 
-Last updated: 2026-09-17. Written at the end of a long working session so the
+Last updated: 2026-09-19. Written at the end of a long working session so the
 next session can resume without rereading history. Update this file whenever a
 milestone lands or a plan changes; retire sections that stop being true.
 
 Kyle paused Ledger on 2026-09-17, after 0.9.2 shipped and Kore moved to it.
 The same day, 0.9.3 added the Codex hook launcher, and Kore moved to it too.
-Nothing is in flight. "Next slices" lists where to pick up.
+Work resumed on 2026-09-19 from Kore's side: triaging its stale report for a
+handoff found two defects in `ledger stale`, and 0.9.4 is prepared with the
+fixes. "Next slices" lists what is left.
 
 ## Where the product stands
 
@@ -19,6 +21,12 @@ Nothing is in flight. "Next slices" lists where to pick up.
   scratch repository, passed a SessionStart payload through it, and passed
   doctor's hooks check. Receipt 0192 is unreleased.
   `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
+- Prepared, not published: 0.9.4 on branch `stale-patterns`,
+  kylebegeman/ledger#35, gate green and checks passing. It carries receipts
+  0193 and 0194, which stop `ledger stale` from reading a record as drift when
+  it points at files by pattern, by directory, or by path, plus 0192 and the
+  prepare receipt 0195. Publishing waits on Kyle: merge, then
+  `git tag v0.9.4 && git push origin v0.9.4`.
 - First outside adopter: Kore runs Ledger 0.9.3 with Claude Code and Codex
   hooks since kylebegeman/forge#33 (Kore receipt 0011). Before that it ran
   0.9.2 from kylebegeman/forge#32, 0.9.1 from #31, 0.9.0 from #30, 0.8.2
@@ -234,15 +242,28 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-The project is paused. When work resumes:
-
-1. **Trust Kore's hooks once more.** Moving Kore to the launcher changed
+1. **Publish 0.9.4.** Merge kylebegeman/ledger#35 once Kyle says so, then he
+   tags the merged `master` with `git tag v0.9.4 && git push origin v0.9.4`.
+   The release workflow publishes to npm and creates the GitHub Release from
+   `.ledger/releases/v0.9.4.md`.
+2. **Tell Kore when 0.9.4 is published, and nothing more.** Kore keeps
+   reporting 169 stale signals until its pin moves, because the fix is in the
+   tool rather than in its records. Kore's own session owns that bump across
+   the five places Kore carries the command, lands it through Kore's pipeline
+   with its own receipt, and clears the 14 signals that remain there: six
+   capture artifacts in its Anchor lines in its receipts 0016, 0022, 0023,
+   0024 and 0031, and eight candidates for real drift in its 0013, 0014, 0026,
+   0061 and 0073. Ledger's part is to publish and send the version. The triage
+   found no fault in Kore's records, and its feature receipts 0046 to 0060,
+   which carried most of the false signals, are sound, so `ledger packet` on
+   those paths stays trustworthy.
+3. **Trust Kore's hooks once more.** Moving Kore to the launcher changed
    its six Codex hooks one last time, so Kyle trusts them on the Hooks page
    of the Codex app's settings, if that is not done yet. Later bumps leave
    them unchanged. A short live `codex exec` session in Kore would then
    exercise the Codex hooks for the first time; ask Kyle first, because it
    runs on his Codex account.
-2. **New features**, when Kyle chooses them. Left out of 0.9.2 on purpose:
+4. **New features**, when Kyle chooses them. Left out of 0.9.2 on purpose:
    - MCP Tasks, which the 2026-07-28 revision deprecates
    - MCP Apps
    - search shards by kind or year

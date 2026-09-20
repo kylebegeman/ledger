@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { isCoveragePattern } from "./coverage.js";
+import { grepTrackedFiles, listTrackedFiles } from "./git.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
@@ -51,6 +52,10 @@ export async function detectStaleKnowledge(
   const prunableSessions: ReadonlySet<NormalizedLedgerDocument> = new Set(expiredSessions(normalized, today).prunable);
   // Many records reference the same source files; read each file once per run.
   const sources = new ReferencedFileCache(workspace);
+  // Records repeat file lists across their blocks; search each pattern set for each term set once.
+  const patternSearches = new PatternSearches(workspace.projectRoot, new Map());
+  // An anchor that names a path in the tree points at a file rather than content to find in one.
+  const treePaths = new TreePaths(workspace.projectRoot);
 
   for (const issue of validation.issues) {
     if (issue.code !== "missing-reference" || !issue.path) continue;
@@ -130,7 +135,7 @@ export async function detectStaleKnowledge(
     const staleTargets = new Set<string>();
 
     if (document.symbols.length > 0 && document.files.length > 0) {
-      const missingSymbols = await symbolsMissingFromFiles(sources, document.files, document.symbols);
+      const missingSymbols = await symbolsMissingFromFiles(sources, patternSearches, document.files, document.symbols);
       for (const symbol of missingSymbols) {
         if (acknowledged.has(symbol) || acknowledged.has(`symbols:${symbol}`)) continue;
         staleTargets.add(symbol);
@@ -144,10 +149,21 @@ export async function detectStaleKnowledge(
     }
 
     if (parsed && document.kind === "change") {
-      for (const block of extractAnchoredBlocks(getSectionBody(parsed, "Changed Files"), document.files)) {
-        const checkable = block.anchors.filter((anchor) => isCheckableAnchor(anchor, block.files)).map((anchor) => anchor.text);
-        if (checkable.length === 0 || block.files.length === 0) continue;
-        const missing = await anchorsMissingFromFiles(sources, block.files, checkable);
+      const blocks = extractAnchoredBlocks(getSectionBody(parsed, "Changed Files"), document.files)
+        .map((block) => ({
+          block,
+          checkable: block.anchors.filter((anchor) => isCheckableAnchor(anchor, block.files)).map((anchor) => anchor.text),
+        }))
+        .filter(({ block, checkable }) => checkable.length > 0 && block.files.length > 0);
+      const blockResults = await Promise.all(
+        blocks.map(async ({ block, checkable }) => ({
+          block,
+          missing: await treePaths.withoutPathReferences(
+            await anchorsMissingFromFiles(sources, patternSearches, block.files, checkable),
+          ),
+        })),
+      );
+      for (const { block, missing } of blockResults) {
         for (const anchor of missing) {
           if (acknowledged.has(anchor) || acknowledged.has(`anchors:${anchor}`)) continue;
           staleTargets.add(anchor);
@@ -278,18 +294,136 @@ function relationshipFields(
  */
 async function symbolsMissingFromFiles(
   sources: ReferencedFileCache,
+  searches: PatternSearches,
   files: readonly string[],
   symbols: readonly string[],
 ): Promise<readonly string[]> {
   const checkableSymbols = symbols.filter(isCheckableSymbol);
   if (checkableSymbols.length === 0) return [];
   const combined = await sources.read(files);
-  if (combined === undefined) return [];
-  return checkableSymbols.filter((symbol) => {
-    if (combined.includes(symbol)) return false;
-    const segments = symbol.split(/::|\./).filter((segment) => segment.length > 0);
-    return segments.length < 2 || !segments.every((segment) => combined.includes(segment));
-  });
+  const missing = combined === undefined
+    ? checkableSymbols
+    : checkableSymbols.filter((symbol) => !textHasName(combined, symbol));
+  return await missingAfterPatterns(searches, files, missing, combined !== undefined);
+}
+
+/**
+ * The candidates a record's coverage patterns cannot account for. Patterns such as `src/**` name
+ * files the record never spells out, so they are searched with `git grep` rather than skipped.
+ * Nothing is reported when the search cannot run or the record lists no pattern to search, which
+ * keeps an unreadable reference from looking like drift.
+ */
+async function missingAfterPatterns(
+  searches: PatternSearches,
+  files: readonly string[],
+  missing: readonly string[],
+  readExactFiles: boolean,
+): Promise<readonly string[]> {
+  if (missing.length === 0) return [];
+  const pathspecs = [...new Set(files.filter(isCoveragePattern).map(patternPathspec).filter(isDefined))].sort();
+  if (pathspecs.length === 0) return readExactFiles ? missing : [];
+  const terms = [...new Set(missing.flatMap((candidate) => [candidate, ...nameSegments(candidate)]))].sort();
+  const found = await searches.find(pathspecs, terms);
+  if (found === undefined) return [];
+  return missing.filter((candidate) => !foundName(found, candidate));
+}
+
+/**
+ * The tracked paths of one run. An anchor such as `docs/security.md` or
+ * `internal/registry/openapi.go` names a file, and a block headed with a directory may name one
+ * that lives elsewhere in the tree, so an anchor that resolves to a tracked path is a reference
+ * and not drift. Identifiers, which carry no slash, are never treated this way.
+ */
+class TreePaths {
+  private pending?: Promise<readonly string[]>;
+
+  constructor(private readonly projectRoot: string) {}
+
+  async withoutPathReferences(anchors: readonly string[]): Promise<readonly string[]> {
+    if (anchors.length === 0) return anchors;
+    const candidates = anchors.filter((anchor) => anchor.includes("/") || fileNamePattern.test(anchor));
+    if (candidates.length === 0) return anchors;
+    const paths = await this.tracked();
+    if (paths.length === 0) return anchors;
+    const referenced = new Set(candidates.filter((anchor) => matchesTrackedPath(paths, anchor)));
+    return anchors.filter((anchor) => !referenced.has(anchor));
+  }
+
+  private tracked(): Promise<readonly string[]> {
+    if (!this.pending) this.pending = listTrackedFiles(this.projectRoot);
+    return this.pending;
+  }
+}
+
+/** A bare file name, such as `web_test.go`. A longer tail, as in `Server.throttle`, is a member name. */
+const fileNamePattern = /^[\w.-]+\.[A-Za-z0-9]{1,5}$/;
+
+/** Whether a tracked path is, ends with, or lies under the path an anchor names. */
+function matchesTrackedPath(paths: readonly string[], anchor: string): boolean {
+  const normalized = normalizePath(anchor).replace(/^\//, "").replace(/\/$/, "");
+  if (normalized.length === 0) return false;
+  return paths.some(
+    (filePath) =>
+      filePath === normalized ||
+      filePath.endsWith(`/${normalized}`) ||
+      filePath.startsWith(`${normalized}/`) ||
+      filePath.includes(`/${normalized}/`),
+  );
+}
+
+/** One run's pattern searches, so a file list repeated across blocks is searched once. */
+class PatternSearches {
+  constructor(
+    private readonly projectRoot: string,
+    private readonly cache: Map<string, Promise<ReadonlySet<string> | undefined>>,
+  ) {}
+
+  find(pathspecs: readonly string[], terms: readonly string[]): Promise<ReadonlySet<string> | undefined> {
+    const key = `${pathspecs.join("\u0000")}\u0001${terms.join("\u0000")}`;
+    let pending = this.cache.get(key);
+    if (!pending) {
+      pending = grepTrackedFiles(this.projectRoot, terms, pathspecs);
+      this.cache.set(key, pending);
+    }
+    return pending;
+  }
+}
+
+function isDefined(value: string | undefined): value is string {
+  return value !== undefined;
+}
+
+/**
+ * A coverage pattern as a Git pathspec, or undefined when it carries pathspec magic of its own.
+ * Ledger's `**`, `*`, `prefix:`, `glob:`, and trailing-slash forms all become glob pathspecs.
+ */
+function patternPathspec(pattern: string): string | undefined {
+  const normalized = normalizePath(pattern).trim();
+  if (normalized.length === 0 || normalized.startsWith(":")) return undefined;
+  if (normalized.startsWith("glob:")) return `:(glob)${normalized.slice("glob:".length)}`;
+  if (normalized.startsWith("prefix:")) return `:(glob)${normalized.slice("prefix:".length)}*`;
+  if (normalized.endsWith("/")) return `:(glob)${normalized}**`;
+  return `:(glob)${normalized}`;
+}
+
+/** The parts of a dotted or double-colon name, such as `Store.EnqueueJobTx`. */
+function nameSegments(name: string): readonly string[] {
+  const segments = name.split(/::|\./).filter((segment) => segment.length > 0);
+  return segments.length >= 2 ? segments : [];
+}
+
+/** Whether text contains a name outright, or every segment of a member name. */
+function textHasName(text: string, name: string): boolean {
+  if (text.includes(name)) return true;
+  const segments = nameSegments(name);
+  return segments.length >= 2 && segments.every((segment) => text.includes(segment));
+}
+
+/** The same rule against the terms a search matched. */
+function foundName(found: ReadonlySet<string>, name: string): boolean {
+  if (found.has(name)) return true;
+  const segments = nameSegments(name);
+  return segments.length >= 2 && segments.every((segment) => found.has(segment));
 }
 
 /**
@@ -319,16 +453,19 @@ const segmentedNamePattern = /^[A-Za-z_$][\w$-]*(?:(?:\.|::)[A-Za-z_$][\w$-]*)+$
  */
 async function anchorsMissingFromFiles(
   sources: ReferencedFileCache,
+  searches: PatternSearches,
   files: readonly string[],
   anchors: readonly string[],
 ): Promise<readonly string[]> {
   const combined = await sources.read(files);
-  if (combined === undefined) return [];
-  return anchors.filter((anchor) => {
-    if (combined.includes(anchor)) return false;
-    if (segmentedNamePattern.test(anchor)) return !anchor.split(/::|\./).every((segment) => combined.includes(segment));
-    return true;
-  });
+  const missing = combined === undefined
+    ? anchors
+    : anchors.filter((anchor) => {
+        if (combined.includes(anchor)) return false;
+        if (segmentedNamePattern.test(anchor)) return !anchor.split(/::|\./).every((segment) => combined.includes(segment));
+        return true;
+      });
+  return await missingAfterPatterns(searches, files, missing, combined !== undefined);
 }
 
 /**
