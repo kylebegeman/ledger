@@ -33,6 +33,7 @@ commits: []
 related:
   - "0116"
   - "0121"
+release: "v0.9.4"
 ---
 
 # 0193: Search Coverage Patterns For Stale Symbols And Anchors

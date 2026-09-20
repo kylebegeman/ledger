@@ -24,6 +24,7 @@ related:
   - "0189"
   - "0191"
   - "S0006"
+release: "v0.9.4"
 ---
 
 # 0192: Record the v0.9.3 publish and Kore's move to it

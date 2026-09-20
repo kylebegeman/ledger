@@ -34,6 +34,7 @@ related:
   - "0116"
   - "0121"
   - "0193"
+release: "v0.9.4"
 ---
 
 # 0194: Resolve Directory Blocks And Path Anchors Before Calling Them Stale
