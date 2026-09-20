@@ -2,7 +2,7 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { readUtf8FileLimited } from "./boundedFile.js";
 import { isCoveragePattern } from "./coverage.js";
-import { grepTrackedFiles } from "./git.js";
+import { grepTrackedFiles, listTrackedFiles } from "./git.js";
 import { normalizeDocument, normalizePath, stringArrayValue } from "./documents.js";
 import { applyFileTransaction } from "./fileTransaction.js";
 import { LedgerError } from "./machine.js";
@@ -54,6 +54,8 @@ export async function detectStaleKnowledge(
   const sources = new ReferencedFileCache(workspace);
   // Records repeat file lists across their blocks; search each pattern set for each term set once.
   const patternSearches = new PatternSearches(workspace.projectRoot, new Map());
+  // An anchor that names a path in the tree points at a file rather than content to find in one.
+  const treePaths = new TreePaths(workspace.projectRoot);
 
   for (const issue of validation.issues) {
     if (issue.code !== "missing-reference" || !issue.path) continue;
@@ -156,7 +158,9 @@ export async function detectStaleKnowledge(
       const blockResults = await Promise.all(
         blocks.map(async ({ block, checkable }) => ({
           block,
-          missing: await anchorsMissingFromFiles(sources, patternSearches, block.files, checkable),
+          missing: await treePaths.withoutPathReferences(
+            await anchorsMissingFromFiles(sources, patternSearches, block.files, checkable),
+          ),
         })),
       );
       for (const { block, missing } of blockResults) {
@@ -322,6 +326,49 @@ async function missingAfterPatterns(
   const found = await searches.find(pathspecs, terms);
   if (found === undefined) return [];
   return missing.filter((candidate) => !foundName(found, candidate));
+}
+
+/**
+ * The tracked paths of one run. An anchor such as `docs/security.md` or
+ * `internal/registry/openapi.go` names a file, and a block headed with a directory may name one
+ * that lives elsewhere in the tree, so an anchor that resolves to a tracked path is a reference
+ * and not drift. Identifiers, which carry no slash, are never treated this way.
+ */
+class TreePaths {
+  private pending?: Promise<readonly string[]>;
+
+  constructor(private readonly projectRoot: string) {}
+
+  async withoutPathReferences(anchors: readonly string[]): Promise<readonly string[]> {
+    if (anchors.length === 0) return anchors;
+    const candidates = anchors.filter((anchor) => anchor.includes("/") || fileNamePattern.test(anchor));
+    if (candidates.length === 0) return anchors;
+    const paths = await this.tracked();
+    if (paths.length === 0) return anchors;
+    const referenced = new Set(candidates.filter((anchor) => matchesTrackedPath(paths, anchor)));
+    return anchors.filter((anchor) => !referenced.has(anchor));
+  }
+
+  private tracked(): Promise<readonly string[]> {
+    if (!this.pending) this.pending = listTrackedFiles(this.projectRoot);
+    return this.pending;
+  }
+}
+
+/** A bare file name, such as `web_test.go`. A longer tail, as in `Server.throttle`, is a member name. */
+const fileNamePattern = /^[\w.-]+\.[A-Za-z0-9]{1,5}$/;
+
+/** Whether a tracked path is, ends with, or lies under the path an anchor names. */
+function matchesTrackedPath(paths: readonly string[], anchor: string): boolean {
+  const normalized = normalizePath(anchor).replace(/^\//, "").replace(/\/$/, "");
+  if (normalized.length === 0) return false;
+  return paths.some(
+    (filePath) =>
+      filePath === normalized ||
+      filePath.endsWith(`/${normalized}`) ||
+      filePath.startsWith(`${normalized}/`) ||
+      filePath.includes(`/${normalized}/`),
+  );
 }
 
 /** One run's pattern searches, so a file list repeated across blocks is searched once. */

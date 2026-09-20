@@ -161,7 +161,10 @@ and symbol checks, so a block that names only images is not checked. A block
 or record that names files by coverage pattern, such as `src/**`, has those
 patterns searched with `git grep`, so an anchor or symbol that lives in a file
 the pattern covers counts as present; when Git cannot run the search, the
-pattern reports nothing rather than guessing.
+pattern reports nothing rather than guessing. A block heading that names a
+directory path covers the record's files under it, and an anchor that names a
+path the tree still holds is a reference to that file rather than content to
+find in another.
 
 For broad mechanical work:
 

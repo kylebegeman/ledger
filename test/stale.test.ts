@@ -218,6 +218,28 @@ describe("anchor and invariant freshness", () => {
     expect(targets).toEqual(["AlsoGone", "goneFromTheTree"]);
   }, 30_000);
 
+  it("matches a block headed with a directory and treats path anchors as references", async () => {
+    tempDir = await realpath(await mkdtemp(path.join(os.tmpdir(), "ledger-stale-directory-test-")));
+    await initWorkspace(tempDir);
+    await mkdir(path.join(tempDir, "internal", "composer"), { recursive: true });
+    await mkdir(path.join(tempDir, "docs"), { recursive: true });
+    await writeFile(path.join(tempDir, "internal", "composer", "composer_test.go"), "func TestEjected() {}\n");
+    await writeFile(path.join(tempDir, "docs", "contracts.md"), "# Contracts\n");
+    await writeFile(path.join(tempDir, "CHANGELOG.md"), "# Changelog\n");
+    await writeFile(path.join(tempDir, ".ledger", "entries", "0001-directory.md"), directoryEntry(), "utf8");
+    await execFileAsync("git", ["init", "-q"], { cwd: tempDir });
+    await execFileAsync("git", ["add", "."], { cwd: tempDir });
+
+    const workspace = await findWorkspace(tempDir);
+    const documents = await readLedgerDocuments(workspace);
+    const report = await detectStaleKnowledge(workspace, documents, validateDocuments(workspace, documents));
+    const targets = report.issues.filter((issue) => issue.kind === "stale-anchor").map((issue) => issue.target);
+
+    // TestEjected lives under the directory the block heads; docs/contracts.md is a real path, so
+    // it is a reference rather than content; only the file that exists nowhere is stale.
+    expect(targets).toEqual(["docs/gone.md"]);
+  }, 30_000);
+
   it("honors anchor acknowledgements", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "ledger-stale-anchor-ack-"));
     await initWorkspace(tempDir);
@@ -323,6 +345,55 @@ Test stale detection.
 ### src/cli.ts
 
 - What changed: Fixture.
+- On conflict: Keep behavior.
+
+## Behavior And UX Impact
+
+None.
+
+## Invariants
+
+- Keep behavior.
+
+## Verification
+
+- npm test
+`;
+}
+
+function directoryEntry(): string {
+  return `---
+id: "0001"
+kind: "change"
+title: "Directory fixture"
+date: "2026-06-29"
+updated: "2026-06-29"
+status: "landed"
+areas: ["composer"]
+files:
+  - "internal/composer/composer_test.go"
+  - "docs/contracts.md"
+  - "CHANGELOG.md"
+symbols: []
+commits: []
+---
+
+# 0001: Directory Fixture
+
+## Summary
+
+Fixture.
+
+## Why
+
+Test block file resolution.
+
+## Changed Files
+
+### internal/composer, CHANGELOG.md
+
+- What changed: Fixture.
+- Anchor: \`TestEjected\`, \`docs/contracts.md\`, \`docs/gone.md\`
 - On conflict: Keep behavior.
 
 ## Behavior And UX Impact

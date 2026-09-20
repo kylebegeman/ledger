@@ -1058,6 +1058,16 @@ verification gaps, expired sessions, and stale or failed verification
 evidence. Anchors are checked per block against the files the block names,
 so the message says which file lost the anchor.
 
+A Changed Files heading that names a directory path, such as
+`### internal/composer, CHANGELOG.md`, matches the record's files under that
+directory, so its anchors are checked against them. The heading has to carry a
+separator for that: a prose heading word such as `docs` stays prose. An anchor
+that names a path the tree still holds, by full path, by the name of a file
+under some directory, or as a directory of its own, is a reference to that file
+rather than content to find inside another, so it is never stale. A bare file
+name counts the same way when its tail looks like an extension, which keeps a
+member name such as `Server.throttle` a member name.
+
 A record may reference files by coverage pattern, such as `src/**` or
 `plugins/*/adapter.json`, and those patterns name files the record never
 spells out. The exact files a record lists are read and cached for the run;
