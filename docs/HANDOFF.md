@@ -21,12 +21,14 @@ fixes. "Next slices" lists what is left.
   scratch repository, passed a SessionStart payload through it, and passed
   doctor's hooks check. Receipt 0192 is unreleased.
   `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
-- Prepared, not published: 0.9.4 on branch `stale-patterns`,
-  kylebegeman/ledger#35, gate green and checks passing. It carries receipts
-  0193 and 0194, which stop `ledger stale` from reading a record as drift when
-  it points at files by pattern, by directory, or by path, plus 0192 and the
-  prepare receipt 0195. Publishing waits on Kyle: merge, then
-  `git tag v0.9.4 && git push origin v0.9.4`.
+- Merged, not published: 0.9.4 is on `master` from kylebegeman/ledger#35. It
+  carries receipts 0193 and 0194, which stop `ledger stale` from reading a
+  record as drift when it points at files by pattern, by directory, or by
+  path, plus 0192 and the prepare receipt 0195. Publishing waits on Kyle:
+  `git tag v0.9.4 && git push origin v0.9.4` on the merged `master`. The
+  README's pinned version and the adopt card follow `package.json`, so they
+  move in the same slice; kylebegeman/ledger#36 carries that move and the
+  `readme:check` job is red on `master` until it lands.
 - First outside adopter: Kore runs Ledger 0.9.3 with Claude Code and Codex
   hooks since kylebegeman/forge#33 (Kore receipt 0011). Before that it ran
   0.9.2 from kylebegeman/forge#32, 0.9.1 from #31, 0.9.0 from #30, 0.8.2
