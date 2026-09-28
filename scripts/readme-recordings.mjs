@@ -92,14 +92,17 @@ try {
   const firstFrame = new Promise((resolve) => { firstFrameReady = resolve; });
   recorder.on("Page.screencastFrame", ({ data, metadata, sessionId }) => {
     void recorder.send("Page.screencastFrameAck", { sessionId }).catch((error) => errors.push(error.message));
-    if (metadata.timestamp === undefined) {
-      errors.push("Chromium returned a frame without its timestamp.");
-      return;
+    if (errors.length) return;
+    try {
+      if (metadata.timestamp === undefined) throw new Error("Chromium returned a frame without its timestamp.");
+      firstTimestamp ??= metadata.timestamp;
+      const file = `source-${String(frames.length).padStart(5, "0")}.png`;
+      writeFileSync(path.join(work, file), Buffer.from(data, "base64"));
+      frames.push({ file, time: metadata.timestamp - firstTimestamp });
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : String(error));
     }
-    firstTimestamp ??= metadata.timestamp;
-    const file = `source-${String(frames.length).padStart(5, "0")}.png`;
-    writeFileSync(path.join(work, file), Buffer.from(data, "base64"));
-    frames.push({ file, time: metadata.timestamp - firstTimestamp });
+    // Let a failed first frame reach the same awaited error and cleanup path.
     firstFrameReady();
   });
   await recorder.send("Page.startScreencast", { format: "png", maxWidth: viewport.width, maxHeight: viewport.height, everyNthFrame: 1 });
@@ -110,6 +113,7 @@ try {
     const wait = seconds * 1000 - (performance.now() - started);
     if (wait > 0) await page.waitForTimeout(wait);
     else if (wait < -700) throw new Error(`Tour fell ${Math.round(-wait)} ms behind at ${seconds}s; rerun on an idle machine.`);
+    if (errors.length) throw new Error(`Reader errors during recording:\n${errors.join("\n")}`);
     if (action) await action();
   }
 

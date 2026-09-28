@@ -4,7 +4,7 @@ kind: "change"
 title: "Replace the Ledger icon and wordmark"
 date: "2026-09-28"
 updated: "2026-09-28"
-status: "draft"
+status: "landed"
 areas:
   - "design"
   - "branding"
@@ -47,6 +47,7 @@ related:
   - "0199"
 decisions:
   - "D009"
+release: "v0.9.5"
 ---
 
 # 0200: Replace the Ledger icon and wordmark

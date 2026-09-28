@@ -4,7 +4,7 @@ kind: "change"
 title: "Rewrite the README and publish the live example"
 date: "2026-09-28"
 updated: "2026-09-28"
-status: "draft"
+status: "landed"
 staleRefs:
   - "files:assets/readme/hero.png"
 areas:
@@ -57,6 +57,7 @@ decisions:
   - "D009"
 related:
   - "0196"
+release: "v0.9.5"
 ---
 
 # 0197: Rewrite the README and publish the live example

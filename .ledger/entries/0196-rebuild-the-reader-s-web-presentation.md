@@ -4,7 +4,7 @@ kind: "change"
 title: "Rebuild the reader's web presentation"
 date: "2026-09-28"
 updated: "2026-09-28"
-status: "draft"
+status: "landed"
 staleRefs:
   - "files:scripts/check-dossier-tokens.mjs"
   - "symbols:syncRailDrawer"
@@ -46,6 +46,7 @@ decisions:
   - "D009"
 related:
   - "0168"
+release: "v0.9.5"
 ---
 
 # 0196: Rebuild the reader's web presentation

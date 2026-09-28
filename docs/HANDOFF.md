@@ -10,12 +10,18 @@ Work resumed on 2026-09-19 from Kore's side: triaging its stale report found
 two defects in `ledger stale`, and 0.9.4 shipped with the fixes on
 2026-09-20. On 2026-09-27 and 28 the reader's web presentation was rebuilt
 from the ground up on branch `reader-redesign`, the README was rewritten
-around it, and the repository started publishing its own reader and changelog
-to GitHub Pages as a live example. "Next slices" lists what is left.
+around it, and PR #39 merged on 2026-09-28. GitHub Pages now publishes the
+reader and public changelog. The 0.9.5 release packages this redesign.
+"Next slices" lists the release checks and remaining product work.
 
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.9.4 on npm and GitHub Release v0.9.4,
+- Release: `@kylebegeman/ledger` 0.9.5, with release record
+  `.ledger/releases/v0.9.5.md` and receipts 0196 through 0203. The tag
+  `v0.9.5` on master triggers the existing trusted-publishing workflow and
+  GitHub Release; the master push deploys the live example independently.
+  Kyle explicitly authorized merge, deployment, and tagging on 2026-09-28.
+- Previous release: `@kylebegeman/ledger` 0.9.4 on npm and GitHub Release v0.9.4,
   created by `.github/workflows/release.yml` through npm trusted publishing on
   2026-09-20 from kylebegeman/ledger#35. 0.8.0 (#20 and #21), 0.8.1 (#22),
   0.8.2 (#25), 0.9.0 (#26), 0.9.1 (#29), 0.9.2 (#31), and 0.9.3 (#33)
@@ -24,13 +30,14 @@ to GitHub Pages as a live example. "Next slices" lists what is left.
   installed the Codex launcher in a scratch repository, passed a SessionStart
   payload through it, and passed doctor's hooks check.
   `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
-- In review, unreleased: the reader redesign on branch `reader-redesign`.
+- Merged: the reader redesign in [PR #39](https://github.com/kylebegeman/ledger/pull/39),
+  at master commit `6e753231e482810273627f4527a23973e8737a5c`.
   It carries receipts 0196 through 0202 and decision D009: the overview, records,
   and timeline views, the reader's own visual system, the rewritten README,
   a second design pass based on Dossier's neutral reader, a binary theme
   switch, and `.github/workflows/pages.yml`, which deploys the live example at
-  https://kylebegeman.github.io/ledger/ once the branch merges. The next
-  patch release carries it. Receipt 0199 adds a compact-layout revision: recent changes lead an unboxed overview, record rows are
+  https://kylebegeman.github.io/ledger/. Its first deployment passed and both
+  the reader and changelog returned HTTP 200. Release 0.9.5 carries it. Receipt 0199 adds a compact-layout revision: recent changes lead an unboxed overview, record rows are
   tighter, and the detail panel reads as a document. Receipt 0200 replaces the
   gradient L icon with a punched-receipt mark and outlined lowercase wordmark,
   including light and dark logo assets. Receipt 0201 adds custom pill menus,
@@ -38,6 +45,7 @@ to GitHub Pages as a live example. "Next slices" lists what is left.
   palette on near-white light surfaces and warm charcoal dark surfaces. Receipt
   0202 revises dark mode to charcoal/slate with muted steel-blue accents, rounds
   and tightens record highlights, and rebuilds the README around a recorded tour.
+  Its final revision carries blue accents into the near-white light theme too.
 - First outside adopter: Kore runs Ledger 0.9.3 with Claude Code and Codex
   hooks since kylebegeman/forge#33 (Kore receipt 0011). Before that it ran
   0.9.2 from kylebegeman/forge#32, 0.9.1 from #31, 0.9.0 from #30, 0.8.2
@@ -60,8 +68,8 @@ to GitHub Pages as a live example. "Next slices" lists what is left.
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
 - The active checkout at `/Users/kyle/Developer/active/ledger` is on
-  `reader-redesign`, based on `master`. Kyle works there directly; do not create clones or
-  worktrees for Ledger work.
+  the release workflow based on `master`. Kyle works there directly; do not
+  create clones or worktrees for Ledger work.
 
 ## What shipped this cycle
 
@@ -78,7 +86,7 @@ to GitHub Pages as a live example. "Next slices" lists what is left.
 | 0.9.0 | Dossier's visual system (B009): the reader and the public changelog take Dossier's neutrals, status tones, font stacks, radii, and motion and keep Ledger's emerald accent; a compact masthead, a left facet rail with group labels, and an Auto, Light, and Dark theme toggle with a visible label; contrast and tablet overflow fixes; README cards and screenshots in the same palette; compact JSON sidecars and search shards filled exactly to their budget | 0168 to 0170 |
 | 0.9.1 | MCP on the v2 SDK (D008): `ledger mcp` and `/mcp` speak protocol 2026-07-28 and the 2025 revisions; confirmed MCP tools for new, feedback, backlog new, decision new, promote, and session start, note, and close; list cache hints and change notices on 2026-07-28; a production install of seven packages instead of the SDK's 94; the Codex installer names the app's Hooks page; product notes marked resolved; a 4.5 MB render budget here | 0171 to 0174 |
 | 0.9.2 | Complete records and a navigable reader: section bodies from the CLI, API, and MCP, and `ledger update`; `ledger context` for reviewing a change set; `doctor --fix` and a hooks health check; Go, Rust, Python, and Swift symbols from declaration outlines; reader entity views, backlinks, copy actions, palette suggestions, and changed-since-last-visit markers; plain-prose summary excerpts; an Atom feed, release permalinks, page metadata, and `render --site-url` for the public changelog; a generated command reference; scripted README screenshots and a Dossier token check | 0175 to 0186 |
-| Unreleased | The reader rebuilt from the ground up (D009): an overview with compact counts, recent changes, an activity chart with a table twin, releases, areas, backlog, health, and graph counts; a timeline grouped by month; sort orders, active filter chips, panel prev and next, a collapsible relationship map, and keyboard shortcuts; a public changelog with year headings and a version index; a neutral design informed by Dossier with independent tokens and a binary Light/Dark switch; an unboxed layout with recent changes first and document-style details; a rewritten README with new screenshots; a punched-receipt icon and outlined wordmark; custom pill menus, a compact filter rail, rounded row highlights, and blue accents on near-white or charcoal/slate surfaces; a recorded README tour; GitHub Pages publishing this repository's reader and changelog as the live example | 0196, 0197, 0198, 0199, 0200, 0201, 0202 |
+| 0.9.5 | The reader rebuilt from the ground up (D009): an overview with compact counts, recent changes, an activity chart with a table twin, releases, areas, backlog, health, and graph counts; a timeline grouped by month; sort orders, active filter chips, panel prev and next, a collapsible relationship map, and keyboard shortcuts; a public changelog with year headings and a version index; a neutral design informed by Dossier with independent tokens and a binary Light/Dark switch; an unboxed layout with recent changes first and document-style details; a rewritten README with new screenshots; a punched-receipt icon and outlined wordmark; custom pill menus, a compact filter rail, rounded row highlights, and blue accents on near-white or charcoal/slate surfaces; a recorded README tour; GitHub Pages publishing this repository's reader and changelog as the live example | 0196, 0197, 0198, 0199, 0200, 0201, 0202, 0203 |
 | 0.9.3 | Codex approval that survives upgrades: `hooks install --host codex --launcher` makes the hooks run a generated `.ledger/bin/ledger.mjs`, so a new version rewrites only that script and `.codex/hooks.json` stays the same; installs keep the form a file uses; doctor checks the script; the doctor symbols check names the coverage patterns when nothing is covered and the outlined languages beside TypeScript (product note 0187) | 0188 to 0191 |
 
 Read the receipts for invariants and conflict rules before touching those
@@ -274,78 +282,23 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Merge the reader redesign.** Kyle merges [PR #39](https://github.com/kylebegeman/ledger/pull/39)
-   from `reader-redesign`; the Pages workflow then deploys the live example. The next patch
-   release, 0.9.5, carries receipts 0196 through 0202 with a release record
-   written by `ledger release`.
-   The resumed local gate passed on 2026-09-28: `npm run ci` exited 0
-   with 501 tests, both renders fit their budgets, and receipts 0196 and
-   0197 pass `ledger ready`. The receipts stay draft until the merge.
-   `npm run readme:check` passed with the intended assets staged, and the
-   Pages artifact staging smoke passed under the workflow's Bash settings.
-   Retired asset references are acknowledged with `staleRefs`. The Pages
-   deploy job also guards manual runs so only `master` can deploy.
-   The follow-up design pass adds Dossier-inspired grayscale surfaces, a
-   latest-change shortcut, stronger hierarchy, labeled kind icons, roomier
-   controls, and all three tabs on phones. Its theme regression tests and
-   focused reader/render suite pass (58 tests). The release-grade local gate
-   exits 0 with 509 tests across 62 files; both renders remain within budget.
-   All seven README captures and the generated terminal cards are refreshed.
-   `npm run readme:check` passes with those assets staged, and receipt 0198 is ready.
-   Shared-browser checks cover responsive views from 320 to 1440px, both themes,
-   filters, empty results, palette search, and the mobile detail panel. The
-   preview host's resize operation times out, so checks and full-resolution
-   captures use an iframe inside that shared browser.
-   Kyle's latest review requested fewer cards and a tighter layout, using
-   Impeccable as a reference. Receipt 0199 completes that revision:
-   compact counts, recent changes as the main content, an unboxed context
-   column, denser records, and document-style details with a collapsed map.
-   The latest `npm run ci` exits 0 with 515 tests across 62 files, including
-   recent-change navigation, relationship disclosure, and mobile keyboard
-   containment. On narrow screens the record panel now inerts the covered
-   page, retains keyboard focus, opens `/` search visibly, and restores focus
-   on close; desktop remains nonmodal. Shared-browser keyboard checks and
-   breakpoint transitions pass. Impeccable's detector reports no findings on
-   the reader source, and independent visual review supports the final layout.
-   All seven README captures are refreshed and visually inspected; the README
-   asset check, Ledger CI, and receipt 0199 readiness pass. PR #39 carries the
-   completed milestone; the three-OS CI matrix must pass before Kyle merges.
-   Receipt 0200 replaces the icon and wordmark. Its local `npm run ci` also
-   exits 0 with 515 tests across 62 files; the SVG generator is deterministic,
-   package contents include the logos and license, and independent visual
-   review covers both schemes and small sizes. The local reader and favicon
-   use the new icon. The five README captures that show the header mark were
-   refreshed with the existing Playwright script after Kyle explicitly
-   authorized it when the shared browser's screenshot capture failed.
-   Playwright remains an unsaved local tool; the package manifest and lockfile
-   are unchanged.
-   Receipt 0201 refines Records and Timeline without changing the approved
-   overview composition: rounded custom menus, a compact type rail, responsive
-   placement of the three deeper filters, and shorter Timeline dates with full
-   accessible labels. The full palette now uses copper/apricot, near-white
-   light surfaces, and warm charcoal dark surfaces. Real-browser filtering,
-   keyboard, menu bounds, and responsive checks pass from 320 to 1440px;
-   independent visual review finds no material defects in the UI. The local
-   `npm run ci` exits 0 with 530 tests across 63 files, and the README asset
-   check passes. All artwork is refreshed; the overview screenshots capture
-   the whole page so the activity chart and supporting context are complete.
-   Text contrast passes in both themes, both reader profiles fit their budgets,
-   and the package manifest and lockfile remain unchanged.
-   Receipt 0202 follows Kyle's correction: dark mode uses charcoal/slate with
-   subtle steel-blue accents, and record highlights have rounded corners and
-   tighter padding. The subsequent review carries blue into light mode and the
-   standalone mark too, while preserving the near-white canvas. The README puts the new identity, recorded reader tour,
-   setup, and live-example links first, with deep reference details behind
-   folds or in linked docs. The tour is reproducible from the new Playwright
-   recording script and FFmpeg; neither is a production dependency. The public
-   reader and changelog both returned HTTP 404 before merge on 2026-09-28.
-   Their links become available after the existing master-only Pages deployment.
-   The completed local gate passes 530 tests, typecheck, build, Ledger CI, and
-   package inspection. Text contrast remains at least 4.51:1 in both themes.
-   The final tour is 24 seconds at 1200 by 800: a 2.90 MB GIF and 1.83 MB MP4.
-   The README asset check and receipt readiness pass; all seven stills and
-   exported tour frames were inspected. A discovered empty area-bar fill was
-   fixed and both overviews and the recording were refreshed after that build.
+1. **Verify the v0.9.5 release.** The redesign is merged in PR #39 and its
+   initial Pages deployment passed. The release preparation updates package
+   versions, install pins, the generated adoption example, and the release
+   record over receipts 0196 through 0203. Merge release preparation through
+   its PR after the three-OS matrix passes, then tag master with `v0.9.5`.
+   `.github/workflows/release.yml` publishes npm and GitHub Release notes;
+   `.github/workflows/pages.yml` updates the reader and changelog from master.
+   Confirm both workflows, the npm version, a clean install, and the deployed
+   v0.9.5 changelog entry before considering publication complete.
+   The redesign passed 530 tests across 63 files, typecheck, build, Ledger CI,
+   README asset checks, packaging, and all seven remote checks. Browser review
+   covered 320 through 1440px, both blue themes, menus, URL state, keyboard
+   behavior, and detail panels. The 24-second README tour and all seven stills
+   were inspected. Text contrast is at least 4.51:1 on the tested surfaces.
+   The one static-host request to `/events` is the expected live-reload probe;
+   it closes on 404 and does not retry. Release preparation also catches frame
+   write failures in the recording script so browser/server cleanup runs.
 2. **Tell Kore when 0.9.4 is published, and nothing more.** Kore keeps
    reporting 169 stale signals until its pin moves, because the fix is in the
    tool rather than in its records. Kore's own session owns that bump across
@@ -440,9 +393,10 @@ D006 records what was retired; D007 records the runtime decision below.
 - `.claude/launch.json` serves the readers on fixed ports 4173 and 4174,
   which a server left running by another session can hold. The screenshot
   script picks free ports instead.
-- The first Pages deployment runs when `reader-redesign` merges. Check the
-  Pages workflow run and https://kylebegeman.github.io/ledger/ afterwards;
-  the `github-pages` environment lets only `master` deploy.
+- The first Pages deployment passed after PR #39 merged; the reader and
+  changelog are live at https://kylebegeman.github.io/ledger/. The
+  `github-pages` environment lets only `master` deploy. Release preparation
+  triggers the next deployment with the new release record.
 - Codex and Cursor hooks were verified by piping their payload shapes through
   `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
   hooks installed but no live Codex session yet. Cursor's hooks

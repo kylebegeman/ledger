@@ -108,11 +108,11 @@ Run a pinned package through npx. The project itself does not need a
 `package.json`; the machine still needs Node.
 
 ```bash
-npx --yes @kylebegeman/ledger@0.9.4 adopt
-npx --yes @kylebegeman/ledger@0.9.4 hooks install --host claude-code --command "npx --yes @kylebegeman/ledger@0.9.4" --import-agents
-npx --yes @kylebegeman/ledger@0.9.4 skills install
-npx --yes @kylebegeman/ledger@0.9.4 agents --write
-npx --yes @kylebegeman/ledger@0.9.4 serve --watch
+npx --yes @kylebegeman/ledger@0.9.5 adopt
+npx --yes @kylebegeman/ledger@0.9.5 hooks install --host claude-code --command "npx --yes @kylebegeman/ledger@0.9.5" --import-agents
+npx --yes @kylebegeman/ledger@0.9.5 skills install
+npx --yes @kylebegeman/ledger@0.9.5 agents --write
+npx --yes @kylebegeman/ledger@0.9.5 serve --watch
 ```
 
 For Codex, use `--host codex --launcher` instead of
@@ -342,9 +342,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: kylebegeman/ledger@v0.9.4
+      - uses: kylebegeman/ledger@v0.9.5
         with:
-          command: npx --yes @kylebegeman/ledger@0.9.4
+          command: npx --yes @kylebegeman/ledger@0.9.5
 ```
 
 Coverage checks configured paths. With `git.coverage: current`, a changed
