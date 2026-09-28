@@ -293,12 +293,12 @@ function buildGoDemo(base) {
 
 const MONO = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
 const SANS = "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
-// Dossier's dark neutrals and tones (the reader's palette since B009), with Ledger's emerald for prompts and headings.
-// Code takes Dossier's syntax violet and record ids its number coral.
+// The reader's dark surfaces and tones (src/reader/styles.css), with Ledger's emerald for prompts and headings.
+// Code takes the decision violet and record ids the warning amber.
 const COLORS = {
-  bg: "#141216", bar: "#1c191e", border: "#3d363f", text: "#e2dde3", bright: "#f4f1f4", muted: "#948b96",
-  accent: "#34d399", heading: "#6ee7b7", pass: "#6fdbc9", red: "#f4789a", amber: "#e6b566", code: "#b9aaff",
-  ident: "#e6b566", title: "#b0a7b1",
+  bg: "#121517", bar: "#191d21", border: "#23282c", text: "#d9dbd6", bright: "#f2f1ec", muted: "#868b8e",
+  accent: "#34d399", heading: "#6ee7b7", pass: "#5fd3b0", red: "#f38aa3", amber: "#e6b566", code: "#b3a9f5",
+  ident: "#e6b566", title: "#b8bbb5",
 };
 const FONT_SIZE = 13.5;
 const CHAR_WIDTH = 8.13; // approximate advance of the monospace stack at 13.5px
@@ -392,7 +392,7 @@ function runs(prefix, text, styles) {
 }
 
 function tspan(text, style) {
-  if (style === "note") return `<tspan fill="${COLORS.muted}" font-style="italic">${escapeXml(text)}</tspan>`;
+  if (style === "note") return `<tspan fill="${COLORS.muted}">${escapeXml(text)}</tspan>`;
   const weight = style === "bright" || style === "heading" ? ' font-weight="600"' : "";
   return `<tspan fill="${COLORS[style]}"${weight}>${escapeXml(text)}</tspan>`;
 }
@@ -555,8 +555,8 @@ const LOOP_STEPS = [
   ["Next change", ["Whoever touches those files", "reads the receipts first, in", "a packet or the reader."], "ledger packet"],
 ];
 const LOOP = {
-  panel: "#141216", panelBorder: "#3d363f", card: "#1c191e", border: "#3d363f", title: "#f4f1f4", body: "#b0a7b1",
-  chipBg: "#0d2d20", chipText: "#6ee7b7", numberBg: "#34d399", numberText: "#03271c", arrow: "#736b77", loop: "#34d399", caption: "#948b96",
+  panel: "#0b0d0f", panelBorder: "#23282c", card: "#121517", border: "#23282c", title: "#f2f1ec", body: "#b8bbb5",
+  chipBg: "#10332a", chipText: "#6ee7b7", numberBg: "#34d399", numberText: "#04261a", arrow: "#6a7076", loop: "#34d399", caption: "#868b8e",
 };
 
 function renderLoop() {
@@ -596,7 +596,7 @@ function renderLoop() {
   // The loop closes from the next change back to the next session start.
   const lx = cols[0] + CARD_W / 2;
   out.push(`  <path d="M ${lx} ${rows[1] - 6} L ${lx} ${rows[0] + CARD_H + 8}" fill="none" stroke="${LOOP.loop}" stroke-width="2.5" stroke-dasharray="6 6" stroke-linecap="round" marker-end="url(#loophead)"/>`);
-  out.push(`  <text x="${lx + 14}" y="${(rows[0] + CARD_H + rows[1]) / 2 + 5}" font-family="${SANS}" font-size="13.5" font-style="italic" fill="${LOOP.caption}">and the next session starts with it</text>`);
+  out.push(`  <text x="${lx + 14}" y="${(rows[0] + CARD_H + rows[1]) / 2 + 5}" font-family="${SANS}" font-size="13.5" fill="${LOOP.caption}">and the next session starts with it</text>`);
   out.push("</svg>");
   return `${out.join("\n")}\n`;
 }

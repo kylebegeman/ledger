@@ -5,6 +5,8 @@ title: "Prepare v0.9.3"
 date: "2026-09-17"
 updated: "2026-09-17"
 status: "landed"
+staleRefs:
+  - "files:assets/readme/hero.png"
 areas:
   - "release"
 files:

@@ -1,32 +1,35 @@
 # Ledger Handoff
 
-Last updated: 2026-09-19. Written at the end of a long working session so the
+Last updated: 2026-09-28. Written at the end of a long working session so the
 next session can resume without rereading history. Update this file whenever a
 milestone lands or a plan changes; retire sections that stop being true.
 
 Kyle paused Ledger on 2026-09-17, after 0.9.2 shipped and Kore moved to it.
 The same day, 0.9.3 added the Codex hook launcher, and Kore moved to it too.
-Work resumed on 2026-09-19 from Kore's side: triaging its stale report for a
-handoff found two defects in `ledger stale`, and 0.9.4 is prepared with the
-fixes. "Next slices" lists what is left.
+Work resumed on 2026-09-19 from Kore's side: triaging its stale report found
+two defects in `ledger stale`, and 0.9.4 shipped with the fixes on
+2026-09-20. On 2026-09-27 and 28 the reader's web presentation was rebuilt
+from the ground up on branch `reader-redesign`, the README was rewritten
+around it, and the repository started publishing its own reader and changelog
+to GitHub Pages as a live example. "Next slices" lists what is left.
 
 ## Where the product stands
 
-- Published: `@kylebegeman/ledger` 0.9.3 on npm and GitHub Release v0.9.3,
+- Published: `@kylebegeman/ledger` 0.9.4 on npm and GitHub Release v0.9.4,
   created by `.github/workflows/release.yml` through npm trusted publishing on
-  2026-09-17 from kylebegeman/ledger#33. 0.8.0 (#20 and #21), 0.8.1 (#22),
-  0.8.2 (#25), 0.9.0 (#26), 0.9.1 (#29), and 0.9.2 (#31) shipped earlier
-  that day. The GitHub Release notes come from `ledger release notes`. A
-  smoke run of the published 0.9.3 package installed the Codex launcher in a
-  scratch repository, passed a SessionStart payload through it, and passed
-  doctor's hooks check. Receipt 0192 is unreleased.
+  2026-09-20 from kylebegeman/ledger#35. 0.8.0 (#20 and #21), 0.8.1 (#22),
+  0.8.2 (#25), 0.9.0 (#26), 0.9.1 (#29), 0.9.2 (#31), and 0.9.3 (#33)
+  shipped on 2026-09-17. The GitHub Release notes come from
+  `ledger release notes`. A smoke run of the published 0.9.3 package
+  installed the Codex launcher in a scratch repository, passed a SessionStart
+  payload through it, and passed doctor's hooks check.
   `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
-- Prepared, not published: 0.9.4 on branch `stale-patterns`,
-  kylebegeman/ledger#35, gate green and checks passing. It carries receipts
-  0193 and 0194, which stop `ledger stale` from reading a record as drift when
-  it points at files by pattern, by directory, or by path, plus 0192 and the
-  prepare receipt 0195. Publishing waits on Kyle: merge, then
-  `git tag v0.9.4 && git push origin v0.9.4`.
+- In review, unreleased: the reader redesign on branch `reader-redesign`.
+  It carries receipts 0196 and 0197 and decision D009: the overview, records,
+  and timeline views, the reader's own visual system, the rewritten README,
+  and `.github/workflows/pages.yml`, which deploys the live example at
+  https://kylebegeman.github.io/ledger/ once the branch merges. The next
+  patch release carries it.
 - First outside adopter: Kore runs Ledger 0.9.3 with Claude Code and Codex
   hooks since kylebegeman/forge#33 (Kore receipt 0011). Before that it ran
   0.9.2 from kylebegeman/forge#32, 0.9.1 from #31, 0.9.0 from #30, 0.8.2
@@ -48,8 +51,8 @@ fixes. "Next slices" lists what is left.
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
-- The active checkout at `/Users/kyle/Developer/active/ledger` is a Git
-  checkout of `master`. Kyle works there directly; do not create clones or
+- The active checkout at `/Users/kyle/Developer/active/ledger` is on
+  `reader-redesign`, based on `master`. Kyle works there directly; do not create clones or
   worktrees for Ledger work.
 
 ## What shipped this cycle
@@ -67,6 +70,7 @@ fixes. "Next slices" lists what is left.
 | 0.9.0 | Dossier's visual system (B009): the reader and the public changelog take Dossier's neutrals, status tones, font stacks, radii, and motion and keep Ledger's emerald accent; a compact masthead, a left facet rail with group labels, and an Auto, Light, and Dark theme toggle with a visible label; contrast and tablet overflow fixes; README cards and screenshots in the same palette; compact JSON sidecars and search shards filled exactly to their budget | 0168 to 0170 |
 | 0.9.1 | MCP on the v2 SDK (D008): `ledger mcp` and `/mcp` speak protocol 2026-07-28 and the 2025 revisions; confirmed MCP tools for new, feedback, backlog new, decision new, promote, and session start, note, and close; list cache hints and change notices on 2026-07-28; a production install of seven packages instead of the SDK's 94; the Codex installer names the app's Hooks page; product notes marked resolved; a 4.5 MB render budget here | 0171 to 0174 |
 | 0.9.2 | Complete records and a navigable reader: section bodies from the CLI, API, and MCP, and `ledger update`; `ledger context` for reviewing a change set; `doctor --fix` and a hooks health check; Go, Rust, Python, and Swift symbols from declaration outlines; reader entity views, backlinks, copy actions, palette suggestions, and changed-since-last-visit markers; plain-prose summary excerpts; an Atom feed, release permalinks, page metadata, and `render --site-url` for the public changelog; a generated command reference; scripted README screenshots and a Dossier token check | 0175 to 0186 |
+| Unreleased | The reader rebuilt from the ground up (D009): an overview with stat tiles, an activity chart with a table twin, releases, areas, backlog, health, and graph counts; a timeline grouped by month; sort orders, active filter chips, panel prev and next, a relationship map, and keyboard shortcuts; a public changelog with year headings and a version index; the reader's own tokens in place of Dossier's; a rewritten README with new screenshots; GitHub Pages publishing this repository's reader and changelog as the live example | 0196, 0197 |
 | 0.9.3 | Codex approval that survives upgrades: `hooks install --host codex --launcher` makes the hooks run a generated `.ledger/bin/ledger.mjs`, so a new version rewrites only that script and `.codex/hooks.json` stays the same; installs keep the form a file uses; doctor checks the script; the doctor symbols check names the coverage patterns when nothing is covered and the outlined languages beside TypeScript (product note 0187) | 0188 to 0191 |
 
 Read the receipts for invariants and conflict rules before touching those
@@ -93,16 +97,15 @@ D006 records what was retired; D007 records the runtime decision below.
 - Runtime: Ledger stays single-runtime TypeScript. Kore (Go, SQLite or
   Postgres, HTMX; `/Users/kyle/Developer/active/kore`) is not a platform for
   Ledger's server or reader. Reasons and the two real integrations are in D007.
-- Visual design: the reader and the public changelog follow Dossier's visual
-  system in both themes (B009, receipt 0168). The values are copied from
-  Dossier's `core/internal/render/assets/tokens.css`, never imported, and the
-  token block in `src/reader/styles.css` names the Dossier commit it came
-  from. Kyle left the open choices to the assistant. There are no web fonts,
-  because the reader's content security policy blocks them and they would add
-  80 to 200 KB to every page. Ledger keeps its emerald accent, because
-  Dossier's derived accent fails 4.5:1 on its second paper color. Kind badges
-  are neutral, because Dossier colors status and never categories. The theme
-  toggle cycles Auto, Light, and Dark.
+- Visual design: the reader and the public changelog own their visual
+  system (D009, receipt 0196), which replaced the Dossier copy of 0.9.0. The
+  tokens live in `src/reader/styles.css` as `light-dark()` pairs; the kind
+  palette was validated for color vision deficiency in both schemes. There
+  are no web fonts, because the reader's content security policy blocks them
+  and they would add 80 to 200 KB to every page. Kyle's standing rules: no
+  italic words in titles or headers, and never a colored accent line (an edge
+  bar) to mark an active or selected item; use a tint, weight, or a full
+  focus ring. The theme toggle cycles Auto, Light, and Dark.
 - MCP serves protocol 2026-07-28 and the 2025 revisions from one set of
   definitions, and every MCP tool that writes source records asks the user
   to confirm first, with state sealed to the tool and its arguments (D008,
@@ -116,10 +119,11 @@ D006 records what was retired; D007 records the runtime decision below.
 - Session records are committed with the change they describe, and
   `session prune --write` deletes an expired session only when it was not
   promoted and no record links it (receipt 0134).
-- The README shows one image per visual with no light and dark variants.
-  Terminal cards come from `scripts/readme-assets.mjs`, and reader
-  screenshots from `scripts/readme-screenshots.mjs` with a `--no-save`
-  Playwright install (receipts 0137 and 0185).
+- The README shows one image per visual, plus one light-scheme overview
+  beside the dark captures since the redesign. Terminal cards come from
+  `scripts/readme-assets.mjs`, and reader screenshots from
+  `scripts/readme-screenshots.mjs` with a `--no-save` Playwright install
+  (receipts 0137, 0185, and 0197).
   Visuals are still images; an animation ships only if it can be recorded
   smoothly, never as a few frames swapped about once a second.
 - `git.coverage: any` relaxes docs impact as well as coverage: an earlier
@@ -191,8 +195,10 @@ D006 records what was retired; D007 records the runtime decision below.
   nothing (receipt 0181).
 - The public changelog's site URL is a `render --site-url` flag, not a config
   key, and feed ids come from the project and release so a moved site keeps
-  them. GitHub Pages is not enabled for this repository; `docs/PUBLISHING.md`
-  has the workflow (receipt 0183).
+  them (receipt 0183). GitHub Pages is enabled for this repository with the
+  Actions build type since 2026-09-28, and `.github/workflows/pages.yml`
+  publishes the internal reader at the site root and the changelog under
+  `/changelog/` on every push to `master` (receipt 0197).
 - `docs/COMMANDS.md` is generated from the registry, and a test fails when it
   is stale (receipt 0184).
 - Codex approves a hook by a hash of its definition, command included. With
@@ -242,10 +248,17 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Next slices, in order
 
-1. **Publish 0.9.4.** Merge kylebegeman/ledger#35 once Kyle says so, then he
-   tags the merged `master` with `git tag v0.9.4 && git push origin v0.9.4`.
-   The release workflow publishes to npm and creates the GitHub Release from
-   `.ledger/releases/v0.9.4.md`.
+1. **Merge the reader redesign.** Kyle merges the `reader-redesign` pull
+   request; the Pages workflow then deploys the live example. The next patch
+   release, 0.9.5, carries receipts 0196 and 0197 with a release record
+   written by `ledger release`.
+   The resumed local gate passed on 2026-09-28: `npm run ci` exited 0
+   with 501 tests, both renders fit their budgets, and receipts 0196 and
+   0197 pass `ledger ready`. The receipts stay draft until the merge.
+   `npm run readme:check` passed with the intended assets staged, and the
+   Pages artifact staging smoke passed under the workflow's Bash settings.
+   Retired asset references are acknowledged with `staleRefs`. The Pages
+   deploy job also guards manual runs so only `master` can deploy.
 2. **Tell Kore when 0.9.4 is published, and nothing more.** Kore keeps
    reporting 169 stale signals until its pin moves, because the fix is in the
    tool rather than in its records. Kore's own session owns that bump across
@@ -292,6 +305,9 @@ D006 records what was retired; D007 records the runtime decision below.
 - `npm run ci` is the gate; check its exit status explicitly. In one session a
   grep pipeline hid a typecheck failure and a broken commit reached CI. It
   needs Node 22.12 or newer for Vitest 5.
+- Reader design rules from Kyle (D009): no italic words in titles or
+  headers, and never a colored edge line to mark an active, selected, or
+  current item. Use a background tint, a heavier weight, or a full focus ring.
 - The reader runtime and stylesheet live in `src/reader/` and are bundled with
   esbuild into `dist/reader/`; `npm run build` and `npm test` run
   `build:reader` first. Browser tests use a file-level
@@ -325,21 +341,19 @@ D006 records what was retired; D007 records the runtime decision below.
 
 ## Open threads and small debts
 
-- `ledger stale` reports nothing. Historical names are acknowledged with
-  `staleRefs` (receipt 0164), so a new signal is real.
+- `ledger stale` reports one expired, empty closed session, S0007. Review
+  `ledger session prune` before removing it. Historical names, including the
+  two assets retired by this redesign, are acknowledged with `staleRefs`.
 - Dependabot's scheduled run after #25 found every action current but left
   pull requests #4 and #5 open, so the assistant closed them as superseded by
   #25. Dependabot closes a pull request itself only when it refreshes that
   pull request.
-- The reader's token block is a copy. When Dossier changes
-  `core/internal/render/assets/tokens.css`, run
-  `node scripts/check-dossier-tokens.mjs` and port what applies (receipts 0168
-  and 0185).
 - `.claude/launch.json` serves the readers on fixed ports 4173 and 4174,
   which a server left running by another session can hold. The screenshot
   script picks free ports instead.
-- The public changelog's GitHub Pages workflow in `docs/PUBLISHING.md` is
-  ready but not enabled for this repository; enabling Pages is Kyle's call.
+- The first Pages deployment runs when `reader-redesign` merges. Check the
+  Pages workflow run and https://kylebegeman.github.io/ledger/ afterwards;
+  the `github-pages` environment lets only `master` deploy.
 - Codex and Cursor hooks were verified by piping their payload shapes through
   `ledger hook` in a throwaway workspace, not in live sessions. Kore has Codex
   hooks installed but no live Codex session yet. Cursor's hooks
@@ -370,10 +384,10 @@ D006 records what was retired; D007 records the runtime decision below.
 ## Quick verification of the current state
 
 ```sh
-node dist/cli.js version            # 0.9.3
+node dist/cli.js version            # 0.9.4
 node dist/cli.js doctor             # all checks pass; engine and verification may warn
 node dist/cli.js unreleased         # receipts landed since the last release
 node dist/cli.js coverage --explain # current mode
-node dist/cli.js stale              # no stale knowledge signals
+node dist/cli.js stale              # one expired session, S0007
 gh pr list --repo kylebegeman/ledger
 ```

@@ -1,17 +1,18 @@
 #!/usr/bin/env node
-// Captures the README's four reader screenshots from real renders:
+// Captures the README's reader screenshots from real renders:
 //
 //   npm run build
 //   npm install --no-save playwright && npx playwright install chromium
-//   node scripts/readme-screenshots.mjs              # writes assets/readme/{hero,palette,changelog,receipt}.png
-//   node scripts/readme-screenshots.mjs hero palette  # only the named images
+//   node scripts/readme-screenshots.mjs                   # writes every image under assets/readme/
+//   node scripts/readme-screenshots.mjs overview palette  # only the named images
 //
 // Playwright is not a dependency; --no-save keeps it out of package.json and the lockfile.
 // The script serves this repository's internal reader and public changelog, builds the billing
 // demo with scripts/readme-assets.mjs --demos-only for the receipt, and captures each view in a
-// fresh dark browser context at a device scale factor of 2 with reduced motion. Each image is then
-// framed with rounded corners and a 1px inner border in the reader's dark line color, keeping every
-// captured pixel. It stops only the servers it started and deletes the demo it built.
+// fresh browser context at a device scale factor of 2 with reduced motion, dark unless the shot
+// says light. Each image is then framed with rounded corners and a 1px inner border in the
+// reader's line color for that scheme, keeping every captured pixel. It stops only the servers
+// it started and deletes the demo it built.
 
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -24,15 +25,19 @@ const cli = path.join(root, "dist", "cli.js");
 const outDir = path.join(root, "assets", "readme");
 const demoNow = process.env.LEDGER_README_NOW ?? "2026-09-17T12:00:00Z";
 const clock = pathToFileURL(path.join(root, "scripts", "readme-clock.mjs")).href;
-/** The reader's dark `--line` token. */
-const frameLine = "#3d363f";
+/** The reader's `--line` token in each scheme. */
+const frameLine = { dark: "#23282c", light: "#e3e0d8" };
 
 /**
- * Each image: its viewport in CSS pixels, its corner radius in CSS pixels, and how to reach and
- * crop the view. `internal`, `public`, and `demo` name where the page comes from.
+ * Each image: its viewport in CSS pixels, its corner radius in CSS pixels, its color scheme
+ * (dark unless said), and how to reach and crop the view. `internal`, `public`, and `demo` name
+ * where the page comes from.
  */
 const shots = {
-  hero: { source: "internal", viewport: { width: 1440, height: 900 }, radius: 18, capture: captureHero },
+  overview: { source: "internal", viewport: { width: 1440, height: 900 }, radius: 18, capture: captureOverview },
+  "overview-light": { source: "internal", viewport: { width: 1440, height: 900 }, radius: 18, scheme: "light", capture: captureOverview },
+  records: { source: "internal", viewport: { width: 1440, height: 900 }, radius: 18, capture: captureRecords },
+  timeline: { source: "internal", viewport: { width: 1440, height: 900 }, radius: 16, capture: captureTimeline },
   palette: { source: "internal", viewport: { width: 1440, height: 900 }, radius: 16, capture: capturePalette },
   changelog: { source: "public", viewport: { width: 1180, height: 820 }, radius: 16, capture: captureChangelog },
   receipt: { source: "demo", viewport: { width: 1440, height: 1600 }, radius: 12, capture: captureReceipt },
@@ -73,16 +78,17 @@ try {
   browser = await chromium.launch();
   for (const name of names) {
     const shot = shots[name];
+    const scheme = shot.scheme ?? "dark";
     const context = await browser.newContext({
       viewport: shot.viewport,
       deviceScaleFactor: 2,
-      colorScheme: "dark",
+      colorScheme: scheme,
       reducedMotion: "reduce",
     });
     const page = await context.newPage();
     const captured = await shot.capture(page, urls[shot.source]);
     await context.close();
-    const framed = await frame(captured, shot.radius);
+    const framed = await frame(captured, shot.radius, scheme);
     writeFileSync(path.join(outDir, `${name}.png`), framed);
     const { width, height } = pngSize(framed);
     console.log(`wrote assets/readme/${name}.png (${width} by ${height})`);
@@ -96,11 +102,28 @@ try {
 // ---------------------------------------------------------------------------------------------
 // Views
 
-/** A change record open beside the library, scrolled so the library starts under the top bar. */
-async function captureHero(page, base) {
-  await page.goto(new URL("?kind=change&record=0133", base).href);
+/** The overview: the tiles, the activity chart, releases, areas, backlog, health, and graph counts. */
+async function captureOverview(page, base) {
+  await page.goto(base);
+  await page.waitForSelector("#activity-chart svg");
+  await settle(page);
+  return page.screenshot();
+}
+
+/** A change record open beside the list, scrolled so the list starts under the top bar. */
+async function captureRecords(page, base) {
+  await page.goto(new URL("?view=records&record=0133", base).href);
   await page.waitForSelector("#record-panel.open #record-panel-body .context-grid");
-  await page.evaluate(() => document.getElementById("library")?.scrollIntoView({ block: "start", behavior: "instant" }));
+  await scrollToLibrary(page);
+  await settle(page);
+  return page.screenshot();
+}
+
+/** The timeline, scrolled so its first month heading sits under the top bar. */
+async function captureTimeline(page, base) {
+  await page.goto(new URL("?view=timeline", base).href);
+  await page.waitForSelector("#entries .group-head");
+  await scrollToLibrary(page);
   await settle(page);
   return page.screenshot();
 }
@@ -108,8 +131,8 @@ async function captureHero(page, base) {
 /** The command palette searching for drafted receipts, cropped to the dialog with a 44px margin. */
 async function capturePalette(page, base) {
   await page.goto(base);
-  await page.waitForSelector("#entries");
-  await page.keyboard.press("/");
+  await page.waitForSelector("#activity-chart svg");
+  await page.keyboard.press("ControlOrMeta+k");
   await page.keyboard.type("draft receipt");
   await page.waitForSelector(".command-result[data-id]");
   await settle(page);
@@ -124,12 +147,7 @@ async function capturePalette(page, base) {
 async function captureChangelog(page, base) {
   await page.goto(base);
   await page.waitForSelector("#entries .release-entry");
-  await page.evaluate(() => {
-    const library = document.getElementById("library");
-    const topbar = document.querySelector(".topbar");
-    if (!library || !topbar) return;
-    window.scrollTo({ top: library.getBoundingClientRect().top + window.scrollY - topbar.offsetHeight - 8, behavior: "instant" });
-  });
+  await scrollToLibrary(page);
   await settle(page);
   return page.screenshot();
 }
@@ -139,7 +157,7 @@ async function captureReceipt(page, base) {
   await page.goto(`${base}?record=0001`);
   await page.waitForSelector("#record-panel.open .record-columns details");
   await page.evaluate(() => {
-    for (const summary of document.querySelectorAll("#record-panel-body .record-list > summary")) {
+    for (const summary of document.querySelectorAll("#record-panel-body .record-list-details > summary")) {
       if (/^(Files|Relationships)\b/.test(summary.textContent.trim())) summary.parentElement.open = true;
     }
   });
@@ -148,6 +166,16 @@ async function captureReceipt(page, base) {
   const packet = await page.locator("#record-panel-body .agent-packet").boundingBox();
   return page.screenshot({
     clip: wholeClip({ x: panel.x, y: panel.y, width: panel.width, height: packet.y + packet.height + 28 - panel.y }),
+  });
+}
+
+/** Scrolls so the list section starts just under the sticky top bar. */
+function scrollToLibrary(page) {
+  return page.evaluate(() => {
+    const library = document.getElementById("library");
+    const topbar = document.querySelector(".topbar");
+    if (!library || !topbar) return;
+    window.scrollTo({ top: library.getBoundingClientRect().top + window.scrollY - topbar.offsetHeight - 8, behavior: "instant" });
   });
 }
 
@@ -227,7 +255,7 @@ function buildDemoReader() {
  * Rounds the corners and draws a 1px inner border, at the capture's device scale so every
  * captured pixel is kept and the corners outside the radius are transparent.
  */
-async function frame(png, radius) {
+async function frame(png, radius, scheme) {
   const { width, height } = pngSize(png);
   const context = await browser.newContext({ viewport: { width: width / 2, height: height / 2 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
@@ -236,7 +264,7 @@ async function frame(png, radius) {
   html, body { margin: 0; background: transparent; }
   #frame { position: relative; width: ${width / 2}px; height: ${height / 2}px; overflow: hidden; border-radius: ${radius}px; }
   #frame img { display: block; width: 100%; height: 100%; }
-  #frame::after { content: ""; position: absolute; inset: 0; border-radius: ${radius}px; box-shadow: inset 0 0 0 1px ${frameLine}; }
+  #frame::after { content: ""; position: absolute; inset: 0; border-radius: ${radius}px; box-shadow: inset 0 0 0 1px ${frameLine[scheme]}; }
 </style>
 <div id="frame"><img alt="" src="data:image/png;base64,${png.toString("base64")}"></div>`);
   await page.waitForFunction(() => document.querySelector("#frame img")?.complete);

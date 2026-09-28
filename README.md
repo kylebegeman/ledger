@@ -14,13 +14,15 @@ Coding agents write receipts as they work and read them before they touch the co
 <img alt="Node 22 or newer" src="https://img.shields.io/badge/node-%3E%3D22-43853D?style=for-the-badge&logo=node.js&logoColor=white">
 <a href="./LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/kylebegeman/ledger?style=for-the-badge&color=555555"></a>
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [What agents see](#what-your-agent-sees) · [The reader](#the-reader) · [In CI](#in-ci) · [Commands](#commands) · [Docs](#docs)
+[Live example](https://kylebegeman.github.io/ledger/) · [Quick start](#quick-start) · [How it works](#how-it-works) · [What agents see](#what-your-agent-sees) · [The reader](#the-reader) · [In CI](#in-ci) · [Commands](#commands) · [Docs](#docs)
 
 </div>
 
 <br>
 
-<img alt="The Ledger reader for this repository: a searchable library of receipts with one open beside it" src="./assets/readme/hero.png">
+<a href="https://kylebegeman.github.io/ledger/"><img alt="The Ledger reader for this repository: an overview with a stat tile per record kind, records per week, the newest releases, records per area, the open backlog, and health signals" src="./assets/readme/overview.png"></a>
+
+<p align="center">This is Ledger reading its own repository. <a href="https://kylebegeman.github.io/ledger/"><strong>Open the live reader</strong></a>, rendered from the receipts under <code>.ledger/</code> on every push to <code>master</code>, or its <a href="https://kylebegeman.github.io/ledger/changelog/"><strong>public changelog</strong></a>.</p>
 
 ## Why Ledger
 
@@ -109,9 +111,9 @@ never reported an exit, is in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 A receipt is a change entry: a Markdown file whose frontmatter links it to
 files, symbols, docs, and decisions, and whose sections tell a future change
 what to preserve. This is the first receipt from the billing service, as the
-reader shows it:
+reader shows it, with the decision it relates to on its relationship map:
 
-<p align="center"><img alt="A receipt open in the Ledger reader with its summary, source record, invariants, verification, files, and the decision it relates to" src="./assets/readme/receipt.png" width="600"></p>
+<p align="center"><img alt="A receipt open in the Ledger reader with its summary, source record, invariants, verification, relationship map, files, and the decision it relates to" src="./assets/readme/receipt.png" width="600"></p>
 
 <details>
 <summary><strong>The Markdown behind it</strong></summary>
@@ -224,12 +226,12 @@ Run the published package through npx, pinned to a version, so an agent never
 reaches a different program named `ledger` on its `PATH`:
 
 ```bash
-npx --yes @kylebegeman/ledger@0.9.3 adopt
-npx --yes @kylebegeman/ledger@0.9.3 hooks install --host claude-code \
-  --command "npx --yes @kylebegeman/ledger@0.9.3" --import-agents
-npx --yes @kylebegeman/ledger@0.9.3 hooks install --host codex --launcher
-npx --yes @kylebegeman/ledger@0.9.3 skills install
-npx --yes @kylebegeman/ledger@0.9.3 agents --write
+npx --yes @kylebegeman/ledger@0.9.4 adopt
+npx --yes @kylebegeman/ledger@0.9.4 hooks install --host claude-code \
+  --command "npx --yes @kylebegeman/ledger@0.9.4" --import-agents
+npx --yes @kylebegeman/ledger@0.9.4 hooks install --host codex --launcher
+npx --yes @kylebegeman/ledger@0.9.4 skills install
+npx --yes @kylebegeman/ledger@0.9.4 agents --write
 ```
 
 `adopt` reads the tracked tree and writes a configuration that fits it: which
@@ -243,7 +245,7 @@ Starting the pinned package through npx costs about 0.3 seconds per hook. On
 an Apple silicon Mac, a PostToolUse hook took 0.47 seconds through npx and
 0.17 seconds from an installed copy. The first call after a version change
 also downloads the package. On a machine where no other program is named
-`ledger`, `npm install --global @kylebegeman/ledger@0.9.3` and
+`ledger`, `npm install --global @kylebegeman/ledger@0.9.4` and
 `--command ledger` save that time. The hooks are committed, though, so every
 contributor then needs the same install. The npx pin works on any machine
 with Node.
@@ -260,18 +262,46 @@ ledger ci
 
 ## The reader
 
-`ledger render` builds a static reader from the same Markdown, with filters for
-kind, status, area, release, and tags, a detail panel for every record, and
-light and dark themes. From a record, select a file, pattern, or symbol to list
-every record that names it, follow its relationships and the records that link
-back to it, or copy its link, source path, or `ledger packet` command. The
+`ledger render` turns the same Markdown into a static reader: one HTML file
+that opens from disk or any static host, in light and dark themes, with no
+fonts or scripts loaded from anywhere else. It has three views of the records.
+
+**Overview.** A stat tile per record kind, records per week or month as a
+chart you can select from, the newest releases, records per area, the open
+backlog, the health signals `ledger doctor` reports, and the size of the
+relationship graph. Every tile and bar filters the list.
+
+**Records.** Search over titles, files, symbols, decisions, and invariants;
+filters for kind, status, area, release, tags, and quality signals; quick
+views in the rail; sort orders; and a chip for every active filter. Selecting
+a record opens it beside the list with its summary, invariants, verification,
+validation issues, files, symbols, docs, and relationships, and the panel steps
+to the previous or next record without closing.
+
+<img alt="The records view of this repository's reader with a change record open beside the list: its invariants, verification, files, and relationships" src="./assets/readme/records.png">
+
+**Timeline.** The same records grouped by month with the date first, for
+reading a project's history in order.
+
+<img alt="The timeline view of this repository's reader, grouping records under month headings with the date first" src="./assets/readme/timeline.png">
+
+From a record, select a file, pattern, or symbol to list every record that
+names it, follow the relationship map to the records it links and the records
+that link back, or copy its link, source path, or `ledger packet` command. The
 command palette suggests matching files, symbols, and areas as well as
-records. Both profiles mark what is new or changed since your last visit,
-remembered only in your browser. Served over HTTP, from any static host or `ledger serve`, it ranks
-search results with fuzzy matching. Opened from a `file:` URL, it falls back
-to plain text matching.
+records, and the keyboard covers everything: `/` for search, `⌘K` for the
+palette, `j` and `k` to move, `o` to open, `]` and `[` to step through records,
+`g o`, `g r`, and `g t` for the views, and `?` for the list. Served over HTTP,
+from any static host or `ledger serve`, the reader ranks search results with
+fuzzy matching; opened from a `file:` URL, it falls back to plain text
+matching. Both profiles mark what is new or changed since your last visit,
+remembered only in your browser.
 
 <p align="center"><img alt="Searching this repository's receipts from the reader's command palette" src="./assets/readme/palette.png" width="720"></p>
+
+The theme follows the system, and a toggle sets light or dark:
+
+<img alt="The overview of this repository's reader in the light theme" src="./assets/readme/overview-light.png">
 
 ```bash
 ledger render                    # writes .ledger/dist/index.html
@@ -280,13 +310,15 @@ ledger serve --api               # also reloads open pages and adds a JSON API a
 ledger render --profile public   # a public changelog from released notes only
 ```
 
-The public profile turns release records into a changelog. It is fail-closed:
-only released versions and their Public Notes are included, and paths, files,
-symbols, invariants, and internal links are stripped. It also writes an Atom
-feed and a permalink for each release, and `--site-url` makes their links
-absolute. [Publishing](./docs/PUBLISHING.md) has a GitHub Pages workflow.
+The public profile turns release records into a changelog: releases under year
+headings beside a version index that follows you as you read, a permalink for
+every release, and an Atom feed. It is fail-closed: only released versions and
+their Public Notes are included, and paths, files, symbols, invariants, and
+internal links are stripped. `--site-url` makes the links absolute.
+[Publishing](./docs/PUBLISHING.md) has the GitHub Pages workflow that publishes
+this repository's reader and changelog.
 
-<p align="center"><img alt="The public changelog Ledger renders for this repository, showing the notes for a release" src="./assets/readme/changelog.png" width="880"></p>
+<a href="https://kylebegeman.github.io/ledger/changelog/"><img alt="The public changelog Ledger renders for this repository, with a version index beside the notes for each release" src="./assets/readme/changelog.png"></a>
 
 ## In CI
 
@@ -306,9 +338,9 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: kylebegeman/ledger@v0.9.3
+      - uses: kylebegeman/ledger@v0.9.4
         with:
-          command: npx --yes @kylebegeman/ledger@0.9.3
+          command: npx --yes @kylebegeman/ledger@0.9.4
 ```
 
 The action runs the latest published CLI unless `command` pins it. Set
@@ -503,7 +535,7 @@ project on it gets parsed symbols by also installing
 | [Docs relationship](./docs/DOCS_RELATIONSHIP.md) | How Ledger records relate to a project's docs |
 | [Roadmap](./docs/ROADMAP.md) | Where the product is going |
 | [Release prep](./docs/RELEASE_PREP.md) | The release checklist and npm publishing |
-| [Publishing](./docs/PUBLISHING.md) | Hosting the public changelog, its feed, and permalinks |
+| [Publishing](./docs/PUBLISHING.md) | Hosting the reader and the changelog, the feed, and permalinks |
 | [Commands](./docs/COMMANDS.md) | Every command's usage, help, and flags, generated from the registry |
 | [Security](./SECURITY.md) | Reporting issues and exposing the server beyond loopback |
 
@@ -516,8 +548,11 @@ npm run ci   # typecheck, tests, build, ledger ci, and a pack dry run
 
 This repository records its own history with Ledger: every change carries a
 receipt under [.ledger/entries](./.ledger/entries). Work lands on short-lived
-branches merged into `master` by pull request, and pushing a `v*` tag publishes
-to npm through trusted publishing. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+branches merged into `master` by pull request, pushing a `v*` tag publishes
+to npm through trusted publishing, and every push to `master` publishes the
+[live reader](https://kylebegeman.github.io/ledger/) and
+[changelog](https://kylebegeman.github.io/ledger/changelog/) through GitHub
+Pages. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 Ledger stands on its own and depends on no hosted service or renderer.
 
