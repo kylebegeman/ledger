@@ -53,12 +53,25 @@ the reader, logo, charts, and README art with warmer colors, without green
 or blue as the primary accent. After seeing the warmer version, he asked for
 light mode to move closer to white and avoid a beige, newspaper-like surface.
 
+In the next review, Kyle corrected the dark theme: charcoal and slate with
+subtle bluish-gray tones, without the orange or red cast of the warmer pass.
+That pass kept the near-white light theme and its copper accent. Dossier continues
+to inform the reading experience, while Ledger chooses its own visual system.
+
+After approving the dark theme, Kyle asked to carry its blue identity into
+light mode as well, explicitly allowing blue as the primary accent. The dark
+charcoal, slate, and steel-blue palette is settled; the light theme keeps its
+near-white surfaces with a blue accent that remains readable against them.
+The standalone mark and both logo variants follow the same blue identity.
+
 ## Decision
 
 The reader owns its visual system. Its tokens live in `src/reader/styles.css`
-as `light-dark()` pairs and belong to Ledger: near-white light surfaces and warm charcoal dark surfaces,
-copper in the light theme, apricot in the dark theme, status tones, and one
-warm series color for charts. The logo and README art use the same palette.
+as `light-dark()` pairs and belong to Ledger: near-white light surfaces with
+accessible blue accents, charcoal and slate dark surfaces with muted steel-blue accents,
+semantic status colors, and one series color per theme for charts. The dark
+theme's surfaces and text have no orange or red cast. The standalone mark,
+light and dark logos, and README art use the corresponding blue palette.
 Record kinds use neutral icons and written labels in the list. The relationship
 map can use categorical colors alongside its labels; text never wears a series
 color, and color never carries a distinction alone.
@@ -104,7 +117,7 @@ then the reader follows the operating system.
 
 The reader can change its look for Ledger's own reasons. The overview, the
 timeline, the relationship map, and the public version index in receipt 0196
-use tokens Dossier never had. Ledger has its own warm palette and controls
+use tokens Dossier never had. Ledger has its own palette and controls
 suited to changes, releases, and repository knowledge.
 
 The README cards and screenshots use the reader's palette, so a palette

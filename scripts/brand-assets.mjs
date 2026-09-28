@@ -12,13 +12,13 @@ const wordmarkPath = "M160 0V1470H369.337158203125V0.0Z M1126.334716796875 -30.0
 const mark = `<path fill-rule="evenodd" d="${markPath}"/>`;
 const assets = new URL("../assets/", import.meta.url);
 
-writeFileSync(new URL("ledger.svg", assets), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#b9663f" role="img" aria-labelledby="ledger-mark-title">
+writeFileSync(new URL("ledger.svg", assets), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#6288ae" role="img" aria-labelledby="ledger-mark-title">
   <title id="ledger-mark-title">Ledger</title>
   ${mark}
 </svg>
 `);
 
-for (const [name, ink, accent] of [["ledger-logo.svg", "#292726", "#9a4428"], ["ledger-logo-dark.svg", "#f5eae0", "#f0ad83"]]) {
+for (const [name, ink, accent] of [["ledger-logo.svg", "#292726", "#385c80"], ["ledger-logo-dark.svg", "#e6e9ee", "#91aecb"]]) {
   writeFileSync(new URL(name, assets), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 96" role="img" aria-labelledby="ledger-logo-title">
   <title id="ledger-logo-title">Ledger</title>
   <desc>A punched receipt and the Ledger wordmark.</desc>

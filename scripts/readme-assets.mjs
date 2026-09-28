@@ -158,7 +158,7 @@ Customers missed invoice events when their endpoint restarted during a deploy.
 
 ## Behavior And UX Impact
 
-A receiving endpoint that is down for under four minutes still gets every event.
+Transient delivery failures retry automatically, up to five attempts.
 
 ## Invariants
 
@@ -293,12 +293,12 @@ function buildGoDemo(base) {
 
 const MONO = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
 const SANS = "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
-// The reader's warm dark surfaces and tones (src/reader/styles.css), with copper for prompts and headings.
+// The reader's charcoal/slate surfaces and steel-blue accents (src/reader/styles.css).
 // Code takes the information plum and record ids the warning amber.
 const COLORS = {
-  bg: "#1a1715", bar: "#24201d", border: "#392f29", text: "#c9b6a8", bright: "#f5eae0", muted: "#b4a294",
-  accent: "#f0ad83", heading: "#ffd1ad", pass: "#f0ad83", red: "#f0a39b", amber: "#e4bb74", code: "#d5bad1",
-  ident: "#e4bb74", title: "#c9b6a8",
+  bg: "#15181d", bar: "#1d2127", border: "#303741", text: "#b9c1cc", bright: "#e6e9ee", muted: "#9ba6b5",
+  accent: "#91aecb", heading: "#bed1e3", pass: "#91aecb", red: "#e4a0a2", amber: "#d7bd82", code: "#a2b8d0",
+  ident: "#d7bd82", title: "#b9c1cc",
 };
 const FONT_SIZE = 13.5;
 const CHAR_WIDTH = 8.13; // approximate advance of the monospace stack at 13.5px
@@ -550,13 +550,13 @@ const LOOP_STEPS = [
   ["Session starts", ["The start hook gives the agent", "the receipts for the files in", "play, or the recent changes."], "SessionStart"],
   ["Agent edits", ["Each edited path is recorded", "on a session record, so nothing", "relies on the agent's memory."], "PostToolUse"],
   ["Turn ends", ["A draft receipt is written", "from the Git diff and the", "touched files."], "Stop"],
-  ["Agent finishes it", ["The next prompt names the", "draft; the agent writes why,", "invariants, and verification."], "ledger ready"],
+  ["Agent finishes it", ["A notice names the draft;", "the agent writes why,", "invariants, and verification."], "ledger ready"],
   ["Pull request", ["CI requires a receipt for", "changed source and checks", "docs impact per file."], "ledger ci"],
   ["Next change", ["Whoever touches those files", "reads the receipts first, in", "a packet or the reader."], "ledger packet"],
 ];
 const LOOP = {
-  panel: "#1a1715", panelBorder: "#392f29", card: "#24201d", border: "#392f29", title: "#f5eae0", body: "#c9b6a8",
-  chipBg: "#3e2a20", chipText: "#ffd1ad", numberBg: "#f0ad83", numberText: "#302824", arrow: "#b4a294", loop: "#f0ad83", caption: "#b4a294",
+  panel: "#15181d", panelBorder: "#303741", card: "#1d2127", border: "#303741", title: "#e6e9ee", body: "#b9c1cc",
+  chipBg: "#263647", chipText: "#bed1e3", numberBg: "#91aecb", numberText: "#17222e", arrow: "#9ba6b5", loop: "#91aecb", caption: "#9ba6b5",
 };
 
 function renderLoop() {
