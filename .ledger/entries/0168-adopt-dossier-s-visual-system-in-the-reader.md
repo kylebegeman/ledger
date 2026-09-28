@@ -5,6 +5,8 @@ title: "Adopt Dossier's visual system in the reader"
 date: "2026-09-17"
 updated: "2026-09-17"
 status: "landed"
+staleRefs:
+  - "files:assets/readme/hero.png"
 areas:
   - "reader"
   - "design"

@@ -62,7 +62,7 @@ jobs:
           node-version: 24
       - name: Render the changelog
         run: >-
-          npx --yes @kylebegeman/ledger@0.9.3 render --profile public
+          npx --yes @kylebegeman/ledger@0.9.4 render --profile public
           --site-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
       - uses: actions/upload-pages-artifact@v5
         with:
@@ -87,6 +87,16 @@ commit if your policy requires it. `ledger render` validates every record
 first, so a record that fails validation stops the deploy instead of
 publishing a partial changelog. A release record without a Public Notes
 section is one of those failures.
+
+## The live example
+
+This repository publishes its own reader and changelog from
+`.github/workflows/pages.yml` on every push to `master`. The workflow builds
+the checked-out source, renders both profiles with `--site-url`, and deploys
+the internal reader at the site root and the changelog under `/changelog/`.
+The result is the live example the README links to. Copy the workflow to
+publish both profiles of another repository; keep the changelog-only
+workflow above when the internal reader should stay private.
 
 ## Other hosts
 
