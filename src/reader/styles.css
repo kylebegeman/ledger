@@ -6,36 +6,36 @@
  */
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#fcfcfb, #1a1715);
-  --surface: light-dark(#ffffff, #24201d);
-  --surface-2: light-dark(#f4f3f1, #302925);
-  --surface-3: light-dark(#e9e7e4, #40352e);
-  --ink: light-dark(#292726, #f5eae0);
-  --ink-2: light-dark(#57524e, #c9b6a8);
-  --muted: light-dark(#6d6762, #b4a294);
-  --line: light-dark(#e8e5e2, #392f29);
-  --line-2: light-dark(#d9d4cf, #514238);
-  --control-line: light-dark(#aaa099, #977864);
-  --accent: light-dark(#9a4428, #f0ad83);
-  --accent-strong: light-dark(#79381f, #ffd1ad);
-  --accent-ink: light-dark(#fff8f2, #352016);
-  --accent-soft: light-dark(#faece3, #3e2a20);
-  --accent-line: light-dark(#dfb69a, #74503a);
-  --info: light-dark(#785b77, #d5bad1);
-  --info-soft: light-dark(#f0e5ed, #392c36);
-  --warn: light-dark(#865b0e, #e4bb74);
-  --warn-soft: light-dark(#f6ebd3, #3d3120);
-  --danger: light-dark(#b24443, #f0a39b);
-  --danger-soft: light-dark(#fae5e1, #402926);
-  --series: light-dark(#b66b3c, #c8916c);
-  --series-soft: light-dark(#efdcca, #4b3628);
-  --kind-change: light-dark(#9a4428, #f0ad83);
-  --kind-decision: light-dark(#785b77, #d5bad1);
-  --kind-backlog: light-dark(#8e6531, #d7b282);
-  --kind-release: light-dark(#8d555e, #e2b0b7);
-  --kind-product-note: light-dark(#845a46, #cba58f);
-  --kind-feedback: light-dark(#865b0e, #e4bb74);
-  --kind-session: light-dark(#78695f, #b4a294);
+  --bg: light-dark(#fcfcfb, #15181d);
+  --surface: light-dark(#ffffff, #1d2127);
+  --surface-2: light-dark(#f4f3f1, #272d35);
+  --surface-3: light-dark(#e9e7e4, #343c47);
+  --ink: light-dark(#292726, #e6e9ee);
+  --ink-2: light-dark(#57524e, #b9c1cc);
+  --muted: light-dark(#6d6762, #9ba6b5);
+  --line: light-dark(#e8e5e2, #303741);
+  --line-2: light-dark(#d9d4cf, #626d7b);
+  --control-line: light-dark(#aaa099, #7b8796);
+  --accent: light-dark(#385c80, #91aecb);
+  --accent-strong: light-dark(#294968, #bed1e3);
+  --accent-ink: light-dark(#f7faff, #17222e);
+  --accent-soft: light-dark(#eaf0f6, #263647);
+  --accent-line: light-dark(#718ba5, #6d88a3);
+  --info: light-dark(#4c6782, #a2b8d0);
+  --info-soft: light-dark(#eaf0f6, #263343);
+  --warn: light-dark(#865b0e, #d7bd82);
+  --warn-soft: light-dark(#f6ebd3, #353124);
+  --danger: light-dark(#b24443, #e4a0a2);
+  --danger-soft: light-dark(#fae5e1, #38272d);
+  --series: light-dark(#567b9d, #839db7);
+  --series-soft: light-dark(#e3edf6, #2b3948);
+  --kind-change: light-dark(#385c80, #91aecb);
+  --kind-decision: light-dark(#665e85, #b4accb);
+  --kind-backlog: light-dark(#596d85, #adb6ca);
+  --kind-release: light-dark(#42697d, #a8bfcd);
+  --kind-product-note: light-dark(#5c647b, #b0b8c7);
+  --kind-feedback: light-dark(#69637e, #b3adbf);
+  --kind-session: light-dark(#65707c, #9ba6b5);
   --shadow-float: 0 24px 80px light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.55)), 0 2px 8px light-dark(rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.2));
   --font-sans: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-display: "Inter Display", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
@@ -338,7 +338,7 @@ main { flex: 1 0 auto; width: min(100%, var(--frame)); margin: 0 auto; padding: 
 .bar-row .bar-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
 .bar-row:hover .bar-label { color: var(--ink); }
 .bar-track { height: 3px; border-radius: 1px; background: var(--surface-2); overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 1px; background: var(--series); }
+.bar-fill { display: block; height: 100%; border-radius: 1px; background: var(--series); }
 .bar-row .bar-value { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
 
 /* Library head: search and filters */
@@ -509,7 +509,8 @@ html:not([data-view="overview"]) .overview { display: none; }
 
 /* Entries: ruled rows */
 .entries { display: flex; flex-direction: column; }
-.entry { position: relative; display: grid; grid-template-columns: 94px 44px minmax(0, 1fr) auto 88px; grid-template-areas: "kind id title meta date" "kind id summary summary summary" "kind id tags tags tags"; column-gap: 10px; row-gap: 4px; align-items: baseline; padding: 13px 8px; border-bottom: 1px solid var(--line); border-radius: 0; transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.entry { position: relative; display: grid; grid-template-columns: 94px 44px minmax(0, 1fr) auto 88px; grid-template-areas: "kind id title meta date" "kind id summary summary summary" "kind id tags tags tags"; column-gap: 10px; row-gap: 3px; align-items: baseline; padding: 10px 8px; border-bottom: 1px solid var(--line); border-radius: 0; transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.entry:not(.release-entry):is(:hover, .is-open, .is-selected, :focus-visible) { border-radius: var(--r); }
 .entry:hover { background: var(--surface-2); }
 .entry.is-open { background: var(--accent-soft); }
 .entry.is-open .entry-link { color: var(--accent-strong); }
@@ -535,7 +536,7 @@ html:not([data-view="overview"]) .overview { display: none; }
 .entry-meta { display: inline-flex; align-items: center; gap: 10px; }
 .record-date { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 .entry-summary { color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 88ch; }
-.entries.compact .entry { grid-template-areas: "kind id title meta date"; padding: 8px 10px 8px 8px; row-gap: 0; }
+.entries.compact .entry { grid-template-areas: "kind id title meta date"; padding: 8px; row-gap: 0; }
 .entries.compact .entry-summary, .entries.compact .entry-tags { display: none; }
 .entries.compact .entry-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); white-space: nowrap; }
@@ -729,7 +730,7 @@ html[data-view="timeline"] .entries.compact .entry { grid-template-areas: "date 
 .version-link[aria-current="true"] { background: var(--accent-soft); color: var(--accent-strong); font-weight: 600; }
 .version-link[aria-current="true"] time { color: var(--accent-strong); }
 .release-feed { border-top: 0; }
-.release-entry { grid-template-columns: 140px minmax(0, 1fr); grid-template-areas: "year year" "spine content"; column-gap: 24px; padding: 24px 0 28px; align-items: start; border-radius: 0; }
+.release-entry { grid-template-columns: 140px minmax(0, 1fr); grid-template-areas: "year year" "spine content"; column-gap: 24px; row-gap: 4px; padding: 24px 0 28px; align-items: start; border-radius: 0; }
 .release-entry:hover { background: none; box-shadow: none; }
 .release-entry:focus { box-shadow: none; }
 .release-spine { grid-area: spine; position: sticky; top: calc(var(--topbar) + 20px); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -777,7 +778,7 @@ html[data-view="timeline"] .entries.compact .entry { grid-template-areas: "date 
 
 /* Command palette and shortcuts */
 dialog { border: 0; padding: 0; background: none; color: inherit; max-width: none; max-height: none; }
-dialog::backdrop { background: light-dark(rgba(48, 40, 36, 0.35), rgba(16, 12, 10, 0.65)); }
+dialog::backdrop { background: light-dark(rgba(48, 40, 36, 0.35), rgba(10, 13, 18, 0.65)); }
 .command-palette { width: min(680px, calc(100vw - 32px)); margin: 10vh auto 0; }
 .command-shell { overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--r-l); background: var(--surface); box-shadow: var(--shadow-float); }
 .command-input-row { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 56px; border-bottom: 1px solid var(--line); }
@@ -881,6 +882,8 @@ dialog::backdrop { background: light-dark(rgba(48, 40, 36, 0.35), rgba(16, 12, 1
   }
   .entry .record-date, html[data-view="timeline"] .entry .record-date { text-align: right; }
   .entries.compact .entry, html[data-view="timeline"] .entries.compact .entry { grid-template-areas: "kind id meta date" "title title title title"; padding: 12px 0; }
+  html[data-view="records"] .entry, html[data-view="timeline"] .entry { padding: 12px 8px; row-gap: 4px; }
+  html[data-view="records"] .entries.compact .entry, html[data-view="timeline"] .entries.compact .entry { padding: 10px 8px; }
   .record-panel-body { padding: 20px 20px 32px; }
   .record-panel-header { padding-left: 20px; }
   .shortcuts-list { grid-template-columns: 1fr; }

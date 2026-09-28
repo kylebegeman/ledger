@@ -36,7 +36,7 @@ node dist/cli.js coverage
 `assets/ledger.svg` is the canonical icon used by the reader and favicon: a
 single punched-receipt silhouette with a square opening and clipped corner.
 Keep its edges square and preserve the opening at small sizes. The reader
-uses its theme accent; the standalone SVG uses a flat copper that works on
+uses its theme accent; the standalone SVG uses a muted blue that works on
 both light and dark backgrounds.
 
 `assets/ledger-logo.svg` and `assets/ledger-logo-dark.svg` pair the mark with
@@ -56,9 +56,9 @@ Inspect the mark at 16, 24, 32, and 64px in both themes, then refresh reader
 screenshots that show it. Keep the lockups as paths, with accessible titles,
 transparent backgrounds, and no external references.
 
-## README Images
+## README Visuals
 
-Everything under `assets/readme/` is shown in the README and left out of the
+Visuals under `assets/readme/` are used by the README and left out of the
 npm package. The terminal cards and the capture loop diagram are generated
 from real output: the script builds two throwaway demo repositories with this
 checkout's build, runs the hooks and commands the README shows, and renders
@@ -106,13 +106,13 @@ unless the image says light:
 | `receipt.png` | record `0001` in the billing demo, Files and Relationships open, cropped to the panel | 1440 by 1600 | 12px |
 
 Each screenshot gets rounded corners and a 1px inner border in the reader's
-line color (`#392f29` dark, `#e8e5e2` light), with pixels kept at their captured
+line color (`#303741` dark, `#e8e5e2` light), with pixels kept at their captured
 size. The two overview images capture the full page so the activity chart,
 its dates, and the supporting sections remain complete. Recapture the images
 when the reader's look changes, and look at each one before committing it. The cards share the
 reader's palette, which lives in `src/reader/styles.css` under decision D009:
-near-white light surfaces and warm charcoal dark surfaces, copper and apricot
-accents, upright headings in one weight, and never a colored edge line to mark a state. Keep the logo,
+near-white light surfaces with blue accents and charcoal/slate dark surfaces
+with muted steel-blue accents, upright headings in one weight, and never a colored edge line to mark a state. Keep the logo,
 charts, and README art in that palette. The reader uses compact, unboxed
 sections and ruled record rows; recent changes lead the overview, and record
 details use stacked evidence
@@ -127,6 +127,31 @@ Status and Quality signals stay above the results. At 960px and below, the
 sidebar is hidden and the same refinement controls join Type in the top
 toolbar. Preserve keyboard navigation, visible field and value labels, and
 the reader's system fonts and operating-system theme default.
+
+### Screen recordings
+
+The README tour is captured from this repository's actual reader through real
+controls. It scrolls the overview, filters Records, opens and scrolls a receipt,
+then visits Timeline and both themes. Install FFmpeg (including ffprobe) on your machine alongside
+the unsaved Playwright setup above, then run:
+
+```bash
+node scripts/readme-recordings.mjs
+```
+
+This writes `assets/readme/reader-tour.mp4` (1200 by 800, H.264, 25 fps) and
+`reader-tour.gif` (12 fps, under 8 MB). Both run for 24 seconds. The script
+starts an isolated server on a free port, captures lossless browser frames only
+after the reader is ready, and closes its browser and server. It does not change package
+dependencies. Use `--keep` to retain its lossless source and inspection
+frames, or `--output-dir <path>` for a trial capture.
+
+Review the motion as well as the frames before committing: scrolling should be
+smooth, menus and evidence should be readable, and neither startup blanks nor
+loading placeholders should appear. The README supplies a full-quality MP4
+link, still views, and a static `picture` source for reduced-motion preferences.
+Regenerate recordings after reader changes; CI checks the deterministic SVGs,
+not the browser recording's bytes. All README media stays out of the npm package.
 
 ## Branches
 

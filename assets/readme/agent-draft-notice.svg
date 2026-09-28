@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="900" height="223" viewBox="0 0 900 223" role="img" aria-label="The Stop hook tells you which receipt it drafted, and the next prompt tells the agent once to finish that draft">
-  <rect x="0.75" y="0.75" width="898.5" height="221.5" rx="12" fill="#1a1715" stroke="#392f29" stroke-width="1.5"/>
-  <path d="M 0.75 38 L 0.75 12.75 Q 0.75 0.75 12.75 0.75 L 887.25 0.75 Q 899.25 0.75 899.25 12.75 L 899.25 38 Z" fill="#24201d"/>
-  <line x1="0.75" y1="38" x2="899.25" y2="38" stroke="#392f29" stroke-width="1"/>
-  <circle cx="22" cy="19" r="6" fill="#f0a39b"/>
-  <circle cx="42" cy="19" r="6" fill="#e4bb74"/>
-  <circle cx="62" cy="19" r="6" fill="#b4a294"/>
-  <text x="450" y="23.5" text-anchor="middle" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#c9b6a8">acme-billing · after the agent's turn ends</text>
-  <text x="22" y="71" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#b4a294">Stop hook, shown to you</tspan></text>
-  <text x="22" y="92" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#c9b6a8">Ledger drafted </tspan><tspan fill="#d5bad1">.ledger/entries/0002-changes-to-billing.md</tspan><tspan fill="#c9b6a8">; give it a title and finish it with</tspan></text>
-  <text x="22" y="113" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#d5bad1">ledger ready</tspan><tspan fill="#c9b6a8">.</tspan></text>
-  <text x="22" y="155" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#b4a294">Your next prompt, added to the agent's context once</tspan></text>
-  <text x="22" y="176" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#c9b6a8">Ledger drafted </tspan><tspan fill="#d5bad1">.ledger/entries/0002-changes-to-billing.md</tspan><tspan fill="#c9b6a8"> for this session (</tspan><tspan fill="#e4bb74">S0001</tspan><tspan fill="#c9b6a8">). Finish that draft and</tspan></text>
-  <text x="22" y="197" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#c9b6a8">run </tspan><tspan fill="#d5bad1">ledger ready</tspan><tspan fill="#c9b6a8">; do not create another receipt with </tspan><tspan fill="#d5bad1">ledger new</tspan><tspan fill="#c9b6a8">.</tspan></text>
+  <rect x="0.75" y="0.75" width="898.5" height="221.5" rx="12" fill="#15181d" stroke="#303741" stroke-width="1.5"/>
+  <path d="M 0.75 38 L 0.75 12.75 Q 0.75 0.75 12.75 0.75 L 887.25 0.75 Q 899.25 0.75 899.25 12.75 L 899.25 38 Z" fill="#1d2127"/>
+  <line x1="0.75" y1="38" x2="899.25" y2="38" stroke="#303741" stroke-width="1"/>
+  <circle cx="22" cy="19" r="6" fill="#e4a0a2"/>
+  <circle cx="42" cy="19" r="6" fill="#d7bd82"/>
+  <circle cx="62" cy="19" r="6" fill="#9ba6b5"/>
+  <text x="450" y="23.5" text-anchor="middle" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#b9c1cc">acme-billing · after the agent's turn ends</text>
+  <text x="22" y="71" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#9ba6b5">Stop hook, shown to you</tspan></text>
+  <text x="22" y="92" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#b9c1cc">Ledger drafted </tspan><tspan fill="#a2b8d0">.ledger/entries/0002-changes-to-billing.md</tspan><tspan fill="#b9c1cc">; give it a title and finish it with</tspan></text>
+  <text x="22" y="113" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#a2b8d0">ledger ready</tspan><tspan fill="#b9c1cc">.</tspan></text>
+  <text x="22" y="155" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#9ba6b5">Your next prompt, added to the agent's context once</tspan></text>
+  <text x="22" y="176" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#b9c1cc">Ledger drafted </tspan><tspan fill="#a2b8d0">.ledger/entries/0002-changes-to-billing.md</tspan><tspan fill="#b9c1cc"> for this session (</tspan><tspan fill="#d7bd82">S0001</tspan><tspan fill="#b9c1cc">). Finish that draft and</tspan></text>
+  <text x="22" y="197" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13.5" xml:space="preserve"><tspan fill="#b9c1cc">run </tspan><tspan fill="#a2b8d0">ledger ready</tspan><tspan fill="#b9c1cc">; do not create another receipt with </tspan><tspan fill="#a2b8d0">ledger new</tspan><tspan fill="#b9c1cc">.</tspan></text>
 </svg>

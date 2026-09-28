@@ -655,12 +655,15 @@ reader bundle imports, and a parity test ranks the same queries in both.
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
 The reader owns its visual system (D009). Its tokens live in
-`src/reader/styles.css` as light and dark pairs: near-white and warm charcoal surfaces,
-copper and apricot accents, status tones, one warm series color for charts,
-neutral record-kind labels, and categorical map colors, with
+`src/reader/styles.css` as light and dark pairs: near-white light surfaces
+with accessible blue accents, charcoal and slate dark surfaces with muted steel-blue
+accents, status tones, one series color per theme for charts, neutral record-kind
+labels, and categorical map colors, with
 system font stacks so a page makes no font requests. Headings are upright in
 one weight, and an active or selected item shows a background tint, a heavier
-weight, or a full focus ring, never a colored edge bar. The internal reader
+weight, or a full focus ring, never a colored edge bar. Dark surfaces and text
+avoid an orange or red cast. Dossier's reading hierarchy remains an inspiration;
+Ledger's tokens and layout are independently owned. The internal reader
 has three views under one `html[data-view]` attribute. The overview starts
 with a compact project heading and inline counts per kind. Recent changes
 lead the main column, followed by an activity chart by week or month with a
@@ -754,10 +757,11 @@ unreadable state, the page renders normally and marks nothing. Nothing
 leaves the browser.
 The bundled identity uses a single punched-receipt silhouette from
 `assets/ledger.svg`, inlined in the reader header and encoded into its SVG
-favicon. The header applies the theme's copper or apricot accent without
-rounding or clipping the mark; the standalone icon uses flat copper.
+favicon. The header applies the theme's accent without
+rounding or clipping the mark; the standalone icon uses flat blue.
 `scripts/brand-assets.mjs` generates that icon and the light/dark logo
-lockups used by the README. The lowercase wordmark is outlined Manrope 600;
+lockups used by the README, with a blue mark in both themes. The lowercase
+wordmark is outlined Manrope 600;
 its OFL notice ships with the assets. The logos make no font requests and do
 not change the reader's system font stacks.
 
