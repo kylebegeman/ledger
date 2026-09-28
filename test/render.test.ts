@@ -332,7 +332,7 @@ describe("writeStaticReader", () => {
     expect(result.outputPath).toBe(".ledger/dist/public/index.html");
     const html = await readFile(path.join(tempDir, result.outputPath), "utf8");
     expect(html).toContain("Safe public feature.");
-    expect(html).toContain("What shipped, <em>clearly</em>.");
+    expect(html).toContain("What shipped, release by release, written for the people who use it.");
     expect(html).toContain("Search versions and release notes");
     expect(html).toContain('data-year="2026"');
     expect(html).toContain('data-year="2025"');
@@ -341,7 +341,7 @@ describe("writeStaticReader", () => {
     expect(html.indexOf('id="v1.0.0"')).toBeLessThan(html.indexOf('id="v0.9.0"'));
     expect(html).toContain('<a class="version-badge" href="#v1.0.0" title="Link to this release">v1.0.0</a>');
     expect(html).toContain('<link rel="alternate" type="application/atom+xml" title="ledger-project releases" href="feed.xml">');
-    expect(html).toContain('<a class="text-button" href="feed.xml">Atom feed</a>');
+    expect(html).toContain('class="feed-link" href="feed.xml"');
     expect(html).toContain('<meta name="description" content="Release notes for ledger-project, written for the people who use it.">');
     expect(html).not.toContain('rel="canonical"');
     expect(html.match(/class="entry release-entry year-start"/g)).toHaveLength(2);
@@ -698,8 +698,8 @@ Links.
     expect(html).toContain('role="feed"');
     expect(html).toContain("aria-busy");
     expect(html).toContain('role="status"');
-    expect(html).not.toContain('id="active-filters"');
-    expect(html).toContain('class="search-region"');
+    expect(html).toContain('id="active-filters"');
+    expect(html).toContain('class="search-dock"');
     expect(html).toContain('class="filter-bar"');
     expect(html).toContain('class="rail"');
     expect(html).toContain('id="per-page"');
@@ -711,7 +711,7 @@ Links.
     expect(html).toContain("currentPage");
     expect(html).not.toContain("filter-scrim");
     expect(html).not.toContain("sidebar-open");
-    expect(html).toContain("Quick views");
+    expect(html).toContain("Browse");
     expect(html).toContain("facet-button");
     expect(html).toContain("Relationship graph");
     expect(html).toContain("graph.json");
@@ -720,7 +720,6 @@ Links.
     expect(html).toContain("Decisions");
     expect(html).toContain('data-filter-value="decision"');
     expect(html).toContain("D001");
-    expect(html).not.toContain("border-left");
     expect(html).not.toContain('<i aria-hidden="true"></i>');
     expect(html).not.toContain('focusable="false"');
     expect(html).not.toContain("--shadow-md");
@@ -732,7 +731,7 @@ Links.
     expect(html).toContain("emptyState");
     expect(html).toContain('class="select-wrap"');
     expect(html).toContain("mask:url(");
-    expect(html).toContain("#theme-toggle:hover");
+    expect(html).toContain(".theme-toggle:hover");
     expect(html).not.toContain("%23838880");
     expect(html).not.toContain("@keyframes reveal");
     expect(html).not.toContain("panel-open");

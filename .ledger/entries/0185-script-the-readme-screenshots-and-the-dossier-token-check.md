@@ -5,6 +5,8 @@ title: "Script the README screenshots and the Dossier token check"
 date: "2026-09-17"
 updated: "2026-09-17"
 status: "landed"
+staleRefs:
+  - "files:scripts/check-dossier-tokens.mjs"
 areas:
   - "scripts"
   - "reader"

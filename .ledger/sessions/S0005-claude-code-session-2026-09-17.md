@@ -6,6 +6,8 @@ date: "2026-09-17"
 updated: "2026-09-17"
 status: "closed"
 expires: "2026-09-24"
+staleRefs:
+  - "files:scripts/check-dossier-tokens.mjs"
 areas:
   - "release"
   - "authoring"

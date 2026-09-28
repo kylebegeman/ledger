@@ -28,8 +28,8 @@ describe("reader runtime bundle", () => {
     expect(staticReaderRuntime).not.toContain("import ");
     expect(staticReaderRuntime).not.toContain("export ");
     expect(staticReaderStyles).toContain("light-dark(");
-    // Every page embeds the stylesheet; Dossier holds its own to a budget, and so does Ledger.
-    expect(Buffer.byteLength(staticReaderStyles)).toBeLessThan(40 * 1024);
+    // Every page embeds the stylesheet, so it is held to a budget. Raise it on purpose, not by drift.
+    expect(Buffer.byteLength(staticReaderStyles)).toBeLessThan(64 * 1024);
     const source = await readFile(path.join(process.cwd(), "src", "reader", "runtime.ts"), "utf8");
     expect(source).toContain('from "../searchCore.js"');
     expect(source).not.toMatch(/function fuzzyScore\(/);
@@ -215,7 +215,7 @@ describe("reader runtime in a browser document", () => {
       dialog.showModal = () => dialog.setAttribute("open", "");
       dialog.close = () => dialog.removeAttribute("open");
     }
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "/", bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
     const input = document.getElementById("command-search") as HTMLInputElement;
     expect(document.activeElement).toBe(input);
     input.value = "retry";

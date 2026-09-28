@@ -53,7 +53,7 @@ for trims the cards now mark differently. CI runs `npm run readme:check` on
 the Ubuntu, Node 24 job, which regenerates the cards and fails when any
 differs from the committed file.
 
-The four reader screenshots come from `scripts/readme-screenshots.mjs`.
+The reader screenshots come from `scripts/readme-screenshots.mjs`.
 Playwright is not a dependency, so install it without saving it first:
 
 ```bash
@@ -64,30 +64,29 @@ node scripts/readme-screenshots.mjs
 ```
 
 Name images to capture only those, for example
-`node scripts/readme-screenshots.mjs hero palette`. The script serves this
+`node scripts/readme-screenshots.mjs overview palette`. The script serves this
 repository's readers and builds the billing demo with
 `node scripts/readme-assets.mjs --demos-only`. It captures each view in a
-fresh dark browser context at a device scale factor of 2 with reduced motion:
+fresh browser context at a device scale factor of 2 with reduced motion, dark
+unless the image says light:
 
 | Image | Page | Viewport | Corner radius |
 | --- | --- | --- | --- |
-| `hero.png` | `/?kind=change&record=0133`, scrolled to the library | 1440 by 900 | 18px |
-| `palette.png` | `/`, press `/`, type `draft receipt`, crop to the dialog plus 44px | 1440 by 900 | 16px |
+| `overview.png` | `/`, the overview | 1440 by 900 | 18px |
+| `overview-light.png` | `/` in the light scheme | 1440 by 900 | 18px |
+| `records.png` | `/?view=records&record=0133`, scrolled to the list | 1440 by 900 | 18px |
+| `timeline.png` | `/?view=timeline`, scrolled to the list | 1440 by 900 | 16px |
+| `palette.png` | `/`, press Cmd+K, type `draft receipt`, crop to the dialog plus 44px | 1440 by 900 | 16px |
 | `changelog.png` | `serve --profile public`, scrolled to the changelog heading | 1180 by 820 | 16px |
 | `receipt.png` | record `0001` in the billing demo, Files and Relationships open, cropped to the panel | 1440 by 1600 | 12px |
 
-Each screenshot gets rounded corners and a 1px `#3d363f` inner border, the
-reader's dark line color, with pixels kept at their captured size. Recapture
-the images when the reader's look changes, and look at each one before
-committing it. The cards and screenshots share the reader's dark palette,
-which follows Dossier's.
-
-The reader copies its design tokens from Dossier (decision D003). When
-Dossier's `tokens.css` changes, run
-`node scripts/check-dossier-tokens.mjs --dossier <path-to-dossier>`. It
-compares every token's light and dark values, allows only Ledger's accent to
-differ, and says whether `tokens.css` changed since the commit the stylesheet
-names.
+Each screenshot gets rounded corners and a 1px inner border in the reader's
+line color for its scheme (`#23282c` dark, `#e3e0d8` light), with pixels
+kept at their captured size. Recapture the images when the reader's look
+changes, and look at each one before committing it. The cards share the
+reader's dark palette, which lives in `src/reader/styles.css` under decision
+D009: upright headings in one weight, and never a colored edge line to mark a
+state.
 
 ## Branches
 
