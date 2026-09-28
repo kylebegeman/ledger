@@ -654,20 +654,40 @@ reader bundle imports, and a parity test ranks the same queries in both.
 
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
-The reader follows Dossier's visual system (backlog B009). Its values were
-copied from Dossier `b48ea15` (`core/internal/render/assets/tokens.css`) and
-are never imported (D003): plum-tinted neutrals, one accent (Ledger's emerald
-from the mark), status tones, borders instead of shadows, and system font
-stacks, so a page makes no font requests. A compact masthead (a kicker, a
-title with one italic serif accent word, a lede, and stats) sits above a
-full-width search field and select filters. Records read as hairline-divided
-list rows with visible dates. From 1100px, a left rail lists facet quick views
-under group labels, followed by the relationship graph summary. Selecting a
-row opens a slide-out detail
-panel over the right edge that surfaces the full record: summary, tags,
-source reference, invariants, verification, validation issues, files,
-symbols, docs, relationships, the records that link to it, copy actions, and
-the agent packet digest. Summaries,
+The reader owns its visual system (D009). Its tokens live in
+`src/reader/styles.css` as light and dark pairs: warm neutral surfaces, one
+emerald accent, status tones, one series color for charts, and a categorical
+palette for record kinds that was checked for color vision deficiency, with
+system font stacks so a page makes no font requests. Headings are upright in
+one weight, and an active or selected item shows a background tint, a heavier
+weight, or a full focus ring, never a colored edge bar. The internal reader
+has three views under one `html[data-view]` attribute. The overview holds
+stat tiles per kind, an activity chart by week or month with a table twin and
+a tooltip, the newest releases, records per area, the open backlog, the health
+signals `ledger doctor` reports, and the graph counts; every tile and bar
+filters the list. The records view is the list, and the timeline is the same
+list grouped under month headings with the date column first. The view comes
+from the URL: `view=` when explicit, otherwise the records view when a list
+parameter such as `q`, `kind`, or `record` is present, and the overview
+otherwise, so every older link still opens the list. A sticky top bar carries
+the brand, the view tabs, the palette trigger, the shortcuts dialog, and the
+theme toggle. The list keeps a full-width search field and select filters
+above a left rail of facet quick views, which folds into a closed drawer under
+960px, a results toolbar with the sort order and density, and active filter
+chips that remove one filter or all of them. Records read as hairline-divided
+rows with a kind dot, id, title, status, and created date; the Recently
+updated order shows the updated date instead. Selecting a row opens a
+slide-out detail panel over the right edge that surfaces the full record:
+summary, tags, source reference, copy actions, invariants, verification,
+validation issues, a relationship map of the records it links and the records
+that link to it, then files, symbols, docs, relationships, the records that
+link to it, and the agent packet digest. The panel's header steps to the
+previous or next record in the current order and shows the position. The
+keyboard covers all of it: `/` focuses search, Cmd+K opens the palette,
+`j` and `k` move, `o` opens, `]` and `[` step the panel, `g o`,
+`g r`, and `g t` switch views, and `?` lists the shortcuts. The public
+changelog lists releases under year headings beside a version index that
+tracks the release in view. Summaries,
 invariants, verification bullets, and public release notes render Markdown
 code spans as inline code: the text is escaped first and backtick runs pair
 as they do in Markdown, so record content never becomes markup, while search
@@ -680,10 +700,10 @@ shows the Markdown an agent receives from `ledger packet`. Detail markup ships i
 template per record, the open record is addressable through a record URL
 parameter, and the list stays visible and interactive behind the panel so
 readers can move between records without losing context.
-Panels (the graph summary, invariants, verification, and validation issues)
-sit on a paper fill with a 1px line. The search field, selects, and command
-trigger use a control line that measures at least 3:1 against the page. Only
-the two overlays, the search palette and the record panel, cast a shadow.
+Panels sit on the surface color with a 1px line. The search field, selects,
+and command trigger use a control line that measures at least 3:1 against the
+page. Only the overlays, the palette, the shortcuts dialog, the chart tooltip,
+and the record panel, cast a shadow.
 
 Entries carry their files, symbols, docs, and record links in `data-files`,
 `data-symbols`, `data-docs`, and `data-links`, one value per line. When a
