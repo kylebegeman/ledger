@@ -657,16 +657,18 @@ releases so the generated page can offer quick navigation without a server.
 The reader owns its visual system (D009). Its tokens live in
 `src/reader/styles.css` as light and dark pairs: neutral grayscale surfaces
 informed by Dossier's reader, one emerald accent, status tones, one series
-color for charts, and a categorical palette for record kinds, with
+color for charts, neutral record-kind labels, and categorical map colors, with
 system font stacks so a page makes no font requests. Headings are upright in
 one weight, and an active or selected item shows a background tint, a heavier
 weight, or a full focus ring, never a colored edge bar. The internal reader
-has three views under one `html[data-view]` attribute. The overview holds
-an introductory masthead with a shortcut to the latest change, stat columns
-per kind, an activity chart by week or month with a table twin and
-a tooltip, the newest releases, records per area, the open backlog, the health
-signals `ledger doctor` reports, and the graph counts; every tile and bar
-filters the list. The records view is the list, and the timeline is the same
+has three views under one `html[data-view]` attribute. The overview starts
+with a compact project heading and inline counts per kind. Recent changes
+lead the main column, followed by an activity chart by week or month with a
+table twin and a tooltip, and the graph counts. A supporting column holds the
+newest releases, open backlog, health signals `ledger doctor` reports, and
+records per area. Counts and chart bars filter the list. Sections use space
+and fine rules rather than individual card containers. The records view is
+the list, and the timeline is the same
 list grouped under month headings with the date column first. The view comes
 from the URL: `view=` when explicit, otherwise the records view when a list
 parameter such as `q`, `kind`, or `record` is present, and the overview
@@ -675,14 +677,16 @@ the brand, the view tabs, the palette trigger, the shortcuts dialog, and the
 theme toggle. The list keeps a full-width search field and select filters
 above a left rail of facet quick views, which folds into a closed drawer under
 960px, a results toolbar with the sort order and density, and active filter
-chips that remove one filter or all of them. Records read as hairline-divided
-rows with a labeled kind badge and icon, id, title, status, and created date; the Recently
+chips that remove one filter or all of them. Records read as compact,
+hairline-divided rows with a neutral kind label and icon, id, title, status,
+and created date; the Recently
 updated order shows the updated date instead. Selecting a row opens a
 slide-out detail panel over the right edge that surfaces the full record:
-summary, tags, source reference, copy actions, invariants, verification,
-validation issues, a relationship map of the records it links and the records
-that link to it, then files, symbols, docs, relationships, the records that
-link to it, and the agent packet digest. The panel's header steps to the
+summary, tags, source reference, copy actions, stacked invariants and
+verification sections, validation issues, files, symbols, docs, relationships,
+and the records that link to it. A collapsed relationship map follows those
+lists and expands to show linked records and backlinks; the agent packet
+digest comes last. The panel's header steps to the
 previous or next record in the current order and shows the position. The
 keyboard covers all of it: `/` focuses search, Cmd+K opens the palette,
 `j` and `k` move, `o` opens, `]` and `[` step the panel, `g o`,
@@ -701,10 +705,11 @@ shows the Markdown an agent receives from `ledger packet`. Detail markup ships i
 template per record, the open record is addressable through a record URL
 parameter, and the list stays visible and interactive behind the panel so
 readers can move between records without losing context.
-Panels sit on the surface color with a quiet 1px line and a restrained shadow.
-Search and filters have generous hit targets, visible labels, and stronger
-borders on hover or focus. Floating overlays use a deeper shadow to separate
-them from the page. Below 720px the three view tabs occupy a second toolbar
+Overview sections and record evidence stay unboxed, with typography, spacing,
+and fine rules establishing hierarchy. Search and filters keep accessible hit
+targets, visible labels, and stronger borders on hover or focus. Floating
+overlays use a shadow to separate them from the page. Below 720px the three
+view tabs occupy a second toolbar
 row, so every view stays available without crowding the theme and search controls.
 
 Entries carry their files, symbols, docs, and record links in `data-files`,
@@ -742,9 +747,9 @@ result count offers a filter to them (the `changed` URL parameter) and Mark
 all as seen. Every storage call is guarded: without storage, or with
 unreadable state, the page renders normally and marks nothing. Nothing
 leaves the browser.
-Color reinforces the written status and kind labels. Kind badges combine
-distinct icons, labels, and soft categorical fills, so color is never their
-only identifier. The accent marks interactive or selected controls, with
+Color reinforces written status labels. Record kinds use neutral icons and
+labels, while map nodes can use categorical colors alongside written
+identifiers. The accent marks interactive or selected controls, with
 weight, a full outline, or the control's position providing another cue.
 Errors use crimson. Decorative leading strokes remain excluded. The reader model orders
 documents newest-first, date descending with a numeric-aware identifier
@@ -756,7 +761,7 @@ stylesheet defines its color system once with CSS `light-dark()` tokens, so
 light and dark themes share one declaration, native controls follow the
 active `color-scheme`, and the select chevron is painted through a CSS mask
 so it tracks the same tokens. The search palette backdrop is a translucent
-neutral scrim with blur, tuned for each theme.
+neutral scrim tuned for each theme.
 The reader needs Chrome 123, Firefox 120, or Safari 17.5,
 the floor `light-dark()` sets. `:has()` (Firefox 121) only adds the row focus
 ring and the active select chevron, and view transitions and
@@ -793,8 +798,11 @@ reset control when no search or filter is active.
 A density toggle switches between comfortable rows with a clamped summary
 and tag chips and compact single-line rows, remembered like the theme. The
 record panel closes with its button, Escape, or browser back, restores focus
-to the originating row, and renders full-screen on small viewports. Masthead
-stats act as one-click kind filters. Filter selects wrap with the available
+to the originating control, and renders full-screen on small viewports. At
+960px and below, an open panel is a modal dialog: the background is inert,
+Tab stays inside it, and `/` opens the search palette above it. Widening the
+viewport restores the nonmodal side panel. Overview
+counts act as one-click kind filters. Filter selects wrap with the available
 space and the rail becomes a Browse drawer above the results below 960px.
 The binary Light/Dark switch starts with the system preference and follows
 system changes until the reader makes an explicit choice. That choice is

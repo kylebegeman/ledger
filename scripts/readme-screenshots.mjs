@@ -102,7 +102,7 @@ try {
 // ---------------------------------------------------------------------------------------------
 // Views
 
-/** The overview: the tiles, the activity chart, releases, areas, backlog, health, and graph counts. */
+/** The overview: recent changes, compact counts, activity, and unboxed repository context. */
 async function captureOverview(page, base) {
   await page.goto(base);
   await page.waitForSelector("#activity-chart svg");

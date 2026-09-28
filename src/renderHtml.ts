@@ -189,7 +189,7 @@ function internalMain(model: LedgerStaticReaderModel, options: RenderStaticReade
           <div class="results">
             <div class="results-toolbar">
               <div class="results-heading">
-                <p class="eyebrow" id="results-eyebrow">Records</p>
+                <p class="sr-only" id="results-eyebrow">Records</p>
                 <h2 id="result-count" tabindex="-1" data-result-noun="record">${pluralize(model.documents.length, "record")}</h2>
                 ${visitNote(false)}
               </div>
@@ -216,9 +216,7 @@ function internalMain(model: LedgerStaticReaderModel, options: RenderStaticReade
 function publicMain(model: LedgerStaticReaderModel): string {
   const latest = model.documents[0];
   return `<section class="masthead masthead-public" aria-labelledby="page-title">
-        <p class="eyebrow">Changelog</p>
         <h1 class="masthead-title" id="page-title">${escapeHtml(model.project)}<span class="changelog-title-suffix">Changelog</span></h1>
-        <p class="masthead-copy">What shipped, release by release, written for the people who use it.</p>
         <p class="masthead-meta">
           <span>${pluralize(model.stats.releases, "release")}</span>
           ${latest ? `<span>Latest <a class="mono" href="#${escapeHtml(releaseAnchor(latest.id))}">${escapeHtml(latest.id)}</a> on ${escapeHtml(formatDate(latest.date))}</span>` : ""}
@@ -241,7 +239,7 @@ function publicMain(model: LedgerStaticReaderModel): string {
           <div class="results">
             <div class="results-toolbar">
               <div class="results-heading">
-                <p class="eyebrow" id="results-eyebrow">Releases</p>
+                <p class="sr-only" id="results-eyebrow">Releases</p>
                 <h2 id="result-count" tabindex="-1" data-result-noun="release">${pluralize(model.documents.length, "release")}</h2>
                 ${visitNote(true)}
               </div>
@@ -299,7 +297,7 @@ function overview(model: LedgerStaticReaderModel): string {
     documents.filter((document) => (!kind || document.kind === kind) && cutoff !== "" && document.date >= cutoff).length;
   const releases = documents.filter((document) => document.kind === "release");
   const latestRelease = releases[0];
-  const latestChange = documents.find((document) => document.kind === "change");
+  const recentChanges = documents.filter((document) => document.kind === "change").slice(0, 6);
   const acceptedDecisions = documents.filter((document) => document.kind === "decision" && document.status === "accepted").length;
   const openBacklog = documents.filter((document) => document.kind === "backlog" && !closedStatuses.has(document.status));
   const activeSessions = documents.filter((document) => document.kind === "session" && document.status === "active").length;
@@ -312,74 +310,70 @@ function overview(model: LedgerStaticReaderModel): string {
   const inWindow = (count: number, noun: string) => (cutoff ? `${count === 0 ? "none" : `+${count}`} in ${recentWindowDays} days` : pluralize(count, noun));
   return `<section class="overview" id="overview" aria-labelledby="overview-title">
         <div class="masthead masthead-overview">
-          <div>
-            <div class="masthead-topline">${icon("layers")}<p class="eyebrow">Your repository, remembered</p></div>
-            <h1 class="masthead-title" id="overview-title">${escapeHtml(model.project)}</h1>
-            <p class="masthead-copy">The story behind the code. Every change, decision, and lesson, all in one place.</p>
-            <p class="masthead-meta">
-              <span>${pluralize(model.stats.documents, "record")} of project knowledge</span>
-              <span>Updated ${escapeHtml(formatGeneratedAt(model.generatedAt))}</span>
-            </p>
-          </div>
-          ${latestChange ? `<a class="recent-change" href="?record=${escapeHtml(encodeURIComponent(latestChange.id))}" data-open-record="${escapeHtml(latestChange.id)}">
-            <span class="eyebrow">Latest change ${icon("arrow-up-right")}</span>
-            <strong>${escapeHtml(latestChange.title)}</strong>
-            <span class="recent-change-meta"><span class="mono">${escapeHtml(latestChange.id)}</span><time datetime="${escapeHtml(latestChange.date)}">${escapeHtml(formatDate(latestChange.date))}</time>${statusDot(latestChange.status)}</span>
-          </a>` : ""}
+          <h1 class="masthead-title" id="overview-title">${escapeHtml(model.project)}</h1>
+          <p class="masthead-meta">Updated ${escapeHtml(formatGeneratedAt(model.generatedAt))}</p>
         </div>
-        <div class="tiles" aria-label="Summary">
+        <div class="tiles" aria-label="Browse by record type">
           ${tile("Records", model.stats.documents, inWindow(recent(), "record"), "data-reset-filters data-view-target=\"records\"")}
-          ${tile("Changes", model.stats.changes, inWindow(recent("change"), "change"), kindFilter("change"), "change")}
-          ${tile("Decisions", model.stats.decisions, `${acceptedDecisions} accepted`, kindFilter("decision"), "decision")}
-          ${tile("Backlog", model.stats.backlog, `${openBacklog.length} open`, kindFilter("backlog"), "backlog")}
-          ${tile("Releases", model.stats.releases, latestRelease ? `latest ${latestRelease.id}` : "none yet", kindFilter("release"), "release")}
-          ${tile("Sessions", model.stats.sessions, `${activeSessions} active`, kindFilter("session"), "session")}
+          ${tile("Changes", model.stats.changes, inWindow(recent("change"), "change"), kindFilter("change"))}
+          ${tile("Decisions", model.stats.decisions, `${acceptedDecisions} accepted`, kindFilter("decision"))}
+          ${tile("Backlog", model.stats.backlog, `${openBacklog.length} open`, kindFilter("backlog"))}
+          ${tile("Releases", model.stats.releases, latestRelease ? `latest ${latestRelease.id}` : "none yet", kindFilter("release"))}
+          ${tile("Sessions", model.stats.sessions, `${activeSessions} active`, kindFilter("session"))}
         </div>
         <div class="overview-grid">
-          <section class="panel panel-chart" aria-labelledby="activity-title">
-            <div class="panel-head">
-              <div><h2 class="panel-title" id="activity-title">${icon("activity")}Activity</h2><p class="panel-sub" id="activity-sub">Records by month. Select a month to list its records.</p></div>
-            </div>
-            <div class="chart" id="activity-chart"></div>
-            <details class="chart-table">
-              <summary>View as a table</summary>
-              <table id="activity-table"><caption class="sr-only">Records by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Records</th></tr></thead><tbody></tbody></table>
-            </details>
-          </section>
-          <section class="panel" aria-labelledby="releases-title">
-            <div class="panel-head">
-              <div><h2 class="panel-title" id="releases-title">${icon("release")}Releases</h2><p class="panel-sub">Newest first</p></div>
-              <button class="text-button" type="button" ${kindFilter("release")}>All releases</button>
-            </div>
-            ${releaseList(releases.slice(0, 6))}
-          </section>
-          <section class="panel" aria-labelledby="areas-title">
-            <div class="panel-head">
-              <div><h2 class="panel-title" id="areas-title">${icon("layers")}Areas</h2><p class="panel-sub">Records per area. Select one to filter.</p></div>
-            </div>
-            <div class="bars" id="area-chart"></div>
-          </section>
-          <section class="panel" aria-labelledby="backlog-title">
-            <div class="panel-head">
-              <div><h2 class="panel-title" id="backlog-title">${icon("inbox")}Open backlog</h2><p class="panel-sub">Work not yet landed</p></div>
-              <button class="text-button" type="button" ${kindFilter("backlog")}>All backlog</button>
-            </div>
-            ${recordList(openBacklog.slice(0, 6), "Nothing open. The backlog is clear.")}
-          </section>
-          <section class="panel" aria-labelledby="health-title">
-            <div class="panel-head">
-              <div><h2 class="panel-title" id="health-title">${icon("shield")}Health</h2><p class="panel-sub">Signals ledger doctor reports</p></div>
-            </div>
-            <ul class="health-list">
-              ${healthItem("Validation warnings", withWarnings, 'data-filter-field="warning" data-filter-value="with"')}
-              ${healthItem("Validation errors", withErrors, 'data-filter-field="warning" data-filter-value="with"')}
-              ${healthItem("Missing references", missingRefs, 'data-filter-field="missingRef" data-filter-value="missing"')}
-              ${healthItem("Duplicate identifiers", duplicates, 'data-filter-field="duplicate" data-filter-value="duplicate"')}
-              ${healthItem("Changes without file coverage", uncovered, 'data-filter-field="coverage" data-filter-value="none"')}
-              ${healthItem("Stale or failed verification", staleEvidence)}
-            </ul>
-          </section>
-          ${graphSummary(model)}
+          <div class="overview-main">
+            <section class="panel panel-recent" aria-labelledby="recent-title">
+              <div class="panel-head">
+                <h2 class="panel-title" id="recent-title">Recent changes</h2>
+                <button class="text-button" type="button" ${kindFilter("change")}>All changes ${icon("arrow")}</button>
+              </div>
+              ${recentChangesList(recentChanges)}
+            </section>
+            <section class="panel panel-chart" aria-labelledby="activity-title">
+              <div class="panel-head">
+                <h2 class="panel-title" id="activity-title">Activity</h2>
+                <p class="panel-sub" id="activity-sub">Records by month. Select a month to filter.</p>
+              </div>
+              <div class="chart" id="activity-chart"></div>
+              <details class="chart-table">
+                <summary>View as a table</summary>
+                <table id="activity-table"><caption class="sr-only">Records by month</caption><thead><tr><th scope="col">Month</th><th scope="col">Records</th></tr></thead><tbody></tbody></table>
+              </details>
+            </section>
+            ${graphSummary(model)}
+          </div>
+          <aside class="overview-aside" aria-label="Repository context">
+            <section class="panel" aria-labelledby="releases-title">
+              <div class="panel-head">
+                <h2 class="panel-title" id="releases-title">Releases</h2>
+                <button class="text-button" type="button" ${kindFilter("release")}>View all</button>
+              </div>
+              ${releaseList(releases.slice(0, 3))}
+            </section>
+            <section class="panel" aria-labelledby="backlog-title">
+              <div class="panel-head">
+                <h2 class="panel-title" id="backlog-title">Open backlog <span class="section-count">${openBacklog.length}</span></h2>
+                <button class="text-button" type="button" ${kindFilter("backlog")}>View all</button>
+              </div>
+              ${recordList(openBacklog.slice(0, 4), "No open backlog items.")}
+            </section>
+            <section class="panel" aria-labelledby="health-title">
+              <div class="panel-head"><h2 class="panel-title" id="health-title">Health</h2></div>
+              <ul class="health-list">
+                ${healthItem("Validation warnings", withWarnings, 'data-filter-field="warning" data-filter-value="with"')}
+                ${healthItem("Validation errors", withErrors, 'data-filter-field="warning" data-filter-value="with"')}
+                ${healthItem("Missing references", missingRefs, 'data-filter-field="missingRef" data-filter-value="missing"')}
+                ${healthItem("Duplicate identifiers", duplicates, 'data-filter-field="duplicate" data-filter-value="duplicate"')}
+                ${healthItem("Changes without file coverage", uncovered, 'data-filter-field="coverage" data-filter-value="none"')}
+                ${healthItem("Stale or failed verification", staleEvidence)}
+              </ul>
+            </section>
+            <section class="panel" aria-labelledby="areas-title">
+              <div class="panel-head"><h2 class="panel-title" id="areas-title">Areas</h2></div>
+              <div class="bars" id="area-chart"></div>
+            </section>
+          </aside>
         </div>
       </section>`;
 }
@@ -391,12 +385,21 @@ function kindFilter(kind: string): string {
   return `data-filter-field="kind" data-filter-value="${kind}" data-view-target="records"`;
 }
 
-function tile(label: string, value: number, hint: string, attrs: string, kind?: string): string {
-  return `<button class="tile" type="button" ${attrs}${kind ? ` data-kind-tone="${kind}"` : ""}>
-            <span class="tile-label">${icon(iconForKind(kind))}${escapeHtml(label)}</span>
-            <strong class="tile-value">${value}</strong>
-            <span class="tile-hint">${escapeHtml(hint)}</span>
+function tile(label: string, value: number, hint: string, attrs: string): string {
+  return `<button class="tile" type="button" ${attrs} title="${escapeHtml(hint)}">
+            <strong class="tile-value">${value}</strong><span class="tile-label">${escapeHtml(label)}</span>
+            <span class="sr-only">${escapeHtml(hint)}</span>
           </button>`;
+}
+
+function recentChangesList(records: readonly LedgerRenderedDocument[]): string {
+  if (records.length === 0) return '<p class="panel-empty">No changes recorded yet.</p>';
+  return `<ol class="recent-list">${records.map((document) =>
+    `<li><a class="recent-list-item" href="?record=${escapeHtml(encodeURIComponent(document.id))}" data-open-record="${escapeHtml(document.id)}">
+      <span class="mono">${escapeHtml(document.id)}</span>
+      <span class="recent-list-copy"><strong>${escapeHtml(document.title)}</strong><span>${escapeHtml(document.areas.join(" · "))}${document.areas.length ? " · " : ""}${escapeHtml(document.status)}</span></span>
+      <time datetime="${escapeHtml(document.date)}">${escapeHtml(formatShortDate(document.date))}</time>
+    </a></li>`).join("")}</ol>`;
 }
 
 function healthItem(label: string, count: number, attrs?: string): string {
@@ -418,7 +421,7 @@ function releaseList(releases: readonly LedgerRenderedDocument[]): string {
 }
 
 function recordList(records: readonly LedgerRenderedDocument[], emptyMessage: string): string {
-  if (records.length === 0) return `<div class="panel-empty">${icon("check")}<strong>All caught up</strong><p>${escapeHtml(emptyMessage)}</p></div>`;
+  if (records.length === 0) return `<p class="panel-empty">${escapeHtml(emptyMessage)}</p>`;
   return `<ol class="record-list">${records
     .map(
       (document) =>
@@ -489,7 +492,7 @@ function recordDetail(document: LedgerRenderedDocument, updatedDate: string): st
               <h2 class="record-panel-title">${escapeHtml(document.title)}</h2>
               ${recordSummary(document)}
               ${recordTags(document, undefined, true)}
-              ${document.sourceHref ? `<div class="source-reference">${icon("file")}<span><small>Source record${document.date ? ` · Created ${escapeHtml(formatDate(document.date))}` : ""}${updatedDate ? ` · Updated ${escapeHtml(formatDate(updatedDate))}` : ""}</small><a href="${escapeHtml(document.sourceHref)}" download="${escapeHtml(sourceDownloadName(document.path))}" aria-label="Download Markdown source for ${escapeHtml(document.id)}"><code>${escapeHtml(document.path)}</code></a></span></div>` : ""}
+              ${document.sourceHref ? `<div class="source-reference">${icon("file")}<span><small>Markdown source${updatedDate ? ` · Updated ${escapeHtml(formatDate(updatedDate))}` : ""}</small><a href="${escapeHtml(document.sourceHref)}" download="${escapeHtml(sourceDownloadName(document.path))}" aria-label="Download Markdown source for ${escapeHtml(document.id)}"><code>${escapeHtml(document.path)}</code></a></span></div>` : ""}
               ${contextGrid(document)}
               ${publicNotesPanel(document)}
               ${issueList(document.issues)}
@@ -728,8 +731,8 @@ function issueList(issues: readonly LedgerIssue[]): string {
 
 function contextGrid(document: LedgerRenderedDocument): string {
   const sections = [
-    contextBlock("Invariants", "What must stay true", document.invariants, icon("shield")),
-    contextBlock("Verification", verificationDescription(document), document.verification, icon("check"), document.verificationStatus),
+    contextBlock("Invariants", "", document.invariants),
+    contextBlock("Verification", verificationDescription(document), document.verification, document.verificationStatus),
   ].filter((section) => section.length > 0);
   return sections.length === 0 ? "" : `<div class="context-grid">${sections.join("")}</div>`;
 }
@@ -745,14 +748,14 @@ function verificationDescription(document: LedgerRenderedDocument): string {
     case "failed":
       return `Last run on ${ranAt}${commit} failed`;
     default:
-      return "How this was proven";
+      return "";
   }
 }
 
-function contextBlock(label: string, description: string, values: readonly string[], icon: string, tone?: string): string {
+function contextBlock(label: string, description: string, values: readonly string[], tone?: string): string {
   if (values.length === 0) return "";
   return `<section class="context-panel"${tone && tone !== "none" ? ` data-tone="${escapeHtml(tone)}"` : ""}>
-            <div class="section-heading"><span>${icon}</span><div><h4>${escapeHtml(label)}</h4><small>${escapeHtml(description)}</small></div></div>
+            <div class="section-heading"><div><h4>${escapeHtml(label)}</h4>${description ? `<small>${escapeHtml(description)}</small>` : ""}</div></div>
             <ul>${values.map((value) => `<li>${inlineCodeHtml(value)}</li>`).join("")}</ul>
           </section>`;
 }
@@ -766,7 +769,7 @@ function agentPacketDigest(document: LedgerRenderedDocument): string {
     document.verification.length > 0 ? `Verification: ${document.verification.slice(0, 3).join(" | ")}` : "",
   ].filter((line) => line.length > 0);
   return `<details class="agent-packet">
-            <summary><span>${icon("spark")} Agent-ready context</span>${icon("chevron")}</summary>
+            <summary><span>${icon("spark")} Agent context</span>${icon("chevron")}</summary>
             <pre>${escapeHtml(lines.join("\n"))}</pre>
           </details>`;
 }
@@ -775,7 +778,7 @@ function graphSummary(model: LedgerStaticReaderModel): string {
   const count = (type: string) => model.graph.nodes.filter((node) => node.type === type).length;
   return `<section class="panel panel-graph" aria-labelledby="graph-title">
             <div class="panel-head">
-              <div><h2 class="panel-title" id="graph-title">${icon("graph")}Relationship graph</h2><p class="panel-sub">What the records name and link</p></div>
+              <div><h2 class="panel-title" id="graph-title">Relationships</h2><p class="panel-sub">What the records name and link</p></div>
               <a class="text-button" href="graph.json">Open graph data ${icon("arrow")}</a>
             </div>
             <dl class="graph-metrics">
