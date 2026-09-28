@@ -26,7 +26,7 @@ const outDir = path.join(root, "assets", "readme");
 const demoNow = process.env.LEDGER_README_NOW ?? "2026-09-17T12:00:00Z";
 const clock = pathToFileURL(path.join(root, "scripts", "readme-clock.mjs")).href;
 /** The reader's `--line` token in each scheme. */
-const frameLine = { dark: "#303030", light: "#e3e3e3" };
+const frameLine = { dark: "#392f29", light: "#e8e5e2" };
 
 /**
  * Each image: its viewport in CSS pixels, its corner radius in CSS pixels, its color scheme
@@ -107,7 +107,7 @@ async function captureOverview(page, base) {
   await page.goto(base);
   await page.waitForSelector("#activity-chart svg");
   await settle(page);
-  return page.screenshot();
+  return page.screenshot({ fullPage: true });
 }
 
 /** A change record open beside the list, scrolled so the list starts under the top bar. */

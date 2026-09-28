@@ -45,11 +45,20 @@ the layout, using [Impeccable](https://github.com/pbakaus/impeccable) as a
 design reference. The reader should feel like a working archive: the records
 lead, and the interface helps people scan, find, and read them.
 
+After approving the overview, Kyle asked to simplify Records and Timeline:
+rounded pill controls, custom menus for every select, and a sidebar that no
+longer reads as a wall of repeated filter values. He then authorized moving
+the refinement controls into that sidebar and replacing the palette across
+the reader, logo, charts, and README art with warmer colors, without green
+or blue as the primary accent. After seeing the warmer version, he asked for
+light mode to move closer to white and avoid a beige, newspaper-like surface.
+
 ## Decision
 
 The reader owns its visual system. Its tokens live in `src/reader/styles.css`
-as `light-dark()` pairs and belong to Ledger: neutral grayscale surfaces, the
-emerald accent from the mark, status tones, and one series color for charts.
+as `light-dark()` pairs and belong to Ledger: near-white light surfaces and warm charcoal dark surfaces,
+copper in the light theme, apricot in the dark theme, status tones, and one
+warm series color for charts. The logo and README art use the same palette.
 Record kinds use neutral icons and written labels in the list. The relationship
 map can use categorical colors alongside its labels; text never wears a series
 color, and color never carries a distinction alone.
@@ -65,6 +74,19 @@ stacked evidence sections. Files and named relationships come before the
 relationship map, which stays collapsed until requested. Raised surfaces and
 shadows are reserved for overlays and controls that need separation.
 
+Records and Timeline use rounded pill controls for filters, sorting, and page
+size. One shared custom listbox enhances native selects, whose values remain
+canonical; the controls keep keyboard navigation and typeahead, and identify
+both the field and its selected value. The desktop sidebar contains record
+types with icons and count pills, then Area, Release, and Tag menus under
+Refine. Status and Quality signals stay above the results. At 960px and below,
+the sidebar is hidden and the same refinement controls move into the top
+toolbar alongside Type. There are no duplicate facet lists or mobile Browse
+drawer. Quality signals shows its active-filter count, opens only when
+requested, and closes on an outside interaction or Escape. Timeline dates
+omit the repeated year under month headings while keeping a full accessible
+date label.
+
 Two rules hold everywhere Ledger draws an interface, the README cards
 included:
 
@@ -73,8 +95,8 @@ included:
   weight, or a full focus ring. Never a colored edge line.
 
 D003 stands: Ledger still imports nothing from Dossier. The token check script
-is retired. Dossier's neutral surfaces, reading hierarchy, and binary theme
-control are design references, without a shared runtime or a checkout-dependent
+is retired. Dossier's reading hierarchy and binary theme control remain design
+references, without a shared runtime or a checkout-dependent
 token equality check. An explicit theme choice persists across visits; until
 then the reader follows the operating system.
 
@@ -82,12 +104,12 @@ then the reader follows the operating system.
 
 The reader can change its look for Ledger's own reasons. The overview, the
 timeline, the relationship map, and the public version index in receipt 0196
-use tokens Dossier never had. The two readers can feel related while Ledger
-retains its emerald identity and controls suited to changes, releases, and
-repository knowledge.
+use tokens Dossier never had. Ledger has its own warm palette and controls
+suited to changes, releases, and repository knowledge.
 
 The README cards and screenshots use the reader's palette, so a palette
-change means regenerating them with `node scripts/readme-assets.mjs` and
+change means regenerating the brand assets with `node scripts/brand-assets.mjs`
+and the README art with `node scripts/readme-assets.mjs` and
 `node scripts/readme-screenshots.mjs`.
 
 ## Revisit Criteria

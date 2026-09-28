@@ -431,16 +431,18 @@ function recordList(records: readonly LedgerRenderedDocument[], emptyMessage: st
 }
 
 function internalRail(model: LedgerStaticReaderModel): string {
-  return `<aside class="rail" aria-label="Browse">
-            <details class="rail-drawer" open>
-              <summary class="rail-summary">${icon("filter")}<span>Browse</span>${icon("chevron")}</summary>
-              <div class="rail-body">
-                ${facetButtons("Kinds", "kind", model.facets.kinds)}
-                ${facetButtons("Areas", "area", model.facets.areas)}
-                ${facetButtons("Releases", "release", model.facets.releases)}
-                ${facetButtons("Tags", "tag", model.facets.tags)}
+  return `<aside class="rail" aria-label="Browse records">
+            <nav class="rail-types" aria-labelledby="browse-types">
+              <h3 class="rail-heading" id="browse-types">Record types</h3>
+              <div class="facet-list">
+                <button class="facet-button" type="button" aria-pressed="false" data-filter-field="kind" data-filter-value="all"><span>${icon("layers")}All types</span><small>${model.documents.length}</small></button>
+                ${facetButtons("kind", model.facets.kinds)}
               </div>
-            </details>
+            </nav>
+            <div class="rail-refine" aria-labelledby="browse-refine">
+              <h3 class="rail-heading" id="browse-refine">Refine</h3>
+              <div class="rail-filters" id="rail-filters"></div>
+            </div>
           </aside>`;
 }
 
@@ -612,15 +614,16 @@ function filterBar(
           ${selectControl("release", "Release", [["all", "All releases"], ["__none", "No release"], ...releases.map((value) => [value, value] as const)])}
           ${selectControl("tag", "Tag", [["all", "All tags"], ...tags.map((value) => [value, value] as const)])}
           <details class="advanced-filters">
-            <summary>Quality signals ${icon("chevron")}</summary>
+            <summary>${icon("filter")}Quality signals <span class="quality-count" hidden></span>${icon("chevron")}</summary>
             <div>
+              <p class="filter-menu-heading">Quality signals</p>
               ${selectControl("warning", "Warnings", [["all", "Any warning state"], ["with", "With warnings"], ["without", "Without warnings"]])}
               ${selectControl("missingRef", "References", [["all", "Any reference state"], ["missing", "Missing references"], ["ok", "References resolved"]])}
               ${selectControl("duplicate", "Identifiers", [["all", "Any identifier state"], ["duplicate", "Duplicate identifiers"], ["unique", "Unique identifiers"]])}
               ${selectControl("coverage", "Coverage", [["all", "Any coverage"], ["exact", "Exact paths"], ["pattern", "Pattern coverage"], ["none", "No file coverage"]])}
             </div>
           </details>
-          <button class="text-button" type="button" data-reset-filters>Reset</button>
+          <button class="text-button filter-reset" type="button" data-reset-filters>Reset</button>
         </div>`;
 }
 
@@ -718,7 +721,9 @@ function selectControl(
   label: string,
   values: readonly (readonly [string, string])[],
 ): string {
-  return `<span class="select-wrap"><select id="${id}" aria-label="${escapeHtml(label)}">${values.map(([value, text]) => option(value, text)).join("")}</select></span>`;
+  const primary = ["kind", "status", "area", "release", "tag"].includes(id);
+  const placeholder = id === "kind" ? "Record type" : label;
+  return `<span class="select-wrap" data-filter-control="${id}"><select id="${id}" aria-label="${escapeHtml(label)}" data-menu-label="${escapeHtml(placeholder)}"${primary ? ` data-placeholder="${escapeHtml(placeholder)}" data-label-prefix="${escapeHtml(label)}"` : ""}>${values.map(([value, text]) => option(value, text)).join("")}</select></span>`;
 }
 
 function issueList(issues: readonly LedgerIssue[]): string {
@@ -791,20 +796,15 @@ function graphSummary(model: LedgerStaticReaderModel): string {
 }
 
 function facetButtons(
-  label: string,
   field: "kind" | "release" | "area" | "tag",
   facets: readonly LedgerFacet[],
 ): string {
-  if (facets.length === 0) return "";
-  const labelId = `facet-${field}`;
-  return `<p class="facet-group" id="${labelId}">${escapeHtml(label)}</p>
-            <div class="facet-list" role="group" aria-labelledby="${labelId}">${facets
-    .slice(0, 8)
+  return facets
     .map(
       (facet) =>
-        `<button class="facet-button" type="button" aria-pressed="false" data-filter-field="${field}" data-filter-value="${escapeHtml(facet.value)}"${field === "kind" ? ` data-kind-tone="${escapeHtml(facet.value)}"` : ""}><span>${escapeHtml(facet.value === "__none" ? "No release" : field === "kind" ? labelForKind(facet.value) : facet.value)}</span><small>${facet.count}</small></button>`,
+        `<button class="facet-button" type="button" aria-pressed="false" data-filter-field="${field}" data-filter-value="${escapeHtml(facet.value)}"><span>${field === "kind" ? icon(iconForKind(facet.value)) : ""}${escapeHtml(facet.value === "__none" ? "No release" : field === "kind" ? labelForKind(facet.value) : facet.value)}</span><small>${facet.count}</small></button>`,
     )
-    .join("")}</div>`;
+    .join("");
 }
 
 function searchDialog(isPublic: boolean): string {
