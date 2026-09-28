@@ -4,7 +4,7 @@ kind: "change"
 title: "Elevate the reader design and simplify theme preferences"
 date: "2026-09-28"
 updated: "2026-09-28"
-status: "draft"
+status: "landed"
 areas:
   - "reader"
   - "design"
@@ -81,6 +81,7 @@ decisions:
 related:
   - "0196"
   - "0197"
+release: "v0.9.5"
 ---
 
 

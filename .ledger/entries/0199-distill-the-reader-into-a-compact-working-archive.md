@@ -4,7 +4,7 @@ kind: "change"
 title: "Distill the reader into a compact working archive"
 date: "2026-09-28"
 updated: "2026-09-28"
-status: "draft"
+status: "landed"
 areas:
   - "reader"
   - "design"
@@ -74,6 +74,7 @@ decisions:
   - "D009"
 related:
   - "0198"
+release: "v0.9.5"
 ---
 
 # 0199: Distill the reader into a compact working archive

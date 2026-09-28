@@ -3,8 +3,8 @@ id: "0201"
 kind: change
 title: Refine reader navigation and adopt a warm copper palette
 date: 2026-09-28
-updated: 2026-09-28
-status: draft
+updated: "2026-09-28"
+status: "landed"
 areas:
   - reader
   - design
@@ -64,6 +64,7 @@ related:
   - "0200"
 decisions:
   - D009
+release: "v0.9.5"
 ---
 
 # 0201: Refine reader navigation and adopt a warm copper palette

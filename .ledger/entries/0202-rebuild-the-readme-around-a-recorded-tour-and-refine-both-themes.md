@@ -3,8 +3,8 @@ id: "0202"
 kind: change
 title: Rebuild the README around a recorded tour and refine both themes
 date: 2026-09-28
-updated: 2026-09-28
-status: draft
+updated: "2026-09-28"
+status: "landed"
 areas: [readme, design]
 files:
   - .ledger/decisions/D009-the-reader-owns-its-visual-system.md
@@ -53,6 +53,7 @@ docsImpact:
 related: ["0200", "0201"]
 decisions: [D009]
 commits: []
+release: "v0.9.5"
 ---
 
 # 0202: Rebuild the README around a recorded tour and refine both themes
