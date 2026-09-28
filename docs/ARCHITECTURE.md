@@ -655,14 +655,15 @@ reader bundle imports, and a parity test ranks the same queries in both.
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
 The reader owns its visual system (D009). Its tokens live in
-`src/reader/styles.css` as light and dark pairs: warm neutral surfaces, one
-emerald accent, status tones, one series color for charts, and a categorical
-palette for record kinds that was checked for color vision deficiency, with
+`src/reader/styles.css` as light and dark pairs: neutral grayscale surfaces
+informed by Dossier's reader, one emerald accent, status tones, one series
+color for charts, and a categorical palette for record kinds, with
 system font stacks so a page makes no font requests. Headings are upright in
 one weight, and an active or selected item shows a background tint, a heavier
 weight, or a full focus ring, never a colored edge bar. The internal reader
 has three views under one `html[data-view]` attribute. The overview holds
-stat tiles per kind, an activity chart by week or month with a table twin and
+an introductory masthead with a shortcut to the latest change, stat columns
+per kind, an activity chart by week or month with a table twin and
 a tooltip, the newest releases, records per area, the open backlog, the health
 signals `ledger doctor` reports, and the graph counts; every tile and bar
 filters the list. The records view is the list, and the timeline is the same
@@ -675,7 +676,7 @@ theme toggle. The list keeps a full-width search field and select filters
 above a left rail of facet quick views, which folds into a closed drawer under
 960px, a results toolbar with the sort order and density, and active filter
 chips that remove one filter or all of them. Records read as hairline-divided
-rows with a kind dot, id, title, status, and created date; the Recently
+rows with a labeled kind badge and icon, id, title, status, and created date; the Recently
 updated order shows the updated date instead. Selecting a row opens a
 slide-out detail panel over the right edge that surfaces the full record:
 summary, tags, source reference, copy actions, invariants, verification,
@@ -700,10 +701,11 @@ shows the Markdown an agent receives from `ledger packet`. Detail markup ships i
 template per record, the open record is addressable through a record URL
 parameter, and the list stays visible and interactive behind the panel so
 readers can move between records without losing context.
-Panels sit on the surface color with a 1px line. The search field, selects,
-and command trigger use a control line that measures at least 3:1 against the
-page. Only the overlays, the palette, the shortcuts dialog, the chart tooltip,
-and the record panel, cast a shadow.
+Panels sit on the surface color with a quiet 1px line and a restrained shadow.
+Search and filters have generous hit targets, visible labels, and stronger
+borders on hover or focus. Floating overlays use a deeper shadow to separate
+them from the page. Below 720px the three view tabs occupy a second toolbar
+row, so every view stays available without crowding the theme and search controls.
 
 Entries carry their files, symbols, docs, and record links in `data-files`,
 `data-symbols`, `data-docs`, and `data-links`, one value per line. When a
@@ -740,12 +742,11 @@ result count offers a filter to them (the `changed` URL parameter) and Mark
 all as seen. Every storage call is guarded: without storage, or with
 unreadable state, the page renders normally and marks nothing. Nothing
 leaves the browser.
-Color marks status: teal for landed and released, violet for in-progress
-states, coral for blocked and rejected, and neutral for the rest. Kind badges
-stay neutral outline chips. The accent marks what is interactive, selected,
-or live, and every selected state also carries an accent outline, pip, or
-underline, because a tint alone does not reach 3:1. Errors use a Ledger-only
-crimson. Decorative leading strokes remain excluded. The reader model orders
+Color reinforces the written status and kind labels. Kind badges combine
+distinct icons, labels, and soft categorical fills, so color is never their
+only identifier. The accent marks interactive or selected controls, with
+weight, a full outline, or the control's position providing another cue.
+Errors use crimson. Decorative leading strokes remain excluded. The reader model orders
 documents newest-first, date descending with a numeric-aware identifier
 tiebreak, so DOM order, search index order, and the palette's recent-records
 list agree on both profiles. The public changelog renders year group
@@ -754,13 +755,13 @@ filter runtime can reorder rows without displacing separate marker elements. The
 stylesheet defines its color system once with CSS `light-dark()` tokens, so
 light and dark themes share one declaration, native controls follow the
 active `color-scheme`, and the select chevron is painted through a CSS mask
-so it tracks the same tokens. The search palette backdrop is a fixed
-plum-black scrim, as Dossier's dialog backdrop is, because it reads correctly
-over both themes. The reader needs Chrome 123, Firefox 120, or Safari 17.5,
+so it tracks the same tokens. The search palette backdrop is a translucent
+neutral scrim with blur, tuned for each theme.
+The reader needs Chrome 123, Firefox 120, or Safari 17.5,
 the floor `light-dark()` sets. `:has()` (Firefox 121) only adds the row focus
 ring and the active select chevron, and view transitions and
 `content-visibility` degrade quietly. A test holds the built stylesheet
-under 40 KB, because every page embeds it. Icons ship as a single SVG symbol sprite
+under 64 KB, because every page embeds it. Icons ship as a single SVG symbol sprite
 referenced per use. Raw Markdown remains available to library consumers but
 is not embedded into the initial HTML payload.
 
@@ -793,11 +794,14 @@ A density toggle switches between comfortable rows with a clamped summary
 and tag chips and compact single-line rows, remembered like the theme. The
 record panel closes with its button, Escape, or browser back, restores focus
 to the originating row, and renders full-screen on small viewports. Masthead
-stats act as one-click kind filters. Below 1100px, the filter selects wrap
-and the rail stacks below the results as wrapped pills. The theme toggle
-cycles Auto, Light, and Dark and shows a visible label. Auto follows the
-system preference and stores nothing, and an explicit choice is remembered
-and applied before first paint. Supported browsers
+stats act as one-click kind filters. Filter selects wrap with the available
+space and the rail becomes a Browse drawer above the results below 960px.
+The binary Light/Dark switch starts with the system preference and follows
+system changes until the reader makes an explicit choice. That choice is
+remembered in local storage and applied before first paint. Old `auto` and
+`system` values are treated as no explicit preference. If storage is blocked,
+the switch still works and remembers the choice for the current page.
+Supported browsers
 animate result changes with the View Transition API, including per-record
 morphs for rows near the viewport, guarded by a duplicate-name check and a
 skip watchdog. When the browser skips a transition, as it does in a hidden

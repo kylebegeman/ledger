@@ -1508,7 +1508,7 @@ function renderActivity(): void {
     viewBox: `0 0 ${width} ${chartHeight}`,
     width,
     height: chartHeight,
-    role: "img",
+    role: "group",
     "aria-label": `Records per ${weekly ? "week" : "month"} across ${pluralize(count, weekly ? "week" : "month")}`,
   });
   for (const tick of [0, ceiling / 2, ceiling]) {
@@ -1945,37 +1945,35 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-const themeToggle = required<HTMLElement>("theme-toggle");
-const themeLabel = themeToggle.querySelector<HTMLElement>("[data-theme-label]");
-type ThemeMode = "system" | "light" | "dark";
-/** The toggle cycles auto, light, and dark; auto follows the system and stores nothing. */
-const themeOrder: readonly ThemeMode[] = ["system", "light", "dark"];
-const themeNames: Readonly<Record<ThemeMode, string>> = { system: "Auto", light: "Light", dark: "Dark" };
-function currentTheme(): ThemeMode {
-  const value = root.dataset.theme;
-  return value === "light" || value === "dark" ? value : "system";
+const themeToggle = required<HTMLButtonElement>("theme-toggle");
+type ThemeMode = "light" | "dark";
+const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+/** No stored choice means follow the OS; clicking the switch makes the choice explicit. */
+let themePreference: ThemeMode | undefined;
+try {
+  const stored = localStorage.getItem("ledger-theme");
+  if (stored === "light" || stored === "dark") themePreference = stored;
+} catch {
+  // The switch still works for this page when storage is unavailable.
 }
-function nextTheme(mode: ThemeMode): ThemeMode {
-  return themeOrder[(themeOrder.indexOf(mode) + 1) % themeOrder.length]!;
+function applyTheme(): void {
+  const mode = themePreference ?? (systemTheme.matches ? "dark" : "light");
+  root.dataset.theme = mode;
+  themeToggle.setAttribute("aria-checked", String(mode === "dark"));
+  themeToggle.title = `Switch to ${mode === "dark" ? "light" : "dark"} mode`;
+  themeToggle.hidden = false;
 }
-function updateThemeLabel(): void {
-  const mode = currentTheme();
-  const now = mode === "system" ? "auto, follows your system" : mode;
-  const label = `Theme: ${now}. Switch to ${themeNames[nextTheme(mode)].toLowerCase()}`;
-  themeToggle.setAttribute("aria-label", label);
-  themeToggle.title = label;
-  if (themeLabel) themeLabel.textContent = themeNames[mode];
-}
+systemTheme.addEventListener("change", () => {
+  if (!themePreference) applyTheme();
+});
 themeToggle.addEventListener("click", () => {
-  const next = nextTheme(currentTheme());
-  root.dataset.theme = next;
+  themePreference = root.dataset.theme === "dark" ? "light" : "dark";
   try {
-    if (next === "system") localStorage.removeItem("ledger-theme");
-    else localStorage.setItem("ledger-theme", next);
+    localStorage.setItem("ledger-theme", themePreference);
   } catch {
-    // Storage may be unavailable.
+    // Keep the explicit choice in memory even when it cannot be persisted.
   }
-  updateThemeLabel();
+  applyTheme();
 });
 
 entriesContainer.addEventListener("click", (event) => {
@@ -2493,7 +2491,7 @@ syncRailDrawer();
 
 trackVisit();
 readUrlState();
-updateThemeLabel();
+applyTheme();
 void applyFilters(false).then(revealHashTarget);
 if (currentView() === "overview") renderOverview();
 window.addEventListener("hashchange", () => void revealHashTarget());

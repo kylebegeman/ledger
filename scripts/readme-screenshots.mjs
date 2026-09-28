@@ -26,7 +26,7 @@ const outDir = path.join(root, "assets", "readme");
 const demoNow = process.env.LEDGER_README_NOW ?? "2026-09-17T12:00:00Z";
 const clock = pathToFileURL(path.join(root, "scripts", "readme-clock.mjs")).href;
 /** The reader's `--line` token in each scheme. */
-const frameLine = { dark: "#23282c", light: "#e3e0d8" };
+const frameLine = { dark: "#303030", light: "#e3e3e3" };
 
 /**
  * Each image: its viewport in CSS pixels, its corner radius in CSS pixels, its color scheme

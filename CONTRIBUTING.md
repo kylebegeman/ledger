@@ -81,7 +81,7 @@ unless the image says light:
 | `receipt.png` | record `0001` in the billing demo, Files and Relationships open, cropped to the panel | 1440 by 1600 | 12px |
 
 Each screenshot gets rounded corners and a 1px inner border in the reader's
-line color for its scheme (`#23282c` dark, `#e3e0d8` light), with pixels
+line color for its scheme (`#303030` dark, `#e3e3e3` light), with pixels
 kept at their captured size. Recapture the images when the reader's look
 changes, and look at each one before committing it. The cards share the
 reader's dark palette, which lives in `src/reader/styles.css` under decision

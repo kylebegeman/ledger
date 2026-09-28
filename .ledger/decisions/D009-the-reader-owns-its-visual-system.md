@@ -35,14 +35,19 @@ captures, and a live hosted example. During the work he added two standing
 rules: no italic words in titles or headers, and never a colored accent line,
 an edge bar, to mark an active or selected item.
 
+After reviewing the first version on 2026-09-28, Kyle asked to use Dossier's
+new neutral reader as a design reference, elevate the hierarchy and ergonomics,
+and replace the three-state theme control with a binary Light/Dark switch.
+The existing views and navigation remain the foundation.
+
 ## Decision
 
 The reader owns its visual system. Its tokens live in `src/reader/styles.css`
-as `light-dark()` pairs and belong to Ledger: warm neutral surfaces, the
+as `light-dark()` pairs and belong to Ledger: neutral grayscale surfaces, the
 emerald accent from the mark, status tones, one series color for charts, and a
-categorical palette for record kinds. The kind palette was checked for color
-vision deficiency and contrast with a palette validator in both schemes before
-use, and text never wears a series color. The reader keeps system font stacks
+categorical palette for record kinds. Every kind also has an icon and a label;
+color never carries the distinction alone, and text never wears a series color.
+The reader keeps system font stacks
 and makes no font requests.
 
 Two rules hold everywhere Ledger draws an interface, the README cards
@@ -53,15 +58,18 @@ included:
   weight, or a full focus ring. Never a colored edge line.
 
 D003 stands: Ledger still imports nothing from Dossier. The token check script
-is retired because there is no longer a copy to compare.
+is retired. Dossier's neutral surfaces, reading hierarchy, and binary theme
+control are design references, without a shared runtime or a checkout-dependent
+token equality check. An explicit theme choice persists across visits; until
+then the reader follows the operating system.
 
 ## Consequences
 
 The reader can change its look for Ledger's own reasons. The overview, the
 timeline, the relationship map, and the public version index in receipt 0196
-use tokens Dossier never had. The two products no longer look alike, which
-was the point of B009; a shared look would be a new decision with its own
-tokens.
+use tokens Dossier never had. The two readers can feel related while Ledger
+retains its emerald identity and controls suited to changes, releases, and
+repository knowledge.
 
 The README cards and screenshots use the reader's palette, so a palette
 change means regenerating them with `node scripts/readme-assets.mjs` and
@@ -69,6 +77,6 @@ change means regenerating them with `node scripts/readme-assets.mjs` and
 
 ## Revisit Criteria
 
-- Revisit if Kyle wants Ledger and Dossier to share a visual system again.
+- Revisit if visual alignment requires a shared token contract rather than a reference.
 - Revisit if a token package both products can depend on, without importing
   each other, exists.

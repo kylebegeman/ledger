@@ -296,9 +296,9 @@ const SANS = "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helv
 // The reader's dark surfaces and tones (src/reader/styles.css), with Ledger's emerald for prompts and headings.
 // Code takes the decision violet and record ids the warning amber.
 const COLORS = {
-  bg: "#121517", bar: "#191d21", border: "#23282c", text: "#d9dbd6", bright: "#f2f1ec", muted: "#868b8e",
-  accent: "#34d399", heading: "#6ee7b7", pass: "#5fd3b0", red: "#f38aa3", amber: "#e6b566", code: "#b3a9f5",
-  ident: "#e6b566", title: "#b8bbb5",
+  bg: "#121212", bar: "#1b1b1b", border: "#303030", text: "#d5d5d5", bright: "#f0f0f0", muted: "#a0a0a0",
+  accent: "#61dfb1", heading: "#9aefce", pass: "#61dfb1", red: "#ff9595", amber: "#edc46b", code: "#bda4ff",
+  ident: "#edc46b", title: "#bcbcbc",
 };
 const FONT_SIZE = 13.5;
 const CHAR_WIDTH = 8.13; // approximate advance of the monospace stack at 13.5px
@@ -555,8 +555,8 @@ const LOOP_STEPS = [
   ["Next change", ["Whoever touches those files", "reads the receipts first, in", "a packet or the reader."], "ledger packet"],
 ];
 const LOOP = {
-  panel: "#0b0d0f", panelBorder: "#23282c", card: "#121517", border: "#23282c", title: "#f2f1ec", body: "#b8bbb5",
-  chipBg: "#10332a", chipText: "#6ee7b7", numberBg: "#34d399", numberText: "#04261a", arrow: "#6a7076", loop: "#34d399", caption: "#868b8e",
+  panel: "#121212", panelBorder: "#303030", card: "#1b1b1b", border: "#303030", title: "#f0f0f0", body: "#bcbcbc",
+  chipBg: "#18342b", chipText: "#9aefce", numberBg: "#61dfb1", numberText: "#10372b", arrow: "#737373", loop: "#61dfb1", caption: "#a0a0a0",
 };
 
 function renderLoop() {

@@ -299,7 +299,8 @@ remembered only in your browser.
 
 <p align="center"><img alt="Searching this repository's receipts from the reader's command palette" src="./assets/readme/palette.png" width="720"></p>
 
-The theme follows the system, and a toggle sets light or dark:
+The theme starts with your system preference. The Light/Dark toggle remembers
+your choice across visits:
 
 <img alt="The overview of this repository's reader in the light theme" src="./assets/readme/overview-light.png">
 
