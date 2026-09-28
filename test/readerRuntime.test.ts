@@ -360,6 +360,37 @@ describe("reader entity views", () => {
     expect(body.querySelector(".entity-missing")?.textContent).toContain("B001 is not in this reader");
   });
 
+  it("discloses the relationship map after reference lists and keeps keyboard navigation", async () => {
+    await settle(50);
+    openRecordLink("0001");
+    await settle(20);
+    const body = document.getElementById("record-panel-body")!;
+    const map = body.querySelector<HTMLDetailsElement>("details.record-map")!;
+    expect(map).not.toBeNull();
+    expect(map.open).toBe(false);
+    expect(body.querySelector(".record-columns")?.nextElementSibling).toBe(map);
+    const summary = map.querySelector("summary")!;
+    expect(summary.textContent).toContain("Relationship map");
+    expect(summary.textContent).toContain("2 linked records");
+    summary.click();
+    expect(map.open).toBe(true);
+
+    const decision = map.querySelector('[role="button"][aria-label="Open D001"]')!;
+    decision.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await settle(20);
+    expect(new URL(window.location.href).searchParams.get("record")).toBe("D001");
+    expect(body.querySelector(".record-panel-title")?.textContent).toBe("Keep one CLI");
+
+    const decisionMap = body.querySelector<HTMLDetailsElement>("details.record-map")!;
+    expect(decisionMap.open).toBe(false);
+    decisionMap.querySelector("summary")!.click();
+    const backlink = decisionMap.querySelector('[role="button"][aria-label="Open 0001"]')!;
+    backlink.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    await settle(20);
+    expect(new URL(window.location.href).searchParams.get("record")).toBe("0001");
+    expect(body.querySelector(".record-panel-title")?.textContent).toBe("Run the CLI");
+  });
+
   it("suggests symbols, paths, and areas in the palette and opens the chosen one", async () => {
     await settle(50);
     const dialog = document.getElementById("command-palette") as HTMLDialogElement;
@@ -713,6 +744,121 @@ describe("reader runtime with chunked details", () => {
     expect(body?.querySelector("a")?.getAttribute("href")).toMatch(/^sources\/0001-[a-f0-9]{16}\.md$/);
     // The reference lists come from the row, so they work offline too.
     expect(body?.querySelector('ul[data-entity="file"] code')?.textContent).toBe("src/cli.ts");
+  });
+});
+
+describe("responsive record panel", () => {
+  function reader(narrow: boolean) {
+    const listeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      get matches() { return query === "(max-width: 960px)" && narrow; },
+      addEventListener(_type: string, listener: () => void) {
+        if (query === "(max-width: 960px)") listeners.add(listener);
+      },
+      removeEventListener() {},
+    }));
+    window.history.replaceState(null, "", "/?view=records");
+    globalThis.fetch = (async () => new Response("[]")) as typeof fetch;
+    mount(renderStaticReaderHtml(buildStaticReaderModel(workspace(), [
+      record("0001", "First change", ["reader"], "landed"),
+      record("0002", "Second change", ["reader"], "landed"),
+    ])));
+    return {
+      panel: document.getElementById("record-panel")!,
+      app: document.querySelector<HTMLElement>(".app")!,
+      opener: document.querySelector<HTMLElement>('.entry[data-id="0001"] .entry-link')!,
+      resize(value: boolean) { narrow = value; for (const listener of listeners) listener(); },
+    };
+  }
+
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  it("contains mobile focus in visible controls and restores the opener when closed", async () => {
+    const { panel, app, opener } = reader(true);
+    await settle(20);
+    opener.focus();
+    opener.click();
+    expect(panel.getAttribute("role")).toBe("dialog");
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+    expect(app.inert).toBe(true);
+    expect(document.querySelector<HTMLElement>(".skip-link")?.inert).toBe(true);
+
+    panel.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }));
+    const last = panel.querySelector<HTMLElement>(".agent-packet > summary")!;
+    expect(document.activeElement).toBe(last);
+    last.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    expect(document.activeElement?.id).toBe("record-prev");
+    document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(last);
+
+    document.getElementById("record-panel-close")!.click();
+    expect(app.inert).toBe(false);
+    expect(panel.hasAttribute("aria-modal")).toBe(false);
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("switches modal behavior when an open panel crosses the mobile breakpoint", async () => {
+    const { panel, app, opener, resize } = reader(false);
+    await settle(20);
+    opener.click();
+    expect(panel.hasAttribute("aria-modal")).toBe(false);
+    expect(app.inert).toBe(false);
+    const search = document.getElementById("search")!;
+    search.focus();
+    expect(document.activeElement).toBe(search);
+    resize(true);
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+    expect(app.inert).toBe(true);
+    expect(document.activeElement).toBe(panel);
+    resize(false);
+    expect(panel.hasAttribute("role")).toBe(false);
+    expect(app.inert).toBe(false);
+    search.focus();
+    expect(document.activeElement).toBe(search);
+  });
+
+  it("opens visible search above a mobile panel and lets Escape return to the panel", async () => {
+    const { panel, app, opener } = reader(true);
+    await settle(20);
+    opener.click();
+    panel.dispatchEvent(new KeyboardEvent("keydown", { key: "/", bubbles: true, cancelable: true }));
+    await settle(20);
+    const palette = document.getElementById("command-palette") as HTMLDialogElement;
+    const input = document.getElementById("command-search")!;
+    expect(palette.open).toBe(true);
+    expect(document.activeElement).toBe(input);
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await settle(20);
+    expect(palette.open).toBe(false);
+    expect(panel.classList.contains("open")).toBe(true);
+    expect(panel.contains(document.activeElement)).toBe(true);
+    expect(app.inert).toBe(true);
+  });
+
+  it("keeps clipboard fallback inside the mobile panel's focus boundary", async () => {
+    const { panel, opener } = reader(true);
+    await settle(20);
+    opener.click();
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+    const copy = vi.fn(() => {
+      expect(panel.contains(document.activeElement)).toBe(true);
+      expect((document.activeElement as HTMLTextAreaElement).value).toBe(".ledger/entries/0001.md");
+      return true;
+    });
+    Object.defineProperty(document, "execCommand", { configurable: true, value: copy });
+    try {
+      const button = panelButton('[data-copy="path"]');
+      button.focus();
+      button.click();
+      await settle(20);
+      expect(copy).toHaveBeenCalledWith("copy");
+      expect(document.activeElement).toBe(button);
+      expect(button.textContent).toBe("Copied");
+      expect(document.querySelector("textarea")).toBeNull();
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+      delete (document as { execCommand?: unknown }).execCommand;
+    }
   });
 });
 

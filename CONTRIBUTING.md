@@ -86,7 +86,10 @@ kept at their captured size. Recapture the images when the reader's look
 changes, and look at each one before committing it. The cards share the
 reader's dark palette, which lives in `src/reader/styles.css` under decision
 D009: upright headings in one weight, and never a colored edge line to mark a
-state.
+state. The reader uses compact, unboxed sections and ruled record rows;
+recent changes lead the overview, and record details use stacked evidence
+sections with the relationship map collapsed below the file and relationship
+lists. Keep record-kind labels neutral and reserve semantic color for status.
 
 ## Branches
 

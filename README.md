@@ -20,7 +20,7 @@ Coding agents write receipts as they work and read them before they touch the co
 
 <br>
 
-<a href="https://kylebegeman.github.io/ledger/"><img alt="The Ledger reader for this repository: an overview with a stat tile per record kind, records per week, the newest releases, records per area, the open backlog, and health signals" src="./assets/readme/overview.png"></a>
+<a href="https://kylebegeman.github.io/ledger/"><img alt="The Ledger reader for this repository: recent changes and activity beside releases, the open backlog, health signals, and areas, with compact counts by record kind" src="./assets/readme/overview.png"></a>
 
 <p align="center">This is Ledger reading its own repository. <a href="https://kylebegeman.github.io/ledger/"><strong>Open the live reader</strong></a>, rendered from the receipts under <code>.ledger/</code> on every push to <code>master</code>, or its <a href="https://kylebegeman.github.io/ledger/changelog/"><strong>public changelog</strong></a>.</p>
 
@@ -111,9 +111,9 @@ never reported an exit, is in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 A receipt is a change entry: a Markdown file whose frontmatter links it to
 files, symbols, docs, and decisions, and whose sections tell a future change
 what to preserve. This is the first receipt from the billing service, as the
-reader shows it, with the decision it relates to on its relationship map:
+reader shows it, with its source, evidence, and the decision it relates to:
 
-<p align="center"><img alt="A receipt open in the Ledger reader with its summary, source record, invariants, verification, relationship map, files, and the decision it relates to" src="./assets/readme/receipt.png" width="600"></p>
+<p align="center"><img alt="A receipt open in the Ledger reader with its summary, source record, invariants, verification, files, and the decision it relates to" src="./assets/readme/receipt.png" width="600"></p>
 
 <details>
 <summary><strong>The Markdown behind it</strong></summary>
@@ -266,10 +266,10 @@ ledger ci
 that opens from disk or any static host, in light and dark themes, with no
 fonts or scripts loaded from anywhere else. It has three views of the records.
 
-**Overview.** A stat tile per record kind, records per week or month as a
-chart you can select from, the newest releases, records per area, the open
-backlog, the health signals `ledger doctor` reports, and the size of the
-relationship graph. Every tile and bar filters the list.
+**Overview.** Recent changes lead the page, with compact counts by record
+kind and an activity chart by week or month. Releases, open backlog, health
+signals, and areas sit alongside the history, with relationship counts below.
+Select a count or chart bar to filter the records.
 
 **Records.** Search over titles, files, symbols, decisions, and invariants;
 filters for kind, status, area, release, tags, and quality signals; quick
@@ -286,8 +286,8 @@ reading a project's history in order.
 <img alt="The timeline view of this repository's reader, grouping records under month headings with the date first" src="./assets/readme/timeline.png">
 
 From a record, select a file, pattern, or symbol to list every record that
-names it, follow the relationship map to the records it links and the records
-that link back, or copy its link, source path, or `ledger packet` command. The
+names it, expand the relationship map to follow linked records and backlinks,
+or copy its link, source path, or `ledger packet` command. The
 command palette suggests matching files, symbols, and areas as well as
 records, and the keyboard covers everything: `/` for search, `⌘K` for the
 palette, `j` and `k` to move, `o` to open, `]` and `[` to step through records,

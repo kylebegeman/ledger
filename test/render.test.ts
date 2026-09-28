@@ -332,7 +332,7 @@ describe("writeStaticReader", () => {
     expect(result.outputPath).toBe(".ledger/dist/public/index.html");
     const html = await readFile(path.join(tempDir, result.outputPath), "utf8");
     expect(html).toContain("Safe public feature.");
-    expect(html).toContain("What shipped, release by release, written for the people who use it.");
+    expect(html).toContain('id="page-title"');
     expect(html).toContain("Search versions and release notes");
     expect(html).toContain('data-year="2026"');
     expect(html).toContain('data-year="2025"');
@@ -359,7 +359,7 @@ describe("writeStaticReader", () => {
     expect(html).not.toContain('data-filter-field="kind"');
     expect(html).not.toContain("Markdown source");
     expect(html).not.toContain("src/private.ts");
-    expect(html).not.toContain("Agent-ready context");
+    expect(html).not.toContain("Agent context");
     expect(html).not.toContain("No files");
     expect(html).not.toContain("Missing refs");
     const searchIndex = JSON.parse(
@@ -672,7 +672,7 @@ Links.
     expect(html).toContain("light-dark(");
     expect(html).toContain("--line:");
     expect(html).toContain("1px solid var(--line");
-    expect(html).toContain("Agent-ready context");
+    expect(html).toContain("Agent context");
     expect(html).toContain("Missing references");
     expect(html).toContain("Coverage");
     expect(html).toContain("Tag");
@@ -713,7 +713,7 @@ Links.
     expect(html).not.toContain("sidebar-open");
     expect(html).toContain("Browse");
     expect(html).toContain("facet-button");
-    expect(html).toContain("Relationship graph");
+    expect(html).toContain('id="graph-title">Relationships');
     expect(html).toContain("graph.json");
     expect(html).toContain("score-label");
     expect(html).toContain("ranked match");

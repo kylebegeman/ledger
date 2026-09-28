@@ -148,6 +148,7 @@ let searchDebounce: ReturnType<typeof setTimeout> | undefined;
 let currentPage = 1;
 let pendingResultsScroll = false;
 let openRecordId = "";
+let panelReturnFocus: HTMLElement | null = null;
 /** The entries the latest filter pass matched, in list order, and the ones on its page. */
 let latestMatched: readonly HTMLElement[] = [];
 let latestPage: ReadonlySet<HTMLElement> = new Set();
@@ -283,6 +284,8 @@ const library = byId<HTMLElement>("library");
 const recordPanel = byId<HTMLElement>("record-panel");
 const recordPanelBody = byId<HTMLElement>("record-panel-body");
 const recordPanelClose = byId<HTMLElement>("record-panel-close");
+const readerApp = document.querySelector<HTMLElement>(".app");
+const skipLink = document.querySelector<HTMLElement>(".skip-link");
 const recordPrev = byId<HTMLButtonElement>("record-prev");
 const recordNext = byId<HTMLButtonElement>("record-next");
 const recordPosition = byId<HTMLElement>("record-position");
@@ -1060,6 +1063,46 @@ function detailFragment(html: string): DocumentFragment {
   return template.content;
 }
 
+/** Only the full-screen sheet owns focus; the desktop sheet leaves the list usable. */
+function isModalPanel(): boolean {
+  return Boolean(openRecordId && recordPanel?.isConnected && narrowScreen.matches);
+}
+
+function restoreModalPanelFocus(): void {
+  if (isModalPanel() && !palette.open && !shortcuts?.open && !recordPanel?.contains(document.activeElement)) {
+    recordPanel?.focus({ preventScroll: true });
+  }
+}
+
+function syncPanelModal(): void {
+  const modal = isModalPanel();
+  if (readerApp) readerApp.inert = modal;
+  if (skipLink) skipLink.inert = modal;
+  if (modal) {
+    recordPanel?.setAttribute("role", "dialog");
+    recordPanel?.setAttribute("aria-modal", "true");
+  } else {
+    recordPanel?.removeAttribute("role");
+    recordPanel?.removeAttribute("aria-modal");
+  }
+  restoreModalPanelFocus();
+}
+
+/** Closed disclosure contents and disabled controls are not keyboard stops. */
+function panelTabStops(): readonly (HTMLElement | SVGElement)[] {
+  return Array.from(recordPanel?.querySelectorAll<HTMLElement | SVGElement>("a[href], button, input, select, textarea, summary, [tabindex]") ?? [])
+    .filter((element) => {
+      const nativeSummary = element.matches("summary") && !element.hasAttribute("tabindex");
+      if ((element.tabIndex < 0 && !nativeSummary) || element.matches(":disabled") || element.closest("[hidden], [inert]")) return false;
+      const style = getComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      for (let ancestor = element.parentElement; ancestor && ancestor !== recordPanel; ancestor = ancestor.parentElement) {
+        if (ancestor instanceof HTMLDetailsElement && !ancestor.open && !ancestor.querySelector("summary")?.contains(element)) return false;
+      }
+      return true;
+    });
+}
+
 function openPanel(id: string, syncUrl = true, push = false): boolean {
   if (!recordPanel || !recordPanelBody) return false;
   const entry = recordEntry(id);
@@ -1093,8 +1136,13 @@ function openPanel(id: string, syncUrl = true, push = false): boolean {
   }
   recordPanelBody.scrollTop = 0;
   const wasOpen = openRecordId !== "";
+  if (!wasOpen) {
+    const active = document.activeElement;
+    panelReturnFocus = active instanceof HTMLElement && readerApp?.contains(active) ? active : null;
+  }
   openRecordId = id;
   recordPanel.classList.add("open");
+  syncPanelModal();
   for (const candidate of entries) candidate.classList.toggle("is-open", candidate.dataset.id === id);
   updatePanelNav();
   if (syncUrl) writeUrlState(push || !wasOpen);
@@ -1105,11 +1153,19 @@ function openPanel(id: string, syncUrl = true, push = false): boolean {
 function closePanel(syncUrl = true, restoreFocus = true): void {
   if (!openRecordId || !recordPanel) return;
   const previous = recordEntry(openRecordId);
+  const wasModal = isModalPanel();
   openRecordId = "";
   recordPanel.classList.remove("open");
+  syncPanelModal();
   for (const candidate of entries) candidate.classList.remove("is-open");
   if (syncUrl) writeUrlState();
+  const returnFocus = panelReturnFocus;
+  panelReturnFocus = null;
   if (!restoreFocus) return;
+  if (wasModal && returnFocus?.isConnected && !returnFocus.closest("[hidden], [inert]")) {
+    returnFocus.focus();
+    return;
+  }
   const link = previous && !previous.hidden ? previous.querySelector<HTMLElement>(".entry-link") : null;
   if (link) link.focus();
   else searchInput.focus();
@@ -1793,7 +1849,10 @@ byId<HTMLElement>("command-close")?.addEventListener("click", closePalette);
 palette.addEventListener("click", (event) => {
   if (event.target === palette) closePalette();
 });
-palette.addEventListener("close", () => paletteInput.setAttribute("aria-expanded", "false"));
+palette.addEventListener("close", () => {
+  paletteInput.setAttribute("aria-expanded", "false");
+  restoreModalPanelFocus();
+});
 paletteInput.addEventListener("input", () => {
   commandSelection = 0;
   void renderCommandResults();
@@ -1828,10 +1887,11 @@ byId<HTMLElement>("shortcuts-close")?.addEventListener("click", () => shortcuts?
 shortcuts?.addEventListener("click", (event) => {
   if (event.target === shortcuts) shortcuts.close();
 });
+shortcuts?.addEventListener("close", restoreModalPanelFocus);
 
 /** The list's search box when the list is showing; the palette on the overview, where there is none. */
 function focusSearch(): void {
-  if (currentView() === "overview") {
+  if (currentView() === "overview" || isModalPanel()) {
     void openPalette();
     return;
   }
@@ -1866,7 +1926,21 @@ function openSelected(): void {
   if (entry?.dataset.id) openPanel(entry.dataset.id, true, true);
 }
 
+document.addEventListener("focusin", restoreModalPanelFocus);
 document.addEventListener("keydown", (event) => {
+  if (!entriesContainer.isConnected || event.defaultPrevented) return;
+  if (event.key === "Tab" && isModalPanel() && !palette.open && !shortcuts?.open) {
+    const stops = panelTabStops();
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    const active = document.activeElement;
+    if (!first || !recordPanel?.contains(active) || active === recordPanel || (event.shiftKey ? active === first : active === last)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first)?.focus();
+      if (!first) recordPanel?.focus();
+    }
+    return;
+  }
   const target = event.target;
   const editing =
     target instanceof HTMLInputElement ||
@@ -2186,24 +2260,22 @@ function addRecordMap(body: HTMLElement, entry: HTMLElement, columns: Element): 
   if (nodes.length > shown.length) {
     const more = svgElement("text");
     svgAttributes(more, { class: "map-more", x: width - 8, y: height - 8, "text-anchor": "end" });
-    more.textContent = `${nodes.length - shown.length} more in the lists below`;
+    more.textContent = `${nodes.length - shown.length} more in the lists above`;
     svg.append(more);
   }
-  const section = document.createElement("section");
+  const section = document.createElement("details");
   section.className = "record-map";
-  section.setAttribute("aria-label", "Relationship map");
-  const head = document.createElement("div");
-  head.className = "panel-head";
-  const heading = document.createElement("div");
-  const title = document.createElement("h4");
-  title.className = "panel-title";
-  title.textContent = "Relationship map";
-  const sub = document.createElement("p");
-  sub.className = "panel-sub";
-  sub.textContent = `${pluralize(nodes.length, "linked record")}. Select one to open it.`;
-  heading.append(title, sub);
-  head.append(heading);
-  section.append(head, svg);
+  const summary = document.createElement("summary");
+  const heading = document.createElement("span");
+  const count = document.createElement("small");
+  count.textContent = pluralize(nodes.length, "linked record");
+  heading.append("Relationship map ", count);
+  summary.append(heading);
+  summary.insertAdjacentHTML("beforeend", chevronIcon);
+  const hint = document.createElement("p");
+  hint.className = "map-hint";
+  hint.textContent = "Select a record to open it.";
+  section.append(summary, hint, svg);
   const kinds = [...new Set(shown.map((node) => node.entry?.dataset.kind).filter((kind): kind is string => Boolean(kind)))].sort();
   if (kinds.length > 1) {
     const legend = document.createElement("div");
@@ -2216,7 +2288,7 @@ function addRecordMap(body: HTMLElement, entry: HTMLElement, columns: Element): 
     }
     section.append(legend);
   }
-  columns.before(section);
+  columns.after(section);
 }
 
 /**
@@ -2295,7 +2367,7 @@ async function copyText(text: string): Promise<boolean> {
   area.setAttribute("readonly", "");
   area.style.position = "fixed";
   area.style.opacity = "0";
-  document.body.append(area);
+  (isModalPanel() && recordPanel ? recordPanel : document.body).append(area);
   area.focus({ preventScroll: true });
   area.select();
   let copied = false;
@@ -2487,6 +2559,7 @@ function syncRailDrawer(): void {
   if (railDrawer) railDrawer.open = !narrowScreen.matches;
 }
 narrowScreen.addEventListener("change", syncRailDrawer);
+narrowScreen.addEventListener("change", syncPanelModal);
 syncRailDrawer();
 
 trackVisit();

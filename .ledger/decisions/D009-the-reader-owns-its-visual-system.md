@@ -40,15 +40,30 @@ new neutral reader as a design reference, elevate the hierarchy and ergonomics,
 and replace the three-state theme control with a binary Light/Dark switch.
 The existing views and navigation remain the foundation.
 
+Later that day Kyle asked to remove the proliferation of cards and tighten
+the layout, using [Impeccable](https://github.com/pbakaus/impeccable) as a
+design reference. The reader should feel like a working archive: the records
+lead, and the interface helps people scan, find, and read them.
+
 ## Decision
 
 The reader owns its visual system. Its tokens live in `src/reader/styles.css`
 as `light-dark()` pairs and belong to Ledger: neutral grayscale surfaces, the
-emerald accent from the mark, status tones, one series color for charts, and a
-categorical palette for record kinds. Every kind also has an icon and a label;
-color never carries the distinction alone, and text never wears a series color.
+emerald accent from the mark, status tones, and one series color for charts.
+Record kinds use neutral icons and written labels in the list. The relationship
+map can use categorical colors alongside its labels; text never wears a series
+color, and color never carries a distinction alone.
 The reader keeps system font stacks
 and makes no font requests.
+
+The overview uses a compact project heading and inline counts above recent
+changes, with releases, backlog, health, and areas in a supporting column.
+Sections are separated by space and fine rules, not repeated card containers.
+The activity chart supports the change history rather than dominating it.
+Records use compact rows, and their detail panel reads as a document with
+stacked evidence sections. Files and named relationships come before the
+relationship map, which stays collapsed until requested. Raised surfaces and
+shadows are reserved for overlays and controls that need separation.
 
 Two rules hold everywhere Ledger draws an interface, the README cards
 included:

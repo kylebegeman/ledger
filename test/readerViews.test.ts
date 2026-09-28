@@ -62,6 +62,23 @@ describe("reader views", () => {
     expect(document.querySelectorAll(".group-head")).toHaveLength(0);
   });
 
+  it("opens recent changes from the overview and browses their full history", async () => {
+    mountInternal();
+    await settle(50);
+    const recent = document.querySelectorAll<HTMLAnchorElement>(".recent-list-item");
+    expect(Array.from(recent).map((link) => link.dataset.openRecord)).toEqual(["0003", "0002", "0001"]);
+    click('.recent-list-item[data-open-record="0002"]');
+    await settle(30);
+    expect(document.querySelector("#record-panel.open")?.textContent).toContain("Retry policy for the CLI");
+    expect(new URL(window.location.href).searchParams.get("record")).toBe("0002");
+    click("#record-panel-close");
+    click('.panel-recent [data-filter-value="change"]');
+    await settle(30);
+    expect(document.documentElement.dataset.view).toBe("records");
+    expect(new URL(window.location.href).searchParams.get("kind")).toBe("change");
+    expect(visibleIds()).toEqual(["0003", "0002", "0001"]);
+  });
+
   it("sorts the list and records the order in the URL", async () => {
     mountInternal();
     await settle(50);
