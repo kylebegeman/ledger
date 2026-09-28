@@ -747,6 +747,14 @@ result count offers a filter to them (the `changed` URL parameter) and Mark
 all as seen. Every storage call is guarded: without storage, or with
 unreadable state, the page renders normally and marks nothing. Nothing
 leaves the browser.
+The bundled identity uses a single punched-receipt silhouette from
+`assets/ledger.svg`, inlined in the reader header and encoded into its SVG
+favicon. The header applies the theme accent without rounding or clipping the
+mark. `scripts/brand-assets.mjs` generates that icon and the light/dark logo
+lockups used by the README. The lowercase wordmark is outlined Manrope 600;
+its OFL notice ships with the assets. The logos make no font requests and do
+not change the reader's system font stacks.
+
 Color reinforces written status labels. Record kinds use neutral icons and
 labels, while map nodes can use categorical colors alongside written
 identifiers. The accent marks interactive or selected controls, with

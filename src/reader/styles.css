@@ -201,9 +201,9 @@ main { flex: 1 0 auto; width: min(100%, var(--frame)); margin: 0 auto; padding: 
   text-decoration: none;
   border-radius: var(--r-s);
 }
-.brand-mark { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 auto; overflow: hidden; border-radius: 10px; }
+.brand-mark { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 auto; }
 .brand-fallback { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-.brand-mark svg { display: block; width: 100%; height: 100%; }
+.brand-mark svg { display: block; width: 100%; height: 100%; fill: var(--accent); }
 .brand-name { display: flex; align-items: baseline; gap: 8px; line-height: 1.2; min-width: 0; }
 .brand-name small { display: none; }
 .brand-name strong { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
