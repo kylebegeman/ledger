@@ -147,27 +147,19 @@ describe("reader runtime in a browser document", () => {
     expect(new URL(window.location.href).searchParams.get("record")).toBeNull();
   });
 
-  it("cycles the theme through auto, light, and dark and remembers an explicit choice", async () => {
-    await settle(50);
-    const toggle = document.getElementById("theme-toggle") as HTMLElement;
-    const label = toggle.querySelector("[data-theme-label]");
-    const root = document.documentElement;
-    root.dataset.theme = "system";
-    localStorage.removeItem("ledger-theme");
-    toggle.click();
-    expect(root.dataset.theme).toBe("light");
-    expect(localStorage.getItem("ledger-theme")).toBe("light");
-    expect(label?.textContent).toBe("Light");
-    expect(toggle.getAttribute("aria-label")).toBe("Theme: light. Switch to dark");
-    toggle.click();
-    expect(root.dataset.theme).toBe("dark");
-    expect(localStorage.getItem("ledger-theme")).toBe("dark");
-    expect(label?.textContent).toBe("Dark");
-    toggle.click();
-    expect(root.dataset.theme).toBe("system");
+  it("switches directly between light and dark and remembers the choice", () => {
+    const toggle = document.getElementById("theme-toggle") as HTMLButtonElement;
+    const initial = document.documentElement.dataset.theme;
+    const next = initial === "dark" ? "light" : "dark";
+    expect(["light", "dark"]).toContain(initial);
     expect(localStorage.getItem("ledger-theme")).toBeNull();
-    expect(label?.textContent).toBe("Auto");
-    expect(toggle.getAttribute("aria-label")).toBe("Theme: auto, follows your system. Switch to light");
+    toggle.click();
+    expect(document.documentElement.dataset.theme).toBe(next);
+    expect(localStorage.getItem("ledger-theme")).toBe(next);
+    expect(toggle.getAttribute("aria-checked")).toBe(String(next === "dark"));
+    toggle.click();
+    expect(document.documentElement.dataset.theme).toBe(initial);
+    expect(localStorage.getItem("ledger-theme")).toBe(initial);
   });
 
   it("opens the command palette on Cmd+K and ranks results", async () => {
@@ -721,6 +713,79 @@ describe("reader runtime with chunked details", () => {
     expect(body?.querySelector("a")?.getAttribute("href")).toMatch(/^sources\/0001-[a-f0-9]{16}\.md$/);
     // The reference lists come from the row, so they work offline too.
     expect(body?.querySelector('ul[data-entity="file"] code')?.textContent).toBe("src/cli.ts");
+  });
+});
+
+describe("reader theme preference", () => {
+  function themeReader(dark: boolean, stored?: string, blockedStorage = false) {
+    const systemListeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      get matches() { return query === "(prefers-color-scheme: dark)" && dark; },
+      addEventListener(_type: string, listener: () => void) {
+        if (query === "(prefers-color-scheme: dark)") systemListeners.add(listener);
+      },
+      removeEventListener() {},
+    }));
+    if (stored) localStorage.setItem("ledger-theme", stored);
+    if (blockedStorage) {
+      vi.spyOn(localStorage, "getItem").mockImplementation(() => { throw new Error("Storage blocked"); });
+      vi.spyOn(localStorage, "setItem").mockImplementation(() => { throw new Error("Storage blocked"); });
+    }
+    globalThis.fetch = (async () => new Response("[]")) as typeof fetch;
+    const html = renderStaticReaderHtml(buildStaticReaderModel(workspace(), []));
+    // Run the first-paint script too: its answer must agree with the runtime.
+    new Function(html.match(/<script>([\s\S]*?)<\/script>/)![1]!)();
+    const beforeRuntime = document.documentElement.dataset.theme;
+    mount(html);
+    return {
+      beforeRuntime,
+      toggle: document.getElementById("theme-toggle") as HTMLButtonElement,
+      changeSystem(value: boolean) { dark = value; for (const listener of systemListeners) listener(); },
+    };
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([false, true])("starts with the system preference (dark: %s) without storing a choice", (dark) => {
+    const reader = themeReader(dark);
+    const expected = dark ? "dark" : "light";
+    expect(reader.beforeRuntime).toBe(expected);
+    expect(document.documentElement.dataset.theme).toBe(expected);
+    expect(reader.toggle.hidden).toBe(false);
+    expect(reader.toggle.getAttribute("aria-label")).toBe("Dark mode");
+    expect(reader.toggle.getAttribute("aria-checked")).toBe(String(dark));
+    expect(localStorage.getItem("ledger-theme")).toBeNull();
+    reader.changeSystem(!dark);
+    expect(document.documentElement.dataset.theme).toBe(dark ? "light" : "dark");
+    reader.toggle.click();
+    reader.changeSystem(!dark);
+    expect(document.documentElement.dataset.theme).toBe(expected);
+    expect(localStorage.getItem("ledger-theme")).toBe(expected);
+  });
+
+  it.each(["light", "dark"])("restores an explicit %s preference before paint", (stored) => {
+    const reader = themeReader(stored === "light", stored);
+    expect(reader.beforeRuntime).toBe(stored);
+    expect(document.documentElement.dataset.theme).toBe(stored);
+    reader.changeSystem(stored === "light");
+    expect(document.documentElement.dataset.theme).toBe(stored);
+  });
+
+  it.each(["auto", "system", "unknown"])("treats the legacy %s value as system preference", (stored) => {
+    const reader = themeReader(true, stored);
+    expect(reader.beforeRuntime).toBe("dark");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    reader.toggle.click();
+    expect(localStorage.getItem("ledger-theme")).toBe("light");
+  });
+
+  it("honors the system and the toggle when storage is blocked", () => {
+    const reader = themeReader(true, undefined, true);
+    expect(reader.beforeRuntime).toBe("dark");
+    reader.toggle.click();
+    reader.changeSystem(true);
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(reader.toggle.getAttribute("aria-checked")).toBe("false");
   });
 });
 

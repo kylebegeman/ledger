@@ -7,6 +7,8 @@ updated: "2026-09-17"
 status: "landed"
 staleRefs:
   - "files:assets/readme/hero.png"
+  - "symbols:themeOrder"
+  - "symbols:updateThemeLabel"
 areas:
   - "reader"
   - "design"

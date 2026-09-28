@@ -68,7 +68,7 @@ export function renderStaticReaderHtml(
 ): string {
   const isPublic = model.profile === "public";
   return compactHtml(`<!doctype html>
-<html lang="en" data-theme="system" data-view="${isPublic ? "changelog" : "overview"}">
+<html lang="en" data-view="${isPublic ? "changelog" : "overview"}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -77,7 +77,7 @@ export function renderStaticReaderHtml(
   <meta name="color-scheme" content="light dark">
   <title>${escapeHtml(model.project)} Ledger</title>
   ${pageMetadata(model, options.iconSvg)}
-  <script>try{const t=localStorage.getItem("ledger-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch{}${isPublic ? "" : `
+  <script>(()=>{let t;try{t=localStorage.getItem("ledger-theme")}catch{}document.documentElement.dataset.theme=t==="light"||t==="dark"?t:window.matchMedia?.("(prefers-color-scheme: dark)").matches?"dark":"light"})()${isPublic ? "" : `
 try{const p=new URL(location.href).searchParams,v=p.get("view");document.documentElement.dataset.view=v==="overview"||v==="timeline"?v:v==="records"||${JSON.stringify(recordsViewParams)}.some(k=>p.has(k))?"records":"overview"}catch{}`}</script>
   <style>
 ${staticReaderStyles}
@@ -159,8 +159,8 @@ function topbar(model: LedgerStaticReaderModel, isPublic: boolean, iconSvg: stri
           <kbd>⌘K</kbd>
         </button>
         <button class="icon-button" id="shortcuts-trigger" type="button" aria-haspopup="dialog" aria-controls="shortcuts" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">${icon("keyboard")}</button>
-        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Theme: auto, follows your system" title="Theme: auto, follows your system">
-          ${icon("theme-system", 'data-theme-icon="system"')}${icon("theme-light", 'data-theme-icon="light"')}${icon("theme-dark", 'data-theme-icon="dark"')}<span data-theme-label>Auto</span>
+        <button class="theme-toggle" id="theme-toggle" type="button" role="switch" aria-label="Dark mode" aria-checked="false" hidden>
+          ${icon("theme-light", 'data-theme-icon="light"')}${icon("theme-dark", 'data-theme-icon="dark"')}
         </button>
       </div>
     </header>`;
@@ -217,7 +217,7 @@ function publicMain(model: LedgerStaticReaderModel): string {
   const latest = model.documents[0];
   return `<section class="masthead masthead-public" aria-labelledby="page-title">
         <p class="eyebrow">Changelog</p>
-        <h1 class="masthead-title" id="page-title">${escapeHtml(model.project)}</h1>
+        <h1 class="masthead-title" id="page-title">${escapeHtml(model.project)}<span class="changelog-title-suffix">Changelog</span></h1>
         <p class="masthead-copy">What shipped, release by release, written for the people who use it.</p>
         <p class="masthead-meta">
           <span>${pluralize(model.stats.releases, "release")}</span>
@@ -299,6 +299,7 @@ function overview(model: LedgerStaticReaderModel): string {
     documents.filter((document) => (!kind || document.kind === kind) && cutoff !== "" && document.date >= cutoff).length;
   const releases = documents.filter((document) => document.kind === "release");
   const latestRelease = releases[0];
+  const latestChange = documents.find((document) => document.kind === "change");
   const acceptedDecisions = documents.filter((document) => document.kind === "decision" && document.status === "accepted").length;
   const openBacklog = documents.filter((document) => document.kind === "backlog" && !closedStatuses.has(document.status));
   const activeSessions = documents.filter((document) => document.kind === "session" && document.status === "active").length;
@@ -310,15 +311,21 @@ function overview(model: LedgerStaticReaderModel): string {
   const staleEvidence = documents.filter((document) => document.verificationStatus === "stale" || document.verificationStatus === "failed").length;
   const inWindow = (count: number, noun: string) => (cutoff ? `${count === 0 ? "none" : `+${count}`} in ${recentWindowDays} days` : pluralize(count, noun));
   return `<section class="overview" id="overview" aria-labelledby="overview-title">
-        <div class="masthead">
-          <p class="eyebrow">Internal reader</p>
-          <h1 class="masthead-title" id="overview-title">${escapeHtml(model.project)}</h1>
-          <p class="masthead-copy">The decisions, changes, verification, and operating knowledge recorded beside the code.</p>
-          <p class="masthead-meta">
-            <span>${pluralize(model.stats.documents, "record")}</span>
-            <span>${pluralize(model.stats.releases, "release")}</span>
-            <span>Generated ${escapeHtml(formatGeneratedAt(model.generatedAt))}</span>
-          </p>
+        <div class="masthead masthead-overview">
+          <div>
+            <div class="masthead-topline">${icon("layers")}<p class="eyebrow">Your repository, remembered</p></div>
+            <h1 class="masthead-title" id="overview-title">${escapeHtml(model.project)}</h1>
+            <p class="masthead-copy">The story behind the code. Every change, decision, and lesson, all in one place.</p>
+            <p class="masthead-meta">
+              <span>${pluralize(model.stats.documents, "record")} of project knowledge</span>
+              <span>Updated ${escapeHtml(formatGeneratedAt(model.generatedAt))}</span>
+            </p>
+          </div>
+          ${latestChange ? `<a class="recent-change" href="?record=${escapeHtml(encodeURIComponent(latestChange.id))}" data-open-record="${escapeHtml(latestChange.id)}">
+            <span class="eyebrow">Latest change ${icon("arrow-up-right")}</span>
+            <strong>${escapeHtml(latestChange.title)}</strong>
+            <span class="recent-change-meta"><span class="mono">${escapeHtml(latestChange.id)}</span><time datetime="${escapeHtml(latestChange.date)}">${escapeHtml(formatDate(latestChange.date))}</time>${statusDot(latestChange.status)}</span>
+          </a>` : ""}
         </div>
         <div class="tiles" aria-label="Summary">
           ${tile("Records", model.stats.documents, inWindow(recent(), "record"), "data-reset-filters data-view-target=\"records\"")}
@@ -331,7 +338,7 @@ function overview(model: LedgerStaticReaderModel): string {
         <div class="overview-grid">
           <section class="panel panel-chart" aria-labelledby="activity-title">
             <div class="panel-head">
-              <div><h2 class="panel-title" id="activity-title">Activity</h2><p class="panel-sub" id="activity-sub">Records by month. Select a month to list its records.</p></div>
+              <div><h2 class="panel-title" id="activity-title">${icon("activity")}Activity</h2><p class="panel-sub" id="activity-sub">Records by month. Select a month to list its records.</p></div>
             </div>
             <div class="chart" id="activity-chart"></div>
             <details class="chart-table">
@@ -341,27 +348,27 @@ function overview(model: LedgerStaticReaderModel): string {
           </section>
           <section class="panel" aria-labelledby="releases-title">
             <div class="panel-head">
-              <div><h2 class="panel-title" id="releases-title">Releases</h2><p class="panel-sub">Newest first</p></div>
+              <div><h2 class="panel-title" id="releases-title">${icon("release")}Releases</h2><p class="panel-sub">Newest first</p></div>
               <button class="text-button" type="button" ${kindFilter("release")}>All releases</button>
             </div>
             ${releaseList(releases.slice(0, 6))}
           </section>
           <section class="panel" aria-labelledby="areas-title">
             <div class="panel-head">
-              <div><h2 class="panel-title" id="areas-title">Areas</h2><p class="panel-sub">Records per area. Select one to filter.</p></div>
+              <div><h2 class="panel-title" id="areas-title">${icon("layers")}Areas</h2><p class="panel-sub">Records per area. Select one to filter.</p></div>
             </div>
             <div class="bars" id="area-chart"></div>
           </section>
           <section class="panel" aria-labelledby="backlog-title">
             <div class="panel-head">
-              <div><h2 class="panel-title" id="backlog-title">Open backlog</h2><p class="panel-sub">Work not yet landed</p></div>
+              <div><h2 class="panel-title" id="backlog-title">${icon("inbox")}Open backlog</h2><p class="panel-sub">Work not yet landed</p></div>
               <button class="text-button" type="button" ${kindFilter("backlog")}>All backlog</button>
             </div>
             ${recordList(openBacklog.slice(0, 6), "Nothing open. The backlog is clear.")}
           </section>
           <section class="panel" aria-labelledby="health-title">
             <div class="panel-head">
-              <div><h2 class="panel-title" id="health-title">Health</h2><p class="panel-sub">Signals ledger doctor reports</p></div>
+              <div><h2 class="panel-title" id="health-title">${icon("shield")}Health</h2><p class="panel-sub">Signals ledger doctor reports</p></div>
             </div>
             <ul class="health-list">
               ${healthItem("Validation warnings", withWarnings, 'data-filter-field="warning" data-filter-value="with"')}
@@ -386,7 +393,7 @@ function kindFilter(kind: string): string {
 
 function tile(label: string, value: number, hint: string, attrs: string, kind?: string): string {
   return `<button class="tile" type="button" ${attrs}${kind ? ` data-kind-tone="${kind}"` : ""}>
-            <span class="tile-label">${escapeHtml(label)}</span>
+            <span class="tile-label">${icon(iconForKind(kind))}${escapeHtml(label)}</span>
             <strong class="tile-value">${value}</strong>
             <span class="tile-hint">${escapeHtml(hint)}</span>
           </button>`;
@@ -411,7 +418,7 @@ function releaseList(releases: readonly LedgerRenderedDocument[]): string {
 }
 
 function recordList(records: readonly LedgerRenderedDocument[], emptyMessage: string): string {
-  if (records.length === 0) return `<p class="panel-empty">${escapeHtml(emptyMessage)}</p>`;
+  if (records.length === 0) return `<div class="panel-empty">${icon("check")}<strong>All caught up</strong><p>${escapeHtml(emptyMessage)}</p></div>`;
   return `<ol class="record-list">${records
     .map(
       (document) =>
@@ -496,7 +503,7 @@ function packetCommand(document: LedgerRenderedDocument): string {
 
 /** The kind label and id that lead a record row and the record panel. */
 function recordBadges(document: LedgerRenderedDocument): string {
-  return `<span class="kind" data-kind-tone="${escapeHtml(document.kind)}">${escapeHtml(labelForKind(document.kind))}</span>
+  return `<span class="kind" data-kind-tone="${escapeHtml(document.kind)}">${icon(iconForKind(document.kind))}${escapeHtml(labelForKind(document.kind))}</span>
                 <span class="record-id">${escapeHtml(document.id)}</span>`;
 }
 
@@ -768,7 +775,7 @@ function graphSummary(model: LedgerStaticReaderModel): string {
   const count = (type: string) => model.graph.nodes.filter((node) => node.type === type).length;
   return `<section class="panel panel-graph" aria-labelledby="graph-title">
             <div class="panel-head">
-              <div><h2 class="panel-title" id="graph-title">Relationship graph</h2><p class="panel-sub">What the records name and link</p></div>
+              <div><h2 class="panel-title" id="graph-title">${icon("graph")}Relationship graph</h2><p class="panel-sub">What the records name and link</p></div>
               <a class="text-button" href="graph.json">Open graph data ${icon("arrow")}</a>
             </div>
             <dl class="graph-metrics">
@@ -917,12 +924,32 @@ function domId(value: string): string {
   return value.replace(/[^A-Za-z0-9_-]/g, "-");
 }
 
+/** A consistent visual landmark for each kind, alongside its written label. */
+function iconForKind(kind: string | undefined): string {
+  switch (kind) {
+    case "change": return "change";
+    case "decision": return "compass";
+    case "backlog": return "inbox";
+    case "release": return "release";
+    case "session": return "clock";
+    case "feedback": return "message";
+    case "product-note": return "file";
+    default: return "layers";
+  }
+}
+
 const iconPaths: Record<string, string> = {
+  layers: '<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/>',
+  activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  "arrow-up-right": '<path d="M6 18 18 6M6 6h12v12"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m16 8-2 6-6 2 2-6 6-2Z"/>',
+  inbox: '<path d="M4 4h16v16H4zM4 13h5l1 3h4l1-3h5M8 8h8"/>',
+  change: '<path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/>',
+  message: '<path d="M21 4H3v13h5v4l5-4h8V4ZM7 8h10M7 12h6"/>',
   search: '<path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/>',
   "theme-light":
     '<circle cx="12" cy="12" r="4"/><path d="M12 2.5V5m0 14v2.5M4.57 4.57 6.34 6.34m11.32 11.32 1.77 1.77M2.5 12H5m14 0h2.5M4.57 19.43l1.77-1.77M17.66 6.34l1.77-1.77"/>',
   "theme-dark": '<path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z"/>',
-  "theme-system": '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17Z" fill="currentColor"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   chevron: '<path d="m8 10 4 4 4-4"/>',
   "chevron-left": '<path d="m14 7-5 5 5 5"/>',
