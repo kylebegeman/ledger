@@ -4,7 +4,7 @@ kind: change
 title: Prepare v0.9.5
 date: 2026-09-28
 updated: 2026-09-28
-status: draft
+status: landed
 areas: [release]
 files:
   - package.json
@@ -36,7 +36,7 @@ docsImpact:
     - docs/HANDOFF.md
 related: ["0196", "0197", "0198", "0199", "0200", "0201", "0202"]
 release: "v0.9.5"
-commits: []
+commits: ["57ab88df1becef0df1fc75b8a5ff6f4bef77d615"]
 ---
 
 # 0203: Prepare v0.9.5
@@ -113,5 +113,10 @@ production dependencies or changes to the library's exported API.
 
 ## Notes
 
-The release tag is applied to master after the release preparation PR merges.
+PR #40 merged after all seven remote checks passed. The annotated `v0.9.5`
+tag points to master commit `57ab88df1becef0df1fc75b8a5ff6f4bef77d615`.
+Release workflow 36441934981 passed and created the GitHub Release with npm
+trusted publishing and signed provenance. Pages workflow 36441887398 passed;
+the reader, changelog, feed, and index return HTTP 200, and the public catalog
+contains 29 released versions through v0.9.5.
 The existing expired S0007 session is unrelated to the release and is retained.
