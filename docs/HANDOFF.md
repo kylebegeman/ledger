@@ -11,15 +11,20 @@ two defects in `ledger stale`, and 0.9.4 shipped with the fixes on
 2026-09-20. On 2026-09-27 and 28 the reader's web presentation was rebuilt
 from the ground up on branch `reader-redesign`, the README was rewritten
 around it, and PR #39 merged on 2026-09-28. GitHub Pages now publishes the
-reader and public changelog. The 0.9.5 release packages this redesign.
-"Next slices" lists the release checks and remaining product work.
+reader and public changelog. The 0.9.5 release packages this redesign and
+published on 2026-09-28. "Next slices" lists remaining product work.
 
 ## Where the product stands
 
-- Release: `@kylebegeman/ledger` 0.9.5, with release record
-  `.ledger/releases/v0.9.5.md` and receipts 0196 through 0203. The tag
-  `v0.9.5` on master triggers the existing trusted-publishing workflow and
-  GitHub Release; the master push deploys the live example independently.
+- Release: `@kylebegeman/ledger` 0.9.5 on npm and
+  [GitHub](https://github.com/kylebegeman/ledger/releases/tag/v0.9.5), with
+  release record `.ledger/releases/v0.9.5.md` and receipts 0196 through 0203.
+  Release preparation merged in PR #40 after all seven remote checks passed.
+  The annotated `v0.9.5` tag points to master commit
+  `57ab88df1becef0df1fc75b8a5ff6f4bef77d615`. Release workflow 36441934981
+  passed through npm trusted publishing with signed provenance, and npm
+  registry metadata reports 0.9.5 as latest. Pages workflow 36441887398 also
+  passed; the deployed public catalog contains 29 releases through v0.9.5.
   Kyle explicitly authorized merge, deployment, and tagging on 2026-09-28.
 - Previous release: `@kylebegeman/ledger` 0.9.4 on npm and GitHub Release v0.9.4,
   created by `.github/workflows/release.yml` through npm trusted publishing on
@@ -67,8 +72,8 @@ reader and public changelog. The 0.9.5 release packages this redesign.
 - `master` is the only long-lived branch. Development is short-lived branches,
   pull requests, CI on Ubuntu, macOS, and Windows for Node 22 and 24,
   rebase-merge.
-- The active checkout at `/Users/kyle/Developer/active/ledger` is on
-  the release workflow based on `master`. Kyle works there directly; do not
+- The active checkout is `/Users/kyle/Developer/active/ledger`.
+  Kyle works there directly; do not
   create clones or worktrees for Ledger work.
 
 ## What shipped this cycle
@@ -280,26 +285,25 @@ D006 records what was retired; D007 records the runtime decision below.
   compact sidecars.
 - `ledger ready` gates drafts before they are marked `landed`.
 
+## v0.9.5 verification checkpoint
+
+The redesign and release preparation passed 530 tests across 63 files,
+typecheck, build, Ledger CI, README asset checks, packaging, and all seven
+remote checks. Browser review covered 320 through 1440px, both blue themes,
+menus, URL state, keyboard behavior, and detail panels. The 24-second README
+tour and all seven stills were inspected. Text contrast is at least 4.51:1
+on the tested surfaces. Release preparation also catches frame-write failures
+in the recording script so browser/server cleanup runs.
+
+Both publication workflows passed. The reader, changelog, feed, and index
+return HTTP 200, and all six new public-note bullets match the merged release
+record. The one static-host request to `/events` is the expected live-reload
+probe; it closes on 404 and does not retry. The existing expired S0007 session
+is the only failure from `stale --check`; it is retained as historical context.
+
 ## Next slices, in order
 
-1. **Verify the v0.9.5 release.** The redesign is merged in PR #39 and its
-   initial Pages deployment passed. The release preparation updates package
-   versions, install pins, the generated adoption example, and the release
-   record over receipts 0196 through 0203. Merge release preparation through
-   its PR after the three-OS matrix passes, then tag master with `v0.9.5`.
-   `.github/workflows/release.yml` publishes npm and GitHub Release notes;
-   `.github/workflows/pages.yml` updates the reader and changelog from master.
-   Confirm both workflows, the npm version, a clean install, and the deployed
-   v0.9.5 changelog entry before considering publication complete.
-   The redesign passed 530 tests across 63 files, typecheck, build, Ledger CI,
-   README asset checks, packaging, and all seven remote checks. Browser review
-   covered 320 through 1440px, both blue themes, menus, URL state, keyboard
-   behavior, and detail panels. The 24-second README tour and all seven stills
-   were inspected. Text contrast is at least 4.51:1 on the tested surfaces.
-   The one static-host request to `/events` is the expected live-reload probe;
-   it closes on 404 and does not retry. Release preparation also catches frame
-   write failures in the recording script so browser/server cleanup runs.
-2. **Tell Kore when 0.9.4 is published, and nothing more.** Kore keeps
+1. **Tell Kore when 0.9.4 is published, and nothing more.** Kore keeps
    reporting 169 stale signals until its pin moves, because the fix is in the
    tool rather than in its records. Kore's own session owns that bump across
    the five places Kore carries the command, lands it through Kore's pipeline
@@ -310,13 +314,13 @@ D006 records what was retired; D007 records the runtime decision below.
    found no fault in Kore's records, and its feature receipts 0046 to 0060,
    which carried most of the false signals, are sound, so `ledger packet` on
    those paths stays trustworthy.
-3. **Trust Kore's hooks once more.** Moving Kore to the launcher changed
+2. **Trust Kore's hooks once more.** Moving Kore to the launcher changed
    its six Codex hooks one last time, so Kyle trusts them on the Hooks page
    of the Codex app's settings, if that is not done yet. Later bumps leave
    them unchanged. A short live `codex exec` session in Kore would then
    exercise the Codex hooks for the first time; ask Kyle first, because it
    runs on his Codex account.
-4. **New features**, when Kyle chooses them. Left out of 0.9.2 on purpose:
+3. **New features**, when Kyle chooses them. Left out of 0.9.2 on purpose:
    - MCP Tasks, which the 2026-07-28 revision deprecates
    - MCP Apps
    - search shards by kind or year
