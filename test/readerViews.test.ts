@@ -19,13 +19,13 @@ afterEach(() => {
 });
 
 /** Three records across two months, so the chart, the timeline, and the sort orders have something to separate. */
-function mountInternal(): void {
+function mountInternal(records: readonly ParsedLedgerDocument[] = [
+  record("0001", "Static reader renderer", "2026-06-29", { related: ["0002"] }),
+  record("0002", "Retry policy for the CLI", "2026-07-06"),
+  record("0003", "Cache warm command", "2026-07-14", { status: "draft" }),
+]): void {
   window.history.replaceState(null, "", "/");
-  const model = buildStaticReaderModel(workspace(), [
-    record("0001", "Static reader renderer", "2026-06-29", { related: ["0002"] }),
-    record("0002", "Retry policy for the CLI", "2026-07-06"),
-    record("0003", "Cache warm command", "2026-07-14", { status: "draft" }),
-  ]);
+  const model = buildStaticReaderModel(workspace(), [...records]);
   const index = buildSearchIndex(model.documents).map(({ terms: _terms, ...document }) => document);
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = String(input);
@@ -98,6 +98,190 @@ describe("reader views", () => {
     select("sort", "newest");
     await settle(30);
     expect(new URL(window.location.href).searchParams.get("sort")).toBeNull();
+  });
+
+  it("filters through the type and status menus and preserves the native control and URL contract", async () => {
+    mountInternal([
+      record("0001", "Landed change", "2026-07-01"),
+      record("0002", "Draft change", "2026-07-02", { status: "draft" }),
+      release("v1.0.0", "2026-07-03"),
+    ]);
+    await settle(50);
+    click('[data-view-tab="records"]');
+    await settle(20);
+    expect(visibleIds()).toEqual(["v1.0.0", "0002", "0001"]);
+
+    const kindTrigger = menuTrigger("kind");
+    expect(kindTrigger.getAttribute("role")).toBe("combobox");
+    openSelectMenu("kind");
+    expect(kindTrigger.getAttribute("aria-expanded")).toBe("true");
+    expect(selectMenu("kind").getAttribute("role")).toBe("listbox");
+    menuOption("kind", "Changes").click();
+    await settle(30);
+    expect(nativeSelect("kind").value).toBe("change");
+    expect(kindTrigger.textContent).toContain("Type");
+    expect(kindTrigger.textContent).toContain("Changes");
+    expect(kindTrigger.getAttribute("aria-expanded")).toBe("false");
+    expectSelectedOption("kind", "Changes");
+    expect(visibleIds()).toEqual(["0002", "0001"]);
+    expect(new URL(window.location.href).searchParams.get("kind")).toBe("change");
+
+    openSelectMenu("status");
+    menuOption("status", "draft").click();
+    await settle(30);
+    expect(nativeSelect("status").value).toBe("draft");
+    expect(menuTrigger("status").textContent).toContain("Status");
+    expect(menuTrigger("status").textContent).toContain("draft");
+    expectSelectedOption("status", "draft");
+    expect(visibleIds()).toEqual(["0002"]);
+    expect(new URL(window.location.href).searchParams.get("status")).toBe("draft");
+  });
+
+  it("keeps menu labels and selections synchronized with rail shortcuts and reset", async () => {
+    mountInternal([
+      record("0001", "Landed change", "2026-07-01"),
+      release("v1.0.0", "2026-07-03"),
+    ]);
+    await settle(50);
+    const initialLabels = new Map(["kind", "area"].map((id) => [id, menuTrigger(id).textContent]));
+    click('[data-view-tab="records"]');
+    await settle(20);
+
+    click('.rail .facet-button[data-filter-field="kind"][data-filter-value="release"]');
+    await settle(30);
+    expect(nativeSelect("kind").value).toBe("release");
+    expect(menuTrigger("kind").textContent).toContain("Releases");
+    expectSelectedOption("kind", "Releases");
+    expect(visibleIds()).toEqual(["v1.0.0"]);
+
+    const allTypes = document.querySelector<HTMLElement>('.rail .facet-button[data-filter-field="kind"][data-filter-value="all"]')!;
+    expect(allTypes.textContent).toContain("All types");
+    allTypes.click();
+    await settle(30);
+    expect(nativeSelect("kind").value).toBe("all");
+    expect(menuTrigger("kind").textContent).toBe(initialLabels.get("kind"));
+    expectSelectedOption("kind", "All record types");
+    expect(visibleIds()).toEqual(["v1.0.0", "0001"]);
+
+    click('.rail .facet-button[data-filter-field="kind"][data-filter-value="change"]');
+    select("area", "reader");
+    await settle(30);
+    expect(menuTrigger("area").textContent).toContain("Area");
+    expect(menuTrigger("area").textContent).toContain("reader");
+    click('.filter-bar [data-reset-filters]');
+    await settle(30);
+    for (const [id, allLabel] of [["kind", "All record types"], ["area", "All areas"]] as const) {
+      expect(nativeSelect(id).value).toBe("all");
+      expect(menuTrigger(id).textContent).toBe(initialLabels.get(id));
+      expectSelectedOption(id, allLabel);
+      expect(new URL(window.location.href).searchParams.has(id)).toBe(false);
+    }
+    expect(visibleIds()).toEqual(["v1.0.0", "0001"]);
+  });
+
+  it("restores visible dropdown state with browser history", async () => {
+    mountInternal();
+    await settle(50);
+    const initialLabels = new Map(["kind", "status", "area"].map((id) => [id, menuTrigger(id).textContent]));
+    window.history.replaceState(null, "", "/?view=records&kind=change&status=draft&area=reader");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await settle(50);
+    expect(visibleIds()).toEqual(["0003"]);
+    for (const [id, value, label] of [["kind", "change", "Changes"], ["status", "draft", "draft"], ["area", "reader", "reader"]] as const) {
+      expect(nativeSelect(id).value).toBe(value);
+      expect(menuTrigger(id).textContent).toContain(label);
+      expectSelectedOption(id, label);
+    }
+
+    window.history.replaceState(null, "", "/?view=records");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await settle(50);
+    expect(visibleIds()).toEqual(["0003", "0002", "0001"]);
+    for (const [id, allLabel] of [["kind", "All record types"], ["status", "All statuses"], ["area", "All areas"]] as const) {
+      expect(nativeSelect(id).value).toBe("all");
+      expect(menuTrigger(id).textContent).toBe(initialLabels.get(id));
+      expectSelectedOption(id, allLabel);
+    }
+  });
+
+  it("isolates menu keys from reader shortcuts and closes only the menu on Escape", async () => {
+    mountInternal();
+    await settle(50);
+    click('[data-view-tab="records"]');
+    await settle(20);
+    click('.entry[data-id="0002"] .entry-link');
+    await settle(30);
+    const trigger = menuTrigger("kind");
+    openSelectMenu("kind");
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+    for (const key of ["j", "k", "g", "t"]) {
+      (document.activeElement ?? trigger).dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+      await settle(20);
+      expect(new URL(window.location.href).searchParams.get("record")).toBe("0002");
+      expect(document.documentElement.dataset.view).toBe("records");
+      expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    }
+
+    (document.activeElement ?? trigger).dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await settle(20);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
+    expect(document.querySelector("#record-panel.open")).not.toBeNull();
+    expect(new URL(window.location.href).searchParams.get("record")).toBe("0002");
+  });
+
+  it("moves the canonical area filter between desktop rail and mobile toolbar without losing its state", async () => {
+    let narrow = false;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      get matches() { return query === "(max-width: 960px)" && narrow; },
+      addEventListener(_type: string, listener: () => void) {
+        if (query === "(max-width: 960px)") listeners.add(listener);
+      },
+      removeEventListener() {},
+    }));
+    const resize = (value: boolean) => {
+      narrow = value;
+      for (const listener of listeners) listener();
+    };
+    mountInternal(Array.from({ length: 8 }, (_, index) => record(
+      `000${index + 1}`,
+      `Change in area ${index + 1}`,
+      `2026-07-0${index + 1}`,
+      { areas: [`area-${index + 1}`] },
+    )));
+    await settle(50);
+    click('[data-view-tab="records"]');
+    await settle(20);
+    const control = nativeSelect("area");
+    const trigger = menuTrigger("area");
+    expect(control.closest(".rail-refine")).not.toBeNull();
+    openSelectMenu("area");
+    menuOption("area", "area-8").click();
+    await settle(30);
+    expect(control.value).toBe("area-8");
+    expect(trigger.textContent).toContain("area-8");
+    expect(visibleIds()).toEqual(["0008"]);
+    expect(new URL(window.location.href).searchParams.get("area")).toBe("area-8");
+
+    openSelectMenu("area");
+    resize(true);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(nativeSelect("area")).toBe(control);
+    expect(menuTrigger("area")).toBe(trigger);
+    expect(control.closest(".filter-bar")).not.toBeNull();
+    expect(control.closest(".rail-refine")).toBeNull();
+    expect(control.value).toBe("area-8");
+    expectSelectedOption("area", "area-8");
+
+    resize(false);
+    expect(control.closest(".rail-refine")).not.toBeNull();
+    expect(control.closest(".filter-bar")).toBeNull();
+    expect(nativeSelect("area")).toBe(control);
+    expect(control.value).toBe("area-8");
+    expect(trigger.textContent).toContain("area-8");
+    expect(visibleIds()).toEqual(["0008"]);
   });
 
   it("filters by the week a chart bar names and clears it from its chip", async () => {
@@ -237,6 +421,44 @@ function select(id: string, value: string): void {
   control.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function nativeSelect(id: string): HTMLSelectElement {
+  const control = document.getElementById(id);
+  if (!(control instanceof HTMLSelectElement)) throw new Error(`missing native select ${id}`);
+  return control;
+}
+
+function menuTrigger(id: string): HTMLButtonElement {
+  const trigger = document.getElementById(`${id}-trigger`);
+  if (!(trigger instanceof HTMLButtonElement)) throw new Error(`missing menu trigger for ${id}`);
+  return trigger;
+}
+
+function openSelectMenu(id: string): void {
+  const trigger = menuTrigger(id);
+  trigger.focus();
+  if (trigger.getAttribute("aria-expanded") !== "true") trigger.click();
+}
+
+function expectSelectedOption(id: string, label: string): void {
+  openSelectMenu(id);
+  expect(menuOption(id, label).getAttribute("aria-selected")).toBe("true");
+  expect(selectMenu(id).querySelectorAll('[aria-selected="true"]')).toHaveLength(1);
+  menuTrigger(id).click();
+}
+
+function selectMenu(id: string): HTMLElement {
+  const menu = document.getElementById(menuTrigger(id).getAttribute("aria-controls") ?? "");
+  if (!menu) throw new Error(`missing menu controlled by ${id}`);
+  return menu;
+}
+
+function menuOption(id: string, label: string): HTMLElement {
+  const option = Array.from(selectMenu(id).querySelectorAll<HTMLElement>('.select-option[role="option"]'))
+    .find((candidate) => candidate.textContent?.trim() === label);
+  if (!option) throw new Error(`missing option ${label} in ${id}`);
+  return option;
+}
+
 function visibleIds(): readonly string[] {
   return Array.from(document.querySelectorAll<HTMLElement>(".entry"))
     .filter((entry) => !entry.hidden)
@@ -270,7 +492,7 @@ function parsed(raw: string, relativePath: string, kind: ParsedLedgerDocument["k
   };
 }
 
-function record(id: string, title: string, date: string, options: { status?: string; related?: readonly string[] } = {}): ParsedLedgerDocument {
+function record(id: string, title: string, date: string, options: { status?: string; related?: readonly string[]; areas?: readonly string[] } = {}): ParsedLedgerDocument {
   const raw = [
     "---",
     `id: "${id}"`,
@@ -279,7 +501,7 @@ function record(id: string, title: string, date: string, options: { status?: str
     `date: "${date}"`,
     `updated: "${date}"`,
     `status: "${options.status ?? "landed"}"`,
-    'areas: ["reader"]',
+    `areas: ${JSON.stringify(options.areas ?? ["reader"])}`,
     'files: ["src/cli.ts"]',
     ...(options.related ? [`related: [${options.related.map((value) => `"${value}"`).join(", ")}]`] : []),
     "---",

@@ -655,9 +655,9 @@ reader bundle imports, and a parity test ranks the same queries in both.
 The static reader model includes facets for kinds, statuses, areas, and
 releases so the generated page can offer quick navigation without a server.
 The reader owns its visual system (D009). Its tokens live in
-`src/reader/styles.css` as light and dark pairs: neutral grayscale surfaces
-informed by Dossier's reader, one emerald accent, status tones, one series
-color for charts, neutral record-kind labels, and categorical map colors, with
+`src/reader/styles.css` as light and dark pairs: near-white and warm charcoal surfaces,
+copper and apricot accents, status tones, one warm series color for charts,
+neutral record-kind labels, and categorical map colors, with
 system font stacks so a page makes no font requests. Headings are upright in
 one weight, and an active or selected item shows a background tint, a heavier
 weight, or a full focus ring, never a colored edge bar. The internal reader
@@ -669,15 +669,20 @@ newest releases, open backlog, health signals `ledger doctor` reports, and
 records per area. Counts and chart bars filter the list. Sections use space
 and fine rules rather than individual card containers. The records view is
 the list, and the timeline is the same
-list grouped under month headings with the date column first. The view comes
+list grouped under month headings with the date column first. Rows under
+month headings omit the repeated year and keep the full date in an
+accessible label. The view comes
 from the URL: `view=` when explicit, otherwise the records view when a list
 parameter such as `q`, `kind`, or `record` is present, and the overview
 otherwise, so every older link still opens the list. A sticky top bar carries
 the brand, the view tabs, the palette trigger, the shortcuts dialog, and the
-theme toggle. The list keeps a full-width search field and select filters
-above a left rail of facet quick views, which folds into a closed drawer under
-960px, a results toolbar with the sort order and density, and active filter
-chips that remove one filter or all of them. Records read as compact,
+theme toggle. The list keeps a full-width search field. On desktop, a left
+rail lists record types with icons and count pills, followed by Area, Release,
+and Tag menus under Refine; Status and Quality signals stay above the results.
+At 960px and below, the rail is hidden and the same refinement controls move
+into the top toolbar alongside Type. There are no duplicated facet lists or
+Browse drawer. A results toolbar holds the sort order, density, and page size,
+and active filter chips remove one filter or all of them. Records read as compact,
 hairline-divided rows with a neutral kind label and icon, id, title, status,
 and created date; the Recently
 updated order shows the updated date instead. Selecting a row opens a
@@ -749,8 +754,9 @@ unreadable state, the page renders normally and marks nothing. Nothing
 leaves the browser.
 The bundled identity uses a single punched-receipt silhouette from
 `assets/ledger.svg`, inlined in the reader header and encoded into its SVG
-favicon. The header applies the theme accent without rounding or clipping the
-mark. `scripts/brand-assets.mjs` generates that icon and the light/dark logo
+favicon. The header applies the theme's copper or apricot accent without
+rounding or clipping the mark; the standalone icon uses flat copper.
+`scripts/brand-assets.mjs` generates that icon and the light/dark logo
 lockups used by the README. The lowercase wordmark is outlined Manrope 600;
 its OFL notice ships with the assets. The logos make no font requests and do
 not change the reader's system font stacks.
@@ -766,20 +772,20 @@ list agree on both profiles. The public changelog renders year group
 headings as pseudo-element labels on the first entry of each year, so the
 filter runtime can reorder rows without displacing separate marker elements. The
 stylesheet defines its color system once with CSS `light-dark()` tokens, so
-light and dark themes share one declaration, native controls follow the
-active `color-scheme`, and the select chevron is painted through a CSS mask
-so it tracks the same tokens. The search palette backdrop is a translucent
-neutral scrim tuned for each theme.
+light and dark themes share one declaration. Native controls follow the
+active `color-scheme`, and enhanced select controls use the same tokens and
+SVG icon sprite as the rest of the interface. The search palette backdrop is
+a translucent scrim tuned for each theme.
 The reader needs Chrome 123, Firefox 120, or Safari 17.5,
-the floor `light-dark()` sets. `:has()` (Firefox 121) only adds the row focus
-ring and the active select chevron, and view transitions and
-`content-visibility` degrade quietly. A test holds the built stylesheet
+the floor `light-dark()` sets. View transitions and `content-visibility`
+degrade quietly. A test holds the built stylesheet
 under 64 KB, because every page embeds it. Icons ship as a single SVG symbol sprite
 referenced per use. Raw Markdown remains available to library consumers but
 is not embedded into the initial HTML payload.
 
 The browser code lives in `src/reader/runtime.ts`, a typed module compiled
-against the DOM library, and the stylesheet in `src/reader/styles.css`.
+against the DOM library, with shared select-menu behavior in
+`src/reader/selectMenus.ts` and the stylesheet in `src/reader/styles.css`.
 esbuild bundles both into `dist/reader/` (`npm run build:reader`, part of
 `build` and run before `test`), minifying whitespace and syntax but keeping
 names; `src/renderAssets.ts` reads the bundle, the built copy first even when
@@ -794,9 +800,18 @@ Browser behavior remains dependency-free and progressively enhanced. Search is
 available inline and through a native dialog opened with `/` or `Cmd/Ctrl+K`.
 Search input is debounced, ranked results label the top match and ordinal
 ranks, and a polite status region announces result counts, page position, and
-active filter counts to assistive technology. Filters are native selects
-styled as pills that highlight when active, synchronize with the URL, and
-reset pagination on change. Results paginate with a configurable page size
+active filter counts to assistive technology. Filters, sort order, and page
+size start as native selects. `enhanceSelectMenus` replaces their visible
+controls with pill-shaped combobox buttons and one shared custom listbox,
+keeping the hidden native values and input/change events canonical. The
+buttons identify the field and selected value; Up/Down, Home, End,
+Enter, Space, and typeahead navigate and select options. Escape, Tab, outside
+interactions, scrolling the page, and resizing close the menu. Its placement
+and scroll height stay within the viewport. Filters highlight when active,
+synchronize with the URL, and reset pagination on change. Quality signals
+groups its four controls in a separate panel with an active-filter count;
+filter changes do not force the panel open, and an outside interaction or
+Escape dismisses it. Results paginate with a configurable page size
 (10 to 100 or all) and windowed page controls, both preserved in the URL.
 Year group headings in the public changelog are recomputed after every
 filter pass, label the first visible entry of each year on the current page,
@@ -810,8 +825,10 @@ to the originating control, and renders full-screen on small viewports. At
 960px and below, an open panel is a modal dialog: the background is inert,
 Tab stays inside it, and `/` opens the search palette above it. Widening the
 viewport restores the nonmodal side panel. Overview
-counts act as one-click kind filters. Filter selects wrap with the available
-space and the rail becomes a Browse drawer above the results below 960px.
+counts act as one-click kind filters. Filter pills wrap with the available
+space. At 960px and below, the rail's Area, Release, and Tag controls move
+back into the toolbar without duplicating their state, the Type menu becomes
+visible there, and the rail stays hidden.
 The binary Light/Dark switch starts with the system preference and follows
 system changes until the reader makes an explicit choice. That choice is
 remembered in local storage and applied before first paint. Old `auto` and

@@ -25,7 +25,7 @@ to GitHub Pages as a live example. "Next slices" lists what is left.
   payload through it, and passed doctor's hooks check.
   `@kylebegeman/dossier` (0.7.2) publishes the same way from its own repo.
 - In review, unreleased: the reader redesign on branch `reader-redesign`.
-  It carries receipts 0196 through 0200 and decision D009: the overview, records,
+  It carries receipts 0196 through 0201 and decision D009: the overview, records,
   and timeline views, the reader's own visual system, the rewritten README,
   a second design pass based on Dossier's neutral reader, a binary theme
   switch, and `.github/workflows/pages.yml`, which deploys the live example at
@@ -33,7 +33,9 @@ to GitHub Pages as a live example. "Next slices" lists what is left.
   patch release carries it. Receipt 0199 adds a compact-layout revision: recent changes lead an unboxed overview, record rows are
   tighter, and the detail panel reads as a document. Receipt 0200 replaces the
   gradient L icon with a punched-receipt mark and outlined lowercase wordmark,
-  including light and dark logo assets.
+  including light and dark logo assets. Receipt 0201 adds custom pill menus,
+  a compact record-type rail with area/release/tag filters, and a copper/apricot
+  palette on near-white light surfaces and warm charcoal dark surfaces.
 - First outside adopter: Kore runs Ledger 0.9.3 with Claude Code and Codex
   hooks since kylebegeman/forge#33 (Kore receipt 0011). Before that it ran
   0.9.2 from kylebegeman/forge#32, 0.9.1 from #31, 0.9.0 from #30, 0.8.2
@@ -74,7 +76,7 @@ to GitHub Pages as a live example. "Next slices" lists what is left.
 | 0.9.0 | Dossier's visual system (B009): the reader and the public changelog take Dossier's neutrals, status tones, font stacks, radii, and motion and keep Ledger's emerald accent; a compact masthead, a left facet rail with group labels, and an Auto, Light, and Dark theme toggle with a visible label; contrast and tablet overflow fixes; README cards and screenshots in the same palette; compact JSON sidecars and search shards filled exactly to their budget | 0168 to 0170 |
 | 0.9.1 | MCP on the v2 SDK (D008): `ledger mcp` and `/mcp` speak protocol 2026-07-28 and the 2025 revisions; confirmed MCP tools for new, feedback, backlog new, decision new, promote, and session start, note, and close; list cache hints and change notices on 2026-07-28; a production install of seven packages instead of the SDK's 94; the Codex installer names the app's Hooks page; product notes marked resolved; a 4.5 MB render budget here | 0171 to 0174 |
 | 0.9.2 | Complete records and a navigable reader: section bodies from the CLI, API, and MCP, and `ledger update`; `ledger context` for reviewing a change set; `doctor --fix` and a hooks health check; Go, Rust, Python, and Swift symbols from declaration outlines; reader entity views, backlinks, copy actions, palette suggestions, and changed-since-last-visit markers; plain-prose summary excerpts; an Atom feed, release permalinks, page metadata, and `render --site-url` for the public changelog; a generated command reference; scripted README screenshots and a Dossier token check | 0175 to 0186 |
-| Unreleased | The reader rebuilt from the ground up (D009): an overview with compact counts, recent changes, an activity chart with a table twin, releases, areas, backlog, health, and graph counts; a timeline grouped by month; sort orders, active filter chips, panel prev and next, a collapsible relationship map, and keyboard shortcuts; a public changelog with year headings and a version index; a neutral design informed by Dossier with independent tokens and a binary Light/Dark switch; an unboxed layout with recent changes first and document-style details; a rewritten README with new screenshots; a punched-receipt icon and outlined wordmark; GitHub Pages publishing this repository's reader and changelog as the live example | 0196, 0197, 0198, 0199, 0200 |
+| Unreleased | The reader rebuilt from the ground up (D009): an overview with compact counts, recent changes, an activity chart with a table twin, releases, areas, backlog, health, and graph counts; a timeline grouped by month; sort orders, active filter chips, panel prev and next, a collapsible relationship map, and keyboard shortcuts; a public changelog with year headings and a version index; a neutral design informed by Dossier with independent tokens and a binary Light/Dark switch; an unboxed layout with recent changes first and document-style details; a rewritten README with new screenshots; a punched-receipt icon and outlined wordmark; custom pill menus, a compact filter rail, and a copper/apricot palette; GitHub Pages publishing this repository's reader and changelog as the live example | 0196, 0197, 0198, 0199, 0200, 0201 |
 | 0.9.3 | Codex approval that survives upgrades: `hooks install --host codex --launcher` makes the hooks run a generated `.ledger/bin/ledger.mjs`, so a new version rewrites only that script and `.codex/hooks.json` stays the same; installs keep the form a file uses; doctor checks the script; the doctor symbols check names the coverage patterns when nothing is covered and the outlined languages beside TypeScript (product note 0187) | 0188 to 0191 |
 
 Read the receipts for invariants and conflict rules before touching those
@@ -110,7 +112,12 @@ D006 records what was retired; D007 records the runtime decision below.
   counts and a supporting column for context. Rows are compact, evidence is
   stacked without cards, and the relationship map is collapsed below the file
   and relationship lists. The tokens live in `src/reader/styles.css` as
-  `light-dark()` pairs; kinds use neutral icons and written labels in the list,
+  `light-dark()` pairs. Kyle's latest color review replaces emerald and cool
+  grayscale with copper/apricot, near-white light surfaces, and warm charcoal
+  dark surfaces. Light mode deliberately avoids a beige cast. Record types
+  remain in a short desktop rail; area, release, and tag dropdowns sit below
+  them and move into the toolbar below 960px. All selects use a shared custom
+  listbox with pill triggers and keyboard/typeahead support. Kinds use neutral icons and written labels in the list,
   with semantic color reserved for status and categorical color in the map. There
   are no web fonts, because the reader's content security policy blocks them
   and they would add 80 to 200 KB to every page. Kyle's standing rules: no
@@ -165,7 +172,7 @@ D006 records what was retired; D007 records the runtime decision below.
   the Kore pull requests from forge#25 on. Kyle then asked for everything left
   to be finished, including B009 and the releases. The auto-mode permission check refused
   the first merge attempt as a merge without review until that instruction.
-- The mark is a flat emerald punched receipt with a square opening and clipped
+- The mark is a flat copper punched receipt with a square opening and clipped
   corner. Its lowercase Manrope wordmark is outlined in paired light and dark
   SVGs, with the font's OFL attribution included. `scripts/brand-assets.mjs`
   regenerates all three identity assets without dependencies (receipt 0200).
@@ -264,7 +271,7 @@ D006 records what was retired; D007 records the runtime decision below.
 
 1. **Merge the reader redesign.** Kyle merges [PR #39](https://github.com/kylebegeman/ledger/pull/39)
    from `reader-redesign`; the Pages workflow then deploys the live example. The next patch
-   release, 0.9.5, carries receipts 0196 through 0200 with a release record
+   release, 0.9.5, carries receipts 0196 through 0201 with a release record
    written by `ledger release`.
    The resumed local gate passed on 2026-09-28: `npm run ci` exited 0
    with 501 tests, both renders fit their budgets, and receipts 0196 and
@@ -307,6 +314,18 @@ D006 records what was retired; D007 records the runtime decision below.
    authorized it when the shared browser's screenshot capture failed.
    Playwright remains an unsaved local tool; the package manifest and lockfile
    are unchanged.
+   Receipt 0201 refines Records and Timeline without changing the approved
+   overview composition: rounded custom menus, a compact type rail, responsive
+   placement of the three deeper filters, and shorter Timeline dates with full
+   accessible labels. The full palette now uses copper/apricot, near-white
+   light surfaces, and warm charcoal dark surfaces. Real-browser filtering,
+   keyboard, menu bounds, and responsive checks pass from 320 to 1440px;
+   independent visual review finds no material defects in the UI. The local
+   `npm run ci` exits 0 with 530 tests across 63 files, and the README asset
+   check passes. All artwork is refreshed; the overview screenshots capture
+   the whole page so the activity chart and supporting context are complete.
+   Text contrast passes in both themes, both reader profiles fit their budgets,
+   and the package manifest and lockfile remain unchanged.
 2. **Tell Kore when 0.9.4 is published, and nothing more.** Kore keeps
    reporting 169 stale signals until its pin moves, because the fix is in the
    tool rather than in its records. Kore's own session owns that bump across

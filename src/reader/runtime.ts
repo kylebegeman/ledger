@@ -14,6 +14,7 @@
 import { coveragePatternMatches, isCoveragePattern } from "../pathPatterns.js";
 import { recordsViewParams } from "../readerViewParams.js";
 import { fuzzyScore, scoreSearchFields, type SearchableFields } from "../searchCore.js";
+import { enhanceSelectMenus } from "./selectMenus.js";
 
 interface IndexDocument {
   readonly id: string;
@@ -298,6 +299,7 @@ const activitySub = byId<HTMLElement>("activity-sub");
 const areaChart = byId<HTMLElement>("area-chart");
 const shortcuts = byId<HTMLDialogElement>("shortcuts");
 const versionLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>(".version-link[data-version]"));
+const selectMenus = enhanceSelectMenus();
 
 function perPageSize(): number {
   if (!perPage || perPage.value === "all") return 0;
@@ -469,6 +471,8 @@ interface ViewOptions {
 
 function setView(view: ViewName, options: ViewOptions = {}): void {
   if (!hasViews) return;
+  selectMenus.close();
+  if (advancedFilters) advancedFilters.open = false;
   const changed = view !== currentView();
   applyView(view);
   if (changed) {
@@ -625,19 +629,23 @@ function markYearBreaks(pageList: readonly HTMLElement[], ranked: boolean): void
 }
 
 /** Which date the rows show; the update date only under the sort that orders by it. */
-let rowDateMode: "date" | "updated" = "date";
+let rowDateMode = "";
 
 /** Rows show the creation date, or the update date under the "Recently updated" sort, so the date column reads in order. */
 function syncRowDates(): void {
   const mode = currentSort() === "updated" ? "updated" : "date";
-  if (mode === rowDateMode) return;
-  rowDateMode = mode;
+  const withYear = currentView() !== "timeline" || latestRanked || currentSort() === "title" || currentSort() === "id";
+  const signature = `${mode}:${withYear}`;
+  if (signature === rowDateMode) return;
+  rowDateMode = signature;
   for (const entry of entries) {
     const time = entry.querySelector<HTMLTimeElement>(":scope > time.record-date");
     const shown = mode === "updated" ? entry.dataset.updated || entry.dataset.date : entry.dataset.date;
     if (!time || !shown) continue;
     time.dateTime = shown;
-    time.textContent = formatDay(shown, true);
+    time.textContent = formatDay(shown, withYear);
+    time.setAttribute("aria-label", formatDay(shown, true));
+    time.title = formatDay(shown, true);
   }
 }
 
@@ -646,6 +654,7 @@ function syncRowDates(): void {
  * on the page. A ranked search and the title and id sorts have no months.
  */
 function layoutGroups(): void {
+  syncRowDates();
   for (const head of entriesContainer.querySelectorAll(".group-head")) head.remove();
   if (currentView() !== "timeline" || latestRanked) return;
   const sort = currentSort();
@@ -734,7 +743,14 @@ async function applyFilters(syncUrl = true): Promise<void> {
   updateFilterPills();
   announceFilterStatus(total, pageCount, search, matchedScores);
   if (advancedFilters) {
-    advancedFilters.open = (["warning", "missingRef", "duplicate", "coverage"] as const).some((key) => controlValue(key) !== "all");
+    const count = (["warning", "missingRef", "duplicate", "coverage"] as const).filter((key) => controlValue(key) !== "all").length;
+    advancedFilters.dataset.active = String(count > 0);
+    const badge = advancedFilters.querySelector<HTMLElement>(".quality-count");
+    if (badge) {
+      badge.hidden = count === 0;
+      badge.textContent = String(count);
+      badge.setAttribute("aria-label", pluralize(count, "active quality filter"));
+    }
   }
   if (syncUrl) writeUrlState();
   if (pendingResultsScroll) {
@@ -903,6 +919,7 @@ function updateFilterPills(): void {
     if (control) control.classList.toggle("is-active", control.value !== "all");
   }
   sortControl?.classList.toggle("is-active", currentSort() !== defaultSort);
+  selectMenus.sync();
 }
 
 function optionLabel(control: HTMLInputElement | HTMLSelectElement, value: string): string {
@@ -1104,6 +1121,8 @@ function panelTabStops(): readonly (HTMLElement | SVGElement)[] {
 }
 
 function openPanel(id: string, syncUrl = true, push = false): boolean {
+  selectMenus.close();
+  if (advancedFilters) advancedFilters.open = false;
   if (!recordPanel || !recordPanelBody) return false;
   const entry = recordEntry(id);
   if (!entry) return false;
@@ -1323,6 +1342,7 @@ function isModifiedClick(event: MouseEvent): boolean {
 document.addEventListener("click", (event) => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
+  if (advancedFilters?.open && !advancedFilters.contains(target) && !target.closest(".select-menu")) advancedFilters.open = false;
   const tab = target.closest<HTMLAnchorElement>("[data-view-tab]");
   if (tab) {
     if (isModifiedClick(event)) return;
@@ -1700,6 +1720,8 @@ const paletteResults = required<HTMLElement>("command-results");
 const paletteStatus = required<HTMLElement>("command-status");
 
 async function openPalette(): Promise<void> {
+  selectMenus.close();
+  if (advancedFilters) advancedFilters.open = false;
   if (!palette.open) palette.showModal();
   paletteInput.setAttribute("aria-expanded", "true");
   paletteInput.value = searchInput.value;
@@ -1955,6 +1977,10 @@ document.addEventListener("keydown", (event) => {
   }
   if (key === "Escape") {
     if (palette.open) closePalette();
+    else if (advancedFilters?.open) {
+      advancedFilters.open = false;
+      advancedFilters.querySelector("summary")?.focus();
+    }
     else if (!shortcuts?.open && openRecordId) closePanel();
     return;
   }
@@ -2545,22 +2571,30 @@ if (versionLinks.length > 0) {
 }
 
 window.addEventListener("popstate", () => {
+  selectMenus.close();
   readUrlState();
   void applyFilters(false).then(() => {
     layoutGroups();
     if (currentView() === "overview") renderOverview();
   });
 });
-// The rail folds into a drawer on narrow screens. It starts closed there so the
-// results come first, and stays open on wide screens where it is a sidebar.
-const railDrawer = document.querySelector<HTMLDetailsElement>("details.rail-drawer");
+// Narrow screens use the complete filter toolbar instead of duplicating it in a rail.
 const narrowScreen = window.matchMedia("(max-width: 960px)");
-function syncRailDrawer(): void {
-  if (railDrawer) railDrawer.open = !narrowScreen.matches;
+function syncFilterPlacement(): void {
+  const railFilters = byId<HTMLElement>("rail-filters");
+  const filterBar = document.querySelector<HTMLElement>(".filter-bar");
+  if (!railFilters || !filterBar) return;
+  selectMenus.close();
+  for (const key of ["area", "release", "tag"] as const) {
+    const wrap = controls[key]?.closest<HTMLElement>(".select-wrap");
+    if (!wrap) continue;
+    if (narrowScreen.matches) filterBar.insertBefore(wrap, advancedFilters);
+    else railFilters.append(wrap);
+  }
 }
-narrowScreen.addEventListener("change", syncRailDrawer);
+narrowScreen.addEventListener("change", syncFilterPlacement);
 narrowScreen.addEventListener("change", syncPanelModal);
-syncRailDrawer();
+syncFilterPlacement();
 
 trackVisit();
 readUrlState();

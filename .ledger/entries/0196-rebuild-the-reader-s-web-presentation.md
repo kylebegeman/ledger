@@ -7,6 +7,7 @@ updated: "2026-09-28"
 status: "draft"
 staleRefs:
   - "files:scripts/check-dossier-tokens.mjs"
+  - "symbols:syncRailDrawer"
 areas:
   - "reader"
   - "design"
@@ -192,3 +193,6 @@ CONTRIBUTING so the next redesign keeps them.
 
 The retired `scripts/check-dossier-tokens.mjs` path remains in historical file lists; `staleRefs`
 acknowledges its deliberate removal without erasing those lists.
+
+Receipt 0201 replaces `syncRailDrawer` with responsive filter placement;
+its stale-symbol reference is acknowledged while this history remains intact.

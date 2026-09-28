@@ -293,12 +293,12 @@ function buildGoDemo(base) {
 
 const MONO = "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace";
 const SANS = "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
-// The reader's dark surfaces and tones (src/reader/styles.css), with Ledger's emerald for prompts and headings.
-// Code takes the decision violet and record ids the warning amber.
+// The reader's warm dark surfaces and tones (src/reader/styles.css), with copper for prompts and headings.
+// Code takes the information plum and record ids the warning amber.
 const COLORS = {
-  bg: "#121212", bar: "#1b1b1b", border: "#303030", text: "#d5d5d5", bright: "#f0f0f0", muted: "#a0a0a0",
-  accent: "#61dfb1", heading: "#9aefce", pass: "#61dfb1", red: "#ff9595", amber: "#edc46b", code: "#bda4ff",
-  ident: "#edc46b", title: "#bcbcbc",
+  bg: "#1a1715", bar: "#24201d", border: "#392f29", text: "#c9b6a8", bright: "#f5eae0", muted: "#b4a294",
+  accent: "#f0ad83", heading: "#ffd1ad", pass: "#f0ad83", red: "#f0a39b", amber: "#e4bb74", code: "#d5bad1",
+  ident: "#e4bb74", title: "#c9b6a8",
 };
 const FONT_SIZE = 13.5;
 const CHAR_WIDTH = 8.13; // approximate advance of the monospace stack at 13.5px
@@ -425,7 +425,7 @@ function renderCard({ title, alt, lines, mode = "shell" }) {
     `  <rect x="0.75" y="0.75" width="${width - 1.5}" height="${height - 1.5}" rx="12" fill="${COLORS.bg}" stroke="${COLORS.border}" stroke-width="1.5"/>`,
     `  <path d="M 0.75 ${BAR_HEIGHT} L 0.75 12.75 Q 0.75 0.75 12.75 0.75 L ${width - 12.75} 0.75 Q ${width - 0.75} 0.75 ${width - 0.75} 12.75 L ${width - 0.75} ${BAR_HEIGHT} Z" fill="${COLORS.bar}"/>`,
     `  <line x1="0.75" y1="${BAR_HEIGHT}" x2="${width - 0.75}" y2="${BAR_HEIGHT}" stroke="${COLORS.border}" stroke-width="1"/>`,
-    ...["#ff5f57", "#febc2e", "#28c840"].map((color, index) => `  <circle cx="${22 + index * 20}" cy="${BAR_HEIGHT / 2}" r="6" fill="${color}"/>`),
+    ...[COLORS.red, COLORS.amber, COLORS.muted].map((color, index) => `  <circle cx="${22 + index * 20}" cy="${BAR_HEIGHT / 2}" r="6" fill="${color}"/>`),
     `  <text x="${width / 2}" y="${BAR_HEIGHT / 2 + 4.5}" text-anchor="middle" font-family="${SANS}" font-size="13" fill="${COLORS.title}">${escapeXml(title)}</text>`,
   ];
   rows.forEach((row, index) => {
@@ -555,8 +555,8 @@ const LOOP_STEPS = [
   ["Next change", ["Whoever touches those files", "reads the receipts first, in", "a packet or the reader."], "ledger packet"],
 ];
 const LOOP = {
-  panel: "#121212", panelBorder: "#303030", card: "#1b1b1b", border: "#303030", title: "#f0f0f0", body: "#bcbcbc",
-  chipBg: "#18342b", chipText: "#9aefce", numberBg: "#61dfb1", numberText: "#10372b", arrow: "#737373", loop: "#61dfb1", caption: "#a0a0a0",
+  panel: "#1a1715", panelBorder: "#392f29", card: "#24201d", border: "#392f29", title: "#f5eae0", body: "#c9b6a8",
+  chipBg: "#3e2a20", chipText: "#ffd1ad", numberBg: "#f0ad83", numberText: "#302824", arrow: "#b4a294", loop: "#f0ad83", caption: "#b4a294",
 };
 
 function renderLoop() {

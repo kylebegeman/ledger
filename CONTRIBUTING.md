@@ -36,7 +36,7 @@ node dist/cli.js coverage
 `assets/ledger.svg` is the canonical icon used by the reader and favicon: a
 single punched-receipt silhouette with a square opening and clipped corner.
 Keep its edges square and preserve the opening at small sizes. The reader
-uses its theme accent; the standalone SVG uses a flat emerald that works on
+uses its theme accent; the standalone SVG uses a flat copper that works on
 both light and dark backgrounds.
 
 `assets/ledger-logo.svg` and `assets/ledger-logo-dark.svg` pair the mark with
@@ -106,15 +106,27 @@ unless the image says light:
 | `receipt.png` | record `0001` in the billing demo, Files and Relationships open, cropped to the panel | 1440 by 1600 | 12px |
 
 Each screenshot gets rounded corners and a 1px inner border in the reader's
-line color for its scheme (`#303030` dark, `#e3e3e3` light), with pixels
-kept at their captured size. Recapture the images when the reader's look
-changes, and look at each one before committing it. The cards share the
-reader's dark palette, which lives in `src/reader/styles.css` under decision
-D009: upright headings in one weight, and never a colored edge line to mark a
-state. The reader uses compact, unboxed sections and ruled record rows;
-recent changes lead the overview, and record details use stacked evidence
+line color (`#392f29` dark, `#e8e5e2` light), with pixels kept at their captured
+size. The two overview images capture the full page so the activity chart,
+its dates, and the supporting sections remain complete. Recapture the images
+when the reader's look changes, and look at each one before committing it. The cards share the
+reader's palette, which lives in `src/reader/styles.css` under decision D009:
+near-white light surfaces and warm charcoal dark surfaces, copper and apricot
+accents, upright headings in one weight, and never a colored edge line to mark a state. Keep the logo,
+charts, and README art in that palette. The reader uses compact, unboxed
+sections and ruled record rows; recent changes lead the overview, and record
+details use stacked evidence
 sections with the relationship map collapsed below the file and relationship
 lists. Keep record-kind labels neutral and reserve semantic color for status.
+
+Records and Timeline use rounded pill controls with custom menus for filters,
+sort order, and page size. Native select values remain canonical beneath the
+shared menu implementation. On desktop, the sidebar contains record types
+with icons and count pills, then Area, Release, and Tag controls under Refine;
+Status and Quality signals stay above the results. At 960px and below, the
+sidebar is hidden and the same refinement controls join Type in the top
+toolbar. Preserve keyboard navigation, visible field and value labels, and
+the reader's system fonts and operating-system theme default.
 
 ## Branches
 
