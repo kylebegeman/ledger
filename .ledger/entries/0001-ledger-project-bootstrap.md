@@ -5,6 +5,8 @@ title: "Bootstrap Ledger project"
 date: "2026-06-29"
 updated: "2026-06-29"
 status: "landed"
+staleRefs:
+  - "anchors:# Ledger"
 areas: ["docs", "cli", "architecture", "schema"]
 files:
   - "README.md"
@@ -210,3 +212,7 @@ of relying on the planning conversation alone.
 This bootstrap entry intentionally records the product decisions before the
 implementation is complete so the first validator and indexer can dogfood real
 Ledger records.
+
+The README's original `# Ledger` text heading was deliberately replaced by an
+accessible logo heading in receipt 0200; its historical anchor is acknowledged
+in `staleRefs`.

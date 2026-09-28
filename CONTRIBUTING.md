@@ -31,6 +31,31 @@ node dist/cli.js new "Describe the change" --from-diff
 node dist/cli.js coverage
 ```
 
+## Brand Assets
+
+`assets/ledger.svg` is the canonical icon used by the reader and favicon: a
+single punched-receipt silhouette with a square opening and clipped corner.
+Keep its edges square and preserve the opening at small sizes. The reader
+uses its theme accent; the standalone SVG uses a flat emerald that works on
+both light and dark backgrounds.
+
+`assets/ledger-logo.svg` and `assets/ledger-logo-dark.svg` pair the mark with
+the lowercase wordmark. The README chooses the appropriate version through
+`picture`. Lettering is outlined Manrope 600 with deliberate spacing, so no
+font installation or network request is needed. The upstream copyright and
+OFL license are in `assets/brand/Manrope-OFL.txt`; the reader's system fonts
+are independent of the logo lettering.
+
+Regenerate all three SVGs from their committed geometry:
+
+```bash
+node scripts/brand-assets.mjs
+```
+
+Inspect the mark at 16, 24, 32, and 64px in both themes, then refresh reader
+screenshots that show it. Keep the lockups as paths, with accessible titles,
+transparent backgrounds, and no external references.
+
 ## README Images
 
 Everything under `assets/readme/` is shown in the README and left out of the

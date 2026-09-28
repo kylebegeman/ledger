@@ -1,8 +1,11 @@
 <div align="center">
 
-<img src="./assets/ledger.svg" alt="" width="88" height="88">
-
-# Ledger
+<h1>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/ledger-logo-dark.svg">
+  <img src="./assets/ledger-logo.svg" alt="Ledger" width="320" height="96">
+</picture>
+</h1>
 
 **Change memory that lives in your repository.**
 
