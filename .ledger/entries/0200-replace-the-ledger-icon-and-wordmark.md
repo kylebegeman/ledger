@@ -14,6 +14,11 @@ files:
   - "assets/ledger-logo-dark.svg"
   - "assets/ledger-logo.svg"
   - "assets/ledger.svg"
+  - "assets/readme/changelog.png"
+  - "assets/readme/overview-light.png"
+  - "assets/readme/overview.png"
+  - "assets/readme/records.png"
+  - "assets/readme/timeline.png"
   - "CONTRIBUTING.md"
   - "docs/ARCHITECTURE.md"
   - "docs/HANDOFF.md"
@@ -31,7 +36,7 @@ docs:
   - "docs/HANDOFF.md"
 docsImpact:
   status: "updated"
-  reason: "The README uses theme-specific logo lockups; contributor guidance, architecture, and handoff describe the mark, outlined wordmark, and reproducible assets."
+  reason: "The README uses theme-specific logo lockups and refreshed reader captures; contributor guidance, architecture, and handoff describe the mark, outlined wordmark, and reproducible assets."
   docs:
     - "README.md"
     - "CONTRIBUTING.md"
@@ -89,6 +94,18 @@ repo-native change records; emerald connects it with the existing interface.
   offline rendering, and relative README asset paths.
 - Docs impact: README presents the replacement identity directly.
 
+### README reader captures
+
+- Files: `assets/readme/overview.png`, `assets/readme/overview-light.png`,
+  `assets/readme/records.png`, `assets/readme/timeline.png`,
+  `assets/readme/changelog.png`
+- Changed: regenerated the five browser captures that show the header mark
+  using the existing Playwright script after Kyle authorized that browser.
+  The palette and receipt crops do not show the mark and remain unchanged.
+- On conflict: regenerate screenshots from the actual reader; preserve their
+  2x capture resolution and the script's framing.
+- Docs impact: the README's product images show the new identity.
+
 ### Durable guidance and history
 
 - Files: `CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, `docs/HANDOFF.md`,
@@ -124,12 +141,15 @@ consistently without font loading or substitution.
 - Both reader profiles build and render within budget.
 - `npm run ci` passed with exit status 0: typecheck, 515 tests across 62 files, build, Ledger checks, and package dry run. Both logo variants and the font license are included in the package.
 - `node dist/cli.js ready 0200` and `git diff --check` passed.
-- `npm run readme:check` and final `node dist/cli.js ci` passed. This asset check verifies generated terminal artwork; it does not regenerate the browser captures noted below.
+- `node scripts/readme-screenshots.mjs overview overview-light records timeline changelog` passed and regenerated the five affected captures at 2x resolution.
+- Visual inspection of all five captures, including independent review of records, timeline, and public changelog, found no clipping, stray overlays, or framing defects.
+- `npm run readme:check` and final `node dist/cli.js ci` passed.
 
 ## Notes
 
 Manrope source: https://github.com/google/fonts/tree/main/ofl/manrope.
 The font was used to generate outlines once; it is not a runtime dependency.
-The shared preview can load the new reader but its screenshot operation is
-failing. README screenshot refresh is pending the browser-tool choice requested
-from Kyle; existing captures still contain the previous mark where visible.
+The shared preview could load the new reader but screenshot capture failed.
+Kyle explicitly authorized the existing Playwright capture script to finish
+the README refresh. Playwright was installed without saving dependencies or
+changing the lockfile.

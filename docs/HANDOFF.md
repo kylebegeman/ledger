@@ -302,10 +302,11 @@ D006 records what was retired; D007 records the runtime decision below.
    exits 0 with 515 tests across 62 files; the SVG generator is deterministic,
    package contents include the logos and license, and independent visual
    review covers both schemes and small sizes. The local reader and favicon
-   use the new icon. Refreshing the five README captures that show the old
-   mark is pending: the shared browser loads pages but screenshot capture
-   fails, and Kyle has been asked whether to use the existing Playwright
-   capture script, as required by the host's browser-tool restriction.
+   use the new icon. The five README captures that show the header mark were
+   refreshed with the existing Playwright script after Kyle explicitly
+   authorized it when the shared browser's screenshot capture failed.
+   Playwright remains an unsaved local tool; the package manifest and lockfile
+   are unchanged.
 2. **Tell Kore when 0.9.4 is published, and nothing more.** Kore keeps
    reporting 169 stale signals until its pin moves, because the fix is in the
    tool rather than in its records. Kore's own session owns that bump across
